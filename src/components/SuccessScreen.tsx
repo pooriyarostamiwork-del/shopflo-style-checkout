@@ -53,12 +53,16 @@ export const SuccessScreen = ({ isOpen, onClose, orderId }: SuccessScreenProps) 
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold mb-2 text-foreground">
           Order Confirmed! 🎉
         </h1>
         
-        <p className="text-muted-foreground mb-6">
+        <p className="text-muted-foreground mb-2">
           Your order has been successfully placed
+        </p>
+
+        <p className="text-sm font-medium text-primary mb-6">
+          Completed in 2.1 seconds — 5× faster than normal checkout
         </p>
 
         <div className="bg-muted/30 rounded-xl p-4 mb-6 border border-border">

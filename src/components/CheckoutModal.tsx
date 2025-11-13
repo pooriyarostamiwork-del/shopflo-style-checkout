@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone, Check } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -24,8 +24,54 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
   const [saveDetails, setSaveDetails] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
+  const [userName] = useState("Alex");
+  const [displayedName, setDisplayedName] = useState("");
+  const [processingProgress, setProcessingProgress] = useState(0);
+
+  // Typewriter effect for name
+  useEffect(() => {
+    if (isOpen && step !== "phone" && step !== "otp") {
+      let currentIndex = 0;
+      setDisplayedName("");
+      const interval = setInterval(() => {
+        if (currentIndex <= userName.length) {
+          setDisplayedName(userName.slice(0, currentIndex));
+          currentIndex++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, step, userName]);
+
+  // Progress bar animation during processing
+  useEffect(() => {
+    if (isProcessing) {
+      setProcessingProgress(0);
+      const duration = 2000;
+      const interval = 20;
+      const increment = (interval / duration) * 100;
+      const timer = setInterval(() => {
+        setProcessingProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(timer);
+            return 100;
+          }
+          return prev + increment;
+        });
+      }, interval);
+      return () => clearInterval(timer);
+    }
+  }, [isProcessing]);
 
   if (!isOpen) return null;
+
+  const getProgressPercentage = () => {
+    const steps = ["phone", "otp", "address", "payment", "review"];
+    const currentIndex = steps.indexOf(step);
+    return ((currentIndex + 1) / steps.length) * 100;
+  };
 
   const handlePlaceOrder = () => {
     setIsProcessing(true);
@@ -380,18 +426,72 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
       <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative bg-background rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex justify-between items-center rounded-t-2xl z-10">
-          <div className="flex gap-2">
-            <div className={`w-2 h-2 rounded-full ${step === "phone" ? "bg-primary" : "bg-muted"}`} />
-            <div className={`w-2 h-2 rounded-full ${step === "otp" ? "bg-primary" : "bg-muted"}`} />
-            <div className={`w-2 h-2 rounded-full ${step === "address" ? "bg-primary" : "bg-muted"}`} />
-            <div className={`w-2 h-2 rounded-full ${step === "payment" ? "bg-primary" : "bg-muted"}`} />
-            <div className={`w-2 h-2 rounded-full ${step === "review" ? "bg-primary" : "bg-muted"}`} />
+      <div className="relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between z-10">
+          <div className="flex-1">
+            {step !== "phone" && step !== "otp" && (
+              <div className="flex items-center gap-2">
+                <span className="text-base text-foreground">
+                  Hi <span className="font-semibold">{displayedName}</span>
+                  <span className={displayedName === userName ? "" : "opacity-0"}>👋</span>
+                  <span className="text-sm text-muted-foreground ml-1">ready to complete your order?</span>
+                </span>
+              </div>
+            )}
+            {(step === "phone" || step === "otp") && (
+              <div className="flex gap-2">
+                <div className={`w-2 h-2 rounded-full ${step === "phone" || step === "otp" ? "bg-primary" : "bg-muted"}`} />
+                <div className={`w-2 h-2 rounded-full ${step === "phone" || step === "otp" ? "bg-primary" : "bg-muted"}`} />
+                <div className={`w-2 h-2 rounded-full bg-muted`} />
+                <div className={`w-2 h-2 rounded-full bg-muted`} />
+                <div className={`w-2 h-2 rounded-full bg-muted`} />
+              </div>
+            )}
           </div>
+          
+          {/* Circular Progress Indicator */}
+          {step !== "phone" && step !== "otp" && (
+            <div className="relative w-12 h-12 mr-4">
+              <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
+                <circle
+                  cx="24"
+                  cy="24"
+                  r="20"
+                  stroke="hsl(var(--muted))"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <circle
+                  cx="24"
+                  cy="24"
+                  r="20"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 20}`}
+                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - getProgressPercentage() / 100)}`}
+                  className="transition-all duration-500"
+                  strokeLinecap="round"
+                />
+              </svg>
+              {getProgressPercentage() === 100 ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Check className="w-5 h-5 text-primary animate-pulse" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-primary">
+                    {Math.round(getProgressPercentage())}%
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -399,8 +499,29 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6">
-          {renderStep()}
+        
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {isProcessing ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="w-full max-w-xs">
+                <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-100"
+                    style={{ width: `${processingProgress}%` }}
+                  />
+                </div>
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-base font-medium text-foreground">Processing your order…</p>
+                <p className="text-sm text-muted-foreground">
+                  {processingProgress < 100 ? "2 seconds to completion" : "Almost done!"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            renderStep()
+          )}
         </div>
       </div>
     </div>

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight } from "lucide-react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Checkbox } from "./ui/checkbox";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -13,14 +14,16 @@ interface CheckoutModalProps {
   onSuccess: () => void;
 }
 
-type CheckoutStep = "address" | "payment" | "review";
+type CheckoutStep = "phone" | "otp" | "address" | "payment" | "review";
 type PaymentMethod = "upi" | "card" | "cod";
 
 export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutModalProps) => {
-  const [step, setStep] = useState<CheckoutStep>("address");
+  const [step, setStep] = useState<CheckoutStep>("phone");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
   const [isProcessing, setIsProcessing] = useState(false);
   const [saveDetails, setSaveDetails] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otp, setOtp] = useState("");
 
   if (!isOpen) return null;
 
@@ -34,6 +37,110 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
 
   const renderStep = () => {
     switch (step) {
+      case "phone":
+        return (
+          <div className="space-y-4">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Phone className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Login to Continue</h2>
+              <p className="text-muted-foreground">Enter your mobile number to proceed</p>
+            </div>
+            
+            <div className="space-y-3">
+              <Label htmlFor="phone" className="text-base">Mobile Number</Label>
+              <div className="flex gap-2">
+                <div className="flex items-center justify-center px-4 h-12 bg-muted/30 border border-border rounded-lg">
+                  <span className="font-medium">+91</span>
+                </div>
+                <Input 
+                  id="phone"
+                  type="tel"
+                  placeholder="98765 43210"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  className="h-12 flex-1"
+                  maxLength={10}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                We'll send you a verification code
+              </p>
+            </div>
+
+            <Button 
+              variant="gradient" 
+              className="w-full h-12 text-base rounded-xl"
+              onClick={() => setStep("otp")}
+              disabled={phoneNumber.length !== 10}
+            >
+              Send OTP <ChevronRight className="ml-2 w-4 h-4" />
+            </Button>
+          </div>
+        );
+
+      case "otp":
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <button 
+                onClick={() => setStep("phone")}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ←
+              </button>
+              <h2 className="text-2xl font-bold text-foreground">Verify OTP</h2>
+            </div>
+
+            <div className="text-center mb-6">
+              <p className="text-muted-foreground">
+                Code sent to +91 {phoneNumber}
+              </p>
+              <button 
+                onClick={() => setStep("phone")}
+                className="text-primary text-sm font-medium hover:underline mt-1"
+              >
+                Change number
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <Label className="text-base">Enter 6-digit OTP</Label>
+              <div className="flex justify-center">
+                <InputOTP 
+                  maxLength={6} 
+                  value={otp}
+                  onChange={(value) => setOtp(value)}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+              <div className="text-center">
+                <button className="text-sm text-muted-foreground hover:text-primary">
+                  Didn't receive code? <span className="text-primary font-medium">Resend</span>
+                </button>
+              </div>
+            </div>
+
+            <Button 
+              variant="gradient" 
+              className="w-full h-12 text-base rounded-xl"
+              onClick={() => setStep("address")}
+              disabled={otp.length !== 6}
+            >
+              Verify & Continue <ChevronRight className="ml-2 w-4 h-4" />
+            </Button>
+          </div>
+        );
+
       case "address":
         return (
           <div className="space-y-4">
@@ -279,6 +386,8 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
       <div className="relative bg-background rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex justify-between items-center rounded-t-2xl z-10">
           <div className="flex gap-2">
+            <div className={`w-2 h-2 rounded-full ${step === "phone" ? "bg-primary" : "bg-muted"}`} />
+            <div className={`w-2 h-2 rounded-full ${step === "otp" ? "bg-primary" : "bg-muted"}`} />
             <div className={`w-2 h-2 rounded-full ${step === "address" ? "bg-primary" : "bg-muted"}`} />
             <div className={`w-2 h-2 rounded-full ${step === "payment" ? "bg-primary" : "bg-muted"}`} />
             <div className={`w-2 h-2 rounded-full ${step === "review" ? "bg-primary" : "bg-muted"}`} />

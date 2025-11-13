@@ -9,14 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-[hsl(var(--primary-hover))] transition-all duration-200 hover:scale-[1.02] shadow-[0_4px_12px_rgba(0,0,0,0.05)]",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        outline: "border border-primary bg-transparent text-primary hover:bg-primary/5 transition-all duration-200",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        gradient: "bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl",
-        checkout: "bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90 transition-all duration-300 animate-pulse-glow font-semibold text-base",
+        gradient: "bg-primary text-primary-foreground hover:bg-[hsl(var(--primary-hover))] transition-all duration-200 hover:scale-[1.02] shadow-[0_4px_12px_rgba(0,0,0,0.05)]",
+        checkout: "bg-primary text-primary-foreground hover:bg-[hsl(var(--primary-hover))] transition-all duration-200 shadow-[0_8px_20px_rgba(0,0,0,0.08)] font-semibold text-base",
       },
       size: {
         default: "h-10 px-4 py-2",

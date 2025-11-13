@@ -22,6 +22,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          hover: "hsl(var(--primary-hover))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -82,10 +83,10 @@ export default {
         },
         "pulse-glow": {
           "0%, 100%": {
-            boxShadow: "0 0 20px hsl(271 81% 56% / 0.4)",
+            boxShadow: "0 0 20px hsl(239 36% 61% / 0.3)",
           },
           "50%": {
-            boxShadow: "0 0 40px hsl(271 81% 56% / 0.6)",
+            boxShadow: "0 0 30px hsl(239 36% 61% / 0.5)",
           },
         },
         "confetti": {

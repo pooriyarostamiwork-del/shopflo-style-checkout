@@ -4,6 +4,9 @@ import { CartItem, CartProduct } from "@/components/CartItem";
 import { OrderSummary } from "@/components/OrderSummary";
 import { CheckoutModal } from "@/components/CheckoutModal";
 import { SuccessScreen } from "@/components/SuccessScreen";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { RecommendedProducts } from "@/components/RecommendedProducts";
 
 const Index = () => {
   const [cartItems, setCartItems] = useState<CartProduct[]>([
@@ -14,6 +17,7 @@ const Index = () => {
       originalPrice: 3999,
       image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop",
       quantity: 1,
+      inStock: true,
     },
     {
       id: 2,
@@ -22,6 +26,7 @@ const Index = () => {
       originalPrice: 7999,
       image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop",
       quantity: 2,
+      inStock: true,
     },
     {
       id: 3,
@@ -30,6 +35,7 @@ const Index = () => {
       originalPrice: 2999,
       image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=200&h=200&fit=crop",
       quantity: 1,
+      inStock: true,
     },
   ]);
 
@@ -70,22 +76,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              ShopFlow
-            </h1>
-          </div>
-          <div className="flex items-center gap-2 bg-muted px-4 py-2 rounded-full">
-            <ShoppingCart className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-foreground">{cartItems.length}</span>
-          </div>
-        </div>
-      </header>
+      <Header cartItemCount={cartItems.length} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -98,8 +89,8 @@ const Index = () => {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-2xl font-bold mb-4 text-foreground">
+            <div className="lg:col-span-2 space-y-5">
+              <h2 className="text-3xl font-bold mb-6 text-foreground">
                 Shopping Cart ({cartItems.length} items)
               </h2>
               {cartItems.map(item => (
@@ -110,6 +101,9 @@ const Index = () => {
                   onRemove={removeItem}
                 />
               ))}
+
+              {/* Recommended Products */}
+              <RecommendedProducts />
             </div>
 
             {/* Order Summary */}
@@ -126,11 +120,7 @@ const Index = () => {
       </main>
 
       {/* Footer */}
-      <footer className="mt-20 py-6 border-t border-border">
-        <p className="text-center text-sm text-muted-foreground">
-          Demo inspired by <span className="font-semibold text-foreground">Shopflo</span> — built for presentation purposes only.
-        </p>
-      </footer>
+      <Footer />
 
       {/* Checkout Modal */}
       <CheckoutModal

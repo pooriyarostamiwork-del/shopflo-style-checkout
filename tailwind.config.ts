@@ -83,20 +83,32 @@ export default {
         },
         "pulse-glow": {
           "0%, 100%": {
-            boxShadow: "0 0 20px hsl(239 36% 61% / 0.3)",
+            opacity: "1",
+            transform: "scale(1)",
           },
           "50%": {
-            boxShadow: "0 0 30px hsl(239 36% 61% / 0.5)",
+            opacity: ".8",
+            transform: "scale(1.05)",
           },
         },
         "confetti": {
           "0%": {
-            transform: "translateY(-100vh) rotate(0deg)",
+            transform: "translateY(0) rotate(0deg)",
             opacity: "1",
           },
           "100%": {
-            transform: "translateY(100vh) rotate(360deg)",
+            transform: "translateY(100vh) rotate(720deg)",
             opacity: "0",
+          },
+        },
+        "scale-in": {
+          "0%": {
+            transform: "translate(-50%, -50%) scale(0.9)",
+            opacity: "0",
+          },
+          "100%": {
+            transform: "translate(-50%, -50%) scale(1)",
+            opacity: "1",
           },
         },
         "fade-in": {
@@ -114,8 +126,9 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
-        "confetti": "confetti 3s ease-out forwards",
+        "confetti": "confetti 2s ease-in-out forwards",
         "fade-in": "fade-in 0.3s ease-out",
+        "scale-in": "scale-in 0.3s ease-out",
       },
     },
   },

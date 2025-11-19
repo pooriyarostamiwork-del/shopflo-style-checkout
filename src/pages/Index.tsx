@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ShoppingCart, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CartItem, CartProduct } from "@/components/CartItem";
 import { OrderSummary } from "@/components/OrderSummary";
 import { CheckoutModal } from "@/components/CheckoutModal";
@@ -80,6 +82,15 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold">Shopping Cart</h1>
+          <Link to="/demos">
+            <Button variant="outline" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              View All Demos
+            </Button>
+          </Link>
+        </div>
         {cartItems.length === 0 ? (
           <div className="text-center py-20">
             <ShoppingCart className="w-20 h-20 text-muted-foreground mx-auto mb-4" />

@@ -6,18 +6,49 @@ import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Checkbox } from "./ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
+import { UpsellCarousel } from "./UpsellCarousel";
+import { CouponEngine } from "./CouponEngine";
+import { Confetti } from "./Confetti";
+import { CheckoutMode, UpsellProduct, CouponTier } from "@/types/checkout";
+import { CartProduct } from "./CartItem";
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   total: number;
   onSuccess: () => void;
+  mode?: CheckoutMode;
+  modeConfig?: {
+    tagline?: string;
+    badge?: string;
+    incentiveMessage?: string;
+    abandonmentReason?: string;
+    loyaltyPoints?: number;
+    crossStoreData?: {
+      storeName: string;
+      itemsInCart: number;
+      discount: number;
+    };
+  };
+  cartItems?: CartProduct[];
+  upsellProducts?: UpsellProduct[];
+  couponTiers?: CouponTier[];
 }
 
 type CheckoutStep = "phone" | "otp" | "address" | "payment" | "review";
 type PaymentMethod = "upi" | "card" | "cod";
 
-export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutModalProps) => {
+export const CheckoutModal = ({ 
+  isOpen, 
+  onClose, 
+  total: initialTotal, 
+  onSuccess,
+  mode,
+  modeConfig,
+  cartItems = [],
+  upsellProducts = [],
+  couponTiers = []
+}: CheckoutModalProps) => {
   const [step, setStep] = useState<CheckoutStep>("phone");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,6 +58,9 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
   const [userName] = useState("Alex");
   const [displayedName, setDisplayedName] = useState("");
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [addedUpsells, setAddedUpsells] = useState<UpsellProduct[]>([]);
+  const [total, setTotal] = useState(initialTotal);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // Typewriter effect for name
   useEffect(() => {
@@ -64,6 +98,63 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
       return () => clearInterval(timer);
     }
   }, [isProcessing]);
+
+  // Update total when upsells are added
+  useEffect(() => {
+    const upsellTotal = addedUpsells.reduce((sum, product) => sum + product.price, 0);
+    setTotal(initialTotal + upsellTotal);
+  }, [addedUpsells, initialTotal]);
+
+  const handleAddUpsell = (product: UpsellProduct) => {
+    setAddedUpsells(prev => [...prev, product]);
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 100);
+  };
+
+  const getModeSpecificContent = () => {
+    if (!mode || !modeConfig) return null;
+
+    return (
+      <div className="mb-4 p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+        {modeConfig.badge && (
+          <div className="inline-flex items-center gap-2 bg-white px-3 py-1 rounded-full text-xs font-medium text-primary mb-2">
+            {modeConfig.badge}
+          </div>
+        )}
+        
+        {modeConfig.crossStoreData && (
+          <p className="text-sm text-foreground mb-2">
+            <span className="font-semibold">You have {modeConfig.crossStoreData.itemsInCart} items</span> waiting in your cart at <span className="font-semibold">{modeConfig.crossStoreData.storeName}</span>
+          </p>
+        )}
+
+        {modeConfig.abandonmentReason && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">
+            <p className="text-sm text-yellow-800">
+              💡 <span className="font-semibold">We noticed:</span> {modeConfig.abandonmentReason}
+            </p>
+          </div>
+        )}
+
+        {modeConfig.loyaltyPoints && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 mb-2">
+            <p className="text-sm font-semibold text-amber-900 mb-1">
+              ⭐ Earn {modeConfig.loyaltyPoints} FlowPoints
+            </p>
+            <p className="text-xs text-amber-700">
+              {modeConfig.incentiveMessage}
+            </p>
+          </div>
+        )}
+
+        {modeConfig.incentiveMessage && !modeConfig.loyaltyPoints && (
+          <p className="text-sm font-medium text-primary">
+            {modeConfig.incentiveMessage}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -371,6 +462,22 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
               <h2 className="text-2xl font-bold text-foreground">Review Order</h2>
             </div>
 
+            {getModeSpecificContent()}
+
+            {/* Coupon Engine - Always visible */}
+            {couponTiers.length > 0 && (
+              <CouponEngine currentTotal={total} tiers={couponTiers} />
+            )}
+
+            {/* Upsell Carousel - Always visible */}
+            {upsellProducts.length > 0 && (
+              <UpsellCarousel 
+                products={upsellProducts}
+                onAddProduct={handleAddUpsell}
+                addedProductIds={addedUpsells.map(p => p.id)}
+              />
+            )}
+
             <div className="bg-muted/30 p-4 rounded-lg border border-border space-y-3">
               <div>
                 <p className="text-sm text-muted-foreground">Delivering to</p>
@@ -382,9 +489,21 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
                 <p className="font-medium capitalize">{paymentMethod === "cod" ? "Cash on Delivery" : paymentMethod.toUpperCase()}</p>
               </div>
               <div className="border-t border-border pt-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Amount</span>
-                  <span className="text-xl font-bold text-primary">₹{total.toFixed(2)}</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">₹{initialTotal.toFixed(2)}</span>
+                  </div>
+                  {addedUpsells.length > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Added items ({addedUpsells.length})</span>
+                      <span className="font-medium">₹{addedUpsells.reduce((sum, p) => sum + p.price, 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t border-border">
+                    <span className="font-semibold">Total Amount</span>
+                    <span className="text-xl font-bold text-primary">₹{total.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -418,13 +537,19 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
                 "Place Order Instantly"
               )}
             </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              🔒 Secure checkout powered by Shopflo
+            </p>
           </div>
         );
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+    <>
+      <Confetti trigger={showConfetti} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
       <div 
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
@@ -525,5 +650,6 @@ export const CheckoutModal = ({ isOpen, onClose, total, onSuccess }: CheckoutMod
         </div>
       </div>
     </div>
+    </>
   );
 };

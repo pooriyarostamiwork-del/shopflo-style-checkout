@@ -7,8 +7,12 @@ import { SuccessScreen } from "@/components/SuccessScreen";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { RecommendedProducts } from "@/components/RecommendedProducts";
+import { ModeSelector } from "@/components/ModeSelector";
+import { CheckoutMode } from "@/types/checkout";
+import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 
 const Index = () => {
+  const [selectedMode, setSelectedMode] = useState<CheckoutMode>("cross-market-retargeting");
   const [cartItems, setCartItems] = useState<CartProduct[]>([
     {
       id: 1,
@@ -72,6 +76,7 @@ const Index = () => {
   };
 
   const orderId = `SF${Math.floor(Math.random() * 100000)}`;
+  const currentModeConfig = checkoutModes.find(m => m.id === selectedMode);
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,6 +85,12 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        {/* Mode Selector */}
+        <ModeSelector 
+          selectedMode={selectedMode}
+          onSelectMode={setSelectedMode}
+        />
+
         {cartItems.length === 0 ? (
           <div className="text-center py-20">
             <ShoppingCart className="w-20 h-20 text-muted-foreground mx-auto mb-4" />
@@ -128,6 +139,11 @@ const Index = () => {
         onClose={() => setIsCheckoutOpen(false)}
         total={total}
         onSuccess={handleCheckoutSuccess}
+        mode={selectedMode}
+        modeConfig={currentModeConfig}
+        cartItems={cartItems}
+        upsellProducts={upsellProducts}
+        couponTiers={couponTiers}
       />
 
       {/* Success Screen */}

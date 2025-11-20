@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone, Check } from "lucide-react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone, Check, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -28,6 +28,10 @@ interface CheckoutModalProps {
       storeName: string;
       itemsInCart: number;
       discount: number;
+    };
+    header?: {
+      title: string;
+      subtitle?: string;
     };
   };
   cartItems?: CartProduct[];
@@ -555,6 +559,20 @@ export const CheckoutModal = ({
         onClick={onClose}
       />
       <div className="relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Customizable Header Bar */}
+        {modeConfig?.header && (
+          <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border/50">
+            <h3 className="text-lg font-semibold text-foreground">
+              {modeConfig.header.title}
+            </h3>
+            {modeConfig.header.subtitle && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {modeConfig.header.subtitle}
+              </p>
+            )}
+          </div>
+        )}
+        
         {/* Header */}
         <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between z-10">
           <div className="flex-1">
@@ -647,6 +665,16 @@ export const CheckoutModal = ({
           ) : (
             renderStep()
           )}
+        </div>
+        
+        {/* Powered by Flowcart Footer */}
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/50 px-6 py-3">
+          <div className="flex items-center justify-center gap-2">
+            <Zap className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+            <span className="text-sm font-medium text-muted-foreground">
+              Powered by Flowcart
+            </span>
+          </div>
         </div>
       </div>
     </div>

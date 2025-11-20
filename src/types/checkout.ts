@@ -20,6 +20,10 @@ export interface CheckoutModeConfig {
     itemsInCart: number;
     discount: number;
   };
+  header?: {
+    title: string;
+    subtitle?: string;
+  };
 }
 
 export interface UpsellProduct {

@@ -12,6 +12,10 @@ export const checkoutModes: CheckoutModeConfig[] = [
       storeName: "TechWorld",
       itemsInCart: 2,
       discount: 10
+    },
+    header: {
+      title: "Complete your order in 10 seconds",
+      subtitle: "No login required — fast & secure"
     }
   },
   {
@@ -24,6 +28,10 @@ export const checkoutModes: CheckoutModeConfig[] = [
       storeName: "TechWorld",
       itemsInCart: 3,
       discount: 10
+    },
+    header: {
+      title: "Express Checkout",
+      subtitle: "Secure one-step purchase"
     }
   },
   {
@@ -33,7 +41,11 @@ export const checkoutModes: CheckoutModeConfig[] = [
     tagline: "We know what stopped you last time",
     badge: "🤖 AI-Powered Recovery",
     abandonmentReason: "Last time you dropped off due to shipping cost. Free shipping applied now!",
-    incentiveMessage: "We've fixed the issue that stopped you before"
+    incentiveMessage: "We've fixed the issue that stopped you before",
+    header: {
+      title: "Fast checkout with free returns",
+      subtitle: "Complete your purchase with confidence"
+    }
   },
   {
     id: "loyalty-network",
@@ -42,7 +54,11 @@ export const checkoutModes: CheckoutModeConfig[] = [
     tagline: "Earn rewards across all your purchases",
     badge: "⭐ FlowPoints Active",
     loyaltyPoints: 35,
-    incentiveMessage: "Redeem across 200+ partnered merchants"
+    incentiveMessage: "Redeem across 200+ partnered merchants",
+    header: {
+      title: "Earn FlowPoints with every purchase",
+      subtitle: "Redeem anywhere in the network"
+    }
   },
   {
     id: "smart-upsell",
@@ -50,7 +66,11 @@ export const checkoutModes: CheckoutModeConfig[] = [
     description: "AI-driven product recommendations based on purchase probability",
     tagline: "Personalized just for you",
     badge: "🎯 Smart Recommendations",
-    incentiveMessage: "Recommended because similar buyers added these"
+    incentiveMessage: "Recommended because similar buyers added these",
+    header: {
+      title: "Personalized Checkout Experience",
+      subtitle: "Curated recommendations just for you"
+    }
   },
   {
     id: "incentive-strategy",
@@ -58,7 +78,11 @@ export const checkoutModes: CheckoutModeConfig[] = [
     description: "Gamified discount tiers that motivate purchases",
     tagline: "Unlock better rewards as you shop",
     badge: "🎁 Progressive Rewards Active",
-    incentiveMessage: "You're close to unlocking the next tier!"
+    incentiveMessage: "You're close to unlocking the next tier!",
+    header: {
+      title: "Special holiday checkout",
+      subtitle: "Guaranteed delivery by Tuesday"
+    }
   }
 ];
 

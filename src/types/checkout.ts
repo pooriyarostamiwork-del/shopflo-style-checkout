@@ -26,12 +26,22 @@ export interface CheckoutModeConfig {
   };
 }
 
+export interface ProductVariant {
+  id: string;
+  name: string;
+  priceModifier: number;
+}
+
 export interface UpsellProduct {
   id: number;
   name: string;
   price: number;
   image: string;
   category?: string;
+  variants?: {
+    type: string;
+    options: ProductVariant[];
+  }[];
 }
 
 export interface CouponTier {

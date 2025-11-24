@@ -92,35 +92,92 @@ export const upsellProducts: UpsellProduct[] = [
     name: "Leather Laptop Sleeve",
     price: 299,
     image: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=200&h=200&fit=crop",
-    category: "Accessories"
+    category: "Accessories",
+    variants: [
+      {
+        type: "size",
+        options: [
+          { id: "13inch", name: "13 inch", priceModifier: 0 },
+          { id: "15inch", name: "15 inch", priceModifier: 50 },
+          { id: "17inch", name: "17 inch", priceModifier: 100 }
+        ]
+      },
+      {
+        type: "color",
+        options: [
+          { id: "black", name: "Black", priceModifier: 0 },
+          { id: "brown", name: "Brown", priceModifier: 20 }
+        ]
+      }
+    ]
   },
   {
     id: 102,
     name: "Wireless Mouse",
     price: 499,
     image: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=200&h=200&fit=crop",
-    category: "Accessories"
+    category: "Accessories",
+    variants: [
+      {
+        type: "color",
+        options: [
+          { id: "black", name: "Black", priceModifier: 0 },
+          { id: "white", name: "White", priceModifier: 0 },
+          { id: "silver", name: "Silver", priceModifier: 50 }
+        ]
+      }
+    ]
   },
   {
     id: 103,
     name: "USB-C Hub",
     price: 799,
     image: "https://images.unsplash.com/photo-1625948515291-69613efd103f?w=200&h=200&fit=crop",
-    category: "Accessories"
+    category: "Accessories",
+    variants: [
+      {
+        type: "pack",
+        options: [
+          { id: "single", name: "Single", priceModifier: 0 },
+          { id: "pack2", name: "Pack of 2", priceModifier: 600 },
+          { id: "pack3", name: "Pack of 3", priceModifier: 1100 }
+        ]
+      }
+    ]
   },
   {
     id: 104,
     name: "Phone Stand",
     price: 199,
     image: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=200&h=200&fit=crop",
-    category: "Accessories"
+    category: "Accessories",
+    variants: [
+      {
+        type: "color",
+        options: [
+          { id: "black", name: "Black", priceModifier: 0 },
+          { id: "white", name: "White", priceModifier: 0 },
+          { id: "rose-gold", name: "Rose Gold", priceModifier: 30 }
+        ]
+      }
+    ]
   },
   {
     id: 105,
     name: "Cable Organizer",
     price: 149,
     image: "https://images.unsplash.com/photo-1572461024650-4e4f5e3092c1?w=200&h=200&fit=crop",
-    category: "Accessories"
+    category: "Accessories",
+    variants: [
+      {
+        type: "size",
+        options: [
+          { id: "small", name: "Small (5 slots)", priceModifier: 0 },
+          { id: "medium", name: "Medium (10 slots)", priceModifier: 50 },
+          { id: "large", name: "Large (15 slots)", priceModifier: 100 }
+        ]
+      }
+    ]
   }
 ];
 

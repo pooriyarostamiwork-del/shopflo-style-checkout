@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone, Check, Zap } from "lucide-react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, Phone, Check, Zap, Shield, Clock } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -9,6 +9,10 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
 import { UpsellCarousel } from "./UpsellCarousel";
 import { CouponEngine } from "./CouponEngine";
 import { Confetti } from "./Confetti";
+import { AddressSelector, Address } from "./AddressSelector";
+import { CouponSelector } from "./CouponSelector";
+import { EnhancedUpsellCarousel } from "./EnhancedUpsellCarousel";
+import { AutoReorderOptions } from "./AutoReorderOptions";
 import { CheckoutMode, UpsellProduct, CouponTier } from "@/types/checkout";
 import { CartProduct } from "./CartItem";
 
@@ -63,8 +67,27 @@ export const CheckoutModal = ({
   const [displayedName, setDisplayedName] = useState("");
   const [processingProgress, setProcessingProgress] = useState(0);
   const [addedUpsells, setAddedUpsells] = useState<UpsellProduct[]>([]);
+  const [addedUpsellIds, setAddedUpsellIds] = useState<string[]>([]);
   const [total, setTotal] = useState(initialTotal);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [selectedCoupon, setSelectedCoupon] = useState<CouponTier | null>(null);
+  const [currentSection, setCurrentSection] = useState<"address" | "payment" | "coupon" | "review">("address");
+
+  // Address management
+  const [addresses, setAddresses] = useState<Address[]>([
+    {
+      id: "1",
+      name: "Rahul Kumar",
+      phone: "98765 43210",
+      line1: "123, MG Road",
+      line2: "Koramangala",
+      city: "Bangalore",
+      state: "Karnataka",
+      pincode: "560034",
+      isDefault: true
+    }
+  ]);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(addresses[0]);
 
   // Typewriter effect for name
   useEffect(() => {
@@ -109,11 +132,77 @@ export const CheckoutModal = ({
     setTotal(initialTotal + upsellTotal);
   }, [addedUpsells, initialTotal]);
 
-  const handleAddUpsell = (product: UpsellProduct) => {
+  const handleAddUpsell = (product: UpsellProduct, variant?: string) => {
     setAddedUpsells(prev => [...prev, product]);
+    const productId = variant ? `${product.id}-${variant}` : product.id.toString();
+    setAddedUpsellIds(prev => [...prev, productId]);
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 100);
   };
+
+  const handleAddAddress = (address: Address) => {
+    setAddresses(prev => [...prev, address]);
+    setSelectedAddress(address);
+  };
+
+  const handleEditAddress = (address: Address) => {
+    setAddresses(prev => prev.map(a => a.id === address.id ? address : a));
+    if (selectedAddress?.id === address.id) {
+      setSelectedAddress(address);
+    }
+  };
+
+  const handleSetDefaultAddress = (id: string) => {
+    setAddresses(prev => prev.map(a => ({ ...a, isDefault: a.id === id })));
+  };
+
+  const getDynamicBanner = () => {
+    switch (currentSection) {
+      case "address":
+        return {
+          icon: <Shield className="w-4 h-4" />,
+          text: "Secure delivery powered by Flowcart"
+        };
+      case "payment":
+        return {
+          icon: <Clock className="w-4 h-4" />,
+          text: "One tap and you're done"
+        };
+      case "coupon":
+        return {
+          icon: <Check className="w-4 h-4" />,
+          text: "Smart savings unlocked"
+        };
+      case "review":
+        return {
+          icon: <Zap className="w-4 h-4" />,
+          text: "Almost there! Review your order"
+        };
+      default:
+        return {
+          icon: <Shield className="w-4 h-4" />,
+          text: "Secure checkout powered by Flowcart"
+        };
+    }
+  };
+
+  // Calculate total with coupon discount
+  const calculateTotal = () => {
+    const upsellTotal = addedUpsells.reduce((sum, product) => sum + product.price, 0);
+    let finalTotal = initialTotal + upsellTotal;
+    
+    if (selectedCoupon && selectedCoupon.value) {
+      finalTotal -= selectedCoupon.value;
+    }
+    
+    return Math.max(finalTotal, 0);
+  };
+
+  const finalTotal = calculateTotal();
+
+  // Get next tier for gamification
+  const sortedTiers = [...couponTiers].sort((a, b) => a.threshold - b.threshold);
+  const nextTier = sortedTiers.find(tier => total >= tier.threshold && (!selectedCoupon || tier.threshold > selectedCoupon.threshold));
 
   const getModeSpecificContent = () => {
     if (!mode || !modeConfig) return null;
@@ -284,24 +373,17 @@ export const CheckoutModal = ({
 
       case "address":
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" onFocus={() => setCurrentSection("address")}>
             <h2 className="text-2xl font-bold text-foreground">Delivery Address</h2>
             
-            <div className="bg-muted/30 p-4 rounded-lg border border-border">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-semibold">Rahul Kumar</p>
-                  <p className="text-sm text-muted-foreground">+91 98765 43210</p>
-                </div>
-                <button className="text-primary text-sm font-medium hover:underline">
-                  Change
-                </button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                123, MG Road, Koramangala<br />
-                Bangalore, Karnataka - 560034
-              </p>
-            </div>
+            <AddressSelector
+              addresses={addresses}
+              selectedAddress={selectedAddress}
+              onSelectAddress={setSelectedAddress}
+              onAddAddress={handleAddAddress}
+              onEditAddress={handleEditAddress}
+              onSetDefault={handleSetDefaultAddress}
+            />
 
             <div>
               <Label className="text-base font-semibold mb-3 block">Delivery Method</Label>
@@ -314,7 +396,7 @@ export const CheckoutModal = ({
                         <p className="font-medium">Standard Delivery</p>
                         <p className="text-sm text-muted-foreground">3-5 business days</p>
                       </div>
-                      <span className="text-secondary font-semibold">FREE</span>
+                      <span className="text-accent font-semibold">FREE</span>
                     </div>
                   </Label>
                 </div>
@@ -336,7 +418,10 @@ export const CheckoutModal = ({
             <Button 
               variant="gradient" 
               className="w-full h-12 text-base rounded-xl"
-              onClick={() => setStep("payment")}
+              onClick={() => {
+                setStep("payment");
+                setCurrentSection("payment");
+              }}
             >
               Continue to Payment <ChevronRight className="ml-2 w-4 h-4" />
             </Button>
@@ -345,10 +430,13 @@ export const CheckoutModal = ({
 
       case "payment":
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" onFocus={() => setCurrentSection("payment")}>
             <div className="flex items-center gap-2 mb-2">
               <button 
-                onClick={() => setStep("address")}
+                onClick={() => {
+                  setStep("address");
+                  setCurrentSection("address");
+                }}
                 className="text-muted-foreground hover:text-foreground"
               >
                 ←
@@ -446,7 +534,10 @@ export const CheckoutModal = ({
             <Button 
               variant="gradient" 
               className="w-full h-12 text-base rounded-xl mt-6"
-              onClick={() => setStep("review")}
+              onClick={() => {
+                setStep("review");
+                setCurrentSection("review");
+              }}
             >
               Review Order <ChevronRight className="ml-2 w-4 h-4" />
             </Button>
@@ -455,10 +546,13 @@ export const CheckoutModal = ({
 
       case "review":
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" onFocus={() => setCurrentSection("review")}>
             <div className="flex items-center gap-2 mb-2">
               <button 
-                onClick={() => setStep("payment")}
+                onClick={() => {
+                  setStep("payment");
+                  setCurrentSection("payment");
+                }}
                 className="text-muted-foreground hover:text-foreground"
               >
                 ←
@@ -468,25 +562,43 @@ export const CheckoutModal = ({
 
             {getModeSpecificContent()}
 
-            {/* Coupon Engine - Always visible */}
+            {/* Coupon Selector */}
             {couponTiers.length > 0 && (
-              <CouponEngine currentTotal={total} tiers={couponTiers} />
+              <div onFocus={() => setCurrentSection("coupon")}>
+                <CouponSelector
+                  currentTotal={total}
+                  tiers={couponTiers}
+                  selectedCoupon={selectedCoupon}
+                  onSelectCoupon={setSelectedCoupon}
+                />
+              </div>
             )}
 
-            {/* Upsell Carousel - Always visible */}
+            {/* Enhanced Upsell Carousel with Variants and Gamification */}
             {upsellProducts.length > 0 && (
-              <UpsellCarousel 
-                products={upsellProducts}
+              <EnhancedUpsellCarousel 
+                products={upsellProducts as any}
                 onAddProduct={handleAddUpsell}
-                addedProductIds={addedUpsells.map(p => p.id)}
+                addedProductIds={addedUpsellIds}
+                currentTotal={total}
+                nextTierThreshold={nextTier?.threshold}
+                nextTierReward={nextTier?.reward}
               />
             )}
 
             <div className="bg-muted/30 p-4 rounded-lg border border-border space-y-3">
               <div>
                 <p className="text-sm text-muted-foreground">Delivering to</p>
-                <p className="font-medium">Rahul Kumar, +91 98765 43210</p>
-                <p className="text-sm text-muted-foreground">123, MG Road, Koramangala, Bangalore - 560034</p>
+                {selectedAddress ? (
+                  <>
+                    <p className="font-medium">{selectedAddress.name}, +91 {selectedAddress.phone}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAddress.line1}, {selectedAddress.line2}, {selectedAddress.city} - {selectedAddress.pincode}
+                    </p>
+                  </>
+                ) : (
+                  <p className="font-medium">No address selected</p>
+                )}
               </div>
               <div className="border-t border-border pt-3">
                 <p className="text-sm text-muted-foreground">Payment Method</p>
@@ -504,13 +616,22 @@ export const CheckoutModal = ({
                       <span className="font-medium">₹{addedUpsells.reduce((sum, p) => sum + p.price, 0).toFixed(2)}</span>
                     </div>
                   )}
+                  {selectedCoupon && selectedCoupon.value && (
+                    <div className="flex justify-between text-sm text-accent-foreground">
+                      <span>Coupon Discount</span>
+                      <span className="font-medium">-₹{selectedCoupon.value.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-2 border-t border-border">
                     <span className="font-semibold">Total Amount</span>
-                    <span className="text-xl font-bold text-primary">₹{total.toFixed(2)}</span>
+                    <span className="text-xl font-bold text-primary">₹{finalTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Auto-Reorder Options */}
+            <AutoReorderOptions />
 
             <div className="flex items-center space-x-2 py-2">
               <Checkbox 
@@ -542,8 +663,8 @@ export const CheckoutModal = ({
               )}
             </Button>
 
-            <p className="text-xs text-center text-muted-foreground">
-              🔒 Secure checkout powered by Shopflo
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              🔒 Your data is secure and encrypted
             </p>
           </div>
         );
@@ -570,6 +691,16 @@ export const CheckoutModal = ({
                 {modeConfig.header.subtitle}
               </p>
             )}
+          </div>
+        )}
+
+        {/* Dynamic Banner */}
+        {step !== "phone" && step !== "otp" && (
+          <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-2.5 border-b border-border/50">
+            <div className="flex items-center justify-center gap-2 text-sm font-medium text-foreground">
+              {getDynamicBanner().icon}
+              <span>{getDynamicBanner().text}</span>
+            </div>
           </div>
         )}
         

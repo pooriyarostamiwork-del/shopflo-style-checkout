@@ -41,6 +41,13 @@ All colors MUST be HSL.
     
     --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.05);
     --shadow-medium: 0 8px 20px rgba(0, 0, 0, 0.08);
+    --shadow-glow: 0 0 30px hsl(var(--primary) / 0.15);
+    
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --danger: 0 84% 60%;
+    --cyan-accent: 189 85% 62%;
+    --neon-blue: 217 91% 60%;
 
     --sidebar-background: 0 0% 98%;
 
@@ -88,6 +95,13 @@ All colors MUST be HSL.
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 239 36% 61%;
+    
+    --success: 142 71% 55%;
+    --warning: 38 92% 60%;
+    --danger: 0 84% 70%;
+    --cyan-accent: 189 85% 72%;
+    --neon-blue: 217 91% 70%;
+    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

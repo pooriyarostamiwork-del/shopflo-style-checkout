@@ -4,9 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import IndexFarsi from "./pages/IndexFarsi";
 import AgenticCheckout from "./pages/AgenticCheckout";
 import MerchantDashboard from "./pages/MerchantDashboard";
 import NotFound from "./pages/NotFound";
+import { FarsiLayout, EnglishLayout } from "./components/LanguageLayout";
 
 const queryClient = new QueryClient();
 
@@ -17,9 +19,16 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/agenticcheckout" element={<AgenticCheckout />} />
-          <Route path="/merchant" element={<MerchantDashboard />} />
+          {/* English Routes */}
+          <Route path="/" element={<EnglishLayout><Index /></EnglishLayout>} />
+          <Route path="/agenticcheckout" element={<EnglishLayout><AgenticCheckout /></EnglishLayout>} />
+          <Route path="/merchant" element={<EnglishLayout><MerchantDashboard /></EnglishLayout>} />
+          
+          {/* Farsi (Persian) Routes - RTL */}
+          <Route path="/farsi" element={<FarsiLayout><IndexFarsi /></FarsiLayout>} />
+          <Route path="/farsi/agenticcheckout" element={<FarsiLayout><AgenticCheckout /></FarsiLayout>} />
+          <Route path="/farsi/merchant" element={<FarsiLayout><MerchantDashboard /></FarsiLayout>} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

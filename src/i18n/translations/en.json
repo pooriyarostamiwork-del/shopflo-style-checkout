@@ -1,0 +1,170 @@
+{
+  "common": {
+    "home": "Home",
+    "newArrivals": "New Arrivals",
+    "electronics": "Electronics",
+    "accessories": "Accessories",
+    "lifestyle": "Lifestyle",
+    "sale": "Sale",
+    "search": "Search for products…",
+    "currency": "₹",
+    "free": "FREE",
+    "off": "OFF",
+    "apply": "Apply",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "loading": "Loading...",
+    "poweredBy": "Powered by Flowcart"
+  },
+  "header": {
+    "brandName": "ShopFlow",
+    "tagline": "Your trusted store"
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "items": "items",
+    "emptyTitle": "Your cart is empty",
+    "emptySubtitle": "Add some products to get started!",
+    "inStock": "In stock",
+    "outOfStock": "Out of stock",
+    "moveToWishlist": "Move to Wishlist",
+    "continueShopping": "Continue Shopping"
+  },
+  "orderSummary": {
+    "title": "Order Summary",
+    "enterPromo": "Enter promo code",
+    "promoApplied": "Promo applied",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "shipping": "Shipping",
+    "taxes": "Taxes",
+    "total": "Total",
+    "taxesIncluded": "All taxes included. Free shipping over ₹499.",
+    "checkoutNow": "Checkout Now →",
+    "secureCheckout": "Secure checkout powered by Shopflo"
+  },
+  "checkout": {
+    "thankYou": "Thank you for shopping with us!",
+    "greeting": "Hi",
+    "readyToComplete": "ready to complete your order?",
+    "step": "STEP",
+    "steps": {
+      "address": "Address & Delivery",
+      "payment": "Payment Method",
+      "review": "Review Order"
+    },
+    "banners": {
+      "address": "Secure delivery powered by Flowcart",
+      "payment": "One tap and you're done",
+      "coupon": "Smart savings unlocked",
+      "review": "Almost there! Review your order"
+    },
+    "address": {
+      "title": "Delivery Address",
+      "addNew": "Add New Address",
+      "edit": "Edit",
+      "default": "Default",
+      "setDefault": "Set as Default",
+      "name": "Full Name",
+      "phone": "Phone Number",
+      "street": "Street Address",
+      "city": "City",
+      "state": "State",
+      "pincode": "PIN Code",
+      "save": "Save Address"
+    },
+    "delivery": {
+      "title": "Delivery Method",
+      "standard": "Standard Delivery",
+      "standardTime": "5-7 business days",
+      "express": "Express Delivery",
+      "expressTime": "1-2 business days"
+    },
+    "payment": {
+      "title": "Payment Method",
+      "upi": "UPI",
+      "upiDesc": "Pay using UPI apps",
+      "card": "Debit/Credit Card",
+      "cardDesc": "Visa, Mastercard, RuPay",
+      "cod": "Cash on Delivery",
+      "codDesc": "Pay when delivered"
+    },
+    "review": {
+      "title": "Review Order",
+      "saveDetails": "Save my details for faster checkout next time",
+      "placeOrder": "Place Order",
+      "processing": "Processing order…",
+      "secondsToComplete": "seconds to completion"
+    },
+    "coupons": {
+      "title": "Available Coupons",
+      "applied": "Applied",
+      "addMore": "Add more to unlock",
+      "unlocked": "Unlocked!",
+      "savingsOf": "Savings of"
+    },
+    "upsells": {
+      "title": "You might also like",
+      "addToOrder": "Add to Order",
+      "spendMore": "Spend more to unlock",
+      "freeDelivery": "Free delivery",
+      "cartDiscount": "cart discount"
+    },
+    "autoReorder": {
+      "title": "Auto-reorder Options",
+      "priceDropBelow": "Auto-buy when price drops below",
+      "monthlyReorder": "Auto-buy monthly",
+      "notifyPriceDrop": "Notify me if price decreases"
+    }
+  },
+  "success": {
+    "title": "Order Confirmed",
+    "subtitle": "Completed in",
+    "seconds": "seconds",
+    "fasterThan": "5× faster than normal checkout",
+    "orderId": "Order ID",
+    "deliveryDate": "Expected Delivery",
+    "continueShopping": "Continue Shopping"
+  },
+  "footer": {
+    "about": "About",
+    "careers": "Careers",
+    "contact": "Contact",
+    "blog": "Blog",
+    "support": "Support",
+    "help": "Help",
+    "returns": "Returns",
+    "shippingInfo": "Shipping Info",
+    "privacyPolicy": "Privacy Policy",
+    "followUs": "Follow Us",
+    "copyright": "© 2025 ShopFlow. All rights reserved.",
+    "demoNote": "Demo inspired by Shopflo — built for presentation purposes only."
+  },
+  "recommended": {
+    "title": "Recommended for You",
+    "addToCart": "Add to Cart"
+  },
+  "modeSelector": {
+    "title": "Select Checkout Mode",
+    "description": "Choose a checkout experience to demo"
+  },
+  "agentic": {
+    "title": "AI Shopping Assistant",
+    "placeholder": "Describe what you're looking for...",
+    "filters": "Filters",
+    "buy": "Buy",
+    "promoted": "Promoted"
+  },
+  "merchant": {
+    "dashboard": "Merchant Dashboard",
+    "todaysOrders": "Today's Orders",
+    "conversionRate": "Conversion Rate",
+    "upsellRevenue": "Upsell Revenue",
+    "couponUsage": "Coupon Usage",
+    "aov": "Average Order Value"
+  }
+}

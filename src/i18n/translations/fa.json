@@ -1,0 +1,170 @@
+{
+  "common": {
+    "home": "خانه",
+    "newArrivals": "محصولات جدید",
+    "electronics": "الکترونیک",
+    "accessories": "لوازم جانبی",
+    "lifestyle": "سبک زندگی",
+    "sale": "حراج",
+    "search": "جستجوی محصولات…",
+    "currency": "تومان",
+    "free": "رایگان",
+    "off": "تخفیف",
+    "apply": "اعمال",
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "confirm": "تأیید",
+    "close": "بستن",
+    "back": "بازگشت",
+    "next": "بعدی",
+    "loading": "در حال بارگذاری...",
+    "poweredBy": "قدرت گرفته از فلوکارت"
+  },
+  "header": {
+    "brandName": "شاپ‌فلو",
+    "tagline": "فروشگاه مورد اعتماد شما"
+  },
+  "cart": {
+    "title": "سبد خرید",
+    "items": "کالا",
+    "emptyTitle": "سبد خرید شما خالی است",
+    "emptySubtitle": "محصولاتی را برای شروع اضافه کنید!",
+    "inStock": "موجود",
+    "outOfStock": "ناموجود",
+    "moveToWishlist": "انتقال به لیست علاقه‌مندی",
+    "continueShopping": "ادامه خرید"
+  },
+  "orderSummary": {
+    "title": "خلاصه سفارش",
+    "enterPromo": "کد تخفیف را وارد کنید",
+    "promoApplied": "کد تخفیف اعمال شد",
+    "subtotal": "جمع جزء",
+    "discount": "تخفیف",
+    "shipping": "هزینه ارسال",
+    "taxes": "مالیات",
+    "total": "مجموع",
+    "taxesIncluded": "شامل تمام مالیات‌ها. ارسال رایگان برای خرید بالای ۴۹۹ تومان.",
+    "checkoutNow": "← پرداخت نهایی",
+    "secureCheckout": "پرداخت امن با شاپفلو"
+  },
+  "checkout": {
+    "thankYou": "از خرید شما متشکریم!",
+    "greeting": "سلام",
+    "readyToComplete": "آماده تکمیل سفارش هستید؟",
+    "step": "مرحله",
+    "steps": {
+      "address": "آدرس و تحویل",
+      "payment": "روش پرداخت",
+      "review": "بررسی سفارش"
+    },
+    "banners": {
+      "address": "تحویل امن با فلوکارت",
+      "payment": "فقط یک کلیک تا تکمیل",
+      "coupon": "پس‌انداز هوشمند فعال شد",
+      "review": "تقریباً تمام! سفارش خود را بررسی کنید"
+    },
+    "address": {
+      "title": "آدرس تحویل",
+      "addNew": "افزودن آدرس جدید",
+      "edit": "ویرایش",
+      "default": "پیش‌فرض",
+      "setDefault": "تنظیم به عنوان پیش‌فرض",
+      "name": "نام کامل",
+      "phone": "شماره تلفن",
+      "street": "آدرس خیابان",
+      "city": "شهر",
+      "state": "استان",
+      "pincode": "کد پستی",
+      "save": "ذخیره آدرس"
+    },
+    "delivery": {
+      "title": "روش تحویل",
+      "standard": "تحویل عادی",
+      "standardTime": "۵-۷ روز کاری",
+      "express": "تحویل سریع",
+      "expressTime": "۱-۲ روز کاری"
+    },
+    "payment": {
+      "title": "روش پرداخت",
+      "upi": "درگاه پرداخت",
+      "upiDesc": "پرداخت با اپلیکیشن بانکی",
+      "card": "کارت بانکی",
+      "cardDesc": "ویزا، مسترکارت، شتاب",
+      "cod": "پرداخت درب منزل",
+      "codDesc": "پرداخت هنگام تحویل"
+    },
+    "review": {
+      "title": "بررسی سفارش",
+      "saveDetails": "ذخیره اطلاعات من برای پرداخت سریع‌تر",
+      "placeOrder": "ثبت سفارش",
+      "processing": "در حال پردازش سفارش…",
+      "secondsToComplete": "ثانیه تا تکمیل"
+    },
+    "coupons": {
+      "title": "کوپن‌های موجود",
+      "applied": "اعمال شده",
+      "addMore": "برای فعال‌سازی بیشتر خرید کنید",
+      "unlocked": "فعال شد!",
+      "savingsOf": "پس‌انداز"
+    },
+    "upsells": {
+      "title": "شاید این‌ها را هم دوست داشته باشید",
+      "addToOrder": "افزودن به سفارش",
+      "spendMore": "برای فعال‌سازی بیشتر خرید کنید",
+      "freeDelivery": "ارسال رایگان",
+      "cartDiscount": "تخفیف سبد"
+    },
+    "autoReorder": {
+      "title": "گزینه‌های سفارش خودکار",
+      "priceDropBelow": "خرید خودکار وقتی قیمت کمتر از",
+      "monthlyReorder": "خرید خودکار ماهانه",
+      "notifyPriceDrop": "اطلاع‌رسانی کاهش قیمت"
+    }
+  },
+  "success": {
+    "title": "سفارش تأیید شد",
+    "subtitle": "تکمیل شده در",
+    "seconds": "ثانیه",
+    "fasterThan": "۵ برابر سریع‌تر از پرداخت معمولی",
+    "orderId": "شماره سفارش",
+    "deliveryDate": "تاریخ تحویل",
+    "continueShopping": "ادامه خرید"
+  },
+  "footer": {
+    "about": "درباره ما",
+    "careers": "فرصت‌های شغلی",
+    "contact": "تماس با ما",
+    "blog": "وبلاگ",
+    "support": "پشتیبانی",
+    "help": "راهنما",
+    "returns": "بازگشت کالا",
+    "shippingInfo": "اطلاعات ارسال",
+    "privacyPolicy": "حریم خصوصی",
+    "followUs": "ما را دنبال کنید",
+    "copyright": "© ۱۴۰۴ شاپ‌فلو. تمامی حقوق محفوظ است.",
+    "demoNote": "الهام گرفته از شاپفلو — ساخته شده فقط برای نمایش."
+  },
+  "recommended": {
+    "title": "پیشنهادی برای شما",
+    "addToCart": "افزودن به سبد"
+  },
+  "modeSelector": {
+    "title": "انتخاب حالت پرداخت",
+    "description": "یک تجربه پرداخت را برای نمایش انتخاب کنید"
+  },
+  "agentic": {
+    "title": "دستیار خرید هوشمند",
+    "placeholder": "توضیح دهید چه می‌خواهید...",
+    "filters": "فیلترها",
+    "buy": "خرید",
+    "promoted": "تبلیغاتی"
+  },
+  "merchant": {
+    "dashboard": "داشبورد فروشنده",
+    "todaysOrders": "سفارش‌های امروز",
+    "conversionRate": "نرخ تبدیل",
+    "upsellRevenue": "درآمد فروش مکمل",
+    "couponUsage": "استفاده از کوپن",
+    "aov": "میانگین ارزش سفارش"
+  }
+}

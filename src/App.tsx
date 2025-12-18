@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import IndexFarsi from "./pages/IndexFarsi";
 import AgenticCheckout from "./pages/AgenticCheckout";
 import MerchantDashboard from "./pages/MerchantDashboard";
+import UniversalVersion from "./pages/UniversalVersion";
 import NotFound from "./pages/NotFound";
 import { FarsiLayout, EnglishLayout } from "./components/LanguageLayout";
 
@@ -23,6 +24,9 @@ const App = () => (
           <Route path="/" element={<EnglishLayout><Index /></EnglishLayout>} />
           <Route path="/agenticcheckout" element={<EnglishLayout><AgenticCheckout /></EnglishLayout>} />
           <Route path="/merchant" element={<EnglishLayout><MerchantDashboard /></EnglishLayout>} />
+          
+          {/* Universal Version with Language Toggle */}
+          <Route path="/universalversion" element={<UniversalVersion />} />
           
           {/* Farsi (Persian) Routes - RTL */}
           <Route path="/farsi" element={<FarsiLayout><IndexFarsi /></FarsiLayout>} />

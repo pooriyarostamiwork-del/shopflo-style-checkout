@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import GPTCommerce from "./pages/GPTCommerce";
 import Index from "./pages/Index";
 import IndexFarsi from "./pages/IndexFarsi";
 import AgenticCheckout from "./pages/AgenticCheckout";
@@ -32,6 +33,9 @@ const App = () => (
           <Route path="/farsi" element={<FarsiLayout><IndexFarsi /></FarsiLayout>} />
           <Route path="/farsi/agenticcheckout" element={<FarsiLayout><AgenticCheckout /></FarsiLayout>} />
           <Route path="/farsi/merchant" element={<FarsiLayout><MerchantDashboard /></FarsiLayout>} />
+          
+          {/* GPT Commerce - Conversational Shopping */}
+          <Route path="/gptcommerce" element={<GPTCommerce />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

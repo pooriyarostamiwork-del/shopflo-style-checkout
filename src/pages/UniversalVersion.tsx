@@ -4,16 +4,17 @@ import { CartItemLocalized, CartProduct } from "@/components/CartItemLocalized";
 import { OrderSummaryLocalized } from "@/components/OrderSummaryLocalized";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
-import { HeaderLocalized } from "@/components/HeaderLocalized";
-import { FooterLocalized } from "@/components/FooterLocalized";
+import { HeaderUniversal } from "@/components/HeaderUniversal";
+import { FooterUniversal } from "@/components/FooterUniversal";
 import { RecommendedProducts } from "@/components/RecommendedProducts";
 import { ModeSelector } from "@/components/ModeSelector";
 import { CheckoutMode } from "@/types/checkout";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useLanguage, toPersianNumber } from "@/i18n";
+import { LanguageProvider } from "@/i18n";
 
-const IndexFarsi = () => {
-  const { t, isRTL } = useLanguage();
+const UniversalVersionContent = () => {
+  const { t, isRTL, language } = useLanguage();
   const [selectedMode, setSelectedMode] = useState<CheckoutMode>("cross-market-retargeting");
   const [cartItems, setCartItems] = useState<CartProduct[]>([
     {
@@ -86,9 +87,9 @@ const IndexFarsi = () => {
   const displayItemCount = isRTL ? toPersianNumber(cartItems.length) : cartItems.length;
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
+    <div className="min-h-screen bg-background" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <HeaderLocalized cartItemCount={cartItems.length} />
+      <HeaderUniversal cartItemCount={cartItems.length} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -107,8 +108,8 @@ const IndexFarsi = () => {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-5 lg:order-2">
-              <h2 className="text-3xl font-bold mb-6 text-foreground text-right">
+            <div className={`lg:col-span-2 space-y-5 ${isRTL ? 'lg:order-2' : ''}`}>
+              <h2 className={`text-3xl font-bold mb-6 text-foreground ${isRTL ? 'text-right' : ''}`}>
                 {t.cart.title} ({displayItemCount} {t.cart.items})
               </h2>
               {cartItems.map(item => (
@@ -125,7 +126,7 @@ const IndexFarsi = () => {
             </div>
 
             {/* Order Summary */}
-            <div className="lg:order-1">
+            <div className={isRTL ? 'lg:order-1' : ''}>
               <OrderSummaryLocalized
                 subtotal={subtotal}
                 discount={discount}
@@ -138,7 +139,7 @@ const IndexFarsi = () => {
       </main>
 
       {/* Footer */}
-      <FooterLocalized />
+      <FooterUniversal />
 
       {/* Checkout Modal */}
       <CheckoutModalLocalized
@@ -163,4 +164,12 @@ const IndexFarsi = () => {
   );
 };
 
-export default IndexFarsi;
+const UniversalVersion = () => {
+  return (
+    <LanguageProvider defaultLanguage="en">
+      <UniversalVersionContent />
+    </LanguageProvider>
+  );
+};
+
+export default UniversalVersion;

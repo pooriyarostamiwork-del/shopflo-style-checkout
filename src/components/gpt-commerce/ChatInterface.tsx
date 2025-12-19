@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
   onCheckout: () => void;
   hasStartedChat: boolean;
   onStartChat: () => void;
+  isCartOpen: boolean;
 }
 
 export const ChatInterface = ({
@@ -29,6 +30,7 @@ export const ChatInterface = ({
   onCheckout,
   hasStartedChat,
   onStartChat,
+  isCartOpen,
 }: ChatInterfaceProps) => {
   const [inputValue, setInputValue] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -64,97 +66,108 @@ export const ChatInterface = ({
     { label: 'خودت خرید رو انجام بده', action: 'خودت خرید رو انجام بده' },
   ];
 
+  // Calculate content margin based on cart sidebar state
+  const contentStyle = {
+    marginLeft: isCartOpen ? '340px' : '0',
+    transition: 'margin-left 0.5s ease-out'
+  };
+
   // Initial centered state before first query
   if (!hasStartedChat) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-screen bg-gradient-to-br from-background via-background to-primary/5" dir="rtl">
-        {/* Category Selector - Top Left */}
-        <div className="absolute top-4 right-4 z-10">
+      <div 
+        className="flex-1 flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5" 
+        dir="rtl"
+        style={contentStyle}
+      >
+        {/* Top Bar with Category and Coupons */}
+        <div className="absolute top-4 right-4 left-4 z-10 flex items-center justify-between" style={{ marginLeft: isCartOpen ? '356px' : '16px' }}>
+          {/* Category Selector - Top Right (appears left in RTL) */}
           <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+          
+          {/* Coupon Chips - Top Left (appears right in RTL) */}
+          <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
         </div>
 
         {/* Centered Welcome */}
-        <div className="flex flex-col items-center gap-6 mb-8 animate-fade-in">
-          <div 
-            className="w-20 h-20 rounded-2xl flex items-center justify-center backdrop-blur-xl"
-            style={{
-              background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
-              boxShadow: '0 8px 32px hsl(var(--primary) / 0.2), inset 0 1px 0 hsl(0 0% 100% / 0.3)',
-              border: '1px solid hsl(0 0% 100% / 0.2)'
-            }}
-          >
-            <Zap className="w-10 h-10 text-primary" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Flowcart</h1>
-            <p className="text-muted-foreground">دستیار خرید هوشمند شما</p>
-          </div>
-        </div>
-
-        {/* Centered Glass Chatbox */}
-        <div 
-          className="w-full max-w-[600px] mx-auto px-6 animate-scale-in"
-          style={{ animationDelay: '150ms' }}
-        >
-          <form onSubmit={handleSubmit}>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-6 mb-8 animate-fade-in">
             <div 
-              className="relative rounded-[20px] backdrop-blur-xl overflow-hidden"
+              className="w-20 h-20 rounded-2xl flex items-center justify-center backdrop-blur-xl"
               style={{
-                background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.6))',
-                boxShadow: '0 8px 40px rgba(0, 0, 0, 0.08), 0 0 60px hsl(var(--primary) / 0.1), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
-                border: '1px solid hsl(0 0% 100% / 0.3)'
+                background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
+                boxShadow: '0 8px 32px hsl(var(--primary) / 0.2), inset 0 1px 0 hsl(0 0% 100% / 0.3)',
+                border: '1px solid hsl(0 0% 100% / 0.2)'
               }}
             >
-              <div className="flex items-center gap-3 p-4">
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="چی می‌خوای بخری؟ بگو تا پیدا کنم..."
-                  className="flex-1 h-12 bg-transparent border-none focus-visible:ring-0 text-right text-base placeholder:text-muted-foreground/60"
-                  dir="rtl"
-                />
-                <Button
-                  type="submit"
-                  disabled={!inputValue.trim()}
-                  className="h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 transition-all duration-300"
-                  style={{
-                    boxShadow: inputValue.trim() ? '0 4px 20px hsl(var(--primary) / 0.4)' : 'none'
-                  }}
-                >
-                  <Send className="w-5 h-5 rotate-180" />
-                </Button>
-              </div>
+              <Zap className="w-10 h-10 text-primary" />
             </div>
-          </form>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-foreground mb-2">Flowcart</h1>
+              <p className="text-muted-foreground">دستیار خرید هوشمند شما</p>
+            </div>
+          </div>
 
-          {/* Quick Actions */}
-          <div className="flex flex-wrap justify-center gap-2 mt-4">
-            {quickActions.map((action, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  if (action.action.includes('خرید')) {
-                    onCheckout();
-                  } else {
-                    setInputValue(action.action);
-                  }
-                }}
-                className="text-sm px-4 py-2 rounded-full backdrop-blur-xl transition-all duration-300 hover:scale-105"
+          {/* Centered Glass Chatbox */}
+          <div 
+            className="w-full max-w-[600px] mx-auto px-6 animate-scale-in"
+            style={{ animationDelay: '150ms' }}
+          >
+            <form onSubmit={handleSubmit}>
+              <div 
+                className="relative rounded-[20px] backdrop-blur-xl overflow-hidden"
                 style={{
-                  background: 'hsl(0 0% 100% / 0.6)',
-                  border: '1px solid hsl(0 0% 100% / 0.3)',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)'
+                  background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.6))',
+                  boxShadow: '0 8px 40px rgba(0, 0, 0, 0.08), 0 0 60px hsl(var(--primary) / 0.1), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
+                  border: '1px solid hsl(0 0% 100% / 0.3)'
                 }}
               >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
+                <div className="flex items-center gap-3 p-4">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="چی می‌خوای بخری؟ بگو تا پیدا کنم..."
+                    className="flex-1 h-12 bg-transparent border-none focus-visible:ring-0 text-right text-base placeholder:text-muted-foreground/60"
+                    dir="rtl"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={!inputValue.trim()}
+                    className="h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 transition-all duration-300"
+                    style={{
+                      boxShadow: inputValue.trim() ? '0 4px 20px hsl(var(--primary) / 0.4)' : 'none'
+                    }}
+                  >
+                    <Send className="w-5 h-5 rotate-180" />
+                  </Button>
+                </div>
+              </div>
+            </form>
 
-        {/* Coupon Chips */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
+            {/* Quick Actions */}
+            <div className="flex flex-wrap justify-center gap-2 mt-4">
+              {quickActions.map((action, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    if (action.action.includes('خرید')) {
+                      onCheckout();
+                    } else {
+                      setInputValue(action.action);
+                    }
+                  }}
+                  className="text-sm px-4 py-2 rounded-full backdrop-blur-xl transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: 'hsl(0 0% 100% / 0.6)',
+                    border: '1px solid hsl(0 0% 100% / 0.3)',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -162,14 +175,24 @@ export const ChatInterface = ({
 
   // Active chat state
   return (
-    <div className="flex-1 flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5" dir="rtl">
-      {/* Category Selector - Top */}
-      <div className="absolute top-4 right-4 z-10">
+    <div 
+      className="flex-1 flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5" 
+      dir="rtl"
+      style={contentStyle}
+    >
+      {/* Top Bar with Category and Coupons */}
+      <div className="p-4 flex items-center justify-between z-10">
+        {/* Category Selector - Top Right (appears left in RTL) */}
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+        
+        {/* Coupon Chips - Top Left (appears right in RTL) */}
+        {appliedCoupons.length < 4 && (
+          <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
+        )}
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto pt-20">
+      <div className="flex-1 overflow-y-auto">
         <div className="max-w-[820px] mx-auto p-6 space-y-6">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-4 animate-fade-in">
@@ -252,14 +275,6 @@ export const ChatInterface = ({
                   <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Coupon Chips in Chat */}
-          {messages.length > 2 && appliedCoupons.length < 4 && (
-            <div className="mr-11">
-              <p className="text-xs text-muted-foreground mb-2">کوپن‌های موجود:</p>
-              <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
             </div>
           )}
 

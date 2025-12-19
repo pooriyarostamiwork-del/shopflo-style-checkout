@@ -6,8 +6,7 @@ interface Coupon {
   label: string;
   icon: React.ReactNode;
   color: string;
-  bgColor: string;
-  glowColor: string;
+  borderColor: string;
 }
 
 interface CouponChipsProps {
@@ -21,32 +20,28 @@ const coupons: Coupon[] = [
     label: 'ارسال رایگان', 
     icon: <Truck className="w-3.5 h-3.5" />,
     color: 'hsl(217 91% 60%)',
-    bgColor: 'hsl(217 91% 60% / 0.15)',
-    glowColor: 'hsl(217 91% 60% / 0.4)'
+    borderColor: 'hsl(217 91% 60%)'
   },
   { 
     id: 'discount-10', 
     label: '۱۰٪ تخفیف', 
     icon: <Percent className="w-3.5 h-3.5" />,
     color: 'hsl(142 71% 45%)',
-    bgColor: 'hsl(142 71% 45% / 0.15)',
-    glowColor: 'hsl(142 71% 45% / 0.4)'
+    borderColor: 'hsl(142 71% 45%)'
   },
   { 
     id: 'flash-sale', 
     label: 'فروش ویژه', 
     icon: <Flame className="w-3.5 h-3.5" />,
     color: 'hsl(0 84% 60%)',
-    bgColor: 'hsl(0 84% 60% / 0.15)',
-    glowColor: 'hsl(0 84% 60% / 0.4)'
+    borderColor: 'hsl(0 84% 60%)'
   },
   { 
     id: 'gift', 
     label: 'هدیه خرید', 
     icon: <Gift className="w-3.5 h-3.5" />,
     color: 'hsl(280 80% 60%)',
-    bgColor: 'hsl(280 80% 60% / 0.15)',
-    glowColor: 'hsl(280 80% 60% / 0.4)'
+    borderColor: 'hsl(280 80% 60%)'
   },
 ];
 
@@ -75,12 +70,12 @@ export const CouponChips = ({ onApplyCoupon, appliedCoupons }: CouponChipsProps)
               }
             `}
             style={{
-              backgroundColor: coupon.bgColor,
+              backgroundColor: 'hsl(0 0% 100% / 0.8)',
               color: coupon.color,
-              border: `1px solid ${coupon.color}33`,
-              boxShadow: isHovered && !isApplied 
-                ? `0 0 20px ${coupon.glowColor}, inset 0 1px 0 hsl(0 0% 100% / 0.2)`
-                : `0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.2)`
+              border: isHovered && !isApplied 
+                ? `2px solid ${coupon.borderColor}` 
+                : '1px solid hsl(0 0% 0% / 0.08)',
+              boxShadow: 'inset 0 1px 0 hsl(0 0% 100% / 0.5)'
             }}
           >
             {isApplied ? <Check className="w-3.5 h-3.5" /> : coupon.icon}

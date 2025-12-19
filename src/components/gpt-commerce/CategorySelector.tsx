@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Smartphone, Heart, Shirt, Home, Sparkles, Gamepad2 } from "lucide-react";
+import { Smartphone, Heart, Shirt, Home, Sparkles, Gamepad2, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Category {
   id: string;
@@ -22,32 +28,51 @@ const categories: Category[] = [
 ];
 
 export const CategorySelector = ({ activeCategory, onCategoryChange }: CategorySelectorProps) => {
+  const activeItem = categories.find(c => c.id === activeCategory) || categories[0];
+
   return (
-    <div className="flex items-center gap-2 p-2" dir="rtl">
-      {categories.map((category) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <button
-          key={category.id}
-          onClick={() => onCategoryChange(category.id)}
-          className={`
-            flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
-            backdrop-blur-xl transition-all duration-300 ease-out
-            ${activeCategory === category.id
-              ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_20px_hsl(var(--primary)/0.3)]'
-              : 'bg-white/50 text-foreground/80 border border-white/30 hover:bg-white/70 hover:border-primary/20'
-            }
-          `}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium backdrop-blur-xl transition-all duration-300 hover:scale-105"
           style={{
-            boxShadow: activeCategory === category.id 
-              ? '0 4px 20px hsl(var(--primary) / 0.25), inset 0 1px 0 hsl(0 0% 100% / 0.3)'
-              : '0 4px 16px rgba(0, 0, 0, 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.5)'
+            background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7))',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
+            border: '1px solid hsl(0 0% 100% / 0.3)'
           }}
+          dir="rtl"
         >
-          <span className={`transition-all duration-300 ${activeCategory === category.id ? 'scale-110' : ''}`}>
-            {category.icon}
-          </span>
-          <span>{category.label}</span>
+          <span className="text-primary">{activeItem.icon}</span>
+          <span className="text-foreground">{activeItem.label}</span>
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
         </button>
-      ))}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent 
+        align="start" 
+        className="w-48 backdrop-blur-xl z-50"
+        style={{
+          background: 'hsl(0 0% 100% / 0.95)',
+          border: '1px solid hsl(0 0% 100% / 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
+        }}
+      >
+        {categories.map((category) => (
+          <DropdownMenuItem
+            key={category.id}
+            onClick={() => onCategoryChange(category.id)}
+            className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-all duration-200 ${
+              activeCategory === category.id 
+                ? 'bg-primary/10 text-primary' 
+                : 'text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <span className={activeCategory === category.id ? 'text-primary' : 'text-muted-foreground'}>
+              {category.icon}
+            </span>
+            <span>{category.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };

@@ -22,6 +22,12 @@ const GPTCommerceContent = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [activeSection, setActiveSection] = useState('active-cart');
+  const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(true);
+
+  const handleStartChat = useCallback(() => {
+    setHasStartedChat(true);
+  }, []);
 
   const handleSendMessage = useCallback((content: string) => {
     // Add user message
@@ -174,14 +180,16 @@ const GPTCommerceContent = () => {
   }));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
-      {/* Left Sidebar */}
-      <Sidebar
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        cartItemCount={cartItems.length}
-        activeOrderCount={mockOrders.length}
-      />
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Left Sidebar - Only visible after chat started */}
+      {hasStartedChat && (
+        <Sidebar
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+          cartItemCount={cartItems.length}
+          activeOrderCount={mockOrders.length}
+        />
+      )}
 
       {/* Center Chat */}
       <ChatInterface
@@ -192,15 +200,19 @@ const GPTCommerceContent = () => {
         cartItems={cartItems}
         isProcessing={isProcessing}
         onCheckout={handleCheckout}
+        hasStartedChat={hasStartedChat}
+        onStartChat={handleStartChat}
       />
 
-      {/* Right Panel */}
+      {/* Right Panel - Cart Sidebar */}
       <RightPanel
         cartItems={cartItems}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
         onCheckout={handleCheckout}
         onAddToCart={handleAddToCart}
+        isOpen={isCartOpen}
+        onToggle={() => setIsCartOpen(!isCartOpen)}
       />
 
       {/* Checkout Modal */}

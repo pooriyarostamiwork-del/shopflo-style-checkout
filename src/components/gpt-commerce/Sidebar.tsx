@@ -58,11 +58,28 @@ export const Sidebar = ({ activeSection, onSectionChange, cartItemCount, activeO
   ];
 
   return (
-    <aside className="w-[260px] h-screen bg-[#F9FAFB] border-l border-[#E5E7EB] flex flex-col overflow-hidden" dir="rtl">
-      {/* Header */}
-      <div className="p-4 border-b border-[#E5E7EB]">
+    <aside 
+      className="w-[260px] h-screen flex flex-col overflow-hidden backdrop-blur-xl" 
+      dir="rtl"
+      style={{
+        background: 'linear-gradient(180deg, hsl(0 0% 100% / 0.95), hsl(0 0% 100% / 0.85))',
+        borderLeft: '1px solid hsl(0 0% 100% / 0.3)',
+        boxShadow: '-4px 0 40px rgba(0, 0, 0, 0.03)'
+      }}
+    >
+      {/* Header - Glass Logo */}
+      <div 
+        className="p-4"
+        style={{ borderBottom: '1px solid hsl(0 0% 0% / 0.05)' }}
+      >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+          <div 
+            className="w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl"
+            style={{
+              background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
+              boxShadow: '0 4px 16px hsl(var(--primary) / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.2)'
+            }}
+          >
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -84,18 +101,35 @@ export const Sidebar = ({ activeSection, onSectionChange, cartItemCount, activeO
                 <button
                   key={item.id}
                   onClick={() => onSectionChange(item.id)}
-                  className={`w-full h-11 flex items-center justify-between px-3 rounded-[10px] transition-all duration-200 ${
+                  className={`w-full h-11 flex items-center justify-between px-3 rounded-xl transition-all duration-300 ${
                     activeSection === item.id
-                      ? 'bg-primary/10 text-primary border-r-2 border-primary'
-                      : 'text-foreground hover:bg-[#EEF2FF]'
+                      ? 'text-primary'
+                      : 'text-foreground hover:text-primary'
                   }`}
+                  style={{
+                    background: activeSection === item.id 
+                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.05))'
+                      : 'transparent',
+                    border: activeSection === item.id 
+                      ? '1px solid hsl(var(--primary) / 0.2)'
+                      : '1px solid transparent',
+                    boxShadow: activeSection === item.id
+                      ? '0 4px 12px hsl(var(--primary) / 0.1)'
+                      : 'none'
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     {item.icon}
                     <span className="text-sm">{item.label}</span>
                   </div>
                   {item.badge && (
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                    <span 
+                      className="text-xs px-2 py-0.5 rounded-full"
+                      style={{
+                        background: 'hsl(var(--primary) / 0.1)',
+                        color: 'hsl(var(--primary))'
+                      }}
+                    >
                       {item.badge}
                     </span>
                   )}

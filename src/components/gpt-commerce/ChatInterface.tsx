@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap } from "lucide-react";
+import { ArrowUp, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatMessage, Product } from "@/data/gptCommerceData";
 import { ProductCard } from "./ProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
+import { ProductCarousels } from "./ProductCarousels";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -235,12 +236,12 @@ export const ChatInterface = ({
                       className="flex-1 h-12 bg-transparent border-none focus-visible:ring-0 text-right text-base"
                       dir="rtl"
                     />
-                    {/* Animated placeholder */}
+                    {/* Animated placeholder - RTL aligned */}
                     {!inputValue && (
-                      <div className="absolute inset-0 flex items-center justify-end pr-3 pointer-events-none">
+                      <div className="absolute inset-0 flex items-center pointer-events-none px-3" dir="rtl">
                         <span 
                           key={placeholderIndex}
-                          className="text-muted-foreground/60 text-base animate-fade-in"
+                          className="text-muted-foreground/60 text-base animate-fade-in text-right w-full"
                           style={{ animationDuration: '300ms' }}
                         >
                           {placeholderTexts[placeholderIndex]}
@@ -256,7 +257,7 @@ export const ChatInterface = ({
                       boxShadow: inputValue.trim() ? '0 4px 20px hsl(var(--primary) / 0.4)' : 'none'
                     }}
                   >
-                    <Send className="w-5 h-5 rotate-180" />
+                    <ArrowUp className="w-5 h-5" />
                   </Button>
                 </div>
               </div>
@@ -286,6 +287,9 @@ export const ChatInterface = ({
               ))}
             </div>
           </div>
+
+          {/* Product Carousels */}
+          <ProductCarousels onAddToCart={onAddToCart} cartItems={cartItems} />
         </div>
       </div>
     );
@@ -433,7 +437,7 @@ export const ChatInterface = ({
                 boxShadow: inputValue.trim() ? '0 4px 16px hsl(var(--primary) / 0.3)' : 'none'
               }}
             >
-              <Send className="w-4 h-4 rotate-180" />
+              <ArrowUp className="w-4 h-4" />
             </Button>
           </div>
         </form>

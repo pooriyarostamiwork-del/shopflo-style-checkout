@@ -23,7 +23,7 @@ const GPTCommerceContent = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [activeSection, setActiveSection] = useState('active-cart');
   const [hasStartedChat, setHasStartedChat] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(true);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   const handleStartChat = useCallback(() => {
     setHasStartedChat(true);
@@ -102,6 +102,9 @@ const GPTCommerceContent = () => {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+
+    // Auto-open cart when adding products
+    setIsCartOpen(true);
 
     // Add confirmation message
     const confirmMessage: ChatMessage = {

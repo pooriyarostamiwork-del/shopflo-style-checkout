@@ -2,6 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Breathing animation for idle chatbox */
+@keyframes breathing {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08), 0 0 60px hsl(239 36% 61% / 0.08);
+  }
+  50% {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08), 0 0 80px hsl(239 36% 61% / 0.12);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--float-rotation, 0deg));
+  }
+  50% {
+    transform: translateY(var(--float-distance, -6px)) rotate(var(--float-rotation, 0deg));
+  }
+}
+
+@keyframes fadeInOut {
+  0%, 10% {
+    opacity: 1;
+  }
+  45%, 55% {
+    opacity: 0;
+  }
+  90%, 100% {
+    opacity: 1;
+  }
+}
+
+.animate-breathing {
+  animation: breathing 7s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 7s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: floatSlow var(--float-duration, 25s) ease-in-out infinite;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

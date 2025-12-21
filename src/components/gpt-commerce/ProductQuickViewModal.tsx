@@ -42,6 +42,7 @@ export const ProductQuickViewModal = ({
         style={{
           background: 'hsl(0 0% 100%)',
           border: '1px solid hsl(0 0% 0% / 0.08)',
+          minHeight: '400px',
         }}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"

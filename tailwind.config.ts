@@ -131,6 +131,12 @@ export default {
           },
         },
       },
+      "typing-rtl": {
+        "0%": { width: "0", opacity: "0" },
+        "10%": { opacity: "1" },
+        "90%": { opacity: "1" },
+        "100%": { width: "100%", opacity: "0" },
+      },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
@@ -138,6 +144,7 @@ export default {
         "confetti": "confetti 2s ease-in-out forwards",
         "fade-in": "fade-in 0.3s ease-out",
         "scale-in": "scale-in 0.3s ease-out",
+        "typing-rtl": "typing-rtl 3s steps(30) infinite",
       },
     },
   },

@@ -213,7 +213,7 @@ const CarouselSection = ({
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
       // Scroll by card width + gap
-      const cardWidth = 220;
+      const cardWidth = 280;
       const gap = 16;
       const scrollAmount = cardWidth + gap;
       scrollRef.current.scrollBy({
@@ -302,7 +302,7 @@ const CarouselSection = ({
       <div 
         ref={scrollRef}
         onScroll={updateScrollState}
-        className="grid grid-flow-col auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto scrollbar-hide pb-2 md:auto-cols-[calc(25%-12px)] sm:auto-cols-[calc(50%-8px)]"
+        className="grid grid-flow-col auto-cols-[280px] gap-4 overflow-x-auto scrollbar-hide pb-2 md:auto-cols-[calc(25%-12px)] sm:auto-cols-[calc(50%-8px)]"
         style={{ 
           scrollbarWidth: 'none', 
           msOverflowStyle: 'none',

@@ -36,13 +36,29 @@ export const ProductQuickViewModal = ({
         style={{ background: 'hsl(0 0% 0% / 0.4)', backdropFilter: 'blur(4px)' }}
       />
 
+      {/* Center animation keyframes */}
+      <style>{`
+        @keyframes modal-center-in {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
+
       {/* Modal */}
       <div 
-        className="relative w-full max-w-2xl rounded-2xl overflow-hidden animate-scale-in"
+        className="relative w-full max-w-2xl rounded-2xl overflow-hidden"
         style={{
           background: 'hsl(0 0% 100%)',
           border: '1px solid hsl(0 0% 0% / 0.08)',
           minHeight: '400px',
+          animation: 'modal-center-in 0.2s ease-out forwards',
+          transformOrigin: 'center center',
         }}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"

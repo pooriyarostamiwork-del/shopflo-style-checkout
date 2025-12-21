@@ -15,22 +15,22 @@ export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: Produ
   
   return (
     <div 
-      className="w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col"
+      className="w-[220px] h-[340px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col"
       style={{
         background: 'hsl(0 0% 100%)',
         border: '1px solid hsl(0 0% 0% / 0.08)',
       }}
       dir="rtl"
     >
-      {/* Image - Fixed height with proper fitting */}
+      {/* Image - Square aspect ratio with proper fitting */}
       <div 
-        className="relative h-[180px] w-full overflow-hidden flex items-center justify-center"
+        className="relative w-full aspect-square overflow-hidden flex items-center justify-center"
         style={{ background: 'hsl(0 0% 98%)' }}
       >
         <img 
           src={getProductImage(product.id, product.image)} 
           alt={product.name}
-          className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+          className="max-w-[85%] max-h-[85%] object-contain group-hover:scale-105 transition-transform duration-300"
         />
         {product.originalPrice && (
           <div 

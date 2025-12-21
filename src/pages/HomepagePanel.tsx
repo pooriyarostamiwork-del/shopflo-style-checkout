@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, Image, Info, ExternalLink, Flame, Heart, TrendingUp } from 'lucide-react';
+import { Save, Image, Info, ExternalLink, Flame, Heart, TrendingUp, LayoutTemplate } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { useHomepageSettings, BannerConfigs } from '@/contexts/HomepageSettingsContext';
+import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from '@/contexts/HomepageSettingsContext';
 
 // Product definitions with IDs and names (matching ProductCarousels.tsx)
 const allProducts = {
@@ -46,10 +46,16 @@ const carouselInfo: { key: keyof BannerConfigs; label: string; icon: React.React
   { key: 'mostPopular', label: 'محبوب‌ترین‌ها', icon: <TrendingUp className="w-4 h-4" /> },
 ];
 
+const horizontalBannerInfo: { key: keyof HorizontalBannerConfigs; label: string }[] = [
+  { key: 'afterHotDeals', label: 'بعد از پیشنهادات ویژه' },
+  { key: 'afterYouMayLike', label: 'بعد از شاید بپسندید' },
+];
+
 const HomepagePanel = () => {
-  const { settings, updateProductImage, updateBanner, getBanner } = useHomepageSettings();
+  const { settings, updateProductImage, updateBanner, updateHorizontalBanner, getHorizontalBanner, getBanner } = useHomepageSettings();
   const [activeCarousel, setActiveCarousel] = useState<keyof BannerConfigs>('hotDeals');
   const [activeBannerTab, setActiveBannerTab] = useState<keyof BannerConfigs>('hotDeals');
+  const [activeHorizontalBanner, setActiveHorizontalBanner] = useState<keyof HorizontalBannerConfigs>('afterHotDeals');
 
   const handleSave = () => {
     toast({
@@ -59,6 +65,7 @@ const HomepagePanel = () => {
   };
 
   const currentBanner = getBanner(activeBannerTab);
+  const currentHorizontalBanner = getHorizontalBanner(activeHorizontalBanner);
 
   return (
     <div className="min-h-screen bg-muted/30 p-6" dir="rtl">
@@ -296,6 +303,94 @@ const HomepagePanel = () => {
                             </div>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Horizontal Promotional Banners Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LayoutTemplate className="w-5 h-5" />
+              بنرهای تبلیغاتی افقی (بین کاروسل‌ها)
+            </CardTitle>
+            <CardDescription>
+              بنرهای افقی که بین کاروسل‌های محصولات نمایش داده می‌شوند
+            </CardDescription>
+            {/* Size Guide */}
+            <div className="flex items-center gap-2 mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+              <Info className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                <strong className="text-foreground">راهنمای سایز:</strong> اندازه پیشنهادی بنر افقی: <strong className="text-primary">960 × 145 پیکسل</strong> (افقی، تمام عرض)
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeHorizontalBanner} onValueChange={(v) => setActiveHorizontalBanner(v as keyof HorizontalBannerConfigs)}>
+              <TabsList className="mb-6">
+                {horizontalBannerInfo.map(({ key, label }) => (
+                  <TabsTrigger key={key} value={key}>
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {horizontalBannerInfo.map(({ key, label }) => {
+                const hBanner = getHorizontalBanner(key);
+                return (
+                  <TabsContent key={key} value={key}>
+                    <div className="space-y-6">
+                      {/* Banner Preview */}
+                      <div className="space-y-3">
+                        <Label>پیش‌نمایش بنر {label}</Label>
+                        <div 
+                          className="w-full h-[145px] rounded-xl overflow-hidden"
+                          style={{
+                            background: hBanner.imageUrl 
+                              ? `url(${hBanner.imageUrl}) center/cover`
+                              : 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
+                            border: '1px solid hsl(0 0% 0% / 0.08)',
+                          }}
+                        >
+                          {!hBanner.imageUrl && (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+                              بنر تبلیغاتی (آدرس تصویر را وارد کنید)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Enable Toggle */}
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div>
+                          <Label>نمایش بنر</Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            اگر غیرفعال شود، این بنر نمایش داده نمی‌شود
+                          </p>
+                        </div>
+                        <Switch
+                          checked={hBanner.enabled}
+                          onCheckedChange={(checked) => updateHorizontalBanner(key, { enabled: checked })}
+                        />
+                      </div>
+
+                      {/* Image URL */}
+                      <div className="space-y-2">
+                        <Label>آدرس URL تصویر بنر</Label>
+                        <Input
+                          placeholder="https://example.com/banner.jpg"
+                          value={hBanner.imageUrl}
+                          onChange={(e) => updateHorizontalBanner(key, { imageUrl: e.target.value })}
+                          dir="ltr"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          اگر خالی باشد، از گرادیان پیش‌فرض استفاده می‌شود
+                        </p>
                       </div>
                     </div>
                   </TabsContent>

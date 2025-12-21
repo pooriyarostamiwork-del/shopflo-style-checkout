@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp, Grid2X2 } from "lucide-react";
 import { Product, mockProducts, toPersianNumber, formatPersianPrice } from "@/data/gptCommerceData";
 import { useRef, useState } from "react";
-import { useHomepageSettings, BannerConfigs } from "@/contexts/HomepageSettingsContext";
+import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from "@/contexts/HomepageSettingsContext";
 
 interface ProductCarouselsProps {
   onAddToCart: (product: Product) => void;
@@ -407,14 +407,13 @@ const CarouselSection = ({
 
       {/* Products Grid with Promo Banner */}
       <div className="flex gap-4">
-        {/* Promotional Banner - Fixed on left (appears first in RTL) - NO divider above */}
+        {/* Promotional Banner - Fixed on left (appears first in RTL) */}
         <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
+          className="hidden lg:flex flex-shrink-0 w-[140px] h-[340px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
             background: banner.imageUrl 
               ? `url(${banner.imageUrl}) center/cover`
               : 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
-            border: '1px solid hsl(0 0% 0% / 0.08)',
           }}
           onClick={() => console.log('Promo clicked')}
         >
@@ -467,7 +466,7 @@ const CarouselSection = ({
             return (
               <div
                 key={product.id}
-                className="flex-shrink-0 w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
+                className="flex-shrink-0 w-[220px] h-[340px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
                 style={{
                   background: 'hsl(0 0% 100%)',
                   border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -475,15 +474,15 @@ const CarouselSection = ({
                 }}
                 onClick={() => onQuickView(product)}
               >
-                {/* Image with white background - fixed height with aspect ratio */}
+                {/* Image with white background - fixed square aspect ratio */}
                 <div 
-                  className="relative h-[180px] w-full overflow-hidden flex items-center justify-center"
+                  className="relative w-full aspect-square overflow-hidden flex items-center justify-center"
                   style={{ background: 'hsl(0 0% 98%)' }}
                 >
                   <img
                     src={getProductImage(product.id, product.image)}
                     alt={product.name}
-                    className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+                    className="max-w-[85%] max-h-[85%] object-contain transition-transform duration-300 group-hover:scale-105"
                   />
                   {discountPercent > 0 && (
                     <div 
@@ -617,9 +616,36 @@ const CarouselSection = ({
   );
 };
 
+// Horizontal promotional banner component between carousels
+const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerConfigs }) => {
+  const { getHorizontalBanner } = useHomepageSettings();
+  const banner = getHorizontalBanner(position);
+  
+  if (!banner.enabled) return null;
+  
+  return (
+    <div 
+      className="w-full h-[145px] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:opacity-95"
+      style={{
+        background: banner.imageUrl 
+          ? `url(${banner.imageUrl}) center/cover`
+          : 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
+        border: '1px solid hsl(0 0% 0% / 0.08)',
+      }}
+      onClick={() => console.log('Horizontal promo clicked')}
+    >
+      {!banner.imageUrl && (
+        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+          بنر تبلیغاتی (از پنل مدیریت تنظیم کنید)
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
   return (
-    <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-10 pb-16">
+    <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-8 pb-16">
       <CarouselSection
         title="تخفیف‌های ویژه"
         icon={<Flame className="w-4 h-4 text-white" />}
@@ -633,6 +659,9 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
         bannerKey="hotDeals"
       />
       
+      {/* Horizontal Banner After Hot Deals */}
+      <HorizontalPromoBanner position="afterHotDeals" />
+      
       <CarouselSection
         title="شاید دوست داشته باشی"
         icon={<Heart className="w-4 h-4 text-white" />}
@@ -645,6 +674,9 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
         categories={carouselCategories.youMayLike}
         bannerKey="youMayLike"
       />
+      
+      {/* Horizontal Banner After You May Like */}
+      <HorizontalPromoBanner position="afterYouMayLike" />
       
       <CarouselSection
         title="محبوب‌ترین‌ها"

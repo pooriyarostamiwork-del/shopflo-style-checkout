@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp, Grid2X2 } from "lucide-react";
 import { Product, mockProducts, toPersianNumber, formatPersianPrice } from "@/data/gptCommerceData";
 import { useRef, useState } from "react";
 
@@ -71,6 +71,42 @@ const hotDealsProducts: Product[] = [
     returnGuarantee: true,
     inStock: true,
   },
+  {
+    id: 'hd5',
+    name: 'اسپیکر بلوتوث JBL',
+    price: 3500000,
+    originalPrice: 4200000,
+    image: ecommerceImages.headphones,
+    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
+    rating: 4.5,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'hd6',
+    name: 'شارژر وایرلس سامسونگ',
+    price: 980000,
+    originalPrice: 1500000,
+    image: ecommerceImages.powerbank,
+    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
+    rating: 4.3,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'hd7',
+    name: 'کیس ایرپاد پرو',
+    price: 450000,
+    originalPrice: 650000,
+    image: ecommerceImages.airpods,
+    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
+    rating: 4.7,
+    fastDelivery: false,
+    returnGuarantee: true,
+    inStock: true,
+  },
 ];
 
 const youMayLikeProducts: Product[] = [
@@ -118,6 +154,39 @@ const youMayLikeProducts: Product[] = [
     returnGuarantee: true,
     inStock: true,
   },
+  {
+    id: 'yl5',
+    name: 'وب‌کم لاجیتک C920',
+    price: 2800000,
+    image: ecommerceImages.laptop,
+    merchant: { id: 'm3', name: 'تکنولایف', logo: '💻' },
+    rating: 4.6,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'yl6',
+    name: 'هاب USB-C انکر',
+    price: 1200000,
+    image: ecommerceImages.powerbank,
+    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
+    rating: 4.4,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'yl7',
+    name: 'پد ماوس گیمینگ',
+    price: 350000,
+    image: ecommerceImages.mouse,
+    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
+    rating: 4.2,
+    fastDelivery: false,
+    returnGuarantee: true,
+    inStock: true,
+  },
 ];
 
 const mostPopularProducts: Product[] = [
@@ -161,6 +230,39 @@ const mostPopularProducts: Product[] = [
     image: ecommerceImages.headphones,
     merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
     rating: 4.7,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'mp5',
+    name: 'تبلت آیپد پرو',
+    price: 52000000,
+    image: ecommerceImages.laptop,
+    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
+    rating: 4.8,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'mp6',
+    name: 'گوشی پیکسل ۸ پرو',
+    price: 38000000,
+    image: ecommerceImages.phone,
+    merchant: { id: 'm3', name: 'تکنولایف', logo: '💻' },
+    rating: 4.6,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'mp7',
+    name: 'لپ‌تاپ ایسوس ROG',
+    price: 85000000,
+    image: ecommerceImages.laptop,
+    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
+    rating: 4.9,
     fastDelivery: true,
     returnGuarantee: true,
     inStock: true,
@@ -298,125 +400,195 @@ const CarouselSection = ({
         </div>
       </div>
 
-      {/* Products Grid - Exactly 4 cards per viewport */}
-      <div 
-        ref={scrollRef}
-        onScroll={updateScrollState}
-        className="grid grid-flow-col auto-cols-[calc(20%-13px)] gap-4 overflow-x-auto scrollbar-hide pb-2 md:auto-cols-[calc(25%-12px)] sm:auto-cols-[calc(50%-8px)]"
-        style={{ 
-          scrollbarWidth: 'none', 
-          msOverflowStyle: 'none',
-          scrollSnapType: 'x mandatory',
-        }}
-      >
-        {filteredProducts.map((product) => {
-          const isInCart = cartItems.some(item => item.id === product.id);
-          const discountPercent = product.originalPrice 
-            ? Math.round((1 - product.price / product.originalPrice) * 100)
-            : 0;
+      {/* Products Grid with Promo Banner */}
+      <div className="flex gap-4">
+        {/* Scrollable Products - 4 visible at a time */}
+        <div 
+          ref={scrollRef}
+          onScroll={updateScrollState}
+          className="flex-1 grid grid-flow-col auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto scrollbar-hide pb-2 md:auto-cols-[calc(33.333%-11px)] sm:auto-cols-[calc(50%-8px)]"
+          style={{ 
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none',
+            scrollSnapType: 'x mandatory',
+          }}
+        >
+          {filteredProducts.map((product) => {
+            const isInCart = cartItems.some(item => item.id === product.id);
+            const discountPercent = product.originalPrice 
+              ? Math.round((1 - product.price / product.originalPrice) * 100)
+              : 0;
 
-          return (
-            <div
-              key={product.id}
-              className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
-              style={{
-                background: 'hsl(0 0% 100%)',
-                border: '1px solid hsl(0 0% 0% / 0.08)',
-                scrollSnapAlign: 'start',
-              }}
-              onClick={() => onQuickView(product)}
-            >
-              {/* Image with white background */}
-              <div 
-                className="relative aspect-square overflow-hidden"
-                style={{ background: 'hsl(0 0% 98%)' }}
+            return (
+              <div
+                key={product.id}
+                className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
+                style={{
+                  background: 'hsl(0 0% 100%)',
+                  border: '1px solid hsl(0 0% 0% / 0.08)',
+                  scrollSnapAlign: 'start',
+                }}
+                onClick={() => onQuickView(product)}
               >
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
-                />
-                {discountPercent > 0 && (
-                  <div 
-                    className="absolute top-3 right-3 px-2 py-1 rounded-lg text-xs font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
-                  >
-                    {toPersianNumber(discountPercent)}٪
-                  </div>
-                )}
-                {product.fastDelivery && (
-                  <div 
-                    className="absolute top-3 left-3 px-2 py-1 rounded-lg text-xs text-white"
-                    style={{ background: 'hsl(142 70% 45% / 0.9)' }}
-                  >
-                    ارسال سریع
-                  </div>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="p-3 space-y-2">
-                <h4 className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
-                  {product.name}
-                </h4>
-                
-                {/* Rating */}
-                <div className="flex items-center gap-1">
-                  <span className="text-yellow-500 text-xs">⭐</span>
-                  <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-                  <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
-                </div>
-
-                {/* Price */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">
-                    {formatPersianPrice(product.price)}
-                  </span>
-                  {product.originalPrice && (
-                    <span className="text-xs text-muted-foreground line-through">
-                      {formatPersianPrice(product.originalPrice)}
-                    </span>
+                {/* Image with white background */}
+                <div 
+                  className="relative aspect-square overflow-hidden"
+                  style={{ background: 'hsl(0 0% 98%)' }}
+                >
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+                  />
+                  {discountPercent > 0 && (
+                    <div 
+                      className="absolute top-3 right-3 px-2 py-1 rounded-lg text-xs font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+                    >
+                      {toPersianNumber(discountPercent)}٪
+                    </div>
+                  )}
+                  {product.fastDelivery && (
+                    <div 
+                      className="absolute top-3 left-3 px-2 py-1 rounded-lg text-xs text-white"
+                      style={{ background: 'hsl(142 70% 45% / 0.9)' }}
+                    >
+                      ارسال سریع
+                    </div>
                   )}
                 </div>
 
-                {/* Action Buttons - Bottom Left */}
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddToCart(product);
-                    }}
-                    disabled={isInCart}
-                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
-                    style={{
-                      background: isInCart 
-                        ? 'hsl(142 70% 45%)' 
-                        : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                    }}
-                    title="افزودن سریع"
-                  >
-                    <Plus className="w-4 h-4 text-white" />
-                  </button>
+                {/* Content */}
+                <div className="p-3 space-y-2">
+                  <h4 className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
+                    {product.name}
+                  </h4>
                   
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onQuickView(product);
-                    }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
-                    style={{
-                      background: 'hsl(0 0% 100%)',
-                      border: '1px solid hsl(0 0% 0% / 0.08)',
-                    }}
-                    title={`جزئیات ${product.name}`}
-                  >
-                    <Info className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                  {/* Rating */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-yellow-500 text-xs">⭐</span>
+                    <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
+                    <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
+                  </div>
+
+                  {/* Price */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">
+                      {formatPersianPrice(product.price)}
+                    </span>
+                    {product.originalPrice && (
+                      <span className="text-xs text-muted-foreground line-through">
+                        {formatPersianPrice(product.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action Buttons - Bottom Left */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToCart(product);
+                      }}
+                      disabled={isInCart}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                      style={{
+                        background: isInCart 
+                          ? 'hsl(142 70% 45%)' 
+                          : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                      }}
+                      title="افزودن سریع"
+                    >
+                      <Plus className="w-4 h-4 text-white" />
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickView(product);
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                      style={{
+                        background: 'hsl(0 0% 100%)',
+                        border: '1px solid hsl(0 0% 0% / 0.08)',
+                      }}
+                      title={`جزئیات ${product.name}`}
+                    >
+                      <Info className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
                 </div>
               </div>
+            );
+          })}
+          
+          {/* Terminal Card - View All */}
+          <div
+            className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
+            style={{
+              background: 'hsl(0 0% 98%)',
+              border: '1px solid hsl(0 0% 0% / 0.08)',
+              scrollSnapAlign: 'start',
+              minWidth: 'calc(25% - 12px)',
+            }}
+            onClick={() => console.log('View all clicked')}
+          >
+            <div 
+              className="relative aspect-square overflow-hidden flex items-center justify-center"
+              style={{ background: 'hsl(0 0% 96%)' }}
+            >
+              {/* Blurred background effect */}
+              <div 
+                className="absolute inset-0 flex items-center justify-center"
+                style={{
+                  backdropFilter: 'blur(8px)',
+                  background: 'hsl(0 0% 100% / 0.7)',
+                }}
+              >
+                <Grid2X2 className="w-12 h-12 text-primary/40 group-hover:text-primary/60 transition-colors duration-200" />
+              </div>
             </div>
-          );
-        })}
+            <div className="p-4 flex flex-col items-center justify-center min-h-[120px] text-center">
+              <p className="text-sm font-medium text-foreground leading-relaxed">
+                مشاهده
+              </p>
+              <p className="text-sm font-medium text-foreground leading-relaxed">
+                همه
+              </p>
+              <p className="text-sm font-medium text-foreground leading-relaxed">
+                محصولات
+              </p>
+              <ChevronLeft className="w-5 h-5 text-primary mt-2 group-hover:translate-x-[-4px] transition-transform duration-200" />
+            </div>
+          </div>
+        </div>
+
+        {/* Promotional Banner - Fixed on right */}
+        <div 
+          className="hidden lg:flex flex-shrink-0 w-[140px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20"
+          style={{
+            background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
+            border: '1px solid hsl(0 0% 0% / 0.08)',
+          }}
+          onClick={() => console.log('Promo clicked')}
+        >
+          <div 
+            className="text-3xl font-bold text-primary mb-2"
+          >
+            ٪۳۰
+          </div>
+          <p className="text-xs font-medium text-foreground mb-1">تخفیف ویژه</p>
+          <p className="text-[10px] text-muted-foreground mb-3">فقط تا پایان هفته</p>
+          <span 
+            className="text-xs font-medium text-primary px-3 py-1.5 rounded-lg"
+            style={{
+              background: 'hsl(0 0% 100%)',
+              border: '1px solid hsl(var(--primary) / 0.2)',
+            }}
+          >
+            مشاهده همه
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp, Grid2X2 } from "lucide-react";
 import { Product, mockProducts, toPersianNumber, formatPersianPrice } from "@/data/gptCommerceData";
 import { useRef, useState } from "react";
+import { useHomepageSettings, BannerConfigs } from "@/contexts/HomepageSettingsContext";
 
 interface ProductCarouselsProps {
   onAddToCart: (product: Product) => void;
@@ -286,6 +287,7 @@ interface CarouselSectionProps {
   cartItems: Product[];
   accentColor: string;
   categories: string[];
+  bannerKey: keyof BannerConfigs;
 }
 
 const CarouselSection = ({ 
@@ -297,8 +299,11 @@ const CarouselSection = ({
   onAskAbout,
   cartItems, 
   accentColor,
-  categories 
+  categories,
+  bannerKey
 }: CarouselSectionProps) => {
+  const { getProductImage, getBanner } = useHomepageSettings();
+  const banner = getBanner(bannerKey);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -405,29 +410,43 @@ const CarouselSection = ({
         {/* Scrollable Products - 4 visible at a time */}
         {/* Promotional Banner - Fixed on left (appears first in RTL) */}
         <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20"
+          className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
-            background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
+            background: banner.imageUrl 
+              ? `url(${banner.imageUrl}) center/cover`
+              : 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
             border: '1px solid hsl(0 0% 0% / 0.08)',
           }}
           onClick={() => console.log('Promo clicked')}
         >
-          <div 
-            className="text-3xl font-bold text-primary mb-2"
-          >
-            ٪۳۰
-          </div>
-          <p className="text-xs font-medium text-foreground mb-1">تخفیف ویژه</p>
-          <p className="text-[10px] text-muted-foreground mb-3">فقط تا پایان هفته</p>
-          <span 
-            className="text-xs font-medium text-primary px-3 py-1.5 rounded-lg"
-            style={{
-              background: 'hsl(0 0% 100%)',
-              border: '1px solid hsl(var(--primary) / 0.2)',
-            }}
-          >
-            مشاهده همه
-          </span>
+          {/* Overlay for text readability when image is set */}
+          {banner.imageUrl && banner.showText && (
+            <div className="absolute inset-0 bg-black/30" />
+          )}
+          
+          {/* Text Content - only show if showText is true */}
+          {banner.showText && (
+            <div className="relative z-10 space-y-2">
+              <p 
+                className="text-xs font-medium mb-1"
+                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--foreground))' }}
+              >
+                {banner.title}
+              </p>
+              <div 
+                className="text-2xl font-bold"
+                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--primary))' }}
+              >
+                {banner.subtitle}
+              </div>
+              <span 
+                className="text-xs underline"
+                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--muted-foreground))' }}
+              >
+                {banner.ctaText}
+              </span>
+            </div>
+          )}
         </div>
 
         <div
@@ -463,7 +482,7 @@ const CarouselSection = ({
                   style={{ background: 'hsl(0 0% 98%)' }}
                 >
                   <img
-                    src={product.image}
+                    src={getProductImage(product.id, product.image)}
                     alt={product.name}
                     className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
                   />
@@ -608,6 +627,7 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
         cartItems={cartItems}
         accentColor="linear-gradient(135deg, #ef4444, #f97316)"
         categories={carouselCategories.hotDeals}
+        bannerKey="hotDeals"
       />
       
       <CarouselSection
@@ -620,6 +640,7 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
         cartItems={cartItems}
         accentColor="linear-gradient(135deg, #ec4899, #f472b6)"
         categories={carouselCategories.youMayLike}
+        bannerKey="youMayLike"
       />
       
       <CarouselSection
@@ -632,6 +653,7 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
         cartItems={cartItems}
         accentColor="linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))"
         categories={carouselCategories.popular}
+        bannerKey="mostPopular"
       />
     </div>
   );

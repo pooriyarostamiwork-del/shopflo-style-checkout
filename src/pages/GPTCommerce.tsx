@@ -213,6 +213,7 @@ const GPTCommerceContent = () => {
         hasStartedChat={hasStartedChat}
         onStartChat={handleStartChat}
         isCartOpen={isCartOpen}
+        onSignIn={handleCheckout}
       />
 
       {/* Right Panel - Cart Sidebar */}

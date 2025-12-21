@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Paperclip, Mic } from "lucide-react";
+import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, Product } from "@/data/gptCommerceData";
 import { ProductCard } from "./ProductCard";
@@ -7,6 +7,7 @@ import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
 import { ProductCarousels } from "./ProductCarousels";
 import { ProductQuickViewModal } from "./ProductQuickViewModal";
+import { Footer } from "./Footer";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -19,6 +20,9 @@ interface ChatInterfaceProps {
   hasStartedChat: boolean;
   onStartChat: () => void;
   isCartOpen: boolean;
+  onSignIn: () => void;
+  inputRef?: React.RefObject<HTMLTextAreaElement>;
+  setInputValue?: (value: string) => void;
 }
 
 // Rotating placeholder texts
@@ -89,8 +93,11 @@ export const ChatInterface = ({
   hasStartedChat,
   onStartChat,
   isCartOpen,
+  onSignIn,
+  inputRef: externalInputRef,
+  setInputValue: externalSetInputValue,
 }: ChatInterfaceProps) => {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [appliedCoupons, setAppliedCoupons] = useState<string[]>([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -98,6 +105,8 @@ export const ChatInterface = ({
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const setInputValue = externalSetInputValue || setInputValueInternal;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -157,6 +166,14 @@ export const ChatInterface = ({
 
   const isIdle = !isFocused && !inputValue;
 
+  // Support click handler - focus chatbox and prefill
+  const handleSupportClick = () => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      setInputValue('نیاز به پشتیبانی دارم');
+    }
+  };
+
   // Initial centered state before first query
   if (!hasStartedChat) {
     return (
@@ -168,13 +185,26 @@ export const ChatInterface = ({
         <div 
           className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
           style={{
-            background: 'hsl(0 0% 100% / 0.9)',
+            background: 'hsl(0 0% 100%)',
             borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
             marginLeft: isCartOpen ? '340px' : '0',
           }}
         >
           <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-          <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onSignIn}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:border-primary/20"
+              style={{
+                background: 'hsl(0 0% 100%)',
+                border: '1px solid hsl(0 0% 0% / 0.08)',
+              }}
+            >
+              <User className="w-4 h-4" />
+              <span>ورود / ثبت‌نام</span>
+            </button>
+            <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
+          </div>
         </div>
 
         {/* Hero Section - Centered Chat */}
@@ -318,6 +348,9 @@ export const ChatInterface = ({
           onAskAbout={handleAskAbout}
           cartItems={cartItems} 
         />
+
+        {/* Footer */}
+        <Footer onSupportClick={handleSupportClick} onSignInClick={onSignIn} />
 
         {/* Quick View Modal */}
         <ProductQuickViewModal

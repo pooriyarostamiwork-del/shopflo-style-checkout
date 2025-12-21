@@ -47,7 +47,7 @@ const BentoCard = ({
     border: '1px solid hsl(0 0% 100% / 0.08)',
     borderRadius: '20px',
     backdropFilter: 'blur(28px)',
-    opacity: 0.22,
+    opacity: 0.29,
     ...style,
   };
 
@@ -429,13 +429,13 @@ export const ChatInterface = ({
                 </div>
               </div>
 
-              {/* Product Cards - Bento Grid */}
+              {/* Product Cards - Fixed Size Grid */}
               {msg.products && msg.products.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mr-11">
+                <div className="flex flex-wrap gap-4 mr-11">
                   {msg.products.map((product) => (
                     <div
                       key={product.id}
-                      className="cursor-pointer"
+                      className="cursor-pointer flex-shrink-0"
                       onClick={() => setQuickViewProduct(product)}
                     >
                       <ProductCard

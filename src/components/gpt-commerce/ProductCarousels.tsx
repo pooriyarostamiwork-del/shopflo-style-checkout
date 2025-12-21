@@ -407,8 +407,7 @@ const CarouselSection = ({
 
       {/* Products Grid with Promo Banner */}
       <div className="flex gap-4">
-        {/* Scrollable Products - 4 visible at a time */}
-        {/* Promotional Banner - Fixed on left (appears first in RTL) */}
+        {/* Promotional Banner - Fixed on left (appears first in RTL) - NO divider above */}
         <div 
           className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
@@ -468,7 +467,7 @@ const CarouselSection = ({
             return (
               <div
                 key={product.id}
-                className="flex-shrink-0 w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
+                className="flex-shrink-0 w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
                 style={{
                   background: 'hsl(0 0% 100%)',
                   border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -476,15 +475,15 @@ const CarouselSection = ({
                 }}
                 onClick={() => onQuickView(product)}
               >
-                {/* Image with white background */}
+                {/* Image with white background - fixed height with aspect ratio */}
                 <div 
-                  className="relative aspect-square overflow-hidden"
+                  className="relative h-[180px] w-full overflow-hidden flex items-center justify-center"
                   style={{ background: 'hsl(0 0% 98%)' }}
                 >
                   <img
                     src={getProductImage(product.id, product.image)}
                     alt={product.name}
-                    className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
                   />
                   {discountPercent > 0 && (
                     <div 
@@ -504,8 +503,11 @@ const CarouselSection = ({
                   )}
                 </div>
 
+                {/* Divider between image and content */}
+                <div className="w-full h-px" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
+
                 {/* Content */}
-                <div className="p-3 space-y-2">
+                <div className="p-3 space-y-2 flex-1 flex flex-col">
                   <h4 className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
                     {product.name}
                   </h4>
@@ -529,8 +531,8 @@ const CarouselSection = ({
                     )}
                   </div>
 
-                  {/* Action Buttons - Bottom Left */}
-                  <div className="flex items-center gap-2 pt-1">
+                  {/* Action Buttons - Bottom */}
+                  <div className="flex items-center gap-2 pt-1 mt-auto">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -553,14 +555,15 @@ const CarouselSection = ({
                         e.stopPropagation();
                         onQuickView(product);
                       }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
                       style={{
                         background: 'hsl(0 0% 100%)',
                         border: '1px solid hsl(0 0% 0% / 0.08)',
                       }}
                       title={`جزئیات ${product.name}`}
                     >
-                      <Info className="w-4 h-4 text-muted-foreground" />
+                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">مشاهده جزئیات</span>
                     </button>
                   </div>
                 </div>

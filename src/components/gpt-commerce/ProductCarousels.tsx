@@ -405,7 +405,7 @@ const CarouselSection = ({
         {/* Scrollable Products - 4 visible at a time */}
         {/* Promotional Banner - Fixed on left (appears first in RTL) */}
         <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20"
+          className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20"
           style={{
             background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
             border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -430,10 +430,10 @@ const CarouselSection = ({
           </span>
         </div>
 
-        <div 
+        <div
           ref={scrollRef}
           onScroll={updateScrollState}
-          className="flex-1 grid grid-flow-col auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto scrollbar-hide pb-2"
+          className="flex-1 grid grid-flow-col auto-cols-[220px] gap-4 overflow-x-auto scrollbar-hide pb-2"
           style={{ 
             scrollbarWidth: 'none', 
             msOverflowStyle: 'none',
@@ -449,7 +449,7 @@ const CarouselSection = ({
             return (
               <div
                 key={product.id}
-                className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
+                className="flex-shrink-0 w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
                 style={{
                   background: 'hsl(0 0% 100%)',
                   border: '1px solid hsl(0 0% 0% / 0.08)',

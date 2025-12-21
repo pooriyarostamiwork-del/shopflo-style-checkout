@@ -9,6 +9,7 @@ import IndexFarsi from "./pages/IndexFarsi";
 import AgenticCheckout from "./pages/AgenticCheckout";
 import MerchantDashboard from "./pages/MerchantDashboard";
 import UniversalVersion from "./pages/UniversalVersion";
+import HomepagePanel from "./pages/HomepagePanel";
 import NotFound from "./pages/NotFound";
 import { FarsiLayout, EnglishLayout } from "./components/LanguageLayout";
 
@@ -36,6 +37,9 @@ const App = () => (
           
           {/* GPT Commerce - Conversational Shopping */}
           <Route path="/gptcommerce" element={<GPTCommerce />} />
+          
+          {/* Homepage Admin Panel */}
+          <Route path="/homepagepanel" element={<HomepagePanel />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

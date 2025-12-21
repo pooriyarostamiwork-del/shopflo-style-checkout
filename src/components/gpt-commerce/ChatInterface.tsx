@@ -43,7 +43,7 @@ const BentoCard = ({
     border: '1px solid hsl(0 0% 100% / 0.08)',
     borderRadius: '20px',
     backdropFilter: 'blur(28px)',
-    opacity: 0.14,
+    opacity: 0.22,
     ...style,
   };
 

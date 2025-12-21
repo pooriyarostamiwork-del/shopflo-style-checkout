@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { CartItem, Product, formatPersianPrice, toPersianNumber, recentlyViewed, favorites } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,9 +31,9 @@ export const RightPanel = ({
   const [notifyPriceDrop, setNotifyPriceDrop] = useState(false);
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode; count?: number }[] = [
-    { id: 'cart', label: 'سبد خرید', icon: <ShoppingCart className="w-4 h-4" />, count: cartItems.length },
-    { id: 'recent', label: 'اخیراً دیده‌شده', icon: <Eye className="w-4 h-4" /> },
-    { id: 'favorites', label: 'علاقه‌مندی‌ها', icon: <Heart className="w-4 h-4" /> },
+    { id: 'cart', label: 'سبد', icon: <ShoppingCart className="w-4 h-4" />, count: cartItems.length },
+    { id: 'recent', label: 'اخیر', icon: <Eye className="w-4 h-4" /> },
+    { id: 'favorites', label: 'علاقه‌مندی', icon: <Heart className="w-4 h-4" /> },
   ];
 
   const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -93,19 +93,8 @@ export const RightPanel = ({
             borderRight: '1px solid hsl(0 0% 100% / 0.3)'
           }}
         >
-          {/* Header with Close Button */}
-          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'hsl(0 0% 0% / 0.05)' }}>
-            <h2 className="font-semibold text-foreground">سبد خرید</h2>
-            <button
-              onClick={onToggle}
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/50 transition-colors"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          {/* Tab Bar - Glass Pills */}
-          <div className="p-3">
+          {/* Tab Bar - Glass Pills (No header title or close button) */}
+          <div className="p-3 pt-4">
             <div 
               className="flex rounded-xl p-1 gap-1 backdrop-blur-xl"
               style={{

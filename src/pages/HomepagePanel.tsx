@@ -4,61 +4,61 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Save, Image, Info, ExternalLink } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Save, Image, Info, ExternalLink, Flame, Heart, TrendingUp } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useHomepageSettings, BannerConfigs } from '@/contexts/HomepageSettingsContext';
 
-interface ProductImage {
-  id: number;
-  name: string;
-  imageUrl: string;
-}
+// Product definitions with IDs and names (matching ProductCarousels.tsx)
+const allProducts = {
+  hotDeals: [
+    { id: 'hd1', name: 'هدفون سونی WH-1000XM5' },
+    { id: 'hd2', name: 'ایرپاد پرو ۲' },
+    { id: 'hd3', name: 'ساعت هوشمند شیائومی' },
+    { id: 'hd4', name: 'پاوربانک انکر ۲۰۰۰۰' },
+    { id: 'hd5', name: 'اسپیکر بلوتوث JBL' },
+    { id: 'hd6', name: 'شارژر وایرلس سامسونگ' },
+    { id: 'hd7', name: 'کیس ایرپاد پرو' },
+  ],
+  youMayLike: [
+    { id: 'yl1', name: 'کیبورد مکانیکی لاجیتک' },
+    { id: 'yl2', name: 'ماوس گیمینگ ریزر' },
+    { id: 'yl3', name: 'هدفون بیتس Solo Pro' },
+    { id: 'yl4', name: 'ساعت اپل واچ سری ۹' },
+    { id: 'yl5', name: 'وب‌کم لاجیتک C920' },
+    { id: 'yl6', name: 'هاب USB-C انکر' },
+    { id: 'yl7', name: 'پد ماوس گیمینگ' },
+  ],
+  mostPopular: [
+    { id: 'mp1', name: 'گوشی سامسونگ S24' },
+    { id: 'mp2', name: 'لپ‌تاپ مک‌بوک ایر' },
+    { id: 'mp3', name: 'آیفون ۱۵ پرو مکس' },
+    { id: 'mp4', name: 'ایرپاد مکس' },
+    { id: 'mp5', name: 'تبلت آیپد پرو' },
+    { id: 'mp6', name: 'گوشی پیکسل ۸ پرو' },
+    { id: 'mp7', name: 'لپ‌تاپ ایسوس ROG' },
+  ],
+};
 
-interface BannerConfig {
-  imageUrl: string;
-  showText: boolean;
-  title: string;
-  subtitle: string;
-  ctaText: string;
-}
+const carouselInfo: { key: keyof BannerConfigs; label: string; icon: React.ReactNode }[] = [
+  { key: 'hotDeals', label: 'پیشنهادات ویژه', icon: <Flame className="w-4 h-4" /> },
+  { key: 'youMayLike', label: 'شاید بپسندید', icon: <Heart className="w-4 h-4" /> },
+  { key: 'mostPopular', label: 'محبوب‌ترین‌ها', icon: <TrendingUp className="w-4 h-4" /> },
+];
 
 const HomepagePanel = () => {
-  // Product images state
-  const [productImages, setProductImages] = useState<ProductImage[]>([
-    { id: 1, name: 'محصول ۱', imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400' },
-    { id: 2, name: 'محصول ۲', imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400' },
-    { id: 3, name: 'محصول ۳', imageUrl: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400' },
-    { id: 4, name: 'محصول ۴', imageUrl: 'https://images.unsplash.com/photo-1560343090-f0409e92791a?w=400' },
-    { id: 5, name: 'محصول ۵', imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400' },
-    { id: 6, name: 'محصول ۶', imageUrl: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400' },
-    { id: 7, name: 'محصول ۷', imageUrl: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400' },
-    { id: 8, name: 'محصول ۸', imageUrl: 'https://images.unsplash.com/photo-1434056886845-dbd39c1cc727?w=400' },
-  ]);
-
-  // Banner config state
-  const [bannerConfig, setBannerConfig] = useState<BannerConfig>({
-    imageUrl: '',
-    showText: true,
-    title: 'تخفیف ویژه',
-    subtitle: 'تا ۳۰٪',
-    ctaText: 'مشاهده همه',
-  });
-
-  const updateProductImage = (id: number, newUrl: string) => {
-    setProductImages(prev => 
-      prev.map(p => p.id === id ? { ...p, imageUrl: newUrl } : p)
-    );
-  };
+  const { settings, updateProductImage, updateBanner, getBanner } = useHomepageSettings();
+  const [activeCarousel, setActiveCarousel] = useState<keyof BannerConfigs>('hotDeals');
+  const [activeBannerTab, setActiveBannerTab] = useState<keyof BannerConfigs>('hotDeals');
 
   const handleSave = () => {
-    // In a real app, this would save to backend
-    console.log('Product Images:', productImages);
-    console.log('Banner Config:', bannerConfig);
     toast({
       title: 'ذخیره شد',
-      description: 'تغییرات با موفقیت ذخیره شدند',
+      description: 'تغییرات با موفقیت ذخیره شدند و در صفحه اصلی اعمال می‌شوند',
     });
   };
+
+  const currentBanner = getBanner(activeBannerTab);
 
   return (
     <div className="min-h-screen bg-muted/30 p-6" dir="rtl">
@@ -91,7 +91,7 @@ const HomepagePanel = () => {
               تصاویر محصولات
             </CardTitle>
             <CardDescription>
-              آدرس URL تصاویر محصولات را وارد کنید
+              آدرس URL تصاویر محصولات را وارد کنید - تغییرات فوری اعمال می‌شوند
             </CardDescription>
             {/* Size Guide */}
             <div className="flex items-center gap-2 mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
@@ -102,52 +102,72 @@ const HomepagePanel = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {productImages.map((product) => (
-                <div key={product.id} className="space-y-3 p-4 bg-background rounded-lg border">
-                  <Label className="text-sm font-medium">{product.name}</Label>
-                  
-                  {/* Image Preview */}
-                  <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
-                    {product.imageUrl ? (
-                      <img 
-                        src={product.imageUrl} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=خطا';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        <Image className="w-8 h-8" />
+            {/* Carousel Tabs */}
+            <Tabs value={activeCarousel} onValueChange={(v) => setActiveCarousel(v as keyof BannerConfigs)}>
+              <TabsList className="mb-4">
+                {carouselInfo.map(({ key, label, icon }) => (
+                  <TabsTrigger key={key} value={key} className="flex items-center gap-2">
+                    {icon}
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {carouselInfo.map(({ key }) => (
+                <TabsContent key={key} value={key}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {allProducts[key].map((product) => (
+                      <div key={product.id} className="space-y-3 p-4 bg-background rounded-lg border">
+                        <Label className="text-sm font-medium block truncate" title={product.name}>
+                          {product.name}
+                        </Label>
+                        <span className="text-xs text-muted-foreground">ID: {product.id}</span>
+                        
+                        {/* Image Preview */}
+                        <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
+                          {settings.productImages[product.id] ? (
+                            <img 
+                              src={settings.productImages[product.id]} 
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=خطا';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground flex-col gap-2">
+                              <Image className="w-8 h-8" />
+                              <span className="text-xs">تصویر پیش‌فرض</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* URL Input */}
+                        <Input
+                          placeholder="آدرس URL تصویر..."
+                          value={settings.productImages[product.id] || ''}
+                          onChange={(e) => updateProductImage(product.id, e.target.value)}
+                          className="text-xs"
+                          dir="ltr"
+                        />
                       </div>
-                    )}
+                    ))}
                   </div>
-                  
-                  {/* URL Input */}
-                  <Input
-                    placeholder="آدرس URL تصویر..."
-                    value={product.imageUrl}
-                    onChange={(e) => updateProductImage(product.id, e.target.value)}
-                    className="text-xs"
-                    dir="ltr"
-                  />
-                </div>
+                </TabsContent>
               ))}
-            </div>
+            </Tabs>
           </CardContent>
         </Card>
 
-        {/* Promotional Banner Section */}
+        {/* Promotional Banners Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Image className="w-5 h-5" />
-              بنر تبلیغاتی
+              بنرهای تبلیغاتی
             </CardTitle>
             <CardDescription>
-              تنظیمات بنر تبلیغاتی کنار کاروسل محصولات
+              تنظیمات بنر تبلیغاتی هر کاروسل - هر کاروسل بنر مخصوص خود را دارد
             </CardDescription>
             {/* Size Guide */}
             <div className="flex items-center gap-2 mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
@@ -157,112 +177,131 @@ const HomepagePanel = () => {
               </span>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Banner Preview */}
-              <div className="space-y-3">
-                <Label>پیش‌نمایش بنر</Label>
-                <div 
-                  className="w-[140px] h-[380px] rounded-xl overflow-hidden flex flex-col items-center justify-center text-center p-4 relative"
-                  style={{
-                    background: bannerConfig.imageUrl 
-                      ? `url(${bannerConfig.imageUrl}) center/cover`
-                      : 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
-                    border: '1px solid hsl(0 0% 0% / 0.08)',
-                  }}
-                >
-                  {/* Overlay for text readability */}
-                  {bannerConfig.imageUrl && bannerConfig.showText && (
-                    <div className="absolute inset-0 bg-black/30" />
-                  )}
-                  
-                  {/* Text Content */}
-                  {bannerConfig.showText && (
-                    <div className="relative z-10 space-y-2">
-                      <span 
-                        className="text-sm font-medium"
-                        style={{ color: bannerConfig.imageUrl ? 'white' : 'hsl(var(--primary))' }}
-                      >
-                        {bannerConfig.title}
-                      </span>
-                      <div 
-                        className="text-2xl font-bold"
-                        style={{ color: bannerConfig.imageUrl ? 'white' : 'hsl(var(--primary))' }}
-                      >
-                        {bannerConfig.subtitle}
+          <CardContent>
+            {/* Banner Selection Tabs */}
+            <Tabs value={activeBannerTab} onValueChange={(v) => setActiveBannerTab(v as keyof BannerConfigs)}>
+              <TabsList className="mb-6">
+                {carouselInfo.map(({ key, label, icon }) => (
+                  <TabsTrigger key={key} value={key} className="flex items-center gap-2">
+                    {icon}
+                    بنر {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {carouselInfo.map(({ key, label }) => {
+                const banner = getBanner(key);
+                return (
+                  <TabsContent key={key} value={key}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Banner Preview */}
+                      <div className="space-y-3">
+                        <Label>پیش‌نمایش بنر {label}</Label>
+                        <div 
+                          className="w-[140px] h-[380px] rounded-xl overflow-hidden flex flex-col items-center justify-center text-center p-4 relative"
+                          style={{
+                            background: banner.imageUrl 
+                              ? `url(${banner.imageUrl}) center/cover`
+                              : 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
+                            border: '1px solid hsl(0 0% 0% / 0.08)',
+                          }}
+                        >
+                          {/* Overlay for text readability */}
+                          {banner.imageUrl && banner.showText && (
+                            <div className="absolute inset-0 bg-black/30" />
+                          )}
+                          
+                          {/* Text Content */}
+                          {banner.showText && (
+                            <div className="relative z-10 space-y-2">
+                              <span 
+                                className="text-sm font-medium"
+                                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--primary))' }}
+                              >
+                                {banner.title}
+                              </span>
+                              <div 
+                                className="text-2xl font-bold"
+                                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--primary))' }}
+                              >
+                                {banner.subtitle}
+                              </div>
+                              <span 
+                                className="text-xs underline"
+                                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--muted-foreground))' }}
+                              >
+                                {banner.ctaText}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span 
-                        className="text-xs underline"
-                        style={{ color: bannerConfig.imageUrl ? 'white' : 'hsl(var(--muted-foreground))' }}
-                      >
-                        {bannerConfig.ctaText}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Banner Settings */}
-              <div className="space-y-4">
-                {/* Image URL */}
-                <div className="space-y-2">
-                  <Label>آدرس URL تصویر بنر (اختیاری)</Label>
-                  <Input
-                    placeholder="https://example.com/banner.jpg"
-                    value={bannerConfig.imageUrl}
-                    onChange={(e) => setBannerConfig(prev => ({ ...prev, imageUrl: e.target.value }))}
-                    dir="ltr"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    اگر خالی باشد، از گرادیان پیش‌فرض استفاده می‌شود
-                  </p>
-                </div>
+                      {/* Banner Settings */}
+                      <div className="space-y-4">
+                        {/* Image URL */}
+                        <div className="space-y-2">
+                          <Label>آدرس URL تصویر بنر (اختیاری)</Label>
+                          <Input
+                            placeholder="https://example.com/banner.jpg"
+                            value={banner.imageUrl}
+                            onChange={(e) => updateBanner(key, { imageUrl: e.target.value })}
+                            dir="ltr"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            اگر خالی باشد، از گرادیان پیش‌فرض استفاده می‌شود
+                          </p>
+                        </div>
 
-                {/* Show Text Toggle */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label>نمایش متن روی بنر</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      اگر غیرفعال شود، فقط تصویر نمایش داده می‌شود
-                    </p>
-                  </div>
-                  <Switch
-                    checked={bannerConfig.showText}
-                    onCheckedChange={(checked) => setBannerConfig(prev => ({ ...prev, showText: checked }))}
-                  />
-                </div>
+                        {/* Show Text Toggle */}
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <Label>نمایش متن روی بنر</Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              اگر غیرفعال شود، فقط تصویر نمایش داده می‌شود
+                            </p>
+                          </div>
+                          <Switch
+                            checked={banner.showText}
+                            onCheckedChange={(checked) => updateBanner(key, { showText: checked })}
+                          />
+                        </div>
 
-                {/* Text Fields */}
-                {bannerConfig.showText && (
-                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
-                    <div className="space-y-2">
-                      <Label>عنوان</Label>
-                      <Input
-                        placeholder="تخفیف ویژه"
-                        value={bannerConfig.title}
-                        onChange={(e) => setBannerConfig(prev => ({ ...prev, title: e.target.value }))}
-                      />
+                        {/* Text Fields */}
+                        {banner.showText && (
+                          <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
+                            <div className="space-y-2">
+                              <Label>عنوان</Label>
+                              <Input
+                                placeholder="تخفیف ویژه"
+                                value={banner.title}
+                                onChange={(e) => updateBanner(key, { title: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>زیرعنوان</Label>
+                              <Input
+                                placeholder="تا ۳۰٪"
+                                value={banner.subtitle}
+                                onChange={(e) => updateBanner(key, { subtitle: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>متن دکمه</Label>
+                              <Input
+                                placeholder="مشاهده همه"
+                                value={banner.ctaText}
+                                onChange={(e) => updateBanner(key, { ctaText: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>زیرعنوان</Label>
-                      <Input
-                        placeholder="تا ۳۰٪"
-                        value={bannerConfig.subtitle}
-                        onChange={(e) => setBannerConfig(prev => ({ ...prev, subtitle: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>متن دکمه</Label>
-                      <Input
-                        placeholder="مشاهده همه"
-                        value={bannerConfig.ctaText}
-                        onChange={(e) => setBannerConfig(prev => ({ ...prev, ctaText: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -272,7 +311,7 @@ const HomepagePanel = () => {
             <div className="flex items-start gap-3">
               <Info className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div className="text-sm text-muted-foreground space-y-1">
-                <p><strong>نکته:</strong> برای بهترین نتیجه از تصاویر با کیفیت بالا و پس‌زمینه سفید یا شفاف استفاده کنید.</p>
+                <p><strong>نکته:</strong> تغییرات به صورت خودکار در localStorage ذخیره می‌شوند و بلافاصله در صفحه اصلی اعمال می‌شوند.</p>
                 <p>تصاویر می‌توانند از سرویس‌هایی مانند Unsplash، Cloudinary یا سرور شخصی شما باشند.</p>
               </div>
             </div>

@@ -1,6 +1,8 @@
-import { X, ShoppingCart, Star, Truck, Shield, MessageCircle } from "lucide-react";
+import { useState } from "react";
+import { X, ShoppingCart, Star, Truck, Shield, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
+import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 interface ProductQuickViewModalProps {
   product: Product | null;
@@ -19,11 +21,26 @@ export const ProductQuickViewModal = ({
   onAskAbout,
   isInCart,
 }: ProductQuickViewModalProps) => {
+  const { getProductImage } = useHomepageSettings();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
   if (!isOpen || !product) return null;
 
   const discountPercent = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
+
+  // Generate multiple images for the slider (using the same image with variations for demo)
+  const productImage = getProductImage(product.id, product.image);
+  const images = [productImage]; // Single image, but slider is ready for multiple
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div 
@@ -76,18 +93,60 @@ export const ProductQuickViewModal = ({
         </button>
 
         <div className="flex flex-col md:flex-row">
-          {/* Product Image */}
-          <div className="relative w-full md:w-1/2 h-64 md:h-auto">
+          {/* Product Image Slider */}
+          <div className="relative w-full md:w-1/2">
             <div 
-              className="w-full h-full min-h-[280px]"
-              style={{ background: 'hsl(0 0% 98%)' }}
+              className="w-full min-h-[320px] rounded-tl-2xl rounded-bl-2xl overflow-hidden flex items-center justify-center p-4"
+              style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.04)' }}
             >
               <img
-                src={product.image}
+                src={images[currentImageIndex]}
                 alt={product.name}
-                className="w-full h-full object-contain p-6"
+                className="w-full h-full object-contain max-h-[280px]"
               />
             </div>
+            
+            {/* Slider Controls - only show if multiple images */}
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={handlePrevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                  style={{
+                    background: 'hsl(0 0% 100% / 0.9)',
+                    border: '1px solid hsl(0 0% 0% / 0.08)',
+                  }}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleNextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                  style={{
+                    background: 'hsl(0 0% 100% / 0.9)',
+                    border: '1px solid hsl(0 0% 0% / 0.08)',
+                  }}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                
+                {/* Dots Indicator */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className="w-2 h-2 rounded-full transition-all duration-200"
+                      style={{
+                        background: index === currentImageIndex 
+                          ? 'hsl(var(--primary))' 
+                          : 'hsl(0 0% 0% / 0.2)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
             
             {/* Discount Badge */}
             {discountPercent > 0 && (

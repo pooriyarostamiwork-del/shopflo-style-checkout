@@ -1,6 +1,7 @@
-import { Truck, Star, ShieldCheck, Plus, GitCompare } from "lucide-react";
+import { Truck, Star, ShieldCheck, Plus, Info } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
+import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 interface ProductCardProps {
   product: Product;
@@ -10,93 +11,104 @@ interface ProductCardProps {
 }
 
 export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: ProductCardProps) => {
+  const { getProductImage } = useHomepageSettings();
+  
   return (
     <div 
-      className="bg-white border border-[#E5E7EB] rounded-2xl p-3 hover:shadow-lg transition-all duration-200 group"
+      className="w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col"
+      style={{
+        background: 'hsl(0 0% 100%)',
+        border: '1px solid hsl(0 0% 0% / 0.08)',
+      }}
       dir="rtl"
     >
-      {/* Image */}
-      <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-gray-100">
+      {/* Image - Fixed height with proper fitting */}
+      <div 
+        className="relative h-[180px] w-full overflow-hidden flex items-center justify-center"
+        style={{ background: 'hsl(0 0% 98%)' }}
+      >
         <img 
-          src={product.image} 
+          src={getProductImage(product.id, product.image)} 
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
         />
         {product.originalPrice && (
-          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-            {toPersianNumber(Math.round((1 - product.price / product.originalPrice) * 100))}% تخفیف
+          <div 
+            className="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+          >
+            {toPersianNumber(Math.round((1 - product.price / product.originalPrice) * 100))}٪
+          </div>
+        )}
+        {product.fastDelivery && (
+          <div 
+            className="absolute top-2 left-2 px-2 py-1 rounded-lg text-xs text-white"
+            style={{ background: 'hsl(142 70% 45% / 0.9)' }}
+          >
+            ارسال سریع
           </div>
         )}
       </div>
 
-      {/* Info */}
-      <div className="space-y-2">
-        <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-relaxed">
+      {/* Divider between image and content */}
+      <div className="w-full h-px" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
+
+      {/* Content */}
+      <div className="p-3 space-y-2 flex-1 flex flex-col">
+        <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
           {product.name}
         </h4>
 
-        {/* Merchant */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <span>{product.merchant.logo}</span>
-          <span>{product.merchant.name}</span>
-        </div>
-
-        {/* Badges */}
-        <div className="flex flex-wrap gap-1.5">
-          {product.fastDelivery && (
-            <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
-              <Truck className="w-3 h-3" />
-              ارسال سریع
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
-            <Star className="w-3 h-3 fill-amber-500" />
-            {toPersianNumber(product.rating)}
-          </span>
-          {product.returnGuarantee && (
-            <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-              <ShieldCheck className="w-3 h-3" />
-              ضمانت بازگشت
-            </span>
-          )}
+        {/* Rating & Merchant */}
+        <div className="flex items-center gap-1">
+          <span className="text-yellow-500 text-xs">⭐</span>
+          <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
+          <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
         </div>
 
         {/* Price */}
-        <div className="pt-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-foreground">
+            {formatPersianPrice(product.price)}
+          </span>
           {product.originalPrice && (
-            <span className="text-xs text-muted-foreground line-through block">
+            <span className="text-xs text-muted-foreground line-through">
               {formatPersianPrice(product.originalPrice)}
             </span>
           )}
-          <span className="font-bold text-primary">
-            {formatPersianPrice(product.price)}
-          </span>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        {/* Actions - Bottom */}
+        <div className="flex items-center gap-2 pt-1 mt-auto">
           <Button
-            onClick={() => onAddToCart(product)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(product);
+            }}
             disabled={isInCart}
-            className="flex-1 h-9 text-xs rounded-xl"
-            variant={isInCart ? "secondary" : "default"}
+            className="w-8 h-8 rounded-full p-0"
+            style={{
+              background: isInCart 
+                ? 'hsl(142 70% 45%)' 
+                : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+            }}
           >
-            {isInCart ? (
-              'در سبد خرید'
-            ) : (
-              <>
-                <Plus className="w-3 h-3 ml-1" />
-                افزودن به سبد
-              </>
-            )}
+            <Plus className="w-4 h-4 text-white" />
           </Button>
-          <Button
-            onClick={() => onCompare(product)}
-            variant="outline"
-            className="h-9 px-3 rounded-xl"
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCompare(product);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
+            style={{
+              background: 'hsl(0 0% 100%)',
+              border: '1px solid hsl(0 0% 0% / 0.08)',
+            }}
           >
-            <GitCompare className="w-4 h-4" />
-          </Button>
+            <Info className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">مشاهده جزئیات</span>
+          </button>
         </div>
       </div>
     </div>

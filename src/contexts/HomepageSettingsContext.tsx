@@ -5,13 +5,19 @@ export interface ProductImageOverride {
   [productId: string]: string;
 }
 
-// Banner configuration
+// Banner configuration (vertical side banners)
 export interface BannerConfig {
   imageUrl: string;
   showText: boolean;
   title: string;
   subtitle: string;
   ctaText: string;
+}
+
+// Horizontal promotional banner between carousels
+export interface HorizontalBannerConfig {
+  imageUrl: string;
+  enabled: boolean;
 }
 
 // All banners by carousel key
@@ -21,17 +27,26 @@ export interface BannerConfigs {
   mostPopular: BannerConfig;
 }
 
+// Horizontal banners by position
+export interface HorizontalBannerConfigs {
+  afterHotDeals: HorizontalBannerConfig;
+  afterYouMayLike: HorizontalBannerConfig;
+}
+
 export interface HomepageSettings {
   productImages: ProductImageOverride;
   banners: BannerConfigs;
+  horizontalBanners: HorizontalBannerConfigs;
 }
 
 interface HomepageSettingsContextType {
   settings: HomepageSettings;
   updateProductImage: (productId: string, imageUrl: string) => void;
   updateBanner: (carouselKey: keyof BannerConfigs, config: Partial<BannerConfig>) => void;
+  updateHorizontalBanner: (position: keyof HorizontalBannerConfigs, config: Partial<HorizontalBannerConfig>) => void;
   getProductImage: (productId: string, defaultImage: string) => string;
   getBanner: (carouselKey: keyof BannerConfigs) => BannerConfig;
+  getHorizontalBanner: (position: keyof HorizontalBannerConfigs) => HorizontalBannerConfig;
 }
 
 const defaultBannerConfig: BannerConfig = {
@@ -42,12 +57,21 @@ const defaultBannerConfig: BannerConfig = {
   ctaText: 'مشاهده همه',
 };
 
+const defaultHorizontalBannerConfig: HorizontalBannerConfig = {
+  imageUrl: '',
+  enabled: true,
+};
+
 const defaultSettings: HomepageSettings = {
   productImages: {},
   banners: {
     hotDeals: { ...defaultBannerConfig, title: '🔥 پیشنهاد ویژه', subtitle: 'تا ۴۰٪' },
     youMayLike: { ...defaultBannerConfig, title: '💎 انتخاب ما', subtitle: 'محصولات برتر' },
     mostPopular: { ...defaultBannerConfig, title: '⭐ پرفروش‌ها', subtitle: 'بهترین‌ها' },
+  },
+  horizontalBanners: {
+    afterHotDeals: { ...defaultHorizontalBannerConfig },
+    afterYouMayLike: { ...defaultHorizontalBannerConfig },
   },
 };
 
@@ -99,6 +123,19 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     }));
   };
 
+  const updateHorizontalBanner = (position: keyof HorizontalBannerConfigs, config: Partial<HorizontalBannerConfig>) => {
+    setSettings(prev => ({
+      ...prev,
+      horizontalBanners: {
+        ...prev.horizontalBanners,
+        [position]: {
+          ...prev.horizontalBanners[position],
+          ...config,
+        },
+      },
+    }));
+  };
+
   const getProductImage = (productId: string, defaultImage: string): string => {
     return settings.productImages[productId] || defaultImage;
   };
@@ -107,13 +144,19 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     return settings.banners[carouselKey] || defaultBannerConfig;
   };
 
+  const getHorizontalBanner = (position: keyof HorizontalBannerConfigs): HorizontalBannerConfig => {
+    return settings.horizontalBanners?.[position] || defaultHorizontalBannerConfig;
+  };
+
   return (
     <HomepageSettingsContext.Provider value={{
       settings,
       updateProductImage,
       updateBanner,
+      updateHorizontalBanner,
       getProductImage,
       getBanner,
+      getHorizontalBanner,
     }}>
       {children}
     </HomepageSettingsContext.Provider>

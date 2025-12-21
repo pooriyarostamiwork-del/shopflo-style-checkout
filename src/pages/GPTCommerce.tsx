@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Sidebar } from "@/components/gpt-commerce/Sidebar";
 import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
@@ -24,6 +24,13 @@ const GPTCommerceContent = () => {
   const [activeSection, setActiveSection] = useState('active-cart');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Open cart by default when chat has started (query page)
+  useEffect(() => {
+    if (hasStartedChat) {
+      setIsCartOpen(true);
+    }
+  }, [hasStartedChat]);
 
   const handleStartChat = useCallback(() => {
     setHasStartedChat(true);

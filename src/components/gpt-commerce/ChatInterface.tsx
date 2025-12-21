@@ -28,6 +28,56 @@ const placeholderTexts = [
   "«خودت برام خرید کن»",
 ];
 
+// Bento background cards for soft commerce context
+const BentoCard = ({ 
+  type, 
+  className = "",
+  style = {}
+}: { 
+  type: 'product' | 'discount' | 'cart';
+  className?: string;
+  style?: React.CSSProperties;
+}) => {
+  const baseStyle: React.CSSProperties = {
+    background: 'hsl(0 0% 100% / 0.04)',
+    border: '1px solid hsl(0 0% 100% / 0.08)',
+    borderRadius: '20px',
+    backdropFilter: 'blur(28px)',
+    opacity: 0.08,
+    ...style,
+  };
+
+  if (type === 'product') {
+    return (
+      <div className={`absolute ${className}`} style={{ ...baseStyle, width: '140px', height: '180px' }}>
+        <div className="w-full h-24 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+        <div className="p-3 space-y-2">
+          <div className="h-3 bg-foreground/20 rounded w-3/4" />
+          <div className="h-2 bg-foreground/10 rounded w-1/2" />
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'discount') {
+    return (
+      <div className={`absolute ${className}`} style={{ ...baseStyle, width: '100px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="text-xs text-foreground/30">٪۱۰ تخفیف</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`absolute ${className}`} style={{ ...baseStyle, width: '160px', height: '48px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px' }}>
+      <div className="w-8 h-8 rounded-lg bg-foreground/10" />
+      <div className="flex-1 space-y-1">
+        <div className="h-2 bg-foreground/15 rounded w-1/2" />
+        <div className="h-2 bg-foreground/10 rounded w-3/4" />
+      </div>
+    </div>
+  );
+};
+
 export const ChatInterface = ({
   messages,
   onSendMessage,
@@ -114,12 +164,13 @@ export const ChatInterface = ({
         className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-background via-background to-primary/5 overflow-y-auto" 
         dir="rtl"
       >
-        {/* Fixed Top Bar */}
+        {/* Fixed Top Bar - adjusts with cart */}
         <div 
-          className="sticky top-0 z-20 p-4 flex items-center justify-between backdrop-blur-xl"
+          className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
           style={{
-            background: 'hsl(0 0% 100% / 0.8)',
-            borderBottom: '1px solid hsl(0 0% 0% / 0.05)',
+            background: 'hsl(0 0% 100% / 0.9)',
+            borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
+            marginLeft: isCartOpen ? '340px' : '0',
           }}
         >
           <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
@@ -127,15 +178,20 @@ export const ChatInterface = ({
         </div>
 
         {/* Hero Section - Centered Chat */}
-        <div className="flex flex-col items-center justify-center min-h-[50vh] py-12 px-6">
+        <div className="relative flex flex-col items-center justify-center min-h-[50vh] py-12 px-6">
+          {/* Bento Background Cards */}
+          <BentoCard type="product" className="top-8 right-[10%] animate-float-slow" style={{ animationDelay: '0s', animationDuration: '25s' }} />
+          <BentoCard type="discount" className="top-24 left-[12%] animate-float-slow" style={{ animationDelay: '2s', animationDuration: '22s', transform: 'rotate(-2deg)' }} />
+          <BentoCard type="cart" className="bottom-16 right-[8%] animate-float-slow" style={{ animationDelay: '4s', animationDuration: '28s', transform: 'rotate(1deg)' }} />
+          <BentoCard type="product" className="bottom-24 left-[10%] animate-float-slow" style={{ animationDelay: '6s', animationDuration: '24s', transform: 'rotate(2deg)' }} />
+          
           {/* Logo & Welcome */}
-          <div className="flex flex-col items-center gap-6 mb-8">
+          <div className="relative z-10 flex flex-col items-center gap-6 mb-8">
             <div 
-              className="w-20 h-20 rounded-2xl flex items-center justify-center backdrop-blur-xl"
+              className="w-20 h-20 rounded-2xl flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
-                boxShadow: '0 8px 32px hsl(var(--primary) / 0.2), inset 0 1px 0 hsl(0 0% 100% / 0.3)',
-                border: '1px solid hsl(0 0% 100% / 0.2)'
+                background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.08))',
+                border: '1px solid hsl(0 0% 0% / 0.06)'
               }}
             >
               <Zap className="w-10 h-10 text-primary" />
@@ -147,16 +203,13 @@ export const ChatInterface = ({
           </div>
 
           {/* Centered Glass Chatbox */}
-          <div className="w-full max-w-[720px] mx-auto">
+          <div className="relative z-10 w-full max-w-[720px] mx-auto">
             <form onSubmit={handleSubmit}>
               <div 
-                className={`relative rounded-[20px] backdrop-blur-xl overflow-hidden transition-all duration-300 ${isIdle ? 'animate-breathing animate-glow-pulse' : ''}`}
+                className={`relative rounded-xl overflow-hidden transition-all duration-300 ${isIdle ? 'animate-breathing' : ''}`}
                 style={{
-                  background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7))',
-                  boxShadow: isFocused 
-                    ? '0 8px 40px rgba(0, 0, 0, 0.12), 0 0 80px hsl(var(--primary) / 0.15), inset 0 1px 0 hsl(0 0% 100% / 0.5)'
-                    : '0 8px 40px rgba(0, 0, 0, 0.08), 0 0 60px hsl(var(--primary) / 0.1), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
-                  border: '1px solid hsl(0 0% 100% / 0.3)'
+                  background: 'hsl(0 0% 100%)',
+                  border: '1px solid hsl(0 0% 0% / 0.08)',
                 }}
               >
                 <div className="relative flex items-end gap-3 p-4">
@@ -179,13 +232,12 @@ export const ChatInterface = ({
                       style={{ lineHeight: '1.6' }}
                       dir="rtl"
                     />
-                    {/* Animated placeholder - RTL aligned */}
+                    {/* Animated placeholder - RTL aligned with typing effect */}
                     {!inputValue && (
-                      <div className="absolute inset-0 flex items-center pointer-events-none px-3 py-4" dir="rtl">
+                      <div className="absolute inset-0 flex items-center pointer-events-none px-3 py-4 overflow-hidden" dir="rtl">
                         <span 
                           key={placeholderIndex}
-                          className="text-muted-foreground/60 text-base animate-fade-in text-right w-full"
-                          style={{ animationDuration: '300ms' }}
+                          className="text-muted-foreground/50 text-base text-right w-full animate-typing-rtl"
                         >
                           {placeholderTexts[placeholderIndex]}
                         </span>
@@ -198,10 +250,10 @@ export const ChatInterface = ({
                     {/* File Upload */}
                     <button
                       type="button"
-                      className="w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 hover:scale-110"
+                      className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
                       style={{
-                        background: 'hsl(0 0% 100% / 0.6)',
-                        border: '1px solid hsl(0 0% 0% / 0.08)',
+                        background: 'hsl(0 0% 98%)',
+                        border: '1px solid hsl(0 0% 0% / 0.06)',
                       }}
                       title="ارسال فایل"
                     >
@@ -211,10 +263,10 @@ export const ChatInterface = ({
                     {/* Voice Message */}
                     <button
                       type="button"
-                      className="w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 hover:scale-110"
+                      className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
                       style={{
-                        background: 'hsl(0 0% 100% / 0.6)',
-                        border: '1px solid hsl(0 0% 0% / 0.08)',
+                        background: 'hsl(0 0% 98%)',
+                        border: '1px solid hsl(0 0% 0% / 0.06)',
                       }}
                       title="پیام صوتی"
                     >
@@ -226,9 +278,6 @@ export const ChatInterface = ({
                       type="submit"
                       disabled={!inputValue.trim()}
                       className="h-10 w-10 rounded-xl bg-primary hover:bg-primary/90 transition-all duration-300"
-                      style={{
-                        boxShadow: inputValue.trim() ? '0 4px 20px hsl(var(--primary) / 0.4)' : 'none'
-                      }}
                     >
                       <ArrowUp className="w-5 h-5" />
                     </Button>
@@ -249,11 +298,10 @@ export const ChatInterface = ({
                       setInputValue(action.action);
                     }
                   }}
-                  className="text-sm px-4 py-2 rounded-full backdrop-blur-xl transition-all duration-300 hover:scale-105"
+                  className="text-sm px-4 py-2 rounded-xl transition-all duration-200 hover:border-primary/20"
                   style={{
-                    background: 'hsl(0 0% 100% / 0.6)',
-                    border: '1px solid hsl(0 0% 100% / 0.3)',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)'
+                    background: 'hsl(0 0% 100%)',
+                    border: '1px solid hsl(0 0% 0% / 0.08)',
                   }}
                 >
                   {action.label}
@@ -291,15 +339,15 @@ export const ChatInterface = ({
       dir="rtl"
       style={{
         marginLeft: isCartOpen ? '340px' : '0',
-        transition: 'margin-left 0.5s ease-out'
+        transition: 'margin-left 0.3s ease-out'
       }}
     >
-      {/* Fixed Top Bar */}
+      {/* Fixed Top Bar - adjusts with cart */}
       <div 
-        className="sticky top-0 z-20 p-4 flex items-center justify-between backdrop-blur-xl"
+        className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
         style={{
-          background: 'hsl(0 0% 100% / 0.8)',
-          borderBottom: '1px solid hsl(0 0% 0% / 0.05)',
+          background: 'hsl(0 0% 100% / 0.9)',
+          borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
         }}
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
@@ -321,27 +369,25 @@ export const ChatInterface = ({
               >
                 {msg.role === 'assistant' && (
                   <div 
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-xl"
+                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                     style={{
                       background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
-                      boxShadow: '0 4px 16px hsl(var(--primary) / 0.3)'
                     }}
                   >
                     <Zap className="w-4 h-4 text-white" />
                   </div>
                 )}
                 <div
-                  className={`max-w-[70%] px-4 py-3 backdrop-blur-xl ${
+                  className={`max-w-[70%] px-4 py-3 ${
                     msg.role === 'user'
                       ? 'rounded-[16px_16px_4px_16px]'
                       : 'rounded-[16px_16px_16px_4px]'
                   }`}
                   style={{
                     background: msg.role === 'user' 
-                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.1))'
-                      : 'hsl(0 0% 100% / 0.7)',
-                    border: '1px solid hsl(0 0% 100% / 0.3)',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.3)'
+                      ? 'hsl(var(--primary) / 0.1)'
+                      : 'hsl(0 0% 100%)',
+                    border: '1px solid hsl(0 0% 0% / 0.06)',
                   }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
@@ -354,13 +400,18 @@ export const ChatInterface = ({
               {msg.products && msg.products.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mr-11">
                   {msg.products.map((product) => (
-                    <ProductCard
+                    <div
                       key={product.id}
-                      product={product}
-                      onAddToCart={onAddToCart}
-                      onCompare={onCompare}
-                      isInCart={cartItems.some(item => item.id === product.id)}
-                    />
+                      className="cursor-pointer"
+                      onClick={() => setQuickViewProduct(product)}
+                    >
+                      <ProductCard
+                        product={product}
+                        onAddToCart={onAddToCart}
+                        onCompare={onCompare}
+                        isInCart={cartItems.some(item => item.id === product.id)}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -374,16 +425,15 @@ export const ChatInterface = ({
                 className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
                   background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
-                  boxShadow: '0 4px 16px hsl(var(--primary) / 0.3)'
                 }}
               >
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <div 
-                className="rounded-[16px_16px_16px_4px] px-4 py-3 backdrop-blur-xl"
+                className="rounded-[16px_16px_16px_4px] px-4 py-3"
                 style={{
-                  background: 'hsl(0 0% 100% / 0.7)',
-                  border: '1px solid hsl(0 0% 100% / 0.3)'
+                  background: 'hsl(0 0% 100%)',
+                  border: '1px solid hsl(0 0% 0% / 0.06)',
                 }}
               >
                 <div className="flex gap-1">
@@ -399,21 +449,20 @@ export const ChatInterface = ({
         </div>
       </div>
 
-      {/* Bottom Input Area - Glass Effect */}
+      {/* Bottom Input Area */}
       <div 
-        className="border-t backdrop-blur-xl"
+        className="border-t"
         style={{
-          background: 'hsl(0 0% 100% / 0.9)',
-          borderColor: 'hsl(0 0% 100% / 0.3)'
+          background: 'hsl(0 0% 100%)',
+          borderColor: 'hsl(0 0% 0% / 0.06)',
         }}
       >
         <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto p-4">
           <div 
-            className="flex items-end gap-3 p-3 rounded-2xl backdrop-blur-xl"
+            className="flex items-end gap-3 p-3 rounded-xl"
             style={{
-              background: 'hsl(0 0% 100% / 0.5)',
-              border: '1px solid hsl(0 0% 100% / 0.3)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.5)'
+              background: 'hsl(0 0% 100%)',
+              border: '1px solid hsl(0 0% 0% / 0.08)',
             }}
           >
             <textarea
@@ -436,10 +485,10 @@ export const ChatInterface = ({
             <div className="flex items-center gap-2 pb-1">
               <button
                 type="button"
-                className="w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 hover:scale-110"
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
                 style={{
-                  background: 'hsl(0 0% 100% / 0.6)',
-                  border: '1px solid hsl(0 0% 0% / 0.08)',
+                  background: 'hsl(0 0% 98%)',
+                  border: '1px solid hsl(0 0% 0% / 0.06)',
                 }}
                 title="ارسال فایل"
               >
@@ -448,10 +497,10 @@ export const ChatInterface = ({
               
               <button
                 type="button"
-                className="w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 hover:scale-110"
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
                 style={{
-                  background: 'hsl(0 0% 100% / 0.6)',
-                  border: '1px solid hsl(0 0% 0% / 0.08)',
+                  background: 'hsl(0 0% 98%)',
+                  border: '1px solid hsl(0 0% 0% / 0.06)',
                 }}
                 title="پیام صوتی"
               >
@@ -462,9 +511,6 @@ export const ChatInterface = ({
                 type="submit"
                 disabled={!inputValue.trim() || isProcessing}
                 className="h-10 w-10 rounded-xl"
-                style={{
-                  boxShadow: inputValue.trim() ? '0 4px 16px hsl(var(--primary) / 0.3)' : 'none'
-                }}
               >
                 <ArrowUp className="w-5 h-5" />
               </Button>

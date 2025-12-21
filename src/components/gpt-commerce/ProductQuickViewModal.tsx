@@ -32,17 +32,16 @@ export const ProductQuickViewModal = ({
     >
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'hsl(0 0% 0% / 0.4)' }}
+        className="absolute inset-0"
+        style={{ background: 'hsl(0 0% 0% / 0.4)', backdropFilter: 'blur(4px)' }}
       />
 
       {/* Modal */}
       <div 
-        className="relative w-full max-w-2xl rounded-3xl backdrop-blur-xl overflow-hidden animate-scale-in"
+        className="relative w-full max-w-2xl rounded-2xl overflow-hidden animate-scale-in"
         style={{
-          background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.95), hsl(0 0% 100% / 0.9))',
-          border: '1px solid hsl(0 0% 100% / 0.3)',
-          boxShadow: '0 24px 80px rgba(0, 0, 0, 0.15)',
+          background: 'hsl(0 0% 100%)',
+          border: '1px solid hsl(0 0% 0% / 0.08)',
         }}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
@@ -50,10 +49,10 @@ export const ProductQuickViewModal = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 left-4 z-10 w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl transition-all duration-200 hover:scale-110"
+          className="absolute top-4 left-4 z-10 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110"
           style={{
-            background: 'hsl(0 0% 100% / 0.8)',
-            border: '1px solid hsl(0 0% 100% / 0.3)',
+            background: 'hsl(0 0% 100%)',
+            border: '1px solid hsl(0 0% 0% / 0.08)',
           }}
         >
           <X className="w-5 h-5 text-foreground" />
@@ -175,7 +174,6 @@ export const ProductQuickViewModal = ({
                   background: isInCart 
                     ? 'hsl(142 70% 45%)' 
                     : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                  boxShadow: isInCart ? 'none' : '0 4px 16px hsl(var(--primary) / 0.3)',
                 }}
               >
                 <ShoppingCart className="w-4 h-4 ml-2" />
@@ -185,10 +183,10 @@ export const ProductQuickViewModal = ({
               <Button
                 onClick={() => onAskAbout(product.name)}
                 variant="outline"
-                className="h-12 px-4 rounded-xl text-sm font-medium backdrop-blur-xl"
+                className="h-12 px-4 rounded-xl text-sm font-medium"
                 style={{
-                  background: 'hsl(0 0% 100% / 0.5)',
-                  border: '1px solid hsl(0 0% 0% / 0.1)',
+                  background: 'hsl(0 0% 100%)',
+                  border: '1px solid hsl(0 0% 0% / 0.08)',
                 }}
               >
                 <MessageCircle className="w-4 h-4 ml-2" />

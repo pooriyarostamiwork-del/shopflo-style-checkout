@@ -212,7 +212,10 @@ const CarouselSection = ({
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 280;
+      // Scroll by card width + gap
+      const cardWidth = 220;
+      const gap = 16;
+      const scrollAmount = cardWidth + gap;
       scrollRef.current.scrollBy({
         left: direction === 'right' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
@@ -254,10 +257,10 @@ const CarouselSection = ({
               style={{
                 background: activeFilter === category 
                   ? 'hsl(var(--primary) / 0.1)' 
-                  : 'hsl(0 0% 100% / 0.6)',
+                  : 'transparent',
                 border: activeFilter === category 
                   ? '1px solid hsl(var(--primary) / 0.2)' 
-                  : '1px solid transparent',
+                  : '1px solid hsl(0 0% 0% / 0.06)',
               }}
             >
               {category}
@@ -273,10 +276,10 @@ const CarouselSection = ({
           <button
             onClick={() => scroll('left')}
             disabled={!canScrollLeft}
-            className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 disabled:opacity-30"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-30"
             style={{
-              background: 'hsl(0 0% 100% / 0.7)',
-              border: '1px solid hsl(0 0% 100% / 0.3)',
+              background: 'hsl(0 0% 100%)',
+              border: '1px solid hsl(0 0% 0% / 0.08)',
             }}
           >
             <ChevronRight className="w-4 h-4" />
@@ -284,10 +287,10 @@ const CarouselSection = ({
           <button
             onClick={() => scroll('right')}
             disabled={!canScrollRight}
-            className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 disabled:opacity-30"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-30"
             style={{
-              background: 'hsl(0 0% 100% / 0.7)',
-              border: '1px solid hsl(0 0% 100% / 0.3)',
+              background: 'hsl(0 0% 100%)',
+              border: '1px solid hsl(0 0% 0% / 0.08)',
             }}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -295,12 +298,16 @@ const CarouselSection = ({
         </div>
       </div>
 
-      {/* Products Scroll */}
+      {/* Products Grid - Exactly 4 cards per viewport */}
       <div 
         ref={scrollRef}
         onScroll={updateScrollState}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="grid grid-flow-col auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto scrollbar-hide pb-2 md:auto-cols-[calc(25%-12px)] sm:auto-cols-[calc(50%-8px)]"
+        style={{ 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none',
+          scrollSnapType: 'x mandatory',
+        }}
       >
         {filteredProducts.map((product) => {
           const isInCart = cartItems.some(item => item.id === product.id);
@@ -311,17 +318,17 @@ const CarouselSection = ({
           return (
             <div
               key={product.id}
-              className="flex-shrink-0 w-[260px] rounded-[20px] backdrop-blur-xl overflow-hidden transition-all duration-300 hover:scale-[1.02] group cursor-pointer"
+              className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
               style={{
-                background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7))',
-                border: '1px solid hsl(0 0% 100% / 0.3)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
+                background: 'hsl(0 0% 100%)',
+                border: '1px solid hsl(0 0% 0% / 0.08)',
+                scrollSnapAlign: 'start',
               }}
               onClick={() => onQuickView(product)}
             >
               {/* Image with white background */}
               <div 
-                className="relative h-[180px] overflow-hidden"
+                className="relative aspect-square overflow-hidden"
                 style={{ background: 'hsl(0 0% 98%)' }}
               >
                 <img
@@ -339,7 +346,7 @@ const CarouselSection = ({
                 )}
                 {product.fastDelivery && (
                   <div 
-                    className="absolute top-3 left-3 px-2 py-1 rounded-lg text-xs text-white backdrop-blur-sm"
+                    className="absolute top-3 left-3 px-2 py-1 rounded-lg text-xs text-white"
                     style={{ background: 'hsl(142 70% 45% / 0.9)' }}
                   >
                     ارسال سریع
@@ -348,7 +355,7 @@ const CarouselSection = ({
               </div>
 
               {/* Content */}
-              <div className="p-4 space-y-3">
+              <div className="p-3 space-y-2">
                 <h4 className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
                   {product.name}
                 </h4>
@@ -380,12 +387,11 @@ const CarouselSection = ({
                       onAddToCart(product);
                     }}
                     disabled={isInCart}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
                     style={{
                       background: isInCart 
                         ? 'hsl(142 70% 45%)' 
                         : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                      boxShadow: isInCart ? 'none' : '0 4px 12px hsl(var(--primary) / 0.3)',
                     }}
                     title="افزودن سریع"
                   >
@@ -395,14 +401,14 @@ const CarouselSection = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAskAbout(product.name);
+                      onQuickView(product);
                     }}
-                    className="w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-xl transition-all duration-200 hover:scale-110"
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
                     style={{
-                      background: 'hsl(0 0% 100% / 0.8)',
-                      border: '1px solid hsl(0 0% 0% / 0.1)',
+                      background: 'hsl(0 0% 100%)',
+                      border: '1px solid hsl(0 0% 0% / 0.08)',
                     }}
-                    title={`درباره ${product.name} بیشتر توضیح بده`}
+                    title={`جزئیات ${product.name}`}
                   >
                     <Info className="w-4 h-4 text-muted-foreground" />
                   </button>
@@ -418,7 +424,7 @@ const CarouselSection = ({
 
 export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
   return (
-    <div className="w-full max-w-[900px] mx-auto px-6 mt-20 space-y-12 pb-16">
+    <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-10 pb-16">
       <CarouselSection
         title="تخفیف‌های ویژه"
         icon={<Flame className="w-4 h-4 text-white" />}

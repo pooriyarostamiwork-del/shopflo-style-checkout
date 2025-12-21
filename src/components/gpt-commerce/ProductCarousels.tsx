@@ -403,10 +403,37 @@ const CarouselSection = ({
       {/* Products Grid with Promo Banner */}
       <div className="flex gap-4">
         {/* Scrollable Products - 4 visible at a time */}
+        {/* Promotional Banner - Fixed on left (appears first in RTL) */}
+        <div 
+          className="hidden lg:flex flex-shrink-0 w-[140px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20"
+          style={{
+            background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
+            border: '1px solid hsl(0 0% 0% / 0.08)',
+          }}
+          onClick={() => console.log('Promo clicked')}
+        >
+          <div 
+            className="text-3xl font-bold text-primary mb-2"
+          >
+            ٪۳۰
+          </div>
+          <p className="text-xs font-medium text-foreground mb-1">تخفیف ویژه</p>
+          <p className="text-[10px] text-muted-foreground mb-3">فقط تا پایان هفته</p>
+          <span 
+            className="text-xs font-medium text-primary px-3 py-1.5 rounded-lg"
+            style={{
+              background: 'hsl(0 0% 100%)',
+              border: '1px solid hsl(var(--primary) / 0.2)',
+            }}
+          >
+            مشاهده همه
+          </span>
+        </div>
+
         <div 
           ref={scrollRef}
           onScroll={updateScrollState}
-          className="flex-1 grid grid-flow-col auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto scrollbar-hide pb-2 md:auto-cols-[calc(33.333%-11px)] sm:auto-cols-[calc(50%-8px)]"
+          className="flex-1 grid grid-flow-col auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto scrollbar-hide pb-2"
           style={{ 
             scrollbarWidth: 'none', 
             msOverflowStyle: 'none',
@@ -563,32 +590,6 @@ const CarouselSection = ({
           </div>
         </div>
 
-        {/* Promotional Banner - Fixed on right */}
-        <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20"
-          style={{
-            background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.15))',
-            border: '1px solid hsl(0 0% 0% / 0.08)',
-          }}
-          onClick={() => console.log('Promo clicked')}
-        >
-          <div 
-            className="text-3xl font-bold text-primary mb-2"
-          >
-            ٪۳۰
-          </div>
-          <p className="text-xs font-medium text-foreground mb-1">تخفیف ویژه</p>
-          <p className="text-[10px] text-muted-foreground mb-3">فقط تا پایان هفته</p>
-          <span 
-            className="text-xs font-medium text-primary px-3 py-1.5 rounded-lg"
-            style={{
-              background: 'hsl(0 0% 100%)',
-              border: '1px solid hsl(var(--primary) / 0.2)',
-            }}
-          >
-            مشاهده همه
-          </span>
-        </div>
       </div>
     </div>
   );

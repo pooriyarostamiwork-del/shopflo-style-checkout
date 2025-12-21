@@ -192,6 +192,7 @@ export const ChatInterface = ({
         >
           <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
           <div className="flex items-center gap-3">
+            <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
             <button
               onClick={onSignIn}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:border-primary/20"
@@ -203,7 +204,6 @@ export const ChatInterface = ({
               <User className="w-4 h-4" />
               <span>ورود / ثبت‌نام</span>
             </button>
-            <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
           </div>
         </div>
 

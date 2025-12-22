@@ -90,6 +90,29 @@ export const mockProducts: Product[] = [
     returnGuarantee: false,
     inStock: true,
   },
+  {
+    id: 'p5',
+    name: 'هدفون بیتس استودیو ۳',
+    price: 8900000,
+    originalPrice: 10500000,
+    image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=300&h=300&fit=crop',
+    merchant: merchants[2],
+    rating: 4.6,
+    fastDelivery: true,
+    returnGuarantee: true,
+    inStock: true,
+  },
+  {
+    id: 'p6',
+    name: 'هدفون Audio-Technica ATH-M50x',
+    price: 6200000,
+    image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=300&h=300&fit=crop',
+    merchant: merchants[1],
+    rating: 4.9,
+    fastDelivery: false,
+    returnGuarantee: true,
+    inStock: true,
+  },
 ];
 
 export const recentlyViewed: Product[] = [

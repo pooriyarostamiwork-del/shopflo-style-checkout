@@ -1,4 +1,4 @@
-import { Shield, RefreshCw, Headphones, Truck, User } from "lucide-react";
+import { Shield, RefreshCw, Headphones, Truck, CreditCard, Phone } from "lucide-react";
 
 interface FooterProps {
   onSupportClick: () => void;
@@ -6,74 +6,88 @@ interface FooterProps {
 }
 
 export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
-  const confidenceItems = [
+  const trustBadges = [
     { icon: Shield, label: 'پرداخت امن' },
-    { icon: RefreshCw, label: 'تضمین بازگشت وجه' },
+    { icon: RefreshCw, label: 'ضمانت بازگشت' },
     { icon: Headphones, label: 'پشتیبانی ۲۴/۷' },
     { icon: Truck, label: 'ارسال سریع' },
   ];
 
-  const ctaItems = [
-    { label: 'فروشنده هستی؟', action: () => {} },
-    { label: 'دانلود اپ', action: () => {} },
-    { label: 'پشتیبانی', action: onSupportClick },
-  ];
-
-  const legalItems = [
-    { label: 'قوانین استفاده', href: '#' },
-    { label: 'حریم خصوصی', href: '#' },
-    { label: 'چطور خرید انجام میشه؟', href: '#' },
-  ];
-
   return (
-    <footer className="w-full py-12 mt-auto" dir="rtl">
-      <div className="max-w-[960px] mx-auto px-4 space-y-8">
-        {/* 1️⃣ Confidence Strip */}
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
-          {confidenceItems.map((item, index) => (
-            <div 
-              key={index}
-              className="flex items-center gap-2 transition-opacity duration-200 hover:opacity-70"
-            >
-              <item.icon 
-                className="w-5 h-5 text-muted-foreground/60" 
-                strokeWidth={1.5}
-              />
-              <span className="text-sm font-medium text-muted-foreground/80">
-                {item.label}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* 2️⃣ CTA Row */}
-        <div className="flex items-center justify-center gap-2">
-          {ctaItems.map((item, index) => (
-            <span key={index} className="flex items-center gap-2">
-              <button
-                onClick={item.action}
-                className="text-sm text-muted-foreground/70 hover:underline hover:text-muted-foreground transition-colors duration-200"
+    <footer className="w-full border-t border-border/40 mt-auto" dir="rtl">
+      {/* Trust Badges */}
+      <div className="py-6 border-b border-border/20">
+        <div className="max-w-[960px] mx-auto px-4">
+          <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
+            {trustBadges.map((item, index) => (
+              <div 
+                key={index}
+                className="flex items-center gap-2 text-muted-foreground/70"
               >
-                {item.label}
-              </button>
-              {index < ctaItems.length - 1 && (
-                <span className="text-muted-foreground/30">·</span>
-              )}
-            </span>
-          ))}
+                <item.icon className="w-4 h-4" strokeWidth={1.5} />
+                <span className="text-xs font-medium">{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
 
-        {/* 3️⃣ Soft Legal */}
-        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
-          {legalItems.map((item, index) => (
-            <a
-              key={index}
-              href={item.href}
-              className="text-xs text-muted-foreground/40 hover:underline hover:text-muted-foreground/60 transition-colors duration-200 leading-loose"
-            >
-              {item.label}
-            </a>
-          ))}
+      {/* Main Footer Content */}
+      <div className="py-8">
+        <div className="max-w-[960px] mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-right">
+            {/* Brand Column */}
+            <div className="col-span-2 md:col-span-1">
+              <h3 className="text-sm font-semibold text-foreground mb-3">فلوکارت</h3>
+              <p className="text-xs text-muted-foreground/60 leading-relaxed">
+                خرید هوشمند با کمک هوش مصنوعی
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h4 className="text-xs font-semibold text-foreground/80 mb-3">دسترسی سریع</h4>
+              <ul className="space-y-2">
+                <li><a href="#" className="text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors">درباره ما</a></li>
+                <li><button onClick={onSupportClick} className="text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors">پشتیبانی</button></li>
+                <li><a href="#" className="text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors">سوالات متداول</a></li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="text-xs font-semibold text-foreground/80 mb-3">قوانین</h4>
+              <ul className="space-y-2">
+                <li><a href="#" className="text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors">حریم خصوصی</a></li>
+                <li><a href="#" className="text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors">شرایط استفاده</a></li>
+                <li><a href="#" className="text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors">نحوه خرید</a></li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="text-xs font-semibold text-foreground/80 mb-3">تماس</h4>
+              <ul className="space-y-2">
+                <li className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                  <Phone className="w-3 h-3" />
+                  <span>۰۲۱-۱۲۳۴۵۶۷۸</span>
+                </li>
+                <li className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                  <CreditCard className="w-3 h-3" />
+                  <span>پرداخت آنلاین</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Copyright */}
+      <div className="py-4 border-t border-border/20">
+        <div className="max-w-[960px] mx-auto px-4">
+          <p className="text-[10px] text-muted-foreground/40 text-center">
+            © ۱۴۰۳ فلوکارت. تمامی حقوق محفوظ است.
+          </p>
         </div>
       </div>
     </footer>

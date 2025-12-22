@@ -1,14 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product } from "@/data/gptCommerceData";
-import { ProductCard } from "./ProductCard";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod } from "@/data/gptCommerceData";
+import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
 import { ProductCarousels } from "./ProductCarousels";
 import { ProductQuickViewModal } from "./ProductQuickViewModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { 
+  QuickReplyButtons, 
+  CTAButton, 
+  CartSummaryCard, 
+  AddressConfirmation,
+  PaymentSelector 
+} from "./AgenticMessageComponents";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -24,6 +31,12 @@ interface ChatInterfaceProps {
   onSignIn: () => void;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   setInputValue?: (value: string) => void;
+  // Agentic props
+  onQuickReply?: (reply: QuickReply) => void;
+  onFinalizePurchase?: () => void;
+  onAddressConfirm?: () => void;
+  onPaymentSelect?: (paymentId: string) => void;
+  agenticState?: AgenticState;
 }
 
 // Rotating placeholder texts
@@ -97,6 +110,11 @@ export const ChatInterface = ({
   onSignIn,
   inputRef: externalInputRef,
   setInputValue: externalSetInputValue,
+  onQuickReply,
+  onFinalizePurchase,
+  onAddressConfirm,
+  onPaymentSelect,
+  agenticState,
 }: ChatInterfaceProps) => {
   const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -104,6 +122,7 @@ export const ChatInterface = ({
   const [isFocused, setIsFocused] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -159,6 +178,13 @@ export const ChatInterface = ({
     }
     onSendMessage(message);
     setQuickViewProduct(null);
+  };
+
+  const handlePaymentSelection = (paymentId: string) => {
+    setSelectedPayment(paymentId);
+    if (onPaymentSelect) {
+      onPaymentSelect(paymentId);
+    }
   };
 
   const quickActions = [
@@ -440,23 +466,75 @@ export const ChatInterface = ({
                 </div>
               </div>
 
-              {/* Product Cards - Fixed Size Grid */}
+              {/* Product Cards with Number Badges */}
               {msg.products && msg.products.length > 0 && (
                 <div className="flex flex-wrap gap-4 mr-11">
-                  {msg.products.map((product) => (
+                  {msg.products.map((product, index) => (
                     <div
                       key={product.id}
                       className="cursor-pointer flex-shrink-0"
                       onClick={() => setQuickViewProduct(product)}
                     >
-                      <ProductCard
+                      <ChatProductCard
                         product={product}
+                        index={(msg.productIndexStart || 1) + index}
                         onAddToCart={onAddToCart}
                         onCompare={onCompare}
                         isInCart={cartItems.some(item => item.id === product.id)}
                       />
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Order Summary Card */}
+              {msg.orderSummary && (
+                <div className="mr-11 max-w-[500px]">
+                  <CartSummaryCard orderSummary={msg.orderSummary} />
+                </div>
+              )}
+
+              {/* Address Confirmation */}
+              {msg.addressConfirmation && onAddressConfirm && (
+                <div className="mr-11 max-w-[400px]">
+                  <AddressConfirmation 
+                    address={msg.addressConfirmation}
+                    onConfirm={onAddressConfirm}
+                    onEdit={() => {}}
+                  />
+                </div>
+              )}
+
+              {/* Payment Options */}
+              {msg.paymentOptions && (
+                <div className="mr-11 max-w-[400px]">
+                  <PaymentSelector
+                    options={msg.paymentOptions}
+                    selectedPayment={selectedPayment}
+                    onSelect={handlePaymentSelection}
+                  />
+                </div>
+              )}
+
+              {/* Quick Reply Buttons */}
+              {msg.quickReplies && onQuickReply && (
+                <div className="mr-11">
+                  <QuickReplyButtons 
+                    replies={msg.quickReplies} 
+                    onSelect={onQuickReply}
+                  />
+                </div>
+              )}
+
+              {/* CTA Button */}
+              {msg.ctaButton && onFinalizePurchase && (
+                <div className="mr-11 max-w-[300px]">
+                  <CTAButton
+                    label={msg.ctaButton.label}
+                    onClick={onFinalizePurchase}
+                    disabled={msg.ctaButton.disabled}
+                    disabledReason={msg.ctaButton.disabledReason}
+                  />
                 </div>
               )}
             </div>

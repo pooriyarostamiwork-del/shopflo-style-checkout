@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { CartItem, Product, formatPersianPrice, toPersianNumber, recentlyViewed, favorites } from "@/data/gptCommerceData";
+import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag } from "lucide-react";
+import { CartItem, Product, formatPersianPrice, toPersianNumber, recentlyViewed, favorites, calculateOrderSummary } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -36,20 +36,8 @@ export const RightPanel = ({
     { id: 'favorites', label: 'علاقه‌مندی', icon: <Heart className="w-4 h-4" /> },
   ];
 
-  const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  // Group cart items by merchant
-  const groupedItems = cartItems.reduce((acc, item) => {
-    const merchantId = item.merchant.id;
-    if (!acc[merchantId]) {
-      acc[merchantId] = {
-        merchant: item.merchant,
-        items: [],
-      };
-    }
-    acc[merchantId].items.push(item);
-    return acc;
-  }, {} as Record<string, { merchant: typeof cartItems[0]['merchant']; items: CartItem[] }>);
+  // Calculate detailed order summary
+  const orderSummary = calculateOrderSummary(cartItems);
 
   return (
     <>
@@ -93,7 +81,7 @@ export const RightPanel = ({
             borderRight: '1px solid hsl(0 0% 100% / 0.3)'
           }}
         >
-          {/* Tab Bar - Glass Pills (No header title or close button) */}
+          {/* Tab Bar */}
           <div className="p-3 pt-4">
             <div 
               className="flex rounded-xl p-1 gap-1 backdrop-blur-xl"
@@ -154,73 +142,124 @@ export const RightPanel = ({
                   </div>
                 ) : (
                   <>
-                    {/* Grouped by Merchant - Bento Style */}
-                    {Object.values(groupedItems).map(({ merchant, items }) => (
-                      <div key={merchant.id} className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <span>{merchant.logo}</span>
-                          <span>{merchant.name}</span>
+                    {/* Grouped by Vendor with Full Details */}
+                    {orderSummary.vendorSummaries.map((vendorSummary) => (
+                      <div 
+                        key={vendorSummary.merchant.id} 
+                        className="rounded-2xl overflow-hidden"
+                        style={{
+                          background: 'hsl(0 0% 100% / 0.6)',
+                          border: '1px solid hsl(0 0% 100% / 0.3)',
+                          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
+                        }}
+                      >
+                        {/* Vendor Header */}
+                        <div 
+                          className="px-3 py-2 flex items-center gap-2"
+                          style={{ 
+                            background: 'hsl(var(--primary) / 0.03)',
+                            borderBottom: '1px solid hsl(0 0% 0% / 0.04)'
+                          }}
+                        >
+                          <span className="text-lg">{vendorSummary.merchant.logo}</span>
+                          <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
+                          <span className="text-xs text-muted-foreground mr-auto">
+                            {toPersianNumber(vendorSummary.items.length)} کالا
+                          </span>
                         </div>
-                        {items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex gap-3 p-3 rounded-2xl backdrop-blur-xl transition-all duration-300 hover:scale-[1.02]"
-                            style={{
-                              background: 'hsl(0 0% 100% / 0.6)',
-                              border: '1px solid hsl(0 0% 100% / 0.3)',
-                              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
-                            }}
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="w-16 h-16 rounded-xl object-cover"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-medium text-foreground line-clamp-2">
-                                {item.name}
-                              </h4>
-                              <p className="text-xs text-primary font-medium mt-1">
-                                {formatPersianPrice(item.price)}
-                              </p>
-                              <div className="flex items-center justify-between mt-2">
-                                <div 
-                                  className="flex items-center gap-1 rounded-lg"
-                                  style={{
-                                    background: 'hsl(0 0% 100% / 0.8)',
-                                    border: '1px solid hsl(0 0% 0% / 0.05)'
-                                  }}
-                                >
-                                  <button
-                                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                                    className="p-1 hover:bg-muted/30 rounded-r-lg transition-colors"
+
+                        {/* Items */}
+                        <div className="p-3 space-y-3">
+                          {vendorSummary.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex gap-3"
+                            >
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-foreground line-clamp-1">
+                                  {item.name}
+                                </h4>
+                                <p className="text-xs text-primary font-medium mt-0.5">
+                                  {formatPersianPrice(item.price)}
+                                </p>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div 
+                                    className="flex items-center gap-1 rounded-lg"
+                                    style={{
+                                      background: 'hsl(0 0% 100% / 0.8)',
+                                      border: '1px solid hsl(0 0% 0% / 0.05)'
+                                    }}
                                   >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <span className="px-2 text-sm font-medium">
-                                    {toPersianNumber(item.quantity)}
-                                  </span>
+                                    <button
+                                      onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                                      className="p-1 hover:bg-muted/30 rounded-r-lg transition-colors"
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </button>
+                                    <span className="px-2 text-sm font-medium">
+                                      {toPersianNumber(item.quantity)}
+                                    </span>
+                                    <button
+                                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                                      className="p-1 hover:bg-muted/30 rounded-l-lg transition-colors"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                   <button
-                                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                                    className="p-1 hover:bg-muted/30 rounded-l-lg transition-colors"
+                                    onClick={() => onRemoveItem(item.id)}
+                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                   >
-                                    <Plus className="w-3 h-3" />
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
-                                <button
-                                  onClick={() => onRemoveItem(item.id)}
-                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
                               </div>
                             </div>
+                          ))}
+                        </div>
+
+                        {/* Vendor Summary */}
+                        <div 
+                          className="px-3 py-2 space-y-1"
+                          style={{ 
+                            background: 'hsl(0 0% 0% / 0.02)',
+                            borderTop: '1px solid hsl(0 0% 0% / 0.04)'
+                          }}
+                        >
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Truck className="w-3 h-3" />
+                              ارسال
+                            </span>
+                            <span className={vendorSummary.deliveryFee === 0 ? 'text-green-600 font-medium' : ''}>
+                              {vendorSummary.deliveryFee === 0 ? 'رایگان 🎉' : formatPersianPrice(vendorSummary.deliveryFee)}
+                            </span>
                           </div>
-                        ))}
+                          {vendorSummary.discount > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground flex items-center gap-1">
+                                <Tag className="w-3 h-3" />
+                                تخفیف
+                              </span>
+                              <span className="text-red-500 font-medium">
+                                -{formatPersianPrice(vendorSummary.discount)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs font-medium pt-1 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
+                            <span>جمع فروشگاه</span>
+                            <span>{formatPersianPrice(vendorSummary.total)}</span>
+                          </div>
+                        </div>
                       </div>
                     ))}
 
-                    {/* Auto-buy Options - Glass Style */}
+                    {/* Auto-buy Options */}
                     <div 
                       className="space-y-2 pt-4 mt-4 rounded-2xl p-4"
                       style={{
@@ -335,19 +374,39 @@ export const RightPanel = ({
             )}
           </div>
 
-          {/* Cart Footer - Glass Style */}
+          {/* Cart Footer with Full Summary */}
           {activeTab === 'cart' && cartItems.length > 0 && (
             <div 
               className="p-4 space-y-3"
               style={{
-                background: 'hsl(0 0% 100% / 0.9)',
+                background: 'hsl(0 0% 100% / 0.95)',
                 borderTop: '1px solid hsl(0 0% 0% / 0.05)'
               }}
             >
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">جمع کل:</span>
+              {/* Summary breakdown */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">جمع کالاها ({toPersianNumber(orderSummary.totalItems)})</span>
+                  <span>{formatPersianPrice(orderSummary.subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">هزینه ارسال</span>
+                  <span className={orderSummary.totalDelivery === 0 ? 'text-green-600' : ''}>
+                    {orderSummary.totalDelivery === 0 ? 'رایگان' : formatPersianPrice(orderSummary.totalDelivery)}
+                  </span>
+                </div>
+                {orderSummary.totalDiscount > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">سود شما از تخفیف</span>
+                    <span className="text-red-500">-{formatPersianPrice(orderSummary.totalDiscount)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.05)' }}>
+                <span className="text-sm font-medium">جمع کل:</span>
                 <span className="text-lg font-bold text-foreground">
-                  {formatPersianPrice(totalPrice)}
+                  {formatPersianPrice(orderSummary.grandTotal)}
                 </span>
               </div>
               <Button

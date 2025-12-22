@@ -302,8 +302,9 @@ const CarouselSection = ({
   categories,
   bannerKey
 }: CarouselSectionProps) => {
-  const { getProductImage, getBanner } = useHomepageSettings();
+  const { getProductImage, getBanner, getCarouselName, getProductName } = useHomepageSettings();
   const banner = getBanner(bannerKey);
+  const displayTitle = getCarouselName(bannerKey, title);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -347,7 +348,7 @@ const CarouselSection = ({
           >
             {icon}
           </div>
-          <h3 className="font-semibold text-foreground whitespace-nowrap">{title}</h3>
+          <h3 className="font-semibold text-foreground whitespace-nowrap">{displayTitle}</h3>
         </div>
         
         {/* Category Filter Chips */}
@@ -407,9 +408,9 @@ const CarouselSection = ({
 
       {/* Products Grid with Promo Banner */}
       <div className="flex gap-4">
-        {/* Promotional Banner - Fixed on left (appears first in RTL) */}
+        {/* Promotional Banner - Fixed on left (appears first in RTL) - matches card height */}
         <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] h-[340px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
+          className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
             background: banner.imageUrl 
               ? `url(${banner.imageUrl}) center/cover`
@@ -508,7 +509,7 @@ const CarouselSection = ({
                 {/* Content */}
                 <div className="p-3 space-y-2 flex-1 flex flex-col">
                   <h4 className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
-                    {product.name}
+                    {getProductName(product.id, product.name)}
                   </h4>
                   
                   {/* Rating */}
@@ -530,15 +531,15 @@ const CarouselSection = ({
                     )}
                   </div>
 
-                  {/* Action Buttons - Bottom */}
-                  <div className="flex items-center gap-2 pt-1 mt-auto">
+                  {/* Action Buttons - Bottom - Fixed at bottom of card */}
+                  <div className="flex items-center gap-2 pt-2 mt-auto border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onAddToCart(product);
                       }}
                       disabled={isInCart}
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0"
                       style={{
                         background: isInCart 
                           ? 'hsl(142 70% 45%)' 
@@ -554,7 +555,7 @@ const CarouselSection = ({
                         e.stopPropagation();
                         onQuickView(product);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
                       style={{
                         background: 'hsl(0 0% 100%)',
                         border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -562,7 +563,7 @@ const CarouselSection = ({
                       title={`جزئیات ${product.name}`}
                     >
                       <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">مشاهده جزئیات</span>
+                      <span className="text-xs text-muted-foreground">جزئیات</span>
                     </button>
                   </div>
                 </div>

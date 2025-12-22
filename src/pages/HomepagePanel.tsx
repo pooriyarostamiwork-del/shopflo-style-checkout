@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, Image, Info, ExternalLink, Flame, Heart, TrendingUp, LayoutTemplate } from 'lucide-react';
+import { Save, Image, Info, ExternalLink, Flame, Heart, TrendingUp, LayoutTemplate, MessageSquare, Edit3 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from '@/contexts/HomepageSettingsContext';
 
@@ -40,10 +40,18 @@ const allProducts = {
   ],
 };
 
-const carouselInfo: { key: keyof BannerConfigs; label: string; icon: React.ReactNode }[] = [
-  { key: 'hotDeals', label: 'پیشنهادات ویژه', icon: <Flame className="w-4 h-4" /> },
-  { key: 'youMayLike', label: 'شاید بپسندید', icon: <Heart className="w-4 h-4" /> },
-  { key: 'mostPopular', label: 'محبوب‌ترین‌ها', icon: <TrendingUp className="w-4 h-4" /> },
+// Chat mode products (from gptCommerceData.ts)
+const chatProducts = [
+  { id: 'p1', name: 'هدفون بی‌سیم سونی WH-1000XM5' },
+  { id: 'p2', name: 'ایرپاد پرو ۲ اپل' },
+  { id: 'p3', name: 'هدفون گیمینگ ریزر' },
+  { id: 'p4', name: 'هدفون JBL Tune 760NC' },
+];
+
+const carouselInfo: { key: keyof BannerConfigs; label: string; defaultName: string; icon: React.ReactNode }[] = [
+  { key: 'hotDeals', label: 'پیشنهادات ویژه', defaultName: 'تخفیف‌های ویژه', icon: <Flame className="w-4 h-4" /> },
+  { key: 'youMayLike', label: 'شاید بپسندید', defaultName: 'شاید دوست داشته باشی', icon: <Heart className="w-4 h-4" /> },
+  { key: 'mostPopular', label: 'محبوب‌ترین‌ها', defaultName: 'محبوب‌ترین‌ها', icon: <TrendingUp className="w-4 h-4" /> },
 ];
 
 const horizontalBannerInfo: { key: keyof HorizontalBannerConfigs; label: string }[] = [
@@ -52,10 +60,23 @@ const horizontalBannerInfo: { key: keyof HorizontalBannerConfigs; label: string 
 ];
 
 const HomepagePanel = () => {
-  const { settings, updateProductImage, updateBanner, updateHorizontalBanner, getHorizontalBanner, getBanner } = useHomepageSettings();
+  const { 
+    settings, 
+    updateProductImage, 
+    updateChatProductImage,
+    updateProductName,
+    updateCarouselName,
+    updateBanner, 
+    updateHorizontalBanner, 
+    getHorizontalBanner, 
+    getBanner,
+    getProductName,
+    getCarouselName
+  } = useHomepageSettings();
   const [activeCarousel, setActiveCarousel] = useState<keyof BannerConfigs>('hotDeals');
   const [activeBannerTab, setActiveBannerTab] = useState<keyof BannerConfigs>('hotDeals');
   const [activeHorizontalBanner, setActiveHorizontalBanner] = useState<keyof HorizontalBannerConfigs>('afterHotDeals');
+  const [activeSection, setActiveSection] = useState<'images' | 'chatImages' | 'names' | 'banners' | 'horizontalBanners'>('images');
 
   const handleSave = () => {
     toast({
@@ -166,7 +187,130 @@ const HomepagePanel = () => {
           </CardContent>
         </Card>
 
-        {/* Promotional Banners Section */}
+        {/* Chat Mode Product Images Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              تصاویر محصولات حالت چت
+            </CardTitle>
+            <CardDescription>
+              تصاویر محصولاتی که در حالت چت (بعد از شروع گفتگو) نمایش داده می‌شوند
+            </CardDescription>
+            <div className="flex items-center gap-2 mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+              <Info className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                <strong className="text-foreground">راهنمای سایز:</strong> اندازه پیشنهادی: <strong className="text-primary">300 × 300 پیکسل</strong> (مربعی)
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {chatProducts.map((product) => (
+                <div key={product.id} className="space-y-3 p-4 bg-background rounded-lg border">
+                  <Label className="text-sm font-medium block truncate" title={product.name}>
+                    {product.name}
+                  </Label>
+                  <span className="text-xs text-muted-foreground">ID: {product.id}</span>
+                  
+                  {/* Image Preview */}
+                  <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
+                    {settings.chatProductImages?.[product.id] ? (
+                      <img 
+                        src={settings.chatProductImages[product.id]} 
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x300?text=خطا';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground flex-col gap-2">
+                        <MessageSquare className="w-8 h-8" />
+                        <span className="text-xs">تصویر پیش‌فرض</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* URL Input */}
+                  <Input
+                    placeholder="آدرس URL تصویر..."
+                    value={settings.chatProductImages?.[product.id] || ''}
+                    onChange={(e) => updateChatProductImage(product.id, e.target.value)}
+                    className="text-xs"
+                    dir="ltr"
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Carousel & Product Names Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Edit3 className="w-5 h-5" />
+              نام کاروسل‌ها و محصولات
+            </CardTitle>
+            <CardDescription>
+              تغییر نام کاروسل‌ها و محصولات نمایش داده شده در صفحه اصلی
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeCarousel} onValueChange={(v) => setActiveCarousel(v as keyof BannerConfigs)}>
+              <TabsList className="mb-4">
+                {carouselInfo.map(({ key, label, icon }) => (
+                  <TabsTrigger key={key} value={key} className="flex items-center gap-2">
+                    {icon}
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {carouselInfo.map(({ key, defaultName }) => (
+                <TabsContent key={key} value={key}>
+                  {/* Carousel Name */}
+                  <div className="mb-6 p-4 bg-muted/30 rounded-lg border">
+                    <Label className="text-sm font-medium mb-2 block">نام کاروسل</Label>
+                    <Input
+                      placeholder={defaultName}
+                      value={getCarouselName(key, '')}
+                      onChange={(e) => updateCarouselName(key, e.target.value)}
+                      className="max-w-md"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      اگر خالی باشد، از نام پیش‌فرض "{defaultName}" استفاده می‌شود
+                    </p>
+                  </div>
+
+                  {/* Product Names */}
+                  <Label className="text-sm font-medium mb-3 block">نام محصولات</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allProducts[key].map((product) => (
+                      <div key={product.id} className="space-y-2 p-3 bg-background rounded-lg border">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">پیش‌فرض:</Label>
+                          <span className="text-xs text-muted-foreground">{product.id}</span>
+                        </div>
+                        <p className="text-sm text-foreground truncate" title={product.name}>
+                          {product.name}
+                        </p>
+                        <Input
+                          placeholder="نام جدید محصول..."
+                          value={getProductName(product.id, '')}
+                          onChange={(e) => updateProductName(product.id, e.target.value)}
+                          className="text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

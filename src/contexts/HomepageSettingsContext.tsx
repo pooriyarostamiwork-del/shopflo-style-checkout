@@ -5,6 +5,16 @@ export interface ProductImageOverride {
   [productId: string]: string;
 }
 
+// Product name overrides by product ID
+export interface ProductNameOverride {
+  [productId: string]: string;
+}
+
+// Carousel name overrides
+export interface CarouselNameOverride {
+  [carouselKey: string]: string;
+}
+
 // Banner configuration (vertical side banners)
 export interface BannerConfig {
   imageUrl: string;
@@ -35,6 +45,9 @@ export interface HorizontalBannerConfigs {
 
 export interface HomepageSettings {
   productImages: ProductImageOverride;
+  chatProductImages: ProductImageOverride;
+  productNames: ProductNameOverride;
+  carouselNames: CarouselNameOverride;
   banners: BannerConfigs;
   horizontalBanners: HorizontalBannerConfigs;
 }
@@ -42,9 +55,15 @@ export interface HomepageSettings {
 interface HomepageSettingsContextType {
   settings: HomepageSettings;
   updateProductImage: (productId: string, imageUrl: string) => void;
+  updateChatProductImage: (productId: string, imageUrl: string) => void;
+  updateProductName: (productId: string, name: string) => void;
+  updateCarouselName: (carouselKey: string, name: string) => void;
   updateBanner: (carouselKey: keyof BannerConfigs, config: Partial<BannerConfig>) => void;
   updateHorizontalBanner: (position: keyof HorizontalBannerConfigs, config: Partial<HorizontalBannerConfig>) => void;
   getProductImage: (productId: string, defaultImage: string) => string;
+  getChatProductImage: (productId: string, defaultImage: string) => string;
+  getProductName: (productId: string, defaultName: string) => string;
+  getCarouselName: (carouselKey: string, defaultName: string) => string;
   getBanner: (carouselKey: keyof BannerConfigs) => BannerConfig;
   getHorizontalBanner: (position: keyof HorizontalBannerConfigs) => HorizontalBannerConfig;
 }
@@ -64,6 +83,9 @@ const defaultHorizontalBannerConfig: HorizontalBannerConfig = {
 
 const defaultSettings: HomepageSettings = {
   productImages: {},
+  chatProductImages: {},
+  productNames: {},
+  carouselNames: {},
   banners: {
     hotDeals: { ...defaultBannerConfig, title: '🔥 پیشنهاد ویژه', subtitle: 'تا ۴۰٪' },
     youMayLike: { ...defaultBannerConfig, title: '💎 انتخاب ما', subtitle: 'محصولات برتر' },
@@ -110,6 +132,36 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     }));
   };
 
+  const updateChatProductImage = (productId: string, imageUrl: string) => {
+    setSettings(prev => ({
+      ...prev,
+      chatProductImages: {
+        ...prev.chatProductImages,
+        [productId]: imageUrl,
+      },
+    }));
+  };
+
+  const updateProductName = (productId: string, name: string) => {
+    setSettings(prev => ({
+      ...prev,
+      productNames: {
+        ...prev.productNames,
+        [productId]: name,
+      },
+    }));
+  };
+
+  const updateCarouselName = (carouselKey: string, name: string) => {
+    setSettings(prev => ({
+      ...prev,
+      carouselNames: {
+        ...prev.carouselNames,
+        [carouselKey]: name,
+      },
+    }));
+  };
+
   const updateBanner = (carouselKey: keyof BannerConfigs, config: Partial<BannerConfig>) => {
     setSettings(prev => ({
       ...prev,
@@ -140,6 +192,18 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     return settings.productImages[productId] || defaultImage;
   };
 
+  const getChatProductImage = (productId: string, defaultImage: string): string => {
+    return settings.chatProductImages?.[productId] || defaultImage;
+  };
+
+  const getProductName = (productId: string, defaultName: string): string => {
+    return settings.productNames?.[productId] || defaultName;
+  };
+
+  const getCarouselName = (carouselKey: string, defaultName: string): string => {
+    return settings.carouselNames?.[carouselKey] || defaultName;
+  };
+
   const getBanner = (carouselKey: keyof BannerConfigs): BannerConfig => {
     return settings.banners[carouselKey] || defaultBannerConfig;
   };
@@ -152,9 +216,15 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     <HomepageSettingsContext.Provider value={{
       settings,
       updateProductImage,
+      updateChatProductImage,
+      updateProductName,
+      updateCarouselName,
       updateBanner,
       updateHorizontalBanner,
       getProductImage,
+      getChatProductImage,
+      getProductName,
+      getCarouselName,
       getBanner,
       getHorizontalBanner,
     }}>

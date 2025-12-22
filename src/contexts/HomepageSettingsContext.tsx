@@ -43,6 +43,18 @@ export interface HorizontalBannerConfigs {
   afterYouMayLike: HorizontalBannerConfig;
 }
 
+// Logo settings for each location
+export interface LogoConfig {
+  imageUrl: string;
+  subtitle: string;
+}
+
+export interface LogoConfigs {
+  chatMode: LogoConfig;
+  firstPage: LogoConfig;
+  footer: LogoConfig;
+}
+
 export interface HomepageSettings {
   productImages: ProductImageOverride;
   chatProductImages: ProductImageOverride;
@@ -50,6 +62,7 @@ export interface HomepageSettings {
   carouselNames: CarouselNameOverride;
   banners: BannerConfigs;
   horizontalBanners: HorizontalBannerConfigs;
+  logos: LogoConfigs;
 }
 
 interface HomepageSettingsContextType {
@@ -60,12 +73,14 @@ interface HomepageSettingsContextType {
   updateCarouselName: (carouselKey: string, name: string) => void;
   updateBanner: (carouselKey: keyof BannerConfigs, config: Partial<BannerConfig>) => void;
   updateHorizontalBanner: (position: keyof HorizontalBannerConfigs, config: Partial<HorizontalBannerConfig>) => void;
+  updateLogoSettings: (location: keyof LogoConfigs, config: Partial<LogoConfig>) => void;
   getProductImage: (productId: string, defaultImage: string) => string;
   getChatProductImage: (productId: string, defaultImage: string) => string;
   getProductName: (productId: string, defaultName: string) => string;
   getCarouselName: (carouselKey: string, defaultName: string) => string;
   getBanner: (carouselKey: keyof BannerConfigs) => BannerConfig;
   getHorizontalBanner: (position: keyof HorizontalBannerConfigs) => HorizontalBannerConfig;
+  getLogoSettings: (location: keyof LogoConfigs) => LogoConfig;
 }
 
 const defaultBannerConfig: BannerConfig = {
@@ -81,6 +96,11 @@ const defaultHorizontalBannerConfig: HorizontalBannerConfig = {
   enabled: true,
 };
 
+const defaultLogoConfig: LogoConfig = {
+  imageUrl: '',
+  subtitle: '',
+};
+
 const defaultSettings: HomepageSettings = {
   productImages: {},
   chatProductImages: {},
@@ -94,6 +114,11 @@ const defaultSettings: HomepageSettings = {
   horizontalBanners: {
     afterHotDeals: { ...defaultHorizontalBannerConfig },
     afterYouMayLike: { ...defaultHorizontalBannerConfig },
+  },
+  logos: {
+    chatMode: { ...defaultLogoConfig, subtitle: 'دستیار خرید هوشمند' },
+    firstPage: { ...defaultLogoConfig, subtitle: 'دستیار خرید هوشمند شما' },
+    footer: { ...defaultLogoConfig, subtitle: 'خرید هوشمند با کمک هوش مصنوعی' },
   },
 };
 
@@ -188,6 +213,19 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     }));
   };
 
+  const updateLogoSettings = (location: keyof LogoConfigs, config: Partial<LogoConfig>) => {
+    setSettings(prev => ({
+      ...prev,
+      logos: {
+        ...prev.logos,
+        [location]: {
+          ...(prev.logos?.[location] || defaultLogoConfig),
+          ...config,
+        },
+      },
+    }));
+  };
+
   const getProductImage = (productId: string, defaultImage: string): string => {
     return settings.productImages[productId] || defaultImage;
   };
@@ -212,6 +250,10 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
     return settings.horizontalBanners?.[position] || defaultHorizontalBannerConfig;
   };
 
+  const getLogoSettings = (location: keyof LogoConfigs): LogoConfig => {
+    return settings.logos?.[location] || defaultLogoConfig;
+  };
+
   return (
     <HomepageSettingsContext.Provider value={{
       settings,
@@ -221,12 +263,14 @@ export const HomepageSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
       updateCarouselName,
       updateBanner,
       updateHorizontalBanner,
+      updateLogoSettings,
       getProductImage,
       getChatProductImage,
       getProductName,
       getCarouselName,
       getBanner,
       getHorizontalBanner,
+      getLogoSettings,
     }}>
       {children}
     </HomepageSettingsContext.Provider>

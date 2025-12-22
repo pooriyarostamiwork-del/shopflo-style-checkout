@@ -8,6 +8,7 @@ import { CouponChips } from "./CouponChips";
 import { ProductCarousels } from "./ProductCarousels";
 import { ProductQuickViewModal } from "./ProductQuickViewModal";
 import { Footer } from "./Footer";
+import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -107,6 +108,8 @@ export const ChatInterface = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
+  const { getLogoSettings } = useHomepageSettings();
+  const firstPageLogo = getLogoSettings('firstPage');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -217,18 +220,26 @@ export const ChatInterface = ({
           
           {/* Logo & Welcome */}
           <div className="relative z-10 flex flex-col items-center gap-6 mb-8">
-            <div 
-              className="w-20 h-20 rounded-2xl flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.08))',
-                border: '1px solid hsl(0 0% 0% / 0.06)'
-              }}
-            >
-              <Zap className="w-10 h-10 text-primary" />
-            </div>
+            {firstPageLogo.imageUrl ? (
+              <img 
+                src={firstPageLogo.imageUrl} 
+                alt="فلوکارت" 
+                className="w-20 h-20 rounded-2xl object-cover"
+              />
+            ) : (
+              <div 
+                className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.08))',
+                  border: '1px solid hsl(0 0% 0% / 0.06)'
+                }}
+              >
+                <Zap className="w-10 h-10 text-primary" />
+              </div>
+            )}
             <div className="text-center">
               <h1 className="text-3xl font-bold text-foreground mb-2">Flowcart</h1>
-              <p className="text-muted-foreground">دستیار خرید هوشمند شما</p>
+              <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
             </div>
           </div>
 

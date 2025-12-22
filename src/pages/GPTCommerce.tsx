@@ -230,6 +230,14 @@ const GPTCommerceContent = () => {
 
       // Check for product selection by number
       const selectedNumber = parseProductSelection(content);
+      
+      // Detect direct payment command: "با پرداخت مستقیم بخر و به خانه بفرست"
+      const isDirectPayment = content.includes('پرداخت مستقیم') && (content.includes('بخر') || content.includes('خرید'));
+      
+      // Detect buy and send command: "بخر و به خانه بفرست" (without direct payment)
+      const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) && 
+                          (content.includes('خانه') || content.includes('بفرست') || content.includes('ارسال'));
+      
       if (selectedNumber && lastRecommendedProducts.length >= selectedNumber) {
         const selectedProduct = lastRecommendedProducts[selectedNumber - 1];
         
@@ -246,6 +254,91 @@ const GPTCommerceContent = () => {
           return [...prev, { ...selectedProduct, quantity: 1 }];
         });
 
+        // Handle direct payment flow - skip to order confirmation
+        if (isDirectPayment) {
+          if (!agenticState.isLoggedIn) {
+            responseContent = 'برای خرید مستقیم، اول باید وارد حسابت بشی. 🔐';
+            const assistantMessage: ChatMessage = {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: responseContent,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+            setIsProcessing(false);
+            return;
+          }
+          
+          // Add product confirmation
+          const addedMessage: ChatMessage = {
+            id: `added-${Date.now()}`,
+            role: 'assistant',
+            content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nداریم سفارشت رو با پرداخت مستقیم پردازش می‌کنیم...`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, addedMessage]);
+          
+          // Simulate processing and go directly to order confirmation
+          setTimeout(() => {
+            const orderId = `FLC-${Date.now().toString().slice(-6)}`;
+            
+            const successMessage: ChatMessage = {
+              id: `success-${Date.now()}`,
+              role: 'assistant',
+              content: `سفارشت با موفقیت ثبت شد! 🎉\n\nشماره سفارش: ${orderId}\n📍 آدرس: ${mockAddresses[0].fullAddress}\n💳 پرداخت: درگاه مستقیم\n\nمی‌تونی از همین‌جا سفارشت رو پیگیری کنی.`,
+              quickReplies: [
+                { id: 'track', label: '📦 پیگیری سفارش', type: 'track-order' },
+                { id: 'modify', label: '✏️ ویرایش آدرس', type: 'modify-address' },
+                { id: 'invoice', label: '🧾 مشاهده فاکتور', type: 'view-invoice' },
+              ],
+              timestamp: new Date(),
+            };
+            
+            setMessages((prev) => [...prev, successMessage]);
+            setAgenticState(prev => ({ 
+              ...prev, 
+              step: 'order-complete',
+              orderId,
+              selectedPayment: 'gateway',
+            }));
+            setCartItems([]);
+            setIsProcessing(false);
+          }, 2000);
+          
+          setIsProcessing(false);
+          return;
+        }
+        
+        // Handle buy and send flow - skip to payment selection
+        if (isBuyAndSend) {
+          if (!agenticState.isLoggedIn) {
+            responseContent = 'برای خرید سریع، اول باید وارد حسابت بشی. 🔐';
+            const assistantMessage: ChatMessage = {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: responseContent,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+            setIsProcessing(false);
+            return;
+          }
+          
+          // Add product and show payment selection directly
+          const addedMessage: ChatMessage = {
+            id: `added-${Date.now()}`,
+            role: 'assistant',
+            content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\n📍 آدرس تحویل: ${mockAddresses[0].fullAddress}\n\nحالا روش پرداخت رو انتخاب کن:`,
+            paymentOptions: paymentOptions,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, addedMessage]);
+          setAgenticState(prev => ({ ...prev, step: 'payment-selection' }));
+          setIsProcessing(false);
+          return;
+        }
+
+        // Default flow - product added, show finalize CTA
         responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی سبدت رو از ساید بار سمت چپ هم مدیریت کنی.`;
         
         ctaButton = {

@@ -11,7 +11,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: ProductCardProps) => {
-  const { getProductImage } = useHomepageSettings();
+  const { getChatProductImage } = useHomepageSettings();
   
   return (
     <div 
@@ -28,7 +28,7 @@ export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: Produ
         style={{ background: 'hsl(0 0% 98%)' }}
       >
         <img 
-          src={getProductImage(product.id, product.image)} 
+          src={getChatProductImage(product.id, product.image)} 
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />

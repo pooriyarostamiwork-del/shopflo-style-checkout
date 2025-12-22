@@ -476,13 +476,13 @@ const CarouselSection = ({
               >
                 {/* Image with white background - fixed square aspect ratio */}
                 <div 
-                  className="relative w-full aspect-square overflow-hidden flex items-center justify-center"
+                  className="relative w-full aspect-square flex items-center justify-center p-4"
                   style={{ background: 'hsl(0 0% 98%)' }}
                 >
                   <img
                     src={getProductImage(product.id, product.image)}
                     alt={product.name}
-                    className="max-w-[85%] max-h-[85%] object-contain transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                   />
                   {discountPercent > 0 && (
                     <div 

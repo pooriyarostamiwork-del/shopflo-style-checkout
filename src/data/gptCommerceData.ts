@@ -21,11 +21,95 @@ export interface CartItem extends Product {
   quantity: number;
 }
 
+// Agentic checkout types
+export type QuickReplyType = 
+  | 'confirm-cart'
+  | 'add-more'
+  | 'track-order'
+  | 'modify-address'
+  | 'view-invoice'
+  | 'custom';
+
+export interface QuickReply {
+  id: string;
+  label: string;
+  type: QuickReplyType;
+  action?: string;
+}
+
+export type PaymentMethod = 'wallet' | 'direct-debit' | 'gateway';
+
+export interface PaymentOption {
+  id: PaymentMethod;
+  label: string;
+  icon: string;
+  available: boolean;
+  tooltip?: string;
+}
+
+export interface DeliveryAddress {
+  id: string;
+  title: string;
+  fullAddress: string;
+  recipientName: string;
+  phone: string;
+  isDefault?: boolean;
+}
+
+export interface VendorOrderSummary {
+  merchant: Merchant;
+  items: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
+  discount: number;
+  total: number;
+}
+
+export interface OrderSummary {
+  vendorSummaries: VendorOrderSummary[];
+  totalItems: number;
+  subtotal: number;
+  totalDelivery: number;
+  totalDiscount: number;
+  grandTotal: number;
+}
+
+export type CheckoutStep = 
+  | 'idle'
+  | 'product-added'
+  | 'awaiting-finalize'
+  | 'cart-confirmation'
+  | 'address-confirmation'
+  | 'payment-selection'
+  | 'processing-payment'
+  | 'order-complete';
+
+export interface AgenticState {
+  step: CheckoutStep;
+  isLoggedIn: boolean;
+  hasStoredCheckoutDetails: boolean;
+  selectedAddress: DeliveryAddress | null;
+  selectedPayment: PaymentMethod | null;
+  orderId: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   products?: Product[];
+  productIndexStart?: number; // For numbering products in chat
+  quickReplies?: QuickReply[];
+  ctaButton?: {
+    label: string;
+    action: string;
+    disabled?: boolean;
+    disabledReason?: string;
+  };
+  orderSummary?: OrderSummary;
+  addressConfirmation?: DeliveryAddress;
+  paymentOptions?: PaymentOption[];
+  showCartSummary?: boolean;
   timestamp: Date;
 }
 
@@ -37,6 +121,7 @@ export interface Order {
   date: Date;
 }
 
+// Mock data
 export const merchants: Merchant[] = [
   { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
   { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
@@ -125,6 +210,46 @@ export const favorites: Product[] = [
   mockProducts[3],
 ];
 
+export const mockAddresses: DeliveryAddress[] = [
+  {
+    id: 'addr1',
+    title: 'خانه',
+    fullAddress: 'تهران، منطقه ۳، خیابان ولیعصر، کوچه گلستان، پلاک ۱۲، واحد ۴',
+    recipientName: 'علی محمدی',
+    phone: '۰۹۱۲۳۴۵۶۷۸۹',
+    isDefault: true,
+  },
+  {
+    id: 'addr2',
+    title: 'محل کار',
+    fullAddress: 'تهران، میدان آرژانتین، خیابان احمد قصیر، ساختمان برج آبی، طبقه ۵',
+    recipientName: 'علی محمدی',
+    phone: '۰۹۱۲۳۴۵۶۷۸۹',
+  },
+];
+
+export const paymentOptions: PaymentOption[] = [
+  {
+    id: 'wallet',
+    label: 'کیف پول',
+    icon: '💰',
+    available: true,
+  },
+  {
+    id: 'direct-debit',
+    label: 'برداشت مستقیم',
+    icon: '🏦',
+    available: false,
+    tooltip: 'این روش در حال حاضر فعال نیست',
+  },
+  {
+    id: 'gateway',
+    label: 'درگاه پرداخت',
+    icon: '💳',
+    available: true,
+  },
+];
+
 export const initialMessages: ChatMessage[] = [
   {
     id: 'welcome',
@@ -144,6 +269,7 @@ export const mockOrders: Order[] = [
   },
 ];
 
+// Utility functions
 export const toPersianNumber = (num: number | string): string => {
   const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
   return String(num).replace(/[0-9]/g, (d) => persianDigits[parseInt(d)]);
@@ -152,4 +278,48 @@ export const toPersianNumber = (num: number | string): string => {
 export const formatPersianPrice = (price: number): string => {
   const formatted = price.toLocaleString('fa-IR');
   return `${formatted} تومان`;
+};
+
+// Calculate order summary from cart items
+export const calculateOrderSummary = (cartItems: CartItem[]): OrderSummary => {
+  const vendorMap = new Map<string, VendorOrderSummary>();
+  
+  cartItems.forEach(item => {
+    const merchantId = item.merchant.id;
+    if (!vendorMap.has(merchantId)) {
+      vendorMap.set(merchantId, {
+        merchant: item.merchant,
+        items: [],
+        subtotal: 0,
+        deliveryFee: item.fastDelivery ? 0 : 35000, // Free delivery for fast delivery items
+        discount: 0,
+        total: 0,
+      });
+    }
+    
+    const vendor = vendorMap.get(merchantId)!;
+    vendor.items.push(item);
+    vendor.subtotal += item.price * item.quantity;
+    
+    // Calculate discount if original price exists
+    if (item.originalPrice) {
+      vendor.discount += (item.originalPrice - item.price) * item.quantity;
+    }
+  });
+  
+  // Calculate totals per vendor
+  vendorMap.forEach(vendor => {
+    vendor.total = vendor.subtotal + vendor.deliveryFee;
+  });
+  
+  const vendorSummaries = Array.from(vendorMap.values());
+  
+  return {
+    vendorSummaries,
+    totalItems: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+    subtotal: vendorSummaries.reduce((sum, v) => sum + v.subtotal, 0),
+    totalDelivery: vendorSummaries.reduce((sum, v) => sum + v.deliveryFee, 0),
+    totalDiscount: vendorSummaries.reduce((sum, v) => sum + v.discount, 0),
+    grandTotal: vendorSummaries.reduce((sum, v) => sum + v.total, 0),
+  };
 };

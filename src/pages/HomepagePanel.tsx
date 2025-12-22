@@ -46,6 +46,15 @@ const chatProducts = [
   { id: 'p2', name: 'ایرپاد پرو ۲ اپل' },
   { id: 'p3', name: 'هدفون گیمینگ ریزر' },
   { id: 'p4', name: 'هدفون JBL Tune 760NC' },
+  { id: 'p5', name: 'هدفون بیتس استودیو ۳' },
+  { id: 'p6', name: 'هدفون Audio-Technica ATH-M50x' },
+];
+
+// Logo locations for management
+const logoLocations = [
+  { id: 'chatMode', label: 'حالت چت (بالا راست)', defaultSubtitle: 'دستیار خرید هوشمند' },
+  { id: 'firstPage', label: 'صفحه اول (بالای چت)', defaultSubtitle: 'دستیار خرید هوشمند شما' },
+  { id: 'footer', label: 'فوتر', defaultSubtitle: 'خرید هوشمند با کمک هوش مصنوعی' },
 ];
 
 const carouselInfo: { key: keyof BannerConfigs; label: string; defaultName: string; icon: React.ReactNode }[] = [
@@ -71,12 +80,14 @@ const HomepagePanel = () => {
     getHorizontalBanner, 
     getBanner,
     getProductName,
-    getCarouselName
+    getCarouselName,
+    updateLogoSettings,
+    getLogoSettings
   } = useHomepageSettings();
   const [activeCarousel, setActiveCarousel] = useState<keyof BannerConfigs>('hotDeals');
   const [activeBannerTab, setActiveBannerTab] = useState<keyof BannerConfigs>('hotDeals');
   const [activeHorizontalBanner, setActiveHorizontalBanner] = useState<keyof HorizontalBannerConfigs>('afterHotDeals');
-  const [activeSection, setActiveSection] = useState<'images' | 'chatImages' | 'names' | 'banners' | 'horizontalBanners'>('images');
+  const [activeSection, setActiveSection] = useState<'images' | 'chatImages' | 'names' | 'banners' | 'horizontalBanners' | 'logos'>('images');
 
   const handleSave = () => {
     toast({
@@ -541,6 +552,81 @@ const HomepagePanel = () => {
                 );
               })}
             </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Logo Settings Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Image className="w-5 h-5" />
+              تنظیمات لوگو و زیرنویس
+            </CardTitle>
+            <CardDescription>
+              تغییر لوگو و زیرنویس فلوکارت در مکان‌های مختلف
+            </CardDescription>
+            <div className="flex items-center gap-2 mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+              <Info className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                <strong className="text-foreground">راهنمای سایز:</strong> اندازه پیشنهادی لوگو: <strong className="text-primary">80 × 80 پیکسل</strong> (مربعی)
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {logoLocations.map((location) => {
+                const logoSettings = getLogoSettings(location.id as any);
+                return (
+                  <div key={location.id} className="space-y-4 p-4 bg-background rounded-lg border">
+                    <div className="text-center">
+                      <h4 className="text-sm font-medium text-foreground mb-1">{location.label}</h4>
+                      <p className="text-xs text-muted-foreground">پیش‌فرض: {location.defaultSubtitle}</p>
+                    </div>
+                    
+                    {/* Logo Preview */}
+                    <div className="flex justify-center">
+                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted border flex items-center justify-center">
+                        {logoSettings.imageUrl ? (
+                          <img 
+                            src={logoSettings.imageUrl} 
+                            alt="لوگو"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/80x80?text=خطا';
+                            }}
+                          />
+                        ) : (
+                          <div className="text-primary text-3xl">⚡</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Logo URL */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">آدرس URL لوگو</Label>
+                      <Input
+                        placeholder="https://example.com/logo.png"
+                        value={logoSettings.imageUrl || ''}
+                        onChange={(e) => updateLogoSettings(location.id as any, { imageUrl: e.target.value })}
+                        className="text-xs"
+                        dir="ltr"
+                      />
+                    </div>
+                    
+                    {/* Subtitle */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">زیرنویس</Label>
+                      <Input
+                        placeholder={location.defaultSubtitle}
+                        value={logoSettings.subtitle || ''}
+                        onChange={(e) => updateLogoSettings(location.id as any, { subtitle: e.target.value })}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 

@@ -1,5 +1,6 @@
 import { User, MapPin, CreditCard, Settings, ShoppingCart, Clock, Star, Gift, Wallet, Flame, Package, RotateCcw, HeadphonesIcon, Zap } from "lucide-react";
 import { toPersianNumber } from "@/data/gptCommerceData";
+import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 interface SidebarProps {
   activeSection: string;
@@ -21,6 +22,9 @@ interface SidebarSection {
 }
 
 export const Sidebar = ({ activeSection, onSectionChange, cartItemCount, activeOrderCount }: SidebarProps) => {
+  const { getLogoSettings } = useHomepageSettings();
+  const chatModeLogo = getLogoSettings('chatMode');
+
   const sections: SidebarSection[] = [
     {
       title: 'حساب کاربری',
@@ -73,18 +77,26 @@ export const Sidebar = ({ activeSection, onSectionChange, cartItemCount, activeO
         style={{ borderBottom: '1px solid hsl(0 0% 0% / 0.05)' }}
       >
         <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl"
-            style={{
-              background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
-              boxShadow: '0 4px 16px hsl(var(--primary) / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.2)'
-            }}
-          >
-            <Zap className="w-5 h-5 text-white" />
-          </div>
+          {chatModeLogo.imageUrl ? (
+            <img 
+              src={chatModeLogo.imageUrl} 
+              alt="فلوکارت" 
+              className="w-10 h-10 rounded-xl object-cover"
+            />
+          ) : (
+            <div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl"
+              style={{
+                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
+                boxShadow: '0 4px 16px hsl(var(--primary) / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.2)'
+              }}
+            >
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+          )}
           <div>
             <h1 className="font-bold text-foreground text-lg">Flowcart</h1>
-            <p className="text-xs text-muted-foreground">دستیار خرید هوشمند</p>
+            <p className="text-xs text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
           </div>
         </div>
       </div>

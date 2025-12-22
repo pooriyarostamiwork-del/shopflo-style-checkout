@@ -69,11 +69,10 @@ export const ProductQuickViewModal = ({
 
       {/* Modal */}
       <div 
-        className="relative w-full max-w-2xl rounded-2xl overflow-hidden"
+        className="relative w-full max-w-3xl rounded-2xl overflow-hidden"
         style={{
           background: 'hsl(0 0% 100%)',
           border: '1px solid hsl(0 0% 0% / 0.08)',
-          minHeight: '400px',
           animation: 'modal-center-in 0.2s ease-out forwards',
           transformOrigin: 'center center',
         }}
@@ -93,16 +92,27 @@ export const ProductQuickViewModal = ({
         </button>
 
         <div className="flex flex-col md:flex-row">
-          {/* Product Image Slider */}
-          <div className="relative w-full md:w-1/2">
+          {/* Product Image Section - Fixed width */}
+          <div className="relative w-full md:w-[320px] flex-shrink-0">
+            {/* Discount Badge - Above image */}
+            {discountPercent > 0 && (
+              <div 
+                className="absolute top-4 right-4 z-10 px-3 py-1.5 rounded-xl text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+              >
+                {toPersianNumber(discountPercent)}٪ تخفیف
+              </div>
+            )}
+            
+            {/* Image Container - Square aspect ratio */}
             <div 
-              className="w-full min-h-[320px] rounded-tl-2xl rounded-bl-2xl overflow-hidden flex items-center justify-center p-4"
-              style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.04)' }}
+              className="w-full aspect-square flex items-center justify-center"
+              style={{ background: 'hsl(0 0% 98%)' }}
             >
               <img
                 src={images[currentImageIndex]}
                 alt={product.name}
-                className="w-full h-full object-contain max-h-[280px]"
+                className="w-full h-full object-cover"
               />
             </div>
             
@@ -146,16 +156,6 @@ export const ProductQuickViewModal = ({
                   ))}
                 </div>
               </>
-            )}
-            
-            {/* Discount Badge */}
-            {discountPercent > 0 && (
-              <div 
-                className="absolute top-4 right-4 px-3 py-1.5 rounded-xl text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
-              >
-                {toPersianNumber(discountPercent)}٪ تخفیف
-              </div>
             )}
           </div>
 

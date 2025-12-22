@@ -78,15 +78,15 @@ export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: Produ
           )}
         </div>
 
-        {/* Actions - Bottom */}
-        <div className="flex items-center gap-2 pt-1 mt-auto">
+        {/* Actions - Bottom - Fixed at bottom of card */}
+        <div className="flex items-center gap-2 pt-2 mt-auto border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
           <Button
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart(product);
             }}
             disabled={isInCart}
-            className="w-8 h-8 rounded-full p-0"
+            className="w-8 h-8 rounded-full p-0 flex-shrink-0"
             style={{
               background: isInCart 
                 ? 'hsl(142 70% 45%)' 
@@ -100,14 +100,14 @@ export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: Produ
               e.stopPropagation();
               onCompare(product);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
             style={{
               background: 'hsl(0 0% 100%)',
               border: '1px solid hsl(0 0% 0% / 0.08)',
             }}
           >
             <Info className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">مشاهده جزئیات</span>
+            <span className="text-xs text-muted-foreground">جزئیات</span>
           </button>
         </div>
       </div>

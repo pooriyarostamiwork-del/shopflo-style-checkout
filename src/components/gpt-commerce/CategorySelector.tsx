@@ -36,9 +36,9 @@ export const CategorySelector = ({ activeCategory, onCategoryChange }: CategoryS
         <button
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium backdrop-blur-xl transition-all duration-300 hover:scale-105"
           style={{
-            background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7))',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
-            border: '1px solid hsl(0 0% 100% / 0.3)'
+            background: 'hsl(0 0% 100%)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06)',
+            border: '1px solid hsl(0 0% 0% / 0.12)'
           }}
           dir="rtl"
         >

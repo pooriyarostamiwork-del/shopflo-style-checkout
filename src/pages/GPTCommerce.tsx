@@ -40,6 +40,9 @@ const GPTCommerceContent = () => {
     selectedPayment: null,
     orderId: null,
   });
+  
+  // Selected address ID for address selector
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(mockAddresses[0].id);
 
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
@@ -83,12 +86,12 @@ const GPTCommerceContent = () => {
   // Handle quick reply selection
   const handleQuickReply = useCallback((reply: QuickReply) => {
     if (reply.type === 'confirm-cart') {
-      // Show address confirmation
+      // Show address selector with multiple addresses
       const addressMessage: ChatMessage = {
         id: `addr-${Date.now()}`,
         role: 'assistant',
-        content: 'عالی! لطفاً آدرس تحویل رو تأیید کن:',
-        addressConfirmation: agenticState.selectedAddress || mockAddresses[0],
+        content: 'عالی! لطفاً آدرس تحویل رو انتخاب کن:',
+        addressSelector: mockAddresses, // Show all addresses to choose from
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, addressMessage]);
@@ -111,21 +114,32 @@ const GPTCommerceContent = () => {
       };
       setMessages(prev => [...prev, trackMessage]);
     }
-  }, [agenticState]);
+  }, [agenticState.orderId]);
+
+  // Handle address selection
+  const handleAddressSelect = useCallback((addressId: string) => {
+    setSelectedAddressId(addressId);
+    const selectedAddr = mockAddresses.find(a => a.id === addressId);
+    if (selectedAddr) {
+      setAgenticState(prev => ({ ...prev, selectedAddress: selectedAddr }));
+    }
+  }, []);
 
   // Handle address confirmation
   const handleAddressConfirm = useCallback(() => {
+    const selectedAddr = mockAddresses.find(a => a.id === selectedAddressId) || mockAddresses[0];
+    
     // Show payment selection
     const paymentMessage: ChatMessage = {
       id: `payment-${Date.now()}`,
       role: 'assistant',
-      content: 'آدرس تأیید شد ✅\n\nحالا روش پرداخت رو انتخاب کن:',
+      content: `آدرس "${selectedAddr.title}" تأیید شد ✅\n\nحالا روش پرداخت رو انتخاب کن:`,
       paymentOptions: paymentOptions,
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, paymentMessage]);
     setAgenticState(prev => ({ ...prev, step: 'payment-selection' }));
-  }, []);
+  }, [selectedAddressId]);
 
   // Handle payment selection
   const handlePaymentSelect = useCallback((paymentId: string) => {
@@ -531,8 +545,10 @@ const GPTCommerceContent = () => {
         onQuickReply={handleQuickReply}
         onFinalizePurchase={handleFinalizePurchase}
         onAddressConfirm={handleAddressConfirm}
+        onAddressSelect={handleAddressSelect}
         onPaymentSelect={handlePaymentSelect}
         agenticState={agenticState}
+        selectedAddressId={selectedAddressId}
       />
 
       <RightPanel

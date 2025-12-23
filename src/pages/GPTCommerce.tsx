@@ -339,7 +339,7 @@ const GPTCommerceContent = () => {
         }
 
         // Default flow - product added, show finalize CTA
-        responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی سبدت رو از ساید بار سمت چپ هم مدیریت کنی.`;
+        responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`;
         
         ctaButton = {
           label: 'نهایی کردن خرید',
@@ -426,7 +426,7 @@ const GPTCommerceContent = () => {
     const confirmMessage: ChatMessage = {
       id: `confirm-${Date.now()}`,
       role: 'assistant',
-      content: `${product.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟`,
+      content: `${product.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`,
       ctaButton: {
         label: 'نهایی کردن خرید',
         action: 'finalize',

@@ -108,6 +108,7 @@ export interface ChatMessage {
   };
   orderSummary?: OrderSummary;
   addressConfirmation?: DeliveryAddress;
+  addressSelector?: DeliveryAddress[]; // Multiple addresses to choose from
   paymentOptions?: PaymentOption[];
   showCartSummary?: boolean;
   timestamp: Date;

@@ -14,6 +14,7 @@ import {
   CTAButton, 
   CartSummaryCard, 
   AddressConfirmation,
+  AddressSelector,
   PaymentSelector 
 } from "./AgenticMessageComponents";
 
@@ -35,8 +36,10 @@ interface ChatInterfaceProps {
   onQuickReply?: (reply: QuickReply) => void;
   onFinalizePurchase?: () => void;
   onAddressConfirm?: () => void;
+  onAddressSelect?: (addressId: string) => void;
   onPaymentSelect?: (paymentId: string) => void;
   agenticState?: AgenticState;
+  selectedAddressId?: string | null;
 }
 
 // Rotating placeholder texts
@@ -113,8 +116,10 @@ export const ChatInterface = ({
   onQuickReply,
   onFinalizePurchase,
   onAddressConfirm,
+  onAddressSelect,
   onPaymentSelect,
   agenticState,
+  selectedAddressId,
 }: ChatInterfaceProps) => {
   const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -494,8 +499,20 @@ export const ChatInterface = ({
                 </div>
               )}
 
-              {/* Address Confirmation */}
-              {msg.addressConfirmation && onAddressConfirm && (
+              {/* Address Selector (Multiple addresses) */}
+              {msg.addressSelector && onAddressSelect && onAddressConfirm && (
+                <div className="mr-11 max-w-[450px]">
+                  <AddressSelector 
+                    addresses={msg.addressSelector}
+                    selectedAddressId={selectedAddressId || null}
+                    onSelect={(address) => onAddressSelect(address.id)}
+                    onConfirm={onAddressConfirm}
+                  />
+                </div>
+              )}
+
+              {/* Legacy Address Confirmation (Single address) */}
+              {msg.addressConfirmation && !msg.addressSelector && onAddressConfirm && (
                 <div className="mr-11 max-w-[400px]">
                   <AddressConfirmation 
                     address={msg.addressConfirmation}

@@ -172,7 +172,110 @@ export const CartSummaryCard = ({ orderSummary }: CartSummaryCardProps) => {
   );
 };
 
-// Address Confirmation Component
+// Address Selector Component - Multiple addresses to choose from
+interface AddressSelectorProps {
+  addresses: DeliveryAddress[];
+  selectedAddressId: string | null;
+  onSelect: (address: DeliveryAddress) => void;
+  onConfirm: () => void;
+}
+
+export const AddressSelector = ({ addresses, selectedAddressId, onSelect, onConfirm }: AddressSelectorProps) => {
+  return (
+    <div 
+      className="mt-4 rounded-xl overflow-hidden"
+      style={{
+        background: 'hsl(0 0% 100%)',
+        border: '1px solid hsl(0 0% 0% / 0.08)',
+      }}
+    >
+      {/* Header */}
+      <div 
+        className="px-4 py-3 flex items-center gap-2"
+        style={{ 
+          background: 'hsl(var(--primary) / 0.05)',
+          borderBottom: '1px solid hsl(0 0% 0% / 0.05)'
+        }}
+      >
+        <MapPin className="w-5 h-5 text-primary" />
+        <span className="font-medium text-sm">آدرس تحویل را انتخاب کنید</span>
+      </div>
+
+      {/* Address Options */}
+      <div className="p-4 space-y-3">
+        {addresses.map((address) => (
+          <button
+            key={address.id}
+            onClick={() => onSelect(address)}
+            className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-right ${
+              selectedAddressId === address.id
+                ? 'ring-2 ring-primary'
+                : 'hover:bg-muted/50'
+            }`}
+            style={{
+              background: selectedAddressId === address.id 
+                ? 'hsl(var(--primary) / 0.05)' 
+                : 'hsl(0 0% 98%)',
+              border: '1px solid hsl(0 0% 0% / 0.08)',
+            }}
+          >
+            <div 
+              className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5 ${
+                selectedAddressId === address.id ? '' : 'border-2'
+              }`}
+              style={{ 
+                background: selectedAddressId === address.id ? 'hsl(var(--primary))' : 'transparent',
+                borderColor: selectedAddressId === address.id ? 'transparent' : 'hsl(0 0% 70%)'
+              }}
+            >
+              {selectedAddressId === address.id && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-medium text-sm">{address.title}</h4>
+                {address.isDefault && (
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ 
+                      background: 'hsl(var(--primary) / 0.1)',
+                      color: 'hsl(var(--primary))'
+                    }}
+                  >
+                    پیش‌فرض
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-1.5">
+                {address.fullAddress}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{address.recipientName}</span>
+                <span>•</span>
+                <span dir="ltr">{address.phone}</span>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Confirm Button */}
+      <div className="px-4 pb-4">
+        <Button
+          onClick={onConfirm}
+          disabled={!selectedAddressId}
+          className="w-full h-10 rounded-xl text-sm"
+        >
+          <Check className="w-4 h-4 ml-2" />
+          تأیید آدرس
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Legacy single address confirmation (kept for compatibility)
 interface AddressConfirmationProps {
   address: DeliveryAddress;
   onConfirm: () => void;

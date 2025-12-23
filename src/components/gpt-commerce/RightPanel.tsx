@@ -1,8 +1,46 @@
 import { useState } from "react";
-import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag } from "lucide-react";
+import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Palette } from "lucide-react";
 import { CartItem, Product, formatPersianPrice, toPersianNumber, recentlyViewed, favorites, calculateOrderSummary } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+
+interface ProductVariant {
+  id: string;
+  name: string;
+  type: 'color' | 'size';
+  value: string;
+  colorHex?: string;
+}
+
+// Mock variants for products
+const productVariants: Record<string, ProductVariant[]> = {
+  'p1': [
+    { id: 'v1', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+    { id: 'v2', name: 'نقره‌ای', type: 'color', value: 'silver', colorHex: '#c0c0c0' },
+    { id: 'v3', name: 'آبی', type: 'color', value: 'blue', colorHex: '#3b82f6' },
+  ],
+  'p2': [
+    { id: 'v4', name: 'سفید', type: 'color', value: 'white', colorHex: '#ffffff' },
+    { id: 'v5', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+  ],
+  'p3': [
+    { id: 'v6', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+    { id: 'v7', name: 'سبز', type: 'color', value: 'green', colorHex: '#22c55e' },
+  ],
+  'p4': [
+    { id: 'v8', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+    { id: 'v9', name: 'آبی', type: 'color', value: 'blue', colorHex: '#3b82f6' },
+    { id: 'v10', name: 'قرمز', type: 'color', value: 'red', colorHex: '#ef4444' },
+  ],
+  'p5': [
+    { id: 'v11', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+    { id: 'v12', name: 'قرمز', type: 'color', value: 'red', colorHex: '#ef4444' },
+    { id: 'v13', name: 'سفید', type: 'color', value: 'white', colorHex: '#ffffff' },
+  ],
+  'p6': [
+    { id: 'v14', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+  ],
+};
 
 interface RightPanelProps {
   cartItems: CartItem[];
@@ -170,57 +208,86 @@ export const RightPanel = ({
 
                         {/* Items */}
                         <div className="p-3 space-y-3">
-                          {vendorSummary.items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex gap-3"
-                            >
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium text-foreground line-clamp-1">
-                                  {item.name}
-                                </h4>
-                                <p className="text-xs text-primary font-medium mt-0.5">
-                                  {formatPersianPrice(item.price)}
-                                </p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <div 
-                                    className="flex items-center gap-1 rounded-lg"
-                                    style={{
-                                      background: 'hsl(0 0% 100% / 0.8)',
-                                      border: '1px solid hsl(0 0% 0% / 0.05)'
-                                    }}
-                                  >
-                                    <button
-                                      onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                                      className="p-1 hover:bg-muted/30 rounded-r-lg transition-colors"
+                          {vendorSummary.items.map((item) => {
+                            const variants = productVariants[item.id] || [];
+                            const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id || '');
+                            
+                            return (
+                              <div
+                                key={item.id}
+                                className="flex gap-3"
+                              >
+                                <img
+                                  src={item.image}
+                                  alt={item.name}
+                                  className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium text-foreground line-clamp-1">
+                                    {item.name}
+                                  </h4>
+                                  <p className="text-xs text-primary font-medium mt-0.5">
+                                    {formatPersianPrice(item.price)}
+                                  </p>
+                                  
+                                  {/* Variant Selector */}
+                                  {variants.length > 0 && (
+                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                      <Palette className="w-3 h-3 text-muted-foreground" />
+                                      <div className="flex gap-1">
+                                        {variants.map((variant) => (
+                                          <button
+                                            key={variant.id}
+                                            onClick={() => setSelectedVariant(variant.id)}
+                                            className={`w-5 h-5 rounded-full transition-all duration-200 ${
+                                              selectedVariant === variant.id ? 'ring-2 ring-primary ring-offset-1' : ''
+                                            }`}
+                                            style={{ 
+                                              backgroundColor: variant.colorHex,
+                                              border: variant.colorHex === '#ffffff' ? '1px solid hsl(0 0% 80%)' : 'none'
+                                            }}
+                                            title={variant.name}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex items-center justify-between mt-2">
+                                    <div 
+                                      className="flex items-center gap-1 rounded-lg"
+                                      style={{
+                                        background: 'hsl(0 0% 100% / 0.8)',
+                                        border: '1px solid hsl(0 0% 0% / 0.05)'
+                                      }}
                                     >
-                                      <Minus className="w-3 h-3" />
-                                    </button>
-                                    <span className="px-2 text-sm font-medium">
-                                      {toPersianNumber(item.quantity)}
-                                    </span>
+                                      <button
+                                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                                        className="p-1 hover:bg-muted/30 rounded-r-lg transition-colors"
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </button>
+                                      <span className="px-2 text-sm font-medium">
+                                        {toPersianNumber(item.quantity)}
+                                      </span>
+                                      <button
+                                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                                        className="p-1 hover:bg-muted/30 rounded-l-lg transition-colors"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
                                     <button
-                                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                                      className="p-1 hover:bg-muted/30 rounded-l-lg transition-colors"
+                                      onClick={() => onRemoveItem(item.id)}
+                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                     >
-                                      <Plus className="w-3 h-3" />
+                                      <Trash2 className="w-4 h-4" />
                                     </button>
                                   </div>
-                                  <button
-                                    onClick={() => onRemoveItem(item.id)}
-                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         {/* Vendor Summary */}
@@ -374,7 +441,7 @@ export const RightPanel = ({
             )}
           </div>
 
-          {/* Cart Footer with Full Summary */}
+          {/* Cart Footer with Full Summary - No checkout button, agent handles checkout */}
           {activeTab === 'cart' && cartItems.length > 0 && (
             <div 
               className="p-4 space-y-3"
@@ -409,16 +476,11 @@ export const RightPanel = ({
                   {formatPersianPrice(orderSummary.grandTotal)}
                 </span>
               </div>
-              <Button
-                onClick={onCheckout}
-                className="w-full h-12 rounded-xl text-sm font-medium transition-all duration-300"
-                style={{
-                  boxShadow: '0 4px 20px hsl(var(--primary) / 0.3)'
-                }}
-              >
-                ادامه به پرداخت
-                <ChevronLeft className="w-4 h-4 mr-1" />
-              </Button>
+
+              {/* Trust message - checkout is handled by agent */}
+              <p className="text-xs text-muted-foreground text-center pt-2">
+                برای نهایی کردن خرید، از دستیار هوشمند در چت کمک بگیر ✨
+              </p>
             </div>
           )}
         </div>

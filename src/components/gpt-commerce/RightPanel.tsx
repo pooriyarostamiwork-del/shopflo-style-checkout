@@ -42,6 +42,94 @@ const productVariants: Record<string, ProductVariant[]> = {
   ],
 };
 
+// Separate component for cart item to properly use hooks
+const CartItemCard = ({
+  item,
+  variants,
+  onUpdateQuantity,
+  onRemoveItem,
+}: {
+  item: CartItem;
+  variants: ProductVariant[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemoveItem: (productId: string) => void;
+}) => {
+  const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id || '');
+  
+  return (
+    <div className="flex gap-3">
+      <img
+        src={item.image}
+        alt={item.name}
+        className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+      />
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-medium text-foreground line-clamp-1">
+          {item.name}
+        </h4>
+        <p className="text-xs text-primary font-medium mt-0.5">
+          {formatPersianPrice(item.price)}
+        </p>
+        
+        {/* Variant Selector */}
+        {variants.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Palette className="w-3 h-3 text-muted-foreground" />
+            <div className="flex gap-1">
+              {variants.map((variant) => (
+                <button
+                  key={variant.id}
+                  onClick={() => setSelectedVariant(variant.id)}
+                  className={`w-5 h-5 rounded-full transition-all duration-200 ${
+                    selectedVariant === variant.id ? 'ring-2 ring-primary ring-offset-1' : ''
+                  }`}
+                  style={{ 
+                    backgroundColor: variant.colorHex,
+                    border: variant.colorHex === '#ffffff' ? '1px solid hsl(0 0% 80%)' : 'none'
+                  }}
+                  title={variant.name}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between mt-2">
+          <div 
+            className="flex items-center gap-1 rounded-lg"
+            style={{
+              background: 'hsl(0 0% 100% / 0.8)',
+              border: '1px solid hsl(0 0% 0% / 0.05)'
+            }}
+          >
+            <button
+              onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+              className="p-1 hover:bg-muted/30 rounded-r-lg transition-colors"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="px-2 text-sm font-medium">
+              {toPersianNumber(item.quantity)}
+            </span>
+            <button
+              onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+              className="p-1 hover:bg-muted/30 rounded-l-lg transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+          <button
+            onClick={() => onRemoveItem(item.id)}
+            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface RightPanelProps {
   cartItems: CartItem[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
@@ -208,86 +296,15 @@ export const RightPanel = ({
 
                         {/* Items */}
                         <div className="p-3 space-y-3">
-                          {vendorSummary.items.map((item) => {
-                            const variants = productVariants[item.id] || [];
-                            const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id || '');
-                            
-                            return (
-                              <div
-                                key={item.id}
-                                className="flex gap-3"
-                              >
-                                <img
-                                  src={item.image}
-                                  alt={item.name}
-                                  className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-medium text-foreground line-clamp-1">
-                                    {item.name}
-                                  </h4>
-                                  <p className="text-xs text-primary font-medium mt-0.5">
-                                    {formatPersianPrice(item.price)}
-                                  </p>
-                                  
-                                  {/* Variant Selector */}
-                                  {variants.length > 0 && (
-                                    <div className="flex items-center gap-1.5 mt-1.5">
-                                      <Palette className="w-3 h-3 text-muted-foreground" />
-                                      <div className="flex gap-1">
-                                        {variants.map((variant) => (
-                                          <button
-                                            key={variant.id}
-                                            onClick={() => setSelectedVariant(variant.id)}
-                                            className={`w-5 h-5 rounded-full transition-all duration-200 ${
-                                              selectedVariant === variant.id ? 'ring-2 ring-primary ring-offset-1' : ''
-                                            }`}
-                                            style={{ 
-                                              backgroundColor: variant.colorHex,
-                                              border: variant.colorHex === '#ffffff' ? '1px solid hsl(0 0% 80%)' : 'none'
-                                            }}
-                                            title={variant.name}
-                                          />
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  <div className="flex items-center justify-between mt-2">
-                                    <div 
-                                      className="flex items-center gap-1 rounded-lg"
-                                      style={{
-                                        background: 'hsl(0 0% 100% / 0.8)',
-                                        border: '1px solid hsl(0 0% 0% / 0.05)'
-                                      }}
-                                    >
-                                      <button
-                                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                                        className="p-1 hover:bg-muted/30 rounded-r-lg transition-colors"
-                                      >
-                                        <Minus className="w-3 h-3" />
-                                      </button>
-                                      <span className="px-2 text-sm font-medium">
-                                        {toPersianNumber(item.quantity)}
-                                      </span>
-                                      <button
-                                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                                        className="p-1 hover:bg-muted/30 rounded-l-lg transition-colors"
-                                      >
-                                        <Plus className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                    <button
-                                      onClick={() => onRemoveItem(item.id)}
-                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {vendorSummary.items.map((item) => (
+                            <CartItemCard
+                              key={item.id}
+                              item={item}
+                              variants={productVariants[item.id] || []}
+                              onUpdateQuantity={onUpdateQuantity}
+                              onRemoveItem={onRemoveItem}
+                            />
+                          ))}
                         </div>
 
                         {/* Vendor Summary */}

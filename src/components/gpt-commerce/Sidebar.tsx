@@ -57,8 +57,12 @@ export const Sidebar = ({
   const { getLogoSettings } = useHomepageSettings();
   const chatModeLogo = getLogoSettings('chatMode');
   
-  // Collapsible state - all collapsed by default
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  // Collapsible state - baskets open by default
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'baskets': true,
+    'recent-carts': false,
+    'saved-carts': false,
+  });
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
@@ -100,99 +104,83 @@ export const Sidebar = ({
 
   return (
     <aside 
-      className="w-[260px] h-screen flex flex-col overflow-hidden backdrop-blur-xl" 
+      className="w-[240px] h-screen flex flex-col overflow-hidden bg-background border-l border-border/50" 
       dir="rtl"
-      style={{
-        background: 'linear-gradient(180deg, hsl(0 0% 100% / 0.95), hsl(0 0% 100% / 0.85))',
-        borderLeft: '1px solid hsl(0 0% 100% / 0.3)',
-        boxShadow: '-4px 0 40px rgba(0, 0, 0, 0.03)'
-      }}
     >
-      {/* Header - Glass Logo */}
-      <div 
-        style={{ borderBottom: '1px solid hsl(0 0% 0% / 0.05)' }} 
-        className="p-4 py-[15px]"
-      >
+      {/* Header */}
+      <div className="p-4 border-b border-border/50">
         <div className="flex items-center gap-3">
           {chatModeLogo.imageUrl ? (
-            <img src={chatModeLogo.imageUrl} alt="فلوکارت" className="w-10 h-10 rounded-xl object-cover" />
+            <img src={chatModeLogo.imageUrl} alt="فلوکارت" className="w-9 h-9 rounded-lg object-cover" />
           ) : (
-            <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl"
-              style={{
-                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
-                boxShadow: '0 4px 16px hsl(var(--primary) / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.2)'
-              }}
-            >
-              <Zap className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary">
+              <Zap className="w-4.5 h-4.5 text-primary-foreground" />
             </div>
           )}
           <div>
-            <h1 className="font-bold text-foreground text-lg">Flowcart</h1>
-            <p className="text-xs text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
+            <h1 className="font-semibold text-foreground text-[15px]">Flowcart</h1>
+            <p className="text-[11px] text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
           </div>
         </div>
       </div>
 
       {/* Scrollable Sections */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4">
         
-        {/* Shopping Baskets Section - Conversation-like */}
-        <div className="rounded-xl overflow-hidden" style={{ background: 'hsl(0 0% 100% / 0.4)' }}>
+        {/* Shopping Baskets Section */}
+        <div className="space-y-1">
           <button
             onClick={() => toggleSection('baskets')}
-            className="w-full flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30"
+            className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50 group"
           >
             <div className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold text-foreground">سبدهای خرید</span>
+              <ShoppingCart className="w-4 h-4 text-foreground/70" />
+              <span className="text-sm font-medium text-foreground">سبدهای خرید</span>
               {cartItemCount > 0 && (
-                <span 
-                  className="text-xs px-1.5 py-0.5 rounded-full"
-                  style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
-                >
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
                   {toPersianNumber(cartItemCount)}
                 </span>
               )}
             </div>
             <ChevronDown 
-              className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
                 expandedSections['baskets'] ? 'rotate-180' : ''
               }`} 
             />
           </button>
           
           {expandedSections['baskets'] && (
-            <div className="px-2 pb-2 space-y-1">
+            <div className="space-y-0.5 mr-2">
               {mockBaskets.map((basket) => (
                 <button
                   key={basket.id}
                   onClick={() => onBasketSelect?.(basket.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-right ${
-                    activeBasketId === basket.id ? 'bg-primary/10' : 'hover:bg-muted/30'
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150 text-right group ${
+                    activeBasketId === basket.id 
+                      ? 'bg-primary/10 border border-primary/20' 
+                      : 'hover:bg-muted/40 border border-transparent'
                   }`}
                 >
                   <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ 
-                      background: activeBasketId === basket.id 
-                        ? 'hsl(var(--primary))' 
-                        : 'hsl(0 0% 0% / 0.05)' 
-                    }}
+                    className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
+                      activeBasketId === basket.id 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted/60 text-foreground/60 group-hover:bg-muted'
+                    }`}
                   >
-                    <MessageSquare 
-                      className={`w-4 h-4 ${activeBasketId === basket.id ? 'text-white' : 'text-muted-foreground'}`} 
-                    />
+                    <MessageSquare className="w-3.5 h-3.5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate ${activeBasketId === basket.id ? 'font-medium text-primary' : 'text-foreground'}`}>
+                    <p className={`text-[13px] truncate ${
+                      activeBasketId === basket.id 
+                        ? 'font-medium text-foreground' 
+                        : 'text-foreground/80'
+                    }`}>
                       {basket.title}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{toPersianNumber(basket.itemCount)} آیتم</span>
-                      <span>•</span>
-                      <span>{basket.lastActivity}</span>
-                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {toPersianNumber(basket.itemCount)} آیتم · {basket.lastActivity}
+                    </p>
                   </div>
                 </button>
               ))}
@@ -200,68 +188,63 @@ export const Sidebar = ({
           )}
         </div>
 
-        {/* Recent Carts - Collapsed */}
-        <div className="rounded-xl overflow-hidden" style={{ background: 'hsl(0 0% 100% / 0.4)' }}>
+        {/* Recent Carts */}
+        <div className="space-y-1">
           <button
             onClick={() => toggleSection('recent-carts')}
-            className="w-full flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30"
+            className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50"
           >
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-foreground">سبدهای اخیر</span>
+              <Clock className="w-4 h-4 text-foreground/70" />
+              <span className="text-sm font-medium text-foreground">سبدهای اخیر</span>
             </div>
             <ChevronDown 
-              className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
                 expandedSections['recent-carts'] ? 'rotate-180' : ''
               }`} 
             />
           </button>
           
           {expandedSections['recent-carts'] && (
-            <div className="px-2 pb-2 space-y-1">
-              <p className="text-xs text-muted-foreground px-3 py-2">سبدهای اخیر شما اینجا نمایش داده می‌شوند.</p>
+            <div className="mr-2 px-2 py-2">
+              <p className="text-xs text-muted-foreground">سبدهای اخیر شما اینجا نمایش داده می‌شوند.</p>
             </div>
           )}
         </div>
 
-        {/* Saved Carts - Collapsed */}
-        <div className="rounded-xl overflow-hidden" style={{ background: 'hsl(0 0% 100% / 0.4)' }}>
+        {/* Saved Carts */}
+        <div className="space-y-1">
           <button
             onClick={() => toggleSection('saved-carts')}
-            className="w-full flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30"
+            className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50"
           >
             <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-foreground">ذخیره‌شده‌ها</span>
+              <Star className="w-4 h-4 text-foreground/70" />
+              <span className="text-sm font-medium text-foreground">ذخیره‌شده‌ها</span>
             </div>
             <ChevronDown 
-              className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
                 expandedSections['saved-carts'] ? 'rotate-180' : ''
               }`} 
             />
           </button>
           
           {expandedSections['saved-carts'] && (
-            <div className="px-2 pb-2 space-y-1">
+            <div className="space-y-0.5 mr-2">
               {mockSavedCarts.map((cart) => (
                 <button
                   key={cart.id}
                   onClick={() => onBasketSelect?.(cart.id)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-muted/30 text-right"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all hover:bg-muted/40 text-right group border border-transparent"
                 >
-                  <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'hsl(0 0% 0% / 0.05)' }}
-                  >
-                    <Star className="w-4 h-4 text-muted-foreground" />
+                  <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 bg-muted/60 text-foreground/60 group-hover:bg-muted">
+                    <Star className="w-3.5 h-3.5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate text-foreground">{cart.title}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{toPersianNumber(cart.itemCount)} آیتم</span>
-                      <span>•</span>
-                      <span>{cart.lastActivity}</span>
-                    </div>
+                    <p className="text-[13px] truncate text-foreground/80">{cart.title}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {toPersianNumber(cart.itemCount)} آیتم · {cart.lastActivity}
+                    </p>
                   </div>
                 </button>
               ))}
@@ -272,48 +255,41 @@ export const Sidebar = ({
         {/* Divider */}
         <div className="h-px bg-muted/30 my-3" />
 
-        {/* Other Sections - Collapsible */}
+        {/* Other Sections */}
         {sections.map((section) => (
-          <div key={section.id} className="rounded-xl overflow-hidden" style={{ background: 'hsl(0 0% 100% / 0.4)' }}>
+          <div key={section.id} className="space-y-1">
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30"
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50"
             >
-              <span className="text-xs font-semibold text-muted-foreground">{section.title}</span>
+              <span className="text-sm font-medium text-foreground/60">{section.title}</span>
               <ChevronDown 
-                className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+                className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
                   expandedSections[section.id] ? 'rotate-180' : ''
                 }`} 
               />
             </button>
             
             {expandedSections[section.id] && (
-              <div className="px-2 pb-2 space-y-1">
+              <div className="space-y-0.5 mr-2">
                 {section.items.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => onSectionChange(item.id)}
-                    className={`w-full h-10 flex items-center justify-between px-3 rounded-lg transition-all duration-300 ${
-                      activeSection === item.id ? 'text-primary' : 'text-foreground hover:text-primary'
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-all duration-150 ${
+                      activeSection === item.id 
+                        ? 'bg-primary/10 text-primary border border-primary/20' 
+                        : 'text-foreground/70 hover:bg-muted/40 hover:text-foreground border border-transparent'
                     }`}
-                    style={{
-                      background: activeSection === item.id 
-                        ? 'linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.05))' 
-                        : 'transparent',
-                      border: activeSection === item.id 
-                        ? '1px solid hsl(var(--primary) / 0.2)' 
-                        : '1px solid transparent',
-                    }}
                   >
-                    <div className="flex items-center gap-3">
-                      {item.icon}
-                      <span className="text-sm">{item.label}</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className={activeSection === item.id ? 'text-primary' : 'text-foreground/50'}>
+                        {item.icon}
+                      </span>
+                      <span className="text-[13px]">{item.label}</span>
                     </div>
                     {item.badge && (
-                      <span 
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
-                      >
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
                         {item.badge}
                       </span>
                     )}

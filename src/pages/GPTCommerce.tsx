@@ -22,10 +22,32 @@ import {
 } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 
-// Initial mock baskets
-const initialBaskets: Basket[] = [
-  { id: 'basket-1', title: 'هدفون‌های بی‌سیم', itemCount: 0, lastActivity: 'الان', savedItems: [] },
-];
+// localStorage key for baskets
+const BASKETS_STORAGE_KEY = 'flowcart-baskets';
+const ACTIVE_BASKET_KEY = 'flowcart-active-basket';
+
+// Get initial baskets from localStorage or use default
+const getInitialBaskets = (): Basket[] => {
+  try {
+    const stored = localStorage.getItem(BASKETS_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to load baskets from localStorage:', e);
+  }
+  return [{ id: 'basket-1', title: 'هدفون‌های بی‌سیم', itemCount: 0, lastActivity: 'الان', savedItems: [] }];
+};
+
+const getInitialActiveBasketId = (): string => {
+  try {
+    const stored = localStorage.getItem(ACTIVE_BASKET_KEY);
+    if (stored) return stored;
+  } catch (e) {
+    console.error('Failed to load active basket from localStorage:', e);
+  }
+  return 'basket-1';
+};
 
 const GPTCommerceContent = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -37,9 +59,9 @@ const GPTCommerceContent = () => {
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   
-  // Basket state
-  const [baskets, setBaskets] = useState<Basket[]>(initialBaskets);
-  const [activeBasketId, setActiveBasketId] = useState<string>('basket-1');
+  // Basket state - persisted to localStorage
+  const [baskets, setBaskets] = useState<Basket[]>(() => getInitialBaskets());
+  const [activeBasketId, setActiveBasketId] = useState<string>(() => getInitialActiveBasketId());
   
   // Agentic state
   const [agenticState, setAgenticState] = useState<AgenticState>({
@@ -56,6 +78,24 @@ const GPTCommerceContent = () => {
 
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
+
+  // Persist baskets to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(BASKETS_STORAGE_KEY, JSON.stringify(baskets));
+    } catch (e) {
+      console.error('Failed to save baskets to localStorage:', e);
+    }
+  }, [baskets]);
+
+  // Persist active basket ID to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_BASKET_KEY, activeBasketId);
+    } catch (e) {
+      console.error('Failed to save active basket ID to localStorage:', e);
+    }
+  }, [activeBasketId]);
 
   // Open cart by default when chat has started
   useEffect(() => {

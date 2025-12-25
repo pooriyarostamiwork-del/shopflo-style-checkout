@@ -1,7 +1,32 @@
 import { useState } from "react";
-import { User, MapPin, CreditCard, Settings, ShoppingCart, Clock, Star, Gift, Wallet, Flame, Package, RotateCcw, HeadphonesIcon, Zap, ChevronDown, MessageSquare } from "lucide-react";
+import { 
+  User, Package, Gift, ChevronDown, MessageSquare, Plus, 
+  MoreHorizontal, Trash2, Merge, Bookmark, ShoppingCart, ArrowRight
+} from "lucide-react";
 import { toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+export interface SavedItem {
+  id: string;
+  productId: string;
+  name: string;
+  price: number;
+  image: string;
+}
+
+export interface Basket {
+  id: string;
+  title: string;
+  itemCount: number;
+  lastActivity: string;
+  savedItems: SavedItem[];
+}
 
 interface SidebarProps {
   activeSection: string;
@@ -10,41 +35,13 @@ interface SidebarProps {
   activeOrderCount: number;
   onBasketSelect?: (basketId: string) => void;
   activeBasketId?: string;
+  baskets: Basket[];
+  onCreateBasket: () => void;
+  onDeleteBasket: (basketId: string) => void;
+  onMergeBasket: (sourceId: string, targetId: string) => void;
+  onRemoveSavedItem?: (basketId: string, itemId: string) => void;
+  onTransferToCart?: (basketId: string, itemId: string) => void;
 }
-
-interface SidebarItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  badge?: string;
-}
-
-interface SidebarSection {
-  id: string;
-  title: string;
-  items: SidebarItem[];
-  defaultOpen?: boolean;
-}
-
-// Mock baskets as conversations
-interface Basket {
-  id: string;
-  title: string;
-  itemCount: number;
-  lastActivity: string;
-  isActive?: boolean;
-}
-
-const mockBaskets: Basket[] = [
-  { id: 'basket-1', title: 'هدفون‌های بی‌سیم', itemCount: 2, lastActivity: 'الان', isActive: true },
-  { id: 'basket-2', title: 'لوازم جانبی موبایل', itemCount: 1, lastActivity: '۲ ساعت پیش' },
-  { id: 'basket-3', title: 'کیف و کوله پشتی', itemCount: 3, lastActivity: 'دیروز' },
-];
-
-const mockSavedCarts: Basket[] = [
-  { id: 'saved-1', title: 'لیست خرید ماهانه', itemCount: 5, lastActivity: '۳ روز پیش' },
-  { id: 'saved-2', title: 'هدیه تولد', itemCount: 2, lastActivity: 'هفته پیش' },
-];
 
 export const Sidebar = ({
   activeSection,
@@ -52,16 +49,20 @@ export const Sidebar = ({
   cartItemCount,
   activeOrderCount,
   onBasketSelect,
-  activeBasketId = 'basket-1',
+  activeBasketId,
+  baskets,
+  onCreateBasket,
+  onDeleteBasket,
+  onMergeBasket,
+  onRemoveSavedItem,
+  onTransferToCart,
 }: SidebarProps) => {
   const { getLogoSettings } = useHomepageSettings();
   const chatModeLogo = getLogoSettings('chatMode');
   
-  // Collapsible state - baskets open by default
+  // Section expand state - only reference sections are collapsible
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    'baskets': true,
-    'recent-carts': false,
-    'saved-carts': false,
+    'saved-items': false,
   });
 
   const toggleSection = (sectionId: string) => {
@@ -71,234 +72,280 @@ export const Sidebar = ({
     }));
   };
 
-  const sections: SidebarSection[] = [
-    {
-      id: 'account',
-      title: 'حساب کاربری',
-      items: [
-        { id: 'profile', label: 'پروفایل من', icon: <User className="w-4 h-4" /> },
-        { id: 'addresses', label: 'آدرس‌ها', icon: <MapPin className="w-4 h-4" /> },
-        { id: 'payments', label: 'روش‌های پرداخت', icon: <CreditCard className="w-4 h-4" /> },
-        { id: 'settings', label: 'تنظیمات', icon: <Settings className="w-4 h-4" /> },
-      ],
-    },
-    {
-      id: 'flowclub',
-      title: 'فلو کلاب',
-      items: [
-        { id: 'points', label: 'امتیازها', icon: <Gift className="w-4 h-4" /> },
-        { id: 'cashback', label: 'کش‌بک‌ها', icon: <Wallet className="w-4 h-4" /> },
-        { id: 'deals', label: 'پیشنهادهای ویژه', icon: <Flame className="w-4 h-4" /> },
-      ],
-    },
-    {
-      id: 'orders',
-      title: 'سفارش‌ها',
-      items: [
-        { id: 'active-orders', label: 'سفارش‌های فعال', icon: <Package className="w-4 h-4" />, badge: activeOrderCount > 0 ? toPersianNumber(activeOrderCount) : undefined },
-        { id: 'returns', label: 'مرجوعی‌ها', icon: <RotateCcw className="w-4 h-4" /> },
-        { id: 'support', label: 'پشتیبانی هوشمند', icon: <HeadphonesIcon className="w-4 h-4" /> },
-      ],
-    },
-  ];
+  // Get active basket's saved items
+  const activeBasket = baskets.find(b => b.id === activeBasketId);
+  const activeSavedItems = activeBasket?.savedItems || [];
 
   return (
     <aside 
-      className="w-[240px] h-screen flex flex-col overflow-hidden bg-background border-l border-border/50" 
+      className="w-[260px] h-screen flex flex-col overflow-hidden bg-background border-l border-border/40" 
       dir="rtl"
     >
       {/* Header */}
-      <div className="p-4 border-b border-border/50">
+      <div className="p-4 border-b border-border/40">
         <div className="flex items-center gap-3">
           {chatModeLogo.imageUrl ? (
-            <img src={chatModeLogo.imageUrl} alt="فلوکارت" className="w-9 h-9 rounded-lg object-cover" />
+            <img src={chatModeLogo.imageUrl} alt="فلوکارت" className="w-10 h-10 rounded-xl object-cover" />
           ) : (
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary">
-              <Zap className="w-4.5 h-4.5 text-primary-foreground" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary">
+              <MessageSquare className="w-5 h-5 text-primary-foreground" />
             </div>
           )}
           <div>
-            <h1 className="font-semibold text-foreground text-[15px]">Flowcart</h1>
-            <p className="text-[11px] text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
+            <h1 className="font-semibold text-foreground text-base">Flowcart</h1>
+            <p className="text-xs text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
           </div>
         </div>
       </div>
 
-      {/* Scrollable Sections */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
         
-        {/* Shopping Baskets Section */}
-        <div className="space-y-1">
+        {/* ═══════════════════════════════════════════════════════════════════
+            ZONE 1 — Active Contexts (Primary)
+           ═══════════════════════════════════════════════════════════════════ */}
+        <div className="p-4 pb-6">
+          {/* New Basket Button */}
           <button
-            onClick={() => toggleSection('baskets')}
-            className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50 group"
+            onClick={onCreateBasket}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl transition-all duration-200 hover:bg-muted/60 border border-dashed border-border/60 hover:border-primary/30 group"
           >
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-foreground/70" />
-              <span className="text-sm font-medium text-foreground">سبدهای خرید</span>
-              {cartItemCount > 0 && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
-                  {toPersianNumber(cartItemCount)}
-                </span>
-              )}
-            </div>
-            <ChevronDown 
-              className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
-                expandedSections['baskets'] ? 'rotate-180' : ''
-              }`} 
-            />
+            <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              ایجاد سبد جدید
+            </span>
           </button>
-          
-          {expandedSections['baskets'] && (
-            <div className="space-y-0.5 mr-2">
-              {mockBaskets.map((basket) => (
+
+          {/* Section Title */}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <ShoppingCart className="w-4 h-4 text-foreground/70" />
+            <span className="text-sm font-semibold text-foreground">سبدهای فعال</span>
+            {cartItemCount > 0 && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground mr-auto">
+                {toPersianNumber(cartItemCount)}
+              </span>
+            )}
+          </div>
+
+          {/* Basket List */}
+          <div className="space-y-2">
+            {baskets.map((basket) => (
+              <div
+                key={basket.id}
+                className={`relative group rounded-xl transition-all duration-150 ${
+                  activeBasketId === basket.id 
+                    ? 'bg-primary/8 border-r-2 border-r-primary' 
+                    : 'hover:bg-muted/40'
+                }`}
+              >
                 <button
-                  key={basket.id}
                   onClick={() => onBasketSelect?.(basket.id)}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150 text-right group ${
-                    activeBasketId === basket.id 
-                      ? 'bg-primary/10 border border-primary/20' 
-                      : 'hover:bg-muted/40 border border-transparent'
-                  }`}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-right"
                 >
                   <div 
-                    className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
                       activeBasketId === basket.id 
                         ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted/60 text-foreground/60 group-hover:bg-muted'
+                        : 'bg-muted/60 text-foreground/50'
                     }`}
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[13px] truncate ${
+                    <p className={`text-sm truncate ${
                       activeBasketId === basket.id 
                         ? 'font-medium text-foreground' 
                         : 'text-foreground/80'
                     }`}>
                       {basket.title}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
                       {toPersianNumber(basket.itemCount)} آیتم · {basket.lastActivity}
                     </p>
                   </div>
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Recent Carts */}
-        <div className="space-y-1">
-          <button
-            onClick={() => toggleSection('recent-carts')}
-            className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-foreground/70" />
-              <span className="text-sm font-medium text-foreground">سبدهای اخیر</span>
-            </div>
-            <ChevronDown 
-              className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
-                expandedSections['recent-carts'] ? 'rotate-180' : ''
-              }`} 
-            />
-          </button>
-          
-          {expandedSections['recent-carts'] && (
-            <div className="mr-2 px-2 py-2">
-              <p className="text-xs text-muted-foreground">سبدهای اخیر شما اینجا نمایش داده می‌شوند.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Saved Carts */}
-        <div className="space-y-1">
-          <button
-            onClick={() => toggleSection('saved-carts')}
-            className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-foreground/70" />
-              <span className="text-sm font-medium text-foreground">ذخیره‌شده‌ها</span>
-            </div>
-            <ChevronDown 
-              className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
-                expandedSections['saved-carts'] ? 'rotate-180' : ''
-              }`} 
-            />
-          </button>
-          
-          {expandedSections['saved-carts'] && (
-            <div className="space-y-0.5 mr-2">
-              {mockSavedCarts.map((cart) => (
-                <button
-                  key={cart.id}
-                  onClick={() => onBasketSelect?.(cart.id)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all hover:bg-muted/40 text-right group border border-transparent"
-                >
-                  <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 bg-muted/60 text-foreground/60 group-hover:bg-muted">
-                    <Star className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] truncate text-foreground/80">{cart.title}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {toPersianNumber(cart.itemCount)} آیتم · {cart.lastActivity}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Divider */}
-        <div className="h-px bg-muted/30 my-3" />
-
-        {/* Other Sections */}
-        {sections.map((section) => (
-          <div key={section.id} className="space-y-1">
-            <button
-              onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors hover:bg-muted/50"
-            >
-              <span className="text-sm font-medium text-foreground/60">{section.title}</span>
-              <ChevronDown 
-                className={`w-3.5 h-3.5 text-foreground/50 transition-transform duration-200 ${
-                  expandedSections[section.id] ? 'rotate-180' : ''
-                }`} 
-              />
-            </button>
-            
-            {expandedSections[section.id] && (
-              <div className="space-y-0.5 mr-2">
-                {section.items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => onSectionChange(item.id)}
-                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-all duration-150 ${
-                      activeSection === item.id 
-                        ? 'bg-primary/10 text-primary border border-primary/20' 
-                        : 'text-foreground/70 hover:bg-muted/40 hover:text-foreground border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className={activeSection === item.id ? 'text-primary' : 'text-foreground/50'}>
-                        {item.icon}
-                      </span>
-                      <span className="text-[13px]">{item.label}</span>
-                    </div>
-                    {item.badge && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {/* Three-dot Menu */}
+                <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        className="p-1.5 rounded-lg hover:bg-muted/80 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem 
+                        onClick={() => onDeleteBasket(basket.id)}
+                        className="text-destructive focus:text-destructive cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4 ml-2" />
+                        حذف سبد
+                      </DropdownMenuItem>
+                      
+                      {/* Merge submenu */}
+                      {baskets.length > 1 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="w-full flex items-center px-2 py-1.5 text-sm hover:bg-muted rounded-sm cursor-pointer">
+                              <Merge className="w-4 h-4 ml-2" />
+                              ادغام با سبد دیگر
+                              <ChevronDown className="w-3 h-3 mr-auto rotate-90" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="left" className="w-44">
+                            {baskets.filter(b => b.id !== basket.id).map(targetBasket => (
+                              <DropdownMenuItem
+                                key={targetBasket.id}
+                                onClick={() => onMergeBasket(basket.id, targetBasket.id)}
+                                className="cursor-pointer"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5 ml-2 text-muted-foreground" />
+                                <span className="truncate">{targetBasket.title}</span>
+                                <span className="text-xs text-muted-foreground mr-auto">
+                                  {toPersianNumber(targetBasket.itemCount)}
+                                </span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
+            ))}
+
+            {baskets.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                هنوز سبدی نداری
+              </p>
             )}
           </div>
-        ))}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            ZONE 2 — Reference Contexts (Secondary)
+           ═══════════════════════════════════════════════════════════════════ */}
+        <div className="px-4 py-3 border-t border-border/30">
+          {/* Saved Items - Basket Scoped */}
+          <button
+            onClick={() => toggleSection('saved-items')}
+            className="w-full flex items-center justify-between py-2 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-foreground/60" />
+              <span className="text-sm text-foreground/70">ذخیره‌شده‌ها</span>
+              {activeSavedItems.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  {toPersianNumber(activeSavedItems.length)}
+                </span>
+              )}
+            </div>
+            <ChevronDown 
+              className={`w-3.5 h-3.5 text-foreground/40 transition-transform duration-200 ${
+                expandedSections['saved-items'] ? 'rotate-180' : ''
+              }`} 
+            />
+          </button>
+          
+          {expandedSections['saved-items'] && (
+            <div className="mt-2 space-y-2">
+              {activeSavedItems.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
+                  محصولی ذخیره نشده
+                </p>
+              ) : (
+                activeSavedItems.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-muted/20 border border-border/30 group"
+                  >
+                    <img 
+                      src={item.image} 
+                      alt={item.name}
+                      className="w-10 h-10 rounded-lg object-cover bg-muted/50"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{item.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {toPersianNumber(item.price.toLocaleString())} تومان
+                      </p>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onTransferToCart?.(activeBasketId!, item.id)}
+                        className="p-1.5 rounded-md hover:bg-primary/10 transition-colors"
+                        title="انتقال به سبد خرید"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                      </button>
+                      <button
+                        onClick={() => onRemoveSavedItem?.(activeBasketId!, item.id)}
+                        className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors"
+                        title="حذف"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1 min-h-[24px]" />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ZONE 3 — System & Account (Utility)
+         ═══════════════════════════════════════════════════════════════════ */}
+      <div className="border-t border-border/40 bg-muted/20 p-3 space-y-1">
+        <button
+          onClick={() => onSectionChange('account')}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+            activeSection === 'account' 
+              ? 'bg-background text-foreground' 
+              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground'
+          }`}
+        >
+          <User className="w-4 h-4" />
+          <span className="text-sm">حساب کاربری</span>
+        </button>
+        
+        <button
+          onClick={() => onSectionChange('orders')}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+            activeSection === 'orders' 
+              ? 'bg-background text-foreground' 
+              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span className="text-sm">سفارش‌ها</span>
+          {activeOrderCount > 0 && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground mr-auto">
+              {toPersianNumber(activeOrderCount)}
+            </span>
+          )}
+        </button>
+        
+        <button
+          onClick={() => onSectionChange('flowclub')}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+            activeSection === 'flowclub' 
+              ? 'bg-background text-foreground' 
+              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground'
+          }`}
+        >
+          <Gift className="w-4 h-4" />
+          <span className="text-sm">فلوکلاب</span>
+        </button>
       </div>
     </aside>
   );

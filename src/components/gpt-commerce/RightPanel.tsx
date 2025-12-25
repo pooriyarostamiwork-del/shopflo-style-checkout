@@ -435,6 +435,20 @@ export const RightPanel = ({
                   تکمیل خرید با هوش مصنوعی
                 </Button>
               )}
+
+              {/* AI Helper Text - Only show in chat mode (when AI checkout is hidden) */}
+              {!showAICheckout && (
+                <div 
+                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs text-muted-foreground"
+                  style={{
+                    background: 'hsl(var(--primary) / 0.05)',
+                    border: '1px solid hsl(var(--primary) / 0.1)',
+                  }}
+                >
+                  <span>🤖</span>
+                  <span>با کمک هوش مصنوعی سفارش خودتون رو تکمیل کنید</span>
+                </div>
+              )}
             </div>
           )}
         </div>

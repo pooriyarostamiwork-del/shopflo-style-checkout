@@ -140,7 +140,7 @@ interface RightPanelProps {
   onToggle: () => void;
 }
 
-type TabType = 'cart' | 'recent' | 'favorites';
+type TabType = 'cart' | 'favorites';
 
 export const RightPanel = ({
   cartItems,
@@ -158,7 +158,6 @@ export const RightPanel = ({
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: 'cart', label: 'سبد', icon: <ShoppingCart className="w-4 h-4" />, count: cartItems.length },
-    { id: 'recent', label: 'سبدهای اخیر', icon: <Eye className="w-4 h-4" /> },
     { id: 'favorites', label: 'علاقه‌مندی', icon: <Heart className="w-4 h-4" /> },
   ];
 
@@ -379,76 +378,42 @@ export const RightPanel = ({
               </div>
             )}
 
-            {activeTab === 'recent' && (
-              <div className="p-4 space-y-3">
-                {recentlyViewed.map((product) => (
-                  <div 
-                    key={product.id} 
-                    className="flex gap-3 p-3 rounded-xl transition-all duration-200 hover:bg-muted/20"
-                    style={{
-                      background: 'hsl(0 0% 100% / 0.6)',
-                      border: '1px solid hsl(var(--border) / 0.5)',
-                    }}
-                  >
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-12 h-12 rounded-lg object-cover border border-border/30"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-foreground line-clamp-1">
-                        {product.name}
-                      </h4>
-                      <p className="text-xs text-primary font-medium mt-1">
-                        {formatPersianPrice(product.price)}
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs mt-1 p-0 text-primary"
-                        onClick={() => onAddToCart(product)}
-                      >
-                        <Plus className="w-3 h-3 ml-1" />
-                        افزودن به سبد
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {activeTab === 'favorites' && (
-              <div className="p-4 space-y-3">
+              <div className="p-4 space-y-2">
                 {favorites.map((product) => (
                   <div 
                     key={product.id} 
-                    className="flex gap-3 p-3 rounded-xl transition-all duration-200 hover:bg-muted/20"
-                    style={{
-                      background: 'hsl(0 0% 100% / 0.6)',
-                      border: '1px solid hsl(var(--border) / 0.5)',
-                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:bg-muted/20 group bg-background border border-border/40 hover:border-border/60"
                   >
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="w-12 h-12 rounded-lg object-cover border border-border/30"
+                      className="w-11 h-11 rounded-lg object-cover bg-muted/30 border border-border/30"
                     />
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-foreground line-clamp-1">
+                      <h4 className="text-xs font-medium text-foreground truncate">
                         {product.name}
                       </h4>
-                      <p className="text-xs text-primary font-medium mt-1">
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
                         {formatPersianPrice(product.price)}
                       </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs mt-1 p-0 text-primary"
+                    </div>
+                    {/* Actions - matching ذخیره‌شده‌ها design */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
                         onClick={() => onAddToCart(product)}
+                        className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20"
+                        title="افزودن به سبد"
                       >
-                        <Plus className="w-3 h-3 ml-1" />
-                        افزودن به سبد
-                      </Button>
+                        <Plus className="w-3.5 h-3.5 text-primary" />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/20"
+                        title="حذف"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+                      </button>
                     </div>
                   </div>
                 ))}

@@ -158,7 +158,7 @@ export const RightPanel = ({
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: 'cart', label: 'سبد', icon: <ShoppingCart className="w-4 h-4" />, count: cartItems.length },
-    { id: 'recent', label: 'اخیر', icon: <Eye className="w-4 h-4" /> },
+    { id: 'recent', label: 'سبدهای اخیر', icon: <Eye className="w-4 h-4" /> },
     { id: 'favorites', label: 'علاقه‌مندی', icon: <Heart className="w-4 h-4" /> },
   ];
 
@@ -384,17 +384,16 @@ export const RightPanel = ({
                 {recentlyViewed.map((product) => (
                   <div 
                     key={product.id} 
-                    className="flex gap-3 p-3 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+                    className="flex gap-3 p-3 rounded-xl transition-all duration-200 hover:bg-muted/20"
                     style={{
                       background: 'hsl(0 0% 100% / 0.6)',
-                      border: '1px solid hsl(0 0% 100% / 0.3)',
-                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
+                      border: '1px solid hsl(var(--border) / 0.5)',
                     }}
                   >
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="w-14 h-14 rounded-xl object-cover"
+                      className="w-12 h-12 rounded-lg object-cover border border-border/30"
                     />
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium text-foreground line-clamp-1">
@@ -423,17 +422,16 @@ export const RightPanel = ({
                 {favorites.map((product) => (
                   <div 
                     key={product.id} 
-                    className="flex gap-3 p-3 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+                    className="flex gap-3 p-3 rounded-xl transition-all duration-200 hover:bg-muted/20"
                     style={{
                       background: 'hsl(0 0% 100% / 0.6)',
-                      border: '1px solid hsl(0 0% 100% / 0.3)',
-                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
+                      border: '1px solid hsl(var(--border) / 0.5)',
                     }}
                   >
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="w-14 h-14 rounded-xl object-cover"
+                      className="w-12 h-12 rounded-lg object-cover border border-border/30"
                     />
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium text-foreground line-clamp-1">

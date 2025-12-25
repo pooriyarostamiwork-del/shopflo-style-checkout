@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Sidebar } from "@/components/gpt-commerce/Sidebar";
+import { Sidebar, Basket, SavedItem } from "@/components/gpt-commerce/Sidebar";
 import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
@@ -18,8 +18,14 @@ import {
   QuickReply,
   PaymentMethod,
   calculateOrderSummary,
+  toPersianNumber,
 } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
+
+// Initial mock baskets
+const initialBaskets: Basket[] = [
+  { id: 'basket-1', title: 'هدفون‌های بی‌سیم', itemCount: 0, lastActivity: 'الان', savedItems: [] },
+];
 
 const GPTCommerceContent = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -30,6 +36,10 @@ const GPTCommerceContent = () => {
   const [activeSection, setActiveSection] = useState('active-cart');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  
+  // Basket state
+  const [baskets, setBaskets] = useState<Basket[]>(initialBaskets);
+  const [activeBasketId, setActiveBasketId] = useState<string>('basket-1');
   
   // Agentic state
   const [agenticState, setAgenticState] = useState<AgenticState>({
@@ -504,6 +514,133 @@ const GPTCommerceContent = () => {
     setMessages((prev) => [...prev, postPurchaseMessage]);
   }, []);
 
+  // === BASKET MANAGEMENT ===
+  const handleCreateBasket = useCallback(() => {
+    // Generate unique name
+    const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید'));
+    let newTitle = 'سبد جدید';
+    if (existingNewBaskets.length > 0) {
+      newTitle = `سبد جدید ${toPersianNumber(existingNewBaskets.length + 1)}`;
+    }
+    
+    const newBasket: Basket = {
+      id: `basket-${Date.now()}`,
+      title: newTitle,
+      itemCount: 0,
+      lastActivity: 'الان',
+      savedItems: [],
+    };
+    
+    setBaskets(prev => [newBasket, ...prev]);
+    setActiveBasketId(newBasket.id);
+    
+    // Reset chat for new basket
+    setMessages([{
+      id: `welcome-${Date.now()}`,
+      role: 'assistant',
+      content: 'این یک سبد جدیده. بگو چی می‌خوای بخرم یا مقایسه کنم.',
+      timestamp: new Date(),
+    }]);
+    setCartItems([]);
+  }, [baskets]);
+
+  const handleDeleteBasket = useCallback((basketId: string) => {
+    setBaskets(prev => prev.filter(b => b.id !== basketId));
+    
+    // If deleting active basket, switch to first remaining basket
+    if (basketId === activeBasketId) {
+      const remaining = baskets.filter(b => b.id !== basketId);
+      if (remaining.length > 0) {
+        setActiveBasketId(remaining[0].id);
+      }
+    }
+  }, [baskets, activeBasketId]);
+
+  const handleMergeBasket = useCallback((sourceId: string, targetId: string) => {
+    setBaskets(prev => {
+      const source = prev.find(b => b.id === sourceId);
+      const target = prev.find(b => b.id === targetId);
+      if (!source || !target) return prev;
+      
+      // Merge saved items
+      const mergedSavedItems = [...target.savedItems, ...source.savedItems];
+      
+      return prev
+        .filter(b => b.id !== sourceId)
+        .map(b => b.id === targetId 
+          ? { ...b, savedItems: mergedSavedItems, itemCount: b.itemCount + source.itemCount }
+          : b
+        );
+    });
+    
+    // Switch to target basket
+    setActiveBasketId(targetId);
+  }, []);
+
+  const handleBasketSelect = useCallback((basketId: string) => {
+    setActiveBasketId(basketId);
+    // In a real app, we'd load the basket's conversation history here
+  }, []);
+
+  const handleRemoveSavedItem = useCallback((basketId: string, itemId: string) => {
+    setBaskets(prev => prev.map(b => 
+      b.id === basketId 
+        ? { ...b, savedItems: b.savedItems.filter(i => i.id !== itemId) }
+        : b
+    ));
+  }, []);
+
+  const handleTransferToCart = useCallback((basketId: string, itemId: string) => {
+    const basket = baskets.find(b => b.id === basketId);
+    const item = basket?.savedItems.find(i => i.id === itemId);
+    if (!item) return;
+    
+    // Find the product and add to cart
+    const product = mockProducts.find(p => p.id === item.productId);
+    if (product) {
+      setCartItems(prev => {
+        const existing = prev.find(i => i.id === product.id);
+        if (existing) {
+          return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+        }
+        return [...prev, { ...product, quantity: 1 }];
+      });
+    }
+    
+    // Remove from saved
+    handleRemoveSavedItem(basketId, itemId);
+  }, [baskets, handleRemoveSavedItem]);
+
+  const handleSaveProduct = useCallback((product: Product) => {
+    setBaskets(prev => prev.map(b => {
+      if (b.id !== activeBasketId) return b;
+      
+      // Check if already saved
+      const alreadySaved = b.savedItems.some(i => i.productId === product.id);
+      if (alreadySaved) {
+        // Unsave
+        return { ...b, savedItems: b.savedItems.filter(i => i.productId !== product.id) };
+      }
+      
+      // Save
+      const newSavedItem: SavedItem = {
+        id: `saved-${Date.now()}`,
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+      };
+      return { ...b, savedItems: [...b.savedItems, newSavedItem] };
+    }));
+  }, [activeBasketId]);
+
+  // Update basket item count when cart changes
+  useEffect(() => {
+    setBaskets(prev => prev.map(b => 
+      b.id === activeBasketId ? { ...b, itemCount: cartItems.length } : b
+    ));
+  }, [cartItems.length, activeBasketId]);
+
   const totalPrice = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
@@ -519,6 +656,10 @@ const GPTCommerceContent = () => {
     inStock: item.inStock,
   }));
 
+  // Get current basket's saved product IDs for checking save state
+  const currentBasket = baskets.find(b => b.id === activeBasketId);
+  const savedProductIds = currentBasket?.savedItems.map(i => i.productId) || [];
+
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
       {hasStartedChat && (
@@ -527,6 +668,14 @@ const GPTCommerceContent = () => {
           onSectionChange={setActiveSection}
           cartItemCount={cartItems.length}
           activeOrderCount={mockOrders.length}
+          baskets={baskets}
+          activeBasketId={activeBasketId}
+          onBasketSelect={handleBasketSelect}
+          onCreateBasket={handleCreateBasket}
+          onDeleteBasket={handleDeleteBasket}
+          onMergeBasket={handleMergeBasket}
+          onRemoveSavedItem={handleRemoveSavedItem}
+          onTransferToCart={handleTransferToCart}
         />
       )}
 
@@ -535,6 +684,7 @@ const GPTCommerceContent = () => {
         onSendMessage={handleSendMessage}
         onAddToCart={handleAddToCart}
         onCompare={handleCompare}
+        onSaveProduct={handleSaveProduct}
         cartItems={cartItems}
         isProcessing={isProcessing}
         onCheckout={handleCheckout}
@@ -542,6 +692,7 @@ const GPTCommerceContent = () => {
         onStartChat={handleStartChat}
         isCartOpen={isCartOpen}
         onSignIn={handleCheckout}
+        savedProductIds={savedProductIds}
         onQuickReply={handleQuickReply}
         onFinalizePurchase={handleFinalizePurchase}
         onAddressConfirm={handleAddressConfirm}

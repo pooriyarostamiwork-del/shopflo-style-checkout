@@ -23,6 +23,7 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string) => void;
   onAddToCart: (product: Product) => void;
   onCompare: (product: Product) => void;
+  onSaveProduct?: (product: Product) => void;
   cartItems: Product[];
   isProcessing: boolean;
   onCheckout: () => void;
@@ -32,6 +33,7 @@ interface ChatInterfaceProps {
   onSignIn: () => void;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   setInputValue?: (value: string) => void;
+  savedProductIds?: string[];
   // Agentic props
   onQuickReply?: (reply: QuickReply) => void;
   onFinalizePurchase?: () => void;
@@ -104,6 +106,7 @@ export const ChatInterface = ({
   onSendMessage,
   onAddToCart,
   onCompare,
+  onSaveProduct,
   cartItems,
   isProcessing,
   onCheckout,
@@ -113,6 +116,7 @@ export const ChatInterface = ({
   onSignIn,
   inputRef: externalInputRef,
   setInputValue: externalSetInputValue,
+  savedProductIds = [],
   onQuickReply,
   onFinalizePurchase,
   onAddressConfirm,
@@ -485,7 +489,9 @@ export const ChatInterface = ({
                         index={(msg.productIndexStart || 1) + index}
                         onAddToCart={onAddToCart}
                         onCompare={onCompare}
+                        onSave={onSaveProduct}
                         isInCart={cartItems.some(item => item.id === product.id)}
+                        isSaved={savedProductIds.includes(product.id)}
                       />
                     </div>
                   ))}

@@ -37,7 +37,7 @@ export interface QuickReply {
   action?: string;
 }
 
-export type PaymentMethod = 'wallet' | 'direct-debit' | 'gateway';
+export type PaymentMethod = 'wallet' | 'direct-debit' | 'gateway' | 'bnpl';
 
 export interface PaymentOption {
   id: PaymentMethod;
@@ -45,6 +45,7 @@ export interface PaymentOption {
   icon: string;
   available: boolean;
   tooltip?: string;
+  description?: string;
 }
 
 export interface DeliveryAddress {
@@ -112,6 +113,7 @@ export interface ChatMessage {
   paymentOptions?: PaymentOption[];
   showCartSummary?: boolean;
   timestamp: Date;
+  isCtaActive?: boolean; // Whether this CTA is currently active (only one should be active at a time)
 }
 
 export interface Order {
@@ -248,6 +250,13 @@ export const paymentOptions: PaymentOption[] = [
     label: 'درگاه پرداخت',
     icon: '💳',
     available: true,
+  },
+  {
+    id: 'bnpl',
+    label: 'پرداخت در ۴ قسط با فلوپی',
+    icon: '📅',
+    available: true,
+    description: 'خرید الان، پرداخت اقساطی',
   },
 ];
 

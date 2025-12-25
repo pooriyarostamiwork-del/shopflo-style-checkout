@@ -557,7 +557,7 @@ const GPTCommerceContent = () => {
   // === BASKET MANAGEMENT ===
   const handleCreateBasket = useCallback(() => {
     // Generate unique name
-    const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید'));
+    const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید') && !b.isSaved);
     let newTitle = 'سبد جدید';
     if (existingNewBaskets.length > 0) {
       newTitle = `سبد جدید ${toPersianNumber(existingNewBaskets.length + 1)}`;
@@ -569,6 +569,7 @@ const GPTCommerceContent = () => {
       itemCount: 0,
       lastActivity: 'الان',
       savedItems: [],
+      isSaved: false,
     };
     
     setBaskets(prev => [newBasket, ...prev]);
@@ -587,14 +588,17 @@ const GPTCommerceContent = () => {
   const handleDeleteBasket = useCallback((basketId: string) => {
     setBaskets(prev => prev.filter(b => b.id !== basketId));
     
-    // If deleting active basket, switch to first remaining basket
+    // If deleting active basket, switch to first remaining active basket
     if (basketId === activeBasketId) {
-      const remaining = baskets.filter(b => b.id !== basketId);
+      const remaining = baskets.filter(b => b.id !== basketId && !b.isSaved);
       if (remaining.length > 0) {
         setActiveBasketId(remaining[0].id);
+      } else {
+        // Create a new basket if none remain
+        handleCreateBasket();
       }
     }
-  }, [baskets, activeBasketId]);
+  }, [baskets, activeBasketId, handleCreateBasket]);
 
   const handleMergeBasket = useCallback((sourceId: string, targetId: string) => {
     setBaskets(prev => {
@@ -617,9 +621,46 @@ const GPTCommerceContent = () => {
     setActiveBasketId(targetId);
   }, []);
 
+  const handleSaveBasket = useCallback((basketId: string) => {
+    setBaskets(prev => prev.map(b => 
+      b.id === basketId ? { ...b, isSaved: true } : b
+    ));
+    
+    // Switch to another active basket or create new one
+    const remaining = baskets.filter(b => b.id !== basketId && !b.isSaved);
+    if (remaining.length > 0) {
+      setActiveBasketId(remaining[0].id);
+    } else {
+      // Create a new basket
+      const newBasket: Basket = {
+        id: `basket-${Date.now()}`,
+        title: 'سبد جدید',
+        itemCount: 0,
+        lastActivity: 'الان',
+        savedItems: [],
+        isSaved: false,
+      };
+      setBaskets(prev => [newBasket, ...prev]);
+      setActiveBasketId(newBasket.id);
+      setMessages([{
+        id: `welcome-${Date.now()}`,
+        role: 'assistant',
+        content: 'این یک سبد جدیده. بگو چی می‌خوای بخرم یا مقایسه کنم.',
+        timestamp: new Date(),
+      }]);
+      setCartItems([]);
+    }
+  }, [baskets]);
+
+  const handleResumeBasket = useCallback((basketId: string) => {
+    setBaskets(prev => prev.map(b => 
+      b.id === basketId ? { ...b, isSaved: false } : b
+    ));
+    setActiveBasketId(basketId);
+  }, []);
+
   const handleBasketSelect = useCallback((basketId: string) => {
     setActiveBasketId(basketId);
-    // In a real app, we'd load the basket's conversation history here
   }, []);
 
   const handleRemoveSavedItem = useCallback((basketId: string, itemId: string) => {
@@ -716,6 +757,8 @@ const GPTCommerceContent = () => {
           onMergeBasket={handleMergeBasket}
           onRemoveSavedItem={handleRemoveSavedItem}
           onTransferToCart={handleTransferToCart}
+          onSaveBasket={handleSaveBasket}
+          onResumeBasket={handleResumeBasket}
         />
       )}
 
@@ -750,6 +793,7 @@ const GPTCommerceContent = () => {
         onAddToCart={handleAddToCart}
         isOpen={isCartOpen}
         onToggle={() => setIsCartOpen(!isCartOpen)}
+        onAICheckout={handleFinalizePurchase}
       />
 
       <CheckoutModalLocalized

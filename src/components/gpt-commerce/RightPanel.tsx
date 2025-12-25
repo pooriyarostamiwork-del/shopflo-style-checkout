@@ -1,44 +1,42 @@
 import { useState } from "react";
-import { ShoppingCart, Eye, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Palette } from "lucide-react";
-import { CartItem, Product, formatPersianPrice, toPersianNumber, recentlyViewed, favorites, calculateOrderSummary } from "@/data/gptCommerceData";
+import { ShoppingCart, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Sparkles } from "lucide-react";
+import { CartItem, Product, formatPersianPrice, toPersianNumber, favorites, calculateOrderSummary } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProductVariant {
   id: string;
   name: string;
-  type: 'color' | 'size';
+  type: string;
   value: string;
-  colorHex?: string;
 }
 
-// Mock variants for products
+// Mock variants for products - generic format
 const productVariants: Record<string, ProductVariant[]> = {
   'p1': [
-    { id: 'v1', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
-    { id: 'v2', name: 'نقره‌ای', type: 'color', value: 'silver', colorHex: '#c0c0c0' },
-    { id: 'v3', name: 'آبی', type: 'color', value: 'blue', colorHex: '#3b82f6' },
+    { id: 'v1', name: 'مشکی', type: 'رنگ', value: 'black' },
+    { id: 'v2', name: 'نقره‌ای', type: 'رنگ', value: 'silver' },
+    { id: 'v3', name: 'آبی', type: 'رنگ', value: 'blue' },
   ],
   'p2': [
-    { id: 'v4', name: 'سفید', type: 'color', value: 'white', colorHex: '#ffffff' },
-    { id: 'v5', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+    { id: 'v4', name: 'سفید', type: 'رنگ', value: 'white' },
+    { id: 'v5', name: 'مشکی', type: 'رنگ', value: 'black' },
   ],
   'p3': [
-    { id: 'v6', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
-    { id: 'v7', name: 'سبز', type: 'color', value: 'green', colorHex: '#22c55e' },
+    { id: 'v6', name: 'مشکی', type: 'رنگ', value: 'black' },
+    { id: 'v7', name: 'سبز', type: 'رنگ', value: 'green' },
   ],
   'p4': [
-    { id: 'v8', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
-    { id: 'v9', name: 'آبی', type: 'color', value: 'blue', colorHex: '#3b82f6' },
-    { id: 'v10', name: 'قرمز', type: 'color', value: 'red', colorHex: '#ef4444' },
+    { id: 'v8', name: 'استاندارد', type: 'نسخه', value: 'standard' },
+    { id: 'v9', name: 'پرو', type: 'نسخه', value: 'pro' },
   ],
   'p5': [
-    { id: 'v11', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
-    { id: 'v12', name: 'قرمز', type: 'color', value: 'red', colorHex: '#ef4444' },
-    { id: 'v13', name: 'سفید', type: 'color', value: 'white', colorHex: '#ffffff' },
+    { id: 'v10', name: '۶۴ گیگ', type: 'ظرفیت', value: '64gb' },
+    { id: 'v11', name: '۱۲۸ گیگ', type: 'ظرفیت', value: '128gb' },
   ],
   'p6': [
-    { id: 'v14', name: 'مشکی', type: 'color', value: 'black', colorHex: '#1a1a1a' },
+    { id: 'v12', name: 'مشکی', type: 'رنگ', value: 'black' },
   ],
 };
 
@@ -55,6 +53,7 @@ const CartItemCard = ({
   onRemoveItem: (productId: string) => void;
 }) => {
   const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id || '');
+  const variantType = variants[0]?.type || 'نوع';
   
   return (
     <div className="flex gap-3">
@@ -71,26 +70,21 @@ const CartItemCard = ({
           {formatPersianPrice(item.price)}
         </p>
         
-        {/* Variant Selector */}
-        {variants.length > 0 && (
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <Palette className="w-3 h-3 text-muted-foreground" />
-            <div className="flex gap-1">
-              {variants.map((variant) => (
-                <button
-                  key={variant.id}
-                  onClick={() => setSelectedVariant(variant.id)}
-                  className={`w-5 h-5 rounded-full transition-all duration-200 ${
-                    selectedVariant === variant.id ? 'ring-2 ring-primary ring-offset-1' : ''
-                  }`}
-                  style={{ 
-                    backgroundColor: variant.colorHex,
-                    border: variant.colorHex === '#ffffff' ? '1px solid hsl(0 0% 80%)' : 'none'
-                  }}
-                  title={variant.name}
-                />
-              ))}
-            </div>
+        {/* Generic Variant Selector - Dropdown */}
+        {variants.length > 1 && (
+          <div className="mt-2">
+            <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+              <SelectTrigger className="h-7 text-xs w-full border-border/50">
+                <SelectValue placeholder={`انتخاب ${variantType}`} />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border/50 z-50">
+                {variants.map((variant) => (
+                  <SelectItem key={variant.id} value={variant.id} className="text-xs">
+                    {variant.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
         
@@ -138,6 +132,7 @@ interface RightPanelProps {
   onAddToCart: (product: Product) => void;
   isOpen: boolean;
   onToggle: () => void;
+  onAICheckout?: () => void;
 }
 
 type TabType = 'cart' | 'favorites';
@@ -150,6 +145,7 @@ export const RightPanel = ({
   onAddToCart,
   isOpen,
   onToggle,
+  onAICheckout,
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('cart');
   const [autoBuyPriceDrop, setAutoBuyPriceDrop] = useState(false);
@@ -341,50 +337,17 @@ export const RightPanel = ({
                         </div>
                       </div>
                     ))}
-
-                    {/* Auto-buy Options */}
-                    <div 
-                      className="space-y-2 pt-4 mt-4 rounded-2xl p-4"
-                      style={{
-                        background: 'hsl(var(--primary) / 0.03)',
-                        border: '1px solid hsl(var(--primary) / 0.1)'
-                      }}
-                    >
-                      <p className="text-xs font-medium text-primary mb-3">گزینه‌های خرید هوشمند</p>
-                      <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                        <Checkbox
-                          checked={autoBuyPriceDrop}
-                          onCheckedChange={(checked) => setAutoBuyPriceDrop(checked as boolean)}
-                        />
-                        خرید خودکار وقتی قیمت کمتر شد
-                      </label>
-                      <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                        <Checkbox
-                          checked={autoBuyMonthly}
-                          onCheckedChange={(checked) => setAutoBuyMonthly(checked as boolean)}
-                        />
-                        خرید ماهانه
-                      </label>
-                      <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                        <Checkbox
-                          checked={notifyPriceDrop}
-                          onCheckedChange={(checked) => setNotifyPriceDrop(checked as boolean)}
-                        />
-                        اطلاع بده ارزان‌تر شد
-                      </label>
-                    </div>
                   </>
                 )}
               </div>
             )}
-
 
             {activeTab === 'favorites' && (
               <div className="p-4 space-y-2">
                 {favorites.map((product) => (
                   <div 
                     key={product.id} 
-                    className="flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:bg-muted/20 group bg-background border border-border/40 hover:border-border/60"
+                    className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 bg-background border border-border/40"
                   >
                     <img
                       src={product.image}
@@ -399,17 +362,17 @@ export const RightPanel = ({
                         {formatPersianPrice(product.price)}
                       </p>
                     </div>
-                    {/* Actions - matching ذخیره‌شده‌ها design */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Actions - Always visible */}
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={() => onAddToCart(product)}
-                        className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20"
+                        className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors border border-border/30 hover:border-primary/30"
                         title="افزودن به سبد"
                       >
                         <Plus className="w-3.5 h-3.5 text-primary" />
                       </button>
                       <button
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/20"
+                        className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors border border-border/30 hover:border-destructive/30"
                         title="حذف"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
@@ -421,7 +384,7 @@ export const RightPanel = ({
             )}
           </div>
 
-          {/* Cart Footer with Full Summary - No checkout button, agent handles checkout */}
+          {/* Cart Footer with Full Summary */}
           {activeTab === 'cart' && cartItems.length > 0 && (
             <div 
               className="p-4 space-y-3"
@@ -457,10 +420,17 @@ export const RightPanel = ({
                 </span>
               </div>
 
-              {/* Trust message - checkout is handled by agent */}
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                برای نهایی کردن خرید، از دستیار هوشمند در چت کمک بگیر ✨
-              </p>
+              {/* AI Checkout CTA Button */}
+              <Button
+                onClick={onAICheckout}
+                className="w-full gap-2 py-3 rounded-xl font-medium"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                }}
+              >
+                <Sparkles className="w-4 h-4" />
+                تکمیل خرید با هوش مصنوعی
+              </Button>
             </div>
           )}
         </div>

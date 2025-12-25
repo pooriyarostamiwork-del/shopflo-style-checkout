@@ -410,7 +410,7 @@ const CarouselSection = ({
       <div className="flex gap-4">
         {/* Promotional Banner - Fixed on left (appears first in RTL) - matches card height */}
         <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] h-[380px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
+          className="hidden lg:flex flex-shrink-0 w-[140px] h-[420px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
             background: banner.imageUrl 
               ? `url(${banner.imageUrl}) center/cover`
@@ -467,7 +467,7 @@ const CarouselSection = ({
             return (
               <div
                 key={product.id}
-                className="flex-shrink-0 w-[220px] h-[380px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
+                className="flex-shrink-0 w-[220px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
                 style={{
                   background: 'hsl(0 0% 100%)',
                   border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -508,7 +508,7 @@ const CarouselSection = ({
 
                 {/* Content */}
                 <div className="p-3 space-y-2 flex-1 flex flex-col">
-                  <h4 className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
+                  <h4 className="text-sm font-medium text-foreground line-clamp-3 leading-relaxed min-h-[3.75rem]">
                     {getProductName(product.id, product.name)}
                   </h4>
                   

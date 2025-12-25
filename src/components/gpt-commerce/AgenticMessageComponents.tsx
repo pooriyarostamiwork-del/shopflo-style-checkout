@@ -381,40 +381,48 @@ export const PaymentSelector = ({ options, selectedPayment, onSelect }: PaymentS
 
       {/* Payment Options */}
       <div className="p-4 space-y-2">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => option.available && onSelect(option.id)}
-            disabled={!option.available}
-            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
-              !option.available 
-                ? 'opacity-50 cursor-not-allowed' 
-                : selectedPayment === option.id
-                  ? 'ring-2 ring-primary'
-                  : 'hover:bg-muted/50'
-            }`}
-            style={{
-              background: selectedPayment === option.id 
-                ? 'hsl(var(--primary) / 0.05)' 
-                : 'hsl(0 0% 98%)',
-              border: '1px solid hsl(0 0% 0% / 0.08)',
-            }}
-          >
-            <span className="text-xl">{option.icon}</span>
-            <span className="flex-1 text-sm font-medium text-right">{option.label}</span>
-            {!option.available && option.tooltip && (
-              <span className="text-xs text-muted-foreground">{option.tooltip}</span>
-            )}
-            {selectedPayment === option.id && (
-              <div 
-                className="w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ background: 'hsl(var(--primary))' }}
-              >
-                <Check className="w-3 h-3 text-white" />
+        {options.map((option) => {
+          const isBnpl = option.id === 'bnpl';
+          return (
+            <button
+              key={option.id}
+              onClick={() => option.available && onSelect(option.id)}
+              disabled={!option.available}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
+                !option.available 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : selectedPayment === option.id
+                    ? 'ring-2 ring-primary'
+                    : 'hover:bg-muted/50'
+              }`}
+              style={{
+                background: selectedPayment === option.id 
+                  ? isBnpl ? 'hsl(280 60% 50% / 0.1)' : 'hsl(var(--primary) / 0.05)' 
+                  : isBnpl ? 'linear-gradient(135deg, hsl(280 60% 95%), hsl(280 60% 98%))' : 'hsl(0 0% 98%)',
+                border: isBnpl ? '1px solid hsl(280 60% 70% / 0.3)' : '1px solid hsl(0 0% 0% / 0.08)',
+              }}
+            >
+              <span className="text-xl">{option.icon}</span>
+              <div className="flex-1 text-right">
+                <span className={`text-sm font-medium ${isBnpl ? 'text-[hsl(280_60%_45%)]' : ''}`}>{option.label}</span>
+                {option.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                )}
               </div>
-            )}
-          </button>
-        ))}
+              {!option.available && option.tooltip && (
+                <span className="text-xs text-muted-foreground">{option.tooltip}</span>
+              )}
+              {selectedPayment === option.id && (
+                <div 
+                  className="w-5 h-5 rounded-full flex items-center justify-center"
+                  style={{ background: isBnpl ? 'hsl(280 60% 50%)' : 'hsl(var(--primary))' }}
+                >
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

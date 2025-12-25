@@ -133,6 +133,7 @@ interface RightPanelProps {
   isOpen: boolean;
   onToggle: () => void;
   onAICheckout?: () => void;
+  showAICheckout?: boolean;
 }
 
 type TabType = 'cart' | 'favorites';
@@ -146,6 +147,7 @@ export const RightPanel = ({
   isOpen,
   onToggle,
   onAICheckout,
+  showAICheckout = true,
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('cart');
   const [autoBuyPriceDrop, setAutoBuyPriceDrop] = useState(false);
@@ -420,17 +422,19 @@ export const RightPanel = ({
                 </span>
               </div>
 
-              {/* AI Checkout CTA Button */}
-              <Button
-                onClick={onAICheckout}
-                className="w-full gap-2 py-3 rounded-xl font-medium"
-                style={{
-                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                }}
-              >
-                <Sparkles className="w-4 h-4" />
-                تکمیل خرید با هوش مصنوعی
-              </Button>
+              {/* AI Checkout CTA Button - Only show on first page (not chat mode) */}
+              {showAICheckout && onAICheckout && (
+                <Button
+                  onClick={onAICheckout}
+                  className="w-full gap-2 py-3 rounded-xl font-medium"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                  }}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  تکمیل خرید با هوش مصنوعی
+                </Button>
+              )}
             </div>
           )}
         </div>

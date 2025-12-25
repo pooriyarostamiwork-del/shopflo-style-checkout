@@ -402,7 +402,7 @@ const GPTCommerceContent = () => {
           return;
         }
 
-        // Default flow - product added, show finalize CTA
+        // Default flow - product added, deactivate previous CTAs and show new finalize CTA
         responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`;
         
         ctaButton = {
@@ -413,6 +413,18 @@ const GPTCommerceContent = () => {
             ? 'برای خرید سریع، اول اطلاعات پرداخت رو ذخیره کن' 
             : undefined,
         };
+        
+        // Deactivate previous CTAs
+        setMessages(prev => prev.map(msg => {
+          if (msg.ctaButton) {
+            return {
+              ...msg,
+              ctaButton: undefined,
+              content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»'
+            };
+          }
+          return msg;
+        }));
         
         setAgenticState(prev => ({ ...prev, step: 'product-added' }));
       }
@@ -487,21 +499,39 @@ const GPTCommerceContent = () => {
 
     setIsCartOpen(true);
 
-    const confirmMessage: ChatMessage = {
-      id: `confirm-${Date.now()}`,
-      role: 'assistant',
-      content: `${product.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`,
-      ctaButton: {
-        label: 'نهایی کردن خرید',
-        action: 'finalize',
-        disabled: !agenticState.hasStoredCheckoutDetails,
-        disabledReason: !agenticState.hasStoredCheckoutDetails 
-          ? 'برای خرید سریع، اول اطلاعات پرداخت رو ذخیره کن' 
-          : undefined,
-      },
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, confirmMessage]);
+    // Deactivate all previous CTAs and add new message with active CTA
+    setMessages((prev) => {
+      // Mark all previous CTAs as inactive (replace with update message)
+      const updatedMessages = prev.map(msg => {
+        if (msg.ctaButton) {
+          return {
+            ...msg,
+            ctaButton: undefined,
+            content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»'
+          };
+        }
+        return msg;
+      });
+      
+      // Add new message with active CTA
+      const confirmMessage: ChatMessage = {
+        id: `confirm-${Date.now()}`,
+        role: 'assistant',
+        content: `${product.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`,
+        ctaButton: {
+          label: 'نهایی کردن خرید',
+          action: 'finalize',
+          disabled: !agenticState.hasStoredCheckoutDetails,
+          disabledReason: !agenticState.hasStoredCheckoutDetails 
+            ? 'برای خرید سریع، اول اطلاعات پرداخت رو ذخیره کن' 
+            : undefined,
+        },
+        timestamp: new Date(),
+      };
+      
+      return [...updatedMessages, confirmMessage];
+    });
+    
     setAgenticState(prev => ({ ...prev, step: 'product-added' }));
   }, [agenticState.hasStoredCheckoutDetails]);
 
@@ -794,6 +824,7 @@ const GPTCommerceContent = () => {
         isOpen={isCartOpen}
         onToggle={() => setIsCartOpen(!isCartOpen)}
         onAICheckout={handleFinalizePurchase}
+        showAICheckout={!hasStartedChat}
       />
 
       <CheckoutModalLocalized

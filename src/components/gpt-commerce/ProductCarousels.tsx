@@ -475,15 +475,15 @@ const CarouselSection = ({
                 }}
                 onClick={() => onQuickView(product)}
               >
-                {/* Image with white background - fixed square aspect ratio */}
-                <div 
-                  className="relative w-full flex-shrink-0"
-                  style={{ background: 'hsl(0 0% 98%)', height: '180px' }}
+                {/* Image with white background - fixed square aspect ratio (no vertical crop) */}
+                <div
+                  className="relative w-full flex-shrink-0 aspect-square"
+                  style={{ background: 'hsl(0 0% 98%)' }}
                 >
                   <img
                     src={getProductImage(product.id, product.image)}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    alt={getProductName(product.id, product.name)}
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                   />
                   {discountPercent > 0 && (
                     <div 

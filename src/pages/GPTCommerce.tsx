@@ -18,6 +18,7 @@ import {
   AgenticState,
   QuickReply,
   PaymentMethod,
+  ShippingMethod,
   calculateOrderSummary,
   toPersianNumber,
 } from "@/data/gptCommerceData";
@@ -77,8 +78,30 @@ const GPTCommerceContent = () => {
     orderId: null,
   });
   
-  // Selected address ID for address selector
+  // Selected address ID + shipping method for address/shipping selector
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
+
+  // Addresses for checkout (mutable in demo; starts with mockAddresses)
+  const [checkoutAddresses, setCheckoutAddresses] = useState(() => mockAddresses);
+
+  // Shipping methods (mock)
+  const shippingMethods: ShippingMethod[] = [
+    {
+      id: 'standard',
+      label: 'ارسال استاندارد',
+      description: 'تحویل ۲ تا ۳ روز کاری',
+      priceLabel: 'رایگان',
+      etaLabel: '۲–۳ روز',
+    },
+    {
+      id: 'express',
+      label: 'ارسال سریع',
+      description: 'تحویل فردا',
+      priceLabel: '۷۹٬۰۰۰ تومان',
+      etaLabel: 'فردا',
+    },
+  ];
 
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
@@ -145,37 +168,34 @@ const GPTCommerceContent = () => {
         setShowOTPModal(true);
         return;
       }
-      
-      // User is verified - show address selection with combined address & shipping
-      if (isNewUser) {
-        // New user - show address form
-        const addressMessage: ChatMessage = {
-          id: `addr-${Date.now()}`,
-          role: 'assistant',
-          content: 'آدرس و نحوه ارسال را انتخاب کنید:',
-          addressSelector: [], // Empty - will show form for new address
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, addressMessage]);
-      } else {
-        // Existing user - show saved addresses
-        const addressMessage: ChatMessage = {
-          id: `addr-${Date.now()}`,
-          role: 'assistant',
-          content: 'آدرس و نحوه ارسال را انتخاب کنید:',
-          addressSelector: mockAddresses,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, addressMessage]);
-        setSelectedAddressId(mockAddresses[0].id);
-        setAgenticState(prev => ({ 
-          ...prev, 
-          selectedAddress: mockAddresses[0],
+
+      // Verified -> go directly to address + shipping selection
+      const addressMessage: ChatMessage = {
+        id: `addr-${Date.now()}`,
+        role: 'assistant',
+        content: 'آدرس و نحوه ارسال را انتخاب کنید:',
+        addressShipping: {
+          mode: isNewUser ? 'new' : 'existing',
+          addresses: isNewUser ? [] : checkoutAddresses,
+          shippingMethods,
+        },
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, addressMessage]);
+      setAgenticState((prev) => ({ ...prev, step: 'address-confirmation' }));
+
+      if (!isNewUser && checkoutAddresses[0]) {
+        setSelectedAddressId(checkoutAddresses[0].id);
+        setAgenticState((prev) => ({
+          ...prev,
+          selectedAddress: checkoutAddresses[0],
           isLoggedIn: true,
           hasStoredCheckoutDetails: true,
         }));
       }
-      setAgenticState(prev => ({ ...prev, step: 'address-confirmation' }));
+
+      // Reset shipping selection when entering this step
+      setSelectedShippingId(null);
     } else if (reply.type === 'add-more') {
       const moreMessage: ChatMessage = {
         id: `more-${Date.now()}`,
@@ -194,7 +214,7 @@ const GPTCommerceContent = () => {
       };
       setMessages(prev => [...prev, trackMessage]);
     }
-  }, [agenticState.orderId, isOTPVerified, isNewUser]);
+  }, [agenticState.orderId, checkoutAddresses, isNewUser, isOTPVerified, shippingMethods]);
 
   // Handle OTP verification complete
   const handleOTPVerified = useCallback((newUser: boolean) => {
@@ -202,37 +222,47 @@ const GPTCommerceContent = () => {
     setIsOTPVerified(true);
     setIsNewUser(newUser);
     setAgenticState(prev => ({ ...prev, isLoggedIn: true }));
-    
-    // Show cart confirmation after OTP verification
-    const orderSummary = calculateOrderSummary(cartItems);
-    const confirmMessage: ChatMessage = {
-      id: `confirm-${Date.now()}`,
+
+    // After OTP, continue directly to address + shipping (NOT cart confirmation again)
+    const addressMessage: ChatMessage = {
+      id: `addr-${Date.now()}`,
       role: 'assistant',
-      content: 'باشه بذار یه نگاه به سبد خریدت بندازیم:',
-      orderSummary: orderSummary,
-      quickReplies: [
-        { id: 'yes', label: '✅ بله، تأیید می‌کنم', type: 'confirm-cart' },
-        { id: 'no', label: '➕ نه، محصول بیشتر می‌خوام', type: 'add-more' },
-      ],
+      content: 'آدرس و نحوه ارسال را انتخاب کنید:',
+      addressShipping: {
+        mode: newUser ? 'new' : 'existing',
+        addresses: newUser ? [] : checkoutAddresses,
+        shippingMethods,
+      },
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, confirmMessage]);
-    setAgenticState(prev => ({ ...prev, step: 'cart-confirmation' }));
-  }, [cartItems]);
+    setMessages(prev => [...prev, addressMessage]);
+    setAgenticState(prev => ({ ...prev, step: 'address-confirmation' }));
+
+    if (!newUser && checkoutAddresses[0]) {
+      setSelectedAddressId(checkoutAddresses[0].id);
+      setAgenticState(prev => ({
+        ...prev,
+        selectedAddress: checkoutAddresses[0],
+        hasStoredCheckoutDetails: true,
+      }));
+    }
+
+    setSelectedShippingId(null);
+  }, [checkoutAddresses, shippingMethods]);
 
   // Handle address selection
   const handleAddressSelect = useCallback((addressId: string) => {
     setSelectedAddressId(addressId);
-    const selectedAddr = mockAddresses.find(a => a.id === addressId);
+    const selectedAddr = checkoutAddresses.find(a => a.id === addressId);
     if (selectedAddr) {
       setAgenticState(prev => ({ ...prev, selectedAddress: selectedAddr }));
     }
-  }, []);
+  }, [checkoutAddresses]);
 
   // Handle address confirmation - combined with shipping
   const handleAddressConfirm = useCallback(() => {
-    const selectedAddr = mockAddresses.find(a => a.id === selectedAddressId) || mockAddresses[0];
-    
+    if (!selectedShippingId) return;
+
     // Show payment selection with updated confirmation message
     const paymentMessage: ChatMessage = {
       id: `payment-${Date.now()}`,
@@ -243,7 +273,7 @@ const GPTCommerceContent = () => {
     };
     setMessages(prev => [...prev, paymentMessage]);
     setAgenticState(prev => ({ ...prev, step: 'payment-selection' }));
-  }, [selectedAddressId]);
+  }, [selectedShippingId]);
 
   // Handle payment selection
   const handlePaymentSelect = useCallback((paymentId: string) => {
@@ -467,10 +497,7 @@ const GPTCommerceContent = () => {
         ctaButton = {
           label: 'نهایی کردن خرید',
           action: 'finalize',
-          disabled: !agenticState.hasStoredCheckoutDetails,
-          disabledReason: !agenticState.hasStoredCheckoutDetails 
-            ? 'برای خرید سریع، اول اطلاعات پرداخت رو ذخیره کن' 
-            : undefined,
+          disabled: false,
         };
         
         // Deactivate previous CTAs
@@ -580,10 +607,7 @@ const GPTCommerceContent = () => {
         ctaButton: {
           label: 'نهایی کردن خرید',
           action: 'finalize',
-          disabled: !agenticState.hasStoredCheckoutDetails,
-          disabledReason: !agenticState.hasStoredCheckoutDetails 
-            ? 'برای خرید سریع، اول اطلاعات پرداخت رو ذخیره کن' 
-            : undefined,
+          disabled: false,
         },
         timestamp: new Date(),
       };
@@ -869,9 +893,18 @@ const GPTCommerceContent = () => {
         onFinalizePurchase={handleFinalizePurchase}
         onAddressConfirm={handleAddressConfirm}
         onAddressSelect={handleAddressSelect}
+        selectedAddressId={selectedAddressId}
+        selectedShippingId={selectedShippingId}
+        onShippingSelect={(id) => setSelectedShippingId(id)}
+        onSubmitNewAddress={(addr) => {
+          const id = `addr-${Date.now()}`;
+          const created = { id, ...addr };
+          setCheckoutAddresses((prev) => [created, ...prev]);
+          setSelectedAddressId(id);
+          setAgenticState((prev) => ({ ...prev, selectedAddress: created, hasStoredCheckoutDetails: true }));
+        }}
         onPaymentSelect={handlePaymentSelect}
         agenticState={agenticState}
-        selectedAddressId={selectedAddressId}
       />
 
       <RightPanel

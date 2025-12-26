@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress } from "@/data/gptCommerceData";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, Merchant } from "@/data/gptCommerceData";
 import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
@@ -17,7 +17,7 @@ import {
   AddressSelector,
   PaymentSelector,
 } from "./AgenticMessageComponents";
-import { AddressShippingSelector } from "./AddressShippingSelector";
+import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -41,10 +41,11 @@ interface ChatInterfaceProps {
   onAddressConfirm?: () => void;
   onAddressSelect?: (addressId: string) => void;
   selectedAddressId?: string | null;
-  // Address + shipping
-  selectedShippingId?: string | null;
-  onShippingSelect?: (shippingId: string) => void;
-  onSubmitNewAddress?: (address: Omit<DeliveryAddress, "id">) => void;
+  // Address + shipping per merchant
+  merchantShipping?: MerchantShipping[];
+  selectedShippingByMerchant?: Record<string, string>;
+  onSelectShipping?: (merchantId: string, shippingId: string) => void;
+  onAddNewAddress?: (address: Omit<DeliveryAddress, "id">) => void;
   // Existing agentic
   onPaymentSelect?: (paymentId: string) => void;
   agenticState?: AgenticState;
@@ -128,9 +129,10 @@ export const ChatInterface = ({
   onAddressConfirm,
   onAddressSelect,
   selectedAddressId,
-  selectedShippingId,
-  onShippingSelect,
-  onSubmitNewAddress,
+  merchantShipping = [],
+  selectedShippingByMerchant = {},
+  onSelectShipping,
+  onAddNewAddress,
   onPaymentSelect,
   agenticState,
 }: ChatInterfaceProps) => {
@@ -508,17 +510,18 @@ export const ChatInterface = ({
               )}
 
               {/* Address + Shipping Selector */}
-              {msg.addressShipping && onAddressConfirm && onShippingSelect && onSubmitNewAddress && (
-                <div className="mr-11 max-w-[520px]">
+              {msg.addressShipping && onAddressConfirm && onSelectShipping && onAddNewAddress && (
+                <div className="mr-11 max-w-[560px]">
                   <AddressShippingSelector
                     mode={msg.addressShipping.mode}
                     addresses={msg.addressShipping.addresses}
                     selectedAddressId={selectedAddressId || null}
                     onSelectAddressId={(id) => onAddressSelect?.(id)}
-                    shippingMethods={msg.addressShipping.shippingMethods}
-                    selectedShippingId={selectedShippingId || null}
-                    onSelectShippingId={onShippingSelect}
-                    onSubmitNewAddress={onSubmitNewAddress}
+                    merchantShipping={merchantShipping}
+                    selectedShippingByMerchant={selectedShippingByMerchant}
+                    onSelectShipping={onSelectShipping}
+                    onSubmitNewAddress={onAddNewAddress}
+                    onAddNewAddress={onAddNewAddress}
                     onConfirm={onAddressConfirm}
                   />
                 </div>

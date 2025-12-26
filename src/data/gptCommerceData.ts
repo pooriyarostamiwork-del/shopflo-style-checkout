@@ -65,6 +65,18 @@ export interface ShippingMethod {
   etaLabel: string;
 }
 
+export interface MerchantShippingMethod {
+  id: string;
+  label: string;
+  deliveryWindow: string;
+  priceLabel: string;
+}
+
+export interface MerchantShipping {
+  merchantId: string;
+  methods: MerchantShippingMethod[];
+}
+
 export interface VendorOrderSummary {
   merchant: Merchant;
   items: CartItem[];

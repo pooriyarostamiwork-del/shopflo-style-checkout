@@ -4,6 +4,7 @@ import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
+import { OTPModal } from "@/components/gpt-commerce/OTPModal";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import {
   ChatMessage,
@@ -58,23 +59,26 @@ const GPTCommerceContent = () => {
   const [activeSection, setActiveSection] = useState('active-cart');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [isOTPVerified, setIsOTPVerified] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   
   // Basket state - persisted to localStorage
   const [baskets, setBaskets] = useState<Basket[]>(() => getInitialBaskets());
   const [activeBasketId, setActiveBasketId] = useState<string>(() => getInitialActiveBasketId());
   
-  // Agentic state
+  // Agentic state - default to guest (not logged in for OTP flow demo)
   const [agenticState, setAgenticState] = useState<AgenticState>({
     step: 'idle',
-    isLoggedIn: true, // Mock: user is logged in
-    hasStoredCheckoutDetails: true, // Mock: user has stored checkout details
-    selectedAddress: mockAddresses[0],
+    isLoggedIn: false, // Default: guest user - will be verified via OTP
+    hasStoredCheckoutDetails: false,
+    selectedAddress: null,
     selectedPayment: null,
     orderId: null,
   });
   
   // Selected address ID for address selector
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(mockAddresses[0].id);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
@@ -136,15 +140,41 @@ const GPTCommerceContent = () => {
   // Handle quick reply selection
   const handleQuickReply = useCallback((reply: QuickReply) => {
     if (reply.type === 'confirm-cart') {
-      // Show address selector with multiple addresses
-      const addressMessage: ChatMessage = {
-        id: `addr-${Date.now()}`,
-        role: 'assistant',
-        content: 'عالی! لطفاً آدرس تحویل رو انتخاب کن:',
-        addressSelector: mockAddresses, // Show all addresses to choose from
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, addressMessage]);
+      // If user is not OTP verified, show OTP modal first
+      if (!isOTPVerified) {
+        setShowOTPModal(true);
+        return;
+      }
+      
+      // User is verified - show address selection with combined address & shipping
+      if (isNewUser) {
+        // New user - show address form
+        const addressMessage: ChatMessage = {
+          id: `addr-${Date.now()}`,
+          role: 'assistant',
+          content: 'آدرس و نحوه ارسال را انتخاب کنید:',
+          addressSelector: [], // Empty - will show form for new address
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, addressMessage]);
+      } else {
+        // Existing user - show saved addresses
+        const addressMessage: ChatMessage = {
+          id: `addr-${Date.now()}`,
+          role: 'assistant',
+          content: 'آدرس و نحوه ارسال را انتخاب کنید:',
+          addressSelector: mockAddresses,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, addressMessage]);
+        setSelectedAddressId(mockAddresses[0].id);
+        setAgenticState(prev => ({ 
+          ...prev, 
+          selectedAddress: mockAddresses[0],
+          isLoggedIn: true,
+          hasStoredCheckoutDetails: true,
+        }));
+      }
       setAgenticState(prev => ({ ...prev, step: 'address-confirmation' }));
     } else if (reply.type === 'add-more') {
       const moreMessage: ChatMessage = {
@@ -164,7 +194,45 @@ const GPTCommerceContent = () => {
       };
       setMessages(prev => [...prev, trackMessage]);
     }
-  }, [agenticState.orderId]);
+  }, [agenticState.orderId, isOTPVerified, isNewUser]);
+
+  // Handle OTP verification complete
+  const handleOTPVerified = useCallback((newUser: boolean) => {
+    setShowOTPModal(false);
+    setIsOTPVerified(true);
+    setIsNewUser(newUser);
+    setAgenticState(prev => ({ ...prev, isLoggedIn: true }));
+    
+    // Continue with address selection flow
+    if (newUser) {
+      // New user - show address form
+      const addressMessage: ChatMessage = {
+        id: `addr-${Date.now()}`,
+        role: 'assistant',
+        content: 'آدرس و نحوه ارسال را انتخاب کنید:',
+        addressSelector: [], // Empty - will show form for new address
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, addressMessage]);
+    } else {
+      // Existing user - show saved addresses
+      const addressMessage: ChatMessage = {
+        id: `addr-${Date.now()}`,
+        role: 'assistant',
+        content: 'آدرس و نحوه ارسال را انتخاب کنید:',
+        addressSelector: mockAddresses,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, addressMessage]);
+      setSelectedAddressId(mockAddresses[0].id);
+      setAgenticState(prev => ({ 
+        ...prev, 
+        selectedAddress: mockAddresses[0],
+        hasStoredCheckoutDetails: true,
+      }));
+    }
+    setAgenticState(prev => ({ ...prev, step: 'address-confirmation' }));
+  }, []);
 
   // Handle address selection
   const handleAddressSelect = useCallback((addressId: string) => {
@@ -175,15 +243,15 @@ const GPTCommerceContent = () => {
     }
   }, []);
 
-  // Handle address confirmation
+  // Handle address confirmation - combined with shipping
   const handleAddressConfirm = useCallback(() => {
     const selectedAddr = mockAddresses.find(a => a.id === selectedAddressId) || mockAddresses[0];
     
-    // Show payment selection
+    // Show payment selection with updated confirmation message
     const paymentMessage: ChatMessage = {
       id: `payment-${Date.now()}`,
       role: 'assistant',
-      content: `آدرس "${selectedAddr.title}" تأیید شد ✅\n\nحالا روش پرداخت رو انتخاب کن:`,
+      content: `✅ آدرس و نحوه ارسال تأیید شد\n\nحالا روش پرداخت رو انتخاب کن:`,
       paymentOptions: paymentOptions,
       timestamp: new Date(),
     };
@@ -233,8 +301,13 @@ const GPTCommerceContent = () => {
     }, 2000);
   }, []);
 
-  // Handle CTA button click (Finalize Purchase)
+  // Handle CTA button click (Finalize Purchase) - also handles first page AI checkout
   const handleFinalizePurchase = useCallback(() => {
+    // If on first page (not in chat mode), start chat mode first
+    if (!hasStartedChat) {
+      setHasStartedChat(true);
+    }
+
     if (!agenticState.isLoggedIn) {
       const loginMessage: ChatMessage = {
         id: `login-${Date.now()}`,
@@ -257,12 +330,12 @@ const GPTCommerceContent = () => {
       return;
     }
 
-    // Show cart confirmation
+    // Show cart confirmation - this is the entry point from first page CTA
     const orderSummary = calculateOrderSummary(cartItems);
     const confirmMessage: ChatMessage = {
       id: `confirm-${Date.now()}`,
       role: 'assistant',
-      content: 'باشه! بذار یه نگاه به سبد خریدت بندازیم:',
+      content: 'باشه بذار یه نگاه به سبد خریدت بندازیم:',
       orderSummary: orderSummary,
       quickReplies: [
         { id: 'yes', label: '✅ بله، تأیید می‌کنم', type: 'confirm-cart' },
@@ -272,7 +345,7 @@ const GPTCommerceContent = () => {
     };
     setMessages(prev => [...prev, confirmMessage]);
     setAgenticState(prev => ({ ...prev, step: 'cart-confirmation' }));
-  }, [agenticState.isLoggedIn, cartItems]);
+  }, [agenticState.isLoggedIn, cartItems, hasStartedChat]);
 
   const handleSendMessage = useCallback((content: string) => {
     // Add user message
@@ -843,6 +916,12 @@ const GPTCommerceContent = () => {
         isOpen={showSuccess}
         onClose={handleSuccessClose}
         orderId={`FLC-${Date.now().toString().slice(-6)}`}
+      />
+
+      <OTPModal
+        isOpen={showOTPModal}
+        onClose={() => setShowOTPModal(false)}
+        onVerified={handleOTPVerified}
       />
     </div>
   );

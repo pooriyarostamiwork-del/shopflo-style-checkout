@@ -477,8 +477,8 @@ const CarouselSection = ({
               >
                 {/* Image with white background - fixed square aspect ratio */}
                 <div 
-                  className="relative w-full aspect-square"
-                  style={{ background: 'hsl(0 0% 98%)' }}
+                  className="relative w-full flex-shrink-0"
+                  style={{ background: 'hsl(0 0% 98%)', height: '180px' }}
                 >
                   <img
                     src={getProductImage(product.id, product.image)}
@@ -504,23 +504,23 @@ const CarouselSection = ({
                 </div>
 
                 {/* Divider between image and content */}
-                <div className="w-full h-px" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
+                <div className="w-full h-px flex-shrink-0" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
 
-                {/* Content */}
-                <div className="p-3 space-y-2 flex-1 flex flex-col">
-                  <h4 className="text-sm font-medium text-foreground line-clamp-3 leading-relaxed min-h-[3.75rem]">
+                {/* Content - flexible middle section */}
+                <div className="p-3 flex-1 flex flex-col min-h-0">
+                  <h4 className="text-sm font-medium text-foreground line-clamp-3 leading-relaxed flex-shrink-0" style={{ minHeight: '3.75rem' }}>
                     {getProductName(product.id, product.name)}
                   </h4>
                   
                   {/* Rating */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0 mt-2">
                     <span className="text-yellow-500 text-xs">⭐</span>
                     <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
                     <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
                   </div>
 
                   {/* Price */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0 mt-2">
                     <span className="text-sm font-bold text-foreground">
                       {formatPersianPrice(product.price)}
                     </span>
@@ -531,41 +531,47 @@ const CarouselSection = ({
                     )}
                   </div>
 
-                  {/* Action Buttons - Bottom - Fixed at bottom of card */}
-                  <div className="flex items-center gap-2 pt-2 mt-auto border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddToCart(product);
-                      }}
-                      disabled={isInCart}
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0"
-                      style={{
-                        background: isInCart 
-                          ? 'hsl(142 70% 45%)' 
-                          : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                      }}
-                      title="افزودن سریع"
-                    >
-                      <Plus className="w-4 h-4 text-white" />
-                    </button>
-                    
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickView(product);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
-                      style={{
-                        background: 'hsl(0 0% 100%)',
-                        border: '1px solid hsl(0 0% 0% / 0.08)',
-                      }}
-                      title={`جزئیات ${product.name}`}
-                    >
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">جزئیات</span>
-                    </button>
-                  </div>
+                  {/* Spacer to push buttons to bottom */}
+                  <div className="flex-1" />
+                </div>
+
+                {/* Action Buttons - Fixed height section at bottom */}
+                <div 
+                  className="flex items-center gap-2 px-3 py-3 flex-shrink-0 border-t" 
+                  style={{ borderColor: 'hsl(0 0% 0% / 0.04)', height: '56px' }}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddToCart(product);
+                    }}
+                    disabled={isInCart}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0"
+                    style={{
+                      background: isInCart 
+                        ? 'hsl(142 70% 45%)' 
+                        : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                    }}
+                    title="افزودن سریع"
+                  >
+                    <Plus className="w-4 h-4 text-white" />
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQuickView(product);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
+                    style={{
+                      background: 'hsl(0 0% 100%)',
+                      border: '1px solid hsl(0 0% 0% / 0.08)',
+                    }}
+                    title={`جزئیات ${product.name}`}
+                  >
+                    <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">جزئیات</span>
+                  </button>
                 </div>
               </div>
             );

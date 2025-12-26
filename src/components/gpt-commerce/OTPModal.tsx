@@ -1,0 +1,275 @@
+import { useState, useRef, useEffect } from "react";
+import { X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toPersianNumber } from "@/data/gptCommerceData";
+
+interface OTPModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onVerified: (isNewUser: boolean) => void;
+}
+
+type Step = 'phone' | 'otp';
+
+export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
+  const [step, setStep] = useState<Step>('phone');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [isLoading, setIsLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [error, setError] = useState('');
+  
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Countdown timer for resend
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setStep('phone');
+      setPhone('');
+      setOtp(['', '', '', '', '', '']);
+      setError('');
+      setCountdown(0);
+    }
+  }, [isOpen]);
+
+  const handlePhoneSubmit = () => {
+    if (phone.length < 10) {
+      setError('شماره موبایل معتبر نیست');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    // Simulate OTP send
+    setTimeout(() => {
+      setIsLoading(false);
+      setStep('otp');
+      setCountdown(60);
+      // Focus first OTP input
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    }, 1000);
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) return;
+    
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    setError('');
+    
+    // Auto-focus next input
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+    
+    // Auto-submit when all digits entered
+    if (newOtp.every(d => d !== '') && index === 5) {
+      handleOtpVerify(newOtp);
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpVerify = (otpDigits: string[] = otp) => {
+    const otpCode = otpDigits.join('');
+    if (otpCode.length !== 6) {
+      setError('کد تأیید باید ۶ رقم باشد');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    // Simulate OTP verification
+    setTimeout(() => {
+      setIsLoading(false);
+      // Mock: determine if user is new or existing (50/50 for demo)
+      const isNewUser = Math.random() > 0.5;
+      onVerified(isNewUser);
+    }, 1500);
+  };
+
+  const handleResend = () => {
+    if (countdown > 0) return;
+    
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setCountdown(60);
+      setOtp(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
+    }, 1000);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" dir="rtl">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div 
+        className="relative w-full max-w-md mx-4 rounded-2xl overflow-hidden"
+        style={{
+          background: 'hsl(0 0% 100%)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+          border: '1px solid hsl(0 0% 0% / 0.08)'
+        }}
+      >
+        {/* Header */}
+        <div 
+          className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid hsl(0 0% 0% / 0.06)' }}
+        >
+          <h2 className="text-lg font-semibold text-foreground">
+            تأیید شماره موبایل
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-muted/50 transition-colors"
+          >
+            <X className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {step === 'phone' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                برای ادامه ثبت سفارش، شماره موبایل خود را وارد کنید
+              </p>
+              
+              <div className="space-y-2">
+                <Input
+                  type="tel"
+                  placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    setError('');
+                  }}
+                  className="text-center text-lg tracking-wider h-12"
+                  style={{
+                    direction: 'ltr',
+                    border: error ? '1px solid hsl(0 84% 60%)' : undefined
+                  }}
+                  maxLength={11}
+                />
+                {error && (
+                  <p className="text-xs text-destructive text-center">{error}</p>
+                )}
+              </div>
+              
+              <Button
+                onClick={handlePhoneSubmit}
+                disabled={isLoading || phone.length < 10}
+                className="w-full h-12 rounded-xl font-medium"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                }}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'ارسال کد تأیید'
+                )}
+              </Button>
+            </div>
+          )}
+
+          {step === 'otp' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                کد ۶ رقمی ارسال شده به {phone} را وارد کنید
+              </p>
+              
+              {/* OTP Inputs */}
+              <div className="flex justify-center gap-2" dir="ltr">
+                {otp.map((digit, index) => (
+                  <Input
+                    key={index}
+                    ref={(el) => (otpRefs.current[index] = el)}
+                    type="text"
+                    inputMode="numeric"
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    className="w-12 h-14 text-center text-xl font-semibold"
+                    style={{
+                      border: error ? '1px solid hsl(0 84% 60%)' : '1px solid hsl(0 0% 0% / 0.12)'
+                    }}
+                    maxLength={1}
+                  />
+                ))}
+              </div>
+              
+              {error && (
+                <p className="text-xs text-destructive text-center">{error}</p>
+              )}
+              
+              {/* Resend */}
+              <div className="text-center">
+                {countdown > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    ارسال مجدد کد تا {toPersianNumber(countdown)} ثانیه دیگر
+                  </p>
+                ) : (
+                  <button
+                    onClick={handleResend}
+                    disabled={isLoading}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    ارسال مجدد کد
+                  </button>
+                )}
+              </div>
+              
+              <Button
+                onClick={() => handleOtpVerify()}
+                disabled={isLoading || otp.some(d => d === '')}
+                className="w-full h-12 rounded-xl font-medium"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                }}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'تأیید و ادامه'
+                )}
+              </Button>
+              
+              {/* Back button */}
+              <button
+                onClick={() => setStep('phone')}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                تغییر شماره موبایل
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

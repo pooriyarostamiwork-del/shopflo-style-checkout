@@ -49,27 +49,27 @@ export const CategorySelector = ({ activeCategory, onCategoryChange }: CategoryS
       </DropdownMenuTrigger>
       <DropdownMenuContent 
         align="start" 
-        className="w-48 backdrop-blur-xl z-50"
+        className="w-52 backdrop-blur-xl z-50 p-2"
         style={{
-          background: 'hsl(0 0% 100% / 0.95)',
-          border: '1px solid hsl(0 0% 100% / 0.3)',
+          background: 'hsl(0 0% 100% / 0.98)',
+          border: '1px solid hsl(0 0% 0% / 0.08)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
         }}
       >
-        {categories.map((category) => (
+        {categories.map((category, index) => (
           <DropdownMenuItem
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
-            className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-all duration-200 ${
+            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 rounded-lg min-h-[44px] ${
               activeCategory === category.id 
                 ? 'bg-primary/10 text-primary' 
                 : 'text-foreground hover:bg-muted/50'
-            }`}
+            } ${index > 0 ? 'mt-1' : ''}`}
           >
-            <span className={activeCategory === category.id ? 'text-primary' : 'text-muted-foreground'}>
+            <span className={`flex-shrink-0 ${activeCategory === category.id ? 'text-primary' : 'text-muted-foreground'}`}>
               {category.icon}
             </span>
-            <span>{category.label}</span>
+            <span className="text-sm">{category.label}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -53,7 +53,7 @@ const PDPChatContent = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(true);
   const [isPdpCollapsed, setIsPdpCollapsed] = useState(false);
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [isOTPVerified, setIsOTPVerified] = useState(false);

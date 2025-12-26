@@ -346,9 +346,15 @@ export const AddressShippingSelector = ({
                     </div>
                   </button>
 
-                  {/* Shipping Methods - Expandable */}
-                  {isExpanded && (
-                    <div className="p-2 space-y-1.5 animate-accordion-down">
+                  {/* Shipping Methods - Expandable with smooth animation */}
+                  <div 
+                    className="overflow-hidden transition-all duration-300 ease-out"
+                    style={{
+                      maxHeight: isExpanded ? '500px' : '0px',
+                      opacity: isExpanded ? 1 : 0,
+                    }}
+                  >
+                    <div className="p-2 space-y-1.5">
                       {ms.methods.map((method) => {
                         const isSelected = selectedMethodId === method.id;
                         return (
@@ -403,7 +409,7 @@ export const AddressShippingSelector = ({
                         );
                       })}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}

@@ -57,6 +57,14 @@ export interface DeliveryAddress {
   isDefault?: boolean;
 }
 
+export interface ShippingMethod {
+  id: string;
+  label: string;
+  description: string;
+  priceLabel: string;
+  etaLabel: string;
+}
+
 export interface VendorOrderSummary {
   merchant: Merchant;
   items: CartItem[];
@@ -75,7 +83,7 @@ export interface OrderSummary {
   grandTotal: number;
 }
 
-export type CheckoutStep = 
+export type CheckoutStep =
   | 'idle'
   | 'product-added'
   | 'awaiting-finalize'
@@ -109,7 +117,12 @@ export interface ChatMessage {
   };
   orderSummary?: OrderSummary;
   addressConfirmation?: DeliveryAddress;
-  addressSelector?: DeliveryAddress[]; // Multiple addresses to choose from
+  addressSelector?: DeliveryAddress[]; // Multiple addresses to choose from (legacy)
+  addressShipping?: {
+    mode: 'existing' | 'new';
+    addresses: DeliveryAddress[];
+    shippingMethods: ShippingMethod[];
+  };
   paymentOptions?: PaymentOption[];
   showCartSummary?: boolean;
   timestamp: Date;

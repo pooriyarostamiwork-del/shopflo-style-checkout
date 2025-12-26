@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod } from "@/data/gptCommerceData";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress } from "@/data/gptCommerceData";
 import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
@@ -9,14 +9,15 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductQuickViewModal } from "./ProductQuickViewModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import { 
-  QuickReplyButtons, 
-  CTAButton, 
-  CartSummaryCard, 
+import {
+  QuickReplyButtons,
+  CTAButton,
+  CartSummaryCard,
   AddressConfirmation,
   AddressSelector,
-  PaymentSelector 
+  PaymentSelector,
 } from "./AgenticMessageComponents";
+import { AddressShippingSelector } from "./AddressShippingSelector";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -39,9 +40,14 @@ interface ChatInterfaceProps {
   onFinalizePurchase?: () => void;
   onAddressConfirm?: () => void;
   onAddressSelect?: (addressId: string) => void;
+  selectedAddressId?: string | null;
+  // Address + shipping
+  selectedShippingId?: string | null;
+  onShippingSelect?: (shippingId: string) => void;
+  onSubmitNewAddress?: (address: Omit<DeliveryAddress, "id">) => void;
+  // Existing agentic
   onPaymentSelect?: (paymentId: string) => void;
   agenticState?: AgenticState;
-  selectedAddressId?: string | null;
 }
 
 // Rotating placeholder texts
@@ -121,9 +127,12 @@ export const ChatInterface = ({
   onFinalizePurchase,
   onAddressConfirm,
   onAddressSelect,
+  selectedAddressId,
+  selectedShippingId,
+  onShippingSelect,
+  onSubmitNewAddress,
   onPaymentSelect,
   agenticState,
-  selectedAddressId,
 }: ChatInterfaceProps) => {
   const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -498,17 +507,27 @@ export const ChatInterface = ({
                 </div>
               )}
 
-              {/* Order Summary Card */}
-              {msg.orderSummary && (
-                <div className="mr-11 max-w-[500px]">
-                  <CartSummaryCard orderSummary={msg.orderSummary} />
+              {/* Address + Shipping Selector */}
+              {msg.addressShipping && onAddressConfirm && onShippingSelect && onSubmitNewAddress && (
+                <div className="mr-11 max-w-[520px]">
+                  <AddressShippingSelector
+                    mode={msg.addressShipping.mode}
+                    addresses={msg.addressShipping.addresses}
+                    selectedAddressId={selectedAddressId || null}
+                    onSelectAddressId={(id) => onAddressSelect?.(id)}
+                    shippingMethods={msg.addressShipping.shippingMethods}
+                    selectedShippingId={selectedShippingId || null}
+                    onSelectShippingId={onShippingSelect}
+                    onSubmitNewAddress={onSubmitNewAddress}
+                    onConfirm={onAddressConfirm}
+                  />
                 </div>
               )}
 
               {/* Address Selector (Multiple addresses) */}
-              {msg.addressSelector && onAddressSelect && onAddressConfirm && (
+              {msg.addressSelector && !msg.addressShipping && onAddressSelect && onAddressConfirm && (
                 <div className="mr-11 max-w-[450px]">
-                  <AddressSelector 
+                  <AddressSelector
                     addresses={msg.addressSelector}
                     selectedAddressId={selectedAddressId || null}
                     onSelect={(address) => onAddressSelect(address.id)}
@@ -518,13 +537,9 @@ export const ChatInterface = ({
               )}
 
               {/* Legacy Address Confirmation (Single address) */}
-              {msg.addressConfirmation && !msg.addressSelector && onAddressConfirm && (
+              {msg.addressConfirmation && !msg.addressSelector && !msg.addressShipping && onAddressConfirm && (
                 <div className="mr-11 max-w-[400px]">
-                  <AddressConfirmation 
-                    address={msg.addressConfirmation}
-                    onConfirm={onAddressConfirm}
-                    onEdit={() => {}}
-                  />
+                  <AddressConfirmation address={msg.addressConfirmation} onConfirm={onAddressConfirm} onEdit={() => {}} />
                 </div>
               )}
 

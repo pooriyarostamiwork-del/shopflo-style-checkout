@@ -78,30 +78,28 @@ const GPTCommerceContent = () => {
     orderId: null,
   });
   
-  // Selected address ID + shipping method for address/shipping selector
+  // Selected address ID + shipping per merchant
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
+  const [selectedShippingByMerchant, setSelectedShippingByMerchant] = useState<Record<string, string>>({});
 
   // Addresses for checkout (mutable in demo; starts with mockAddresses)
   const [checkoutAddresses, setCheckoutAddresses] = useState(() => mockAddresses);
 
-  // Shipping methods (mock)
-  const shippingMethods: ShippingMethod[] = [
-    {
-      id: 'standard',
-      label: 'ارسال استاندارد',
-      description: 'تحویل ۲ تا ۳ روز کاری',
-      priceLabel: 'رایگان',
-      etaLabel: '۲–۳ روز',
-    },
-    {
-      id: 'express',
-      label: 'ارسال سریع',
-      description: 'تحویل فردا',
-      priceLabel: '۷۹٬۰۰۰ تومان',
-      etaLabel: 'فردا',
-    },
-  ];
+  // Build merchant shipping from cart items
+  const getMerchantShipping = useCallback(() => {
+    const merchantIds = [...new Set(cartItems.map(item => item.merchant.id))];
+    return merchantIds.map(merchantId => {
+      const merchant = cartItems.find(item => item.merchant.id === merchantId)?.merchant;
+      return {
+        merchant: merchant!,
+        methods: [
+          { id: 'standard', label: 'ارسال عادی', deliveryWindow: '۲ تا ۷ روز کاری', priceLabel: '۵۵٬۰۰۰ تومان' },
+          { id: 'express', label: 'ارسال اکسپرس', deliveryWindow: '۲ تا ۴ روز کاری', priceLabel: '۸۵٬۰۰۰ تومان' },
+          { id: 'courier', label: 'ارسال با پیک', deliveryWindow: 'امروز', priceLabel: 'پس کرایه' },
+        ],
+      };
+    });
+  }, [cartItems]);
 
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
@@ -177,7 +175,7 @@ const GPTCommerceContent = () => {
         addressShipping: {
           mode: isNewUser ? 'new' : 'existing',
           addresses: isNewUser ? [] : checkoutAddresses,
-          shippingMethods,
+          shippingMethods: [],
         },
         timestamp: new Date(),
       };
@@ -195,7 +193,7 @@ const GPTCommerceContent = () => {
       }
 
       // Reset shipping selection when entering this step
-      setSelectedShippingId(null);
+      setSelectedShippingByMerchant({});
     } else if (reply.type === 'add-more') {
       const moreMessage: ChatMessage = {
         id: `more-${Date.now()}`,
@@ -214,7 +212,7 @@ const GPTCommerceContent = () => {
       };
       setMessages(prev => [...prev, trackMessage]);
     }
-  }, [agenticState.orderId, checkoutAddresses, isNewUser, isOTPVerified, shippingMethods]);
+  }, [agenticState.orderId, checkoutAddresses, isNewUser, isOTPVerified]);
 
   // Handle OTP verification complete
   const handleOTPVerified = useCallback((newUser: boolean) => {
@@ -231,7 +229,7 @@ const GPTCommerceContent = () => {
       addressShipping: {
         mode: newUser ? 'new' : 'existing',
         addresses: newUser ? [] : checkoutAddresses,
-        shippingMethods,
+        shippingMethods: [],
       },
       timestamp: new Date(),
     };
@@ -247,8 +245,8 @@ const GPTCommerceContent = () => {
       }));
     }
 
-    setSelectedShippingId(null);
-  }, [checkoutAddresses, shippingMethods]);
+    setSelectedShippingByMerchant({});
+  }, [checkoutAddresses]);
 
   // Handle address selection
   const handleAddressSelect = useCallback((addressId: string) => {
@@ -259,9 +257,16 @@ const GPTCommerceContent = () => {
     }
   }, [checkoutAddresses]);
 
+  // Handle shipping selection per merchant
+  const handleSelectShipping = useCallback((merchantId: string, shippingId: string) => {
+    setSelectedShippingByMerchant(prev => ({ ...prev, [merchantId]: shippingId }));
+  }, []);
+
   // Handle address confirmation - combined with shipping
   const handleAddressConfirm = useCallback(() => {
-    if (!selectedShippingId) return;
+    const merchantShipping = getMerchantShipping();
+    const allSelected = merchantShipping.every(ms => selectedShippingByMerchant[ms.merchant.id]);
+    if (!allSelected) return;
 
     // Show payment selection with updated confirmation message
     const paymentMessage: ChatMessage = {
@@ -273,7 +278,15 @@ const GPTCommerceContent = () => {
     };
     setMessages(prev => [...prev, paymentMessage]);
     setAgenticState(prev => ({ ...prev, step: 'payment-selection' }));
-  }, [selectedShippingId]);
+  }, [selectedShippingByMerchant, getMerchantShipping]);
+
+  const handleAddNewAddress = useCallback((addr: Omit<typeof mockAddresses[0], "id">) => {
+    const id = `addr-${Date.now()}`;
+    const created: typeof mockAddresses[0] = { id, ...addr, recipientName: addr.recipientName || '', phone: addr.phone || '' };
+    setCheckoutAddresses((prev) => [created, ...prev]);
+    setSelectedAddressId(id);
+    setAgenticState((prev) => ({ ...prev, selectedAddress: created, hasStoredCheckoutDetails: true }));
+  }, []);
 
   // Handle payment selection
   const handlePaymentSelect = useCallback((paymentId: string) => {
@@ -894,15 +907,10 @@ const GPTCommerceContent = () => {
         onAddressConfirm={handleAddressConfirm}
         onAddressSelect={handleAddressSelect}
         selectedAddressId={selectedAddressId}
-        selectedShippingId={selectedShippingId}
-        onShippingSelect={(id) => setSelectedShippingId(id)}
-        onSubmitNewAddress={(addr) => {
-          const id = `addr-${Date.now()}`;
-          const created = { id, ...addr };
-          setCheckoutAddresses((prev) => [created, ...prev]);
-          setSelectedAddressId(id);
-          setAgenticState((prev) => ({ ...prev, selectedAddress: created, hasStoredCheckoutDetails: true }));
-        }}
+        merchantShipping={getMerchantShipping()}
+        selectedShippingByMerchant={selectedShippingByMerchant}
+        onSelectShipping={handleSelectShipping}
+        onAddNewAddress={handleAddNewAddress}
         onPaymentSelect={handlePaymentSelect}
         agenticState={agenticState}
       />

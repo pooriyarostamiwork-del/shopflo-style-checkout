@@ -1,21 +1,34 @@
 import { useMemo, useState } from "react";
-import { Check, MapPin, Truck } from "lucide-react";
+import { Check, MapPin, Truck, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DeliveryAddress, ShippingMethod } from "@/data/gptCommerceData";
+import { DeliveryAddress, Merchant, toPersianNumber } from "@/data/gptCommerceData";
 
 export type AddressShippingMode = "existing" | "new";
+
+export interface MerchantShippingMethod {
+  id: string;
+  label: string;
+  deliveryWindow: string;
+  priceLabel: string;
+}
+
+export interface MerchantShipping {
+  merchant: Merchant;
+  methods: MerchantShippingMethod[];
+}
 
 interface AddressShippingSelectorProps {
   mode: AddressShippingMode;
   addresses?: DeliveryAddress[];
   selectedAddressId: string | null;
   onSelectAddressId: (id: string) => void;
-  shippingMethods: ShippingMethod[];
-  selectedShippingId: string | null;
-  onSelectShippingId: (id: string) => void;
+  merchantShipping: MerchantShipping[];
+  selectedShippingByMerchant: Record<string, string>; // merchantId -> shippingMethodId
+  onSelectShipping: (merchantId: string, shippingId: string) => void;
   onSubmitNewAddress: (address: Omit<DeliveryAddress, "id">) => void;
+  onAddNewAddress: (address: Omit<DeliveryAddress, "id">) => void;
   onConfirm: () => void;
 }
 
@@ -24,10 +37,11 @@ export const AddressShippingSelector = ({
   addresses = [],
   selectedAddressId,
   onSelectAddressId,
-  shippingMethods,
-  selectedShippingId,
-  onSelectShippingId,
+  merchantShipping,
+  selectedShippingByMerchant,
+  onSelectShipping,
   onSubmitNewAddress,
+  onAddNewAddress,
   onConfirm,
 }: AddressShippingSelectorProps) => {
   const selectedAddress = useMemo(
@@ -35,16 +49,38 @@ export const AddressShippingSelector = ({
     [addresses, selectedAddressId],
   );
 
+  const [showAddForm, setShowAddForm] = useState(mode === "new" && addresses.length === 0);
   const [newAddress, setNewAddress] = useState({
-    recipientName: "",
-    phone: "",
+    title: "",
     province: "",
     city: "",
     addressLine: "",
     postalCode: "",
   });
 
-  const canConfirm = Boolean(selectedShippingId) && (mode === "existing" ? Boolean(selectedAddressId) : true);
+  // All merchants must have a shipping method selected
+  const allShippingSelected = merchantShipping.every(
+    (ms) => selectedShippingByMerchant[ms.merchant.id]
+  );
+  const canConfirm = Boolean(selectedAddressId) && allShippingSelected;
+
+  const handleSubmitNewAddress = () => {
+    if (!newAddress.title || !newAddress.province || !newAddress.city || !newAddress.addressLine || !newAddress.postalCode) {
+      return;
+    }
+    const fullAddress = `${newAddress.province}، ${newAddress.city}، ${newAddress.addressLine}`;
+    onAddNewAddress({
+      title: newAddress.title,
+      fullAddress,
+      recipientName: "",
+      phone: "",
+      isDefault: addresses.length === 0,
+    });
+    setNewAddress({ title: "", province: "", city: "", addressLine: "", postalCode: "" });
+    setShowAddForm(false);
+  };
+
+  const isNewAddressValid = newAddress.title && newAddress.province && newAddress.city && newAddress.addressLine && newAddress.postalCode;
 
   return (
     <div
@@ -57,198 +93,246 @@ export const AddressShippingSelector = ({
     >
       {/* Header */}
       <div
-        className="px-4 py-3 flex items-center gap-2"
+        className="px-4 py-3 flex items-center justify-between"
         style={{
           background: "hsl(var(--primary) / 0.05)",
           borderBottom: "1px solid hsl(0 0% 0% / 0.05)",
         }}
       >
-        <MapPin className="w-5 h-5 text-primary" />
-        <span className="font-medium text-sm">آدرس و نحوه ارسال را انتخاب کنید</span>
+        <div className="flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-primary" />
+          <span className="font-medium text-sm">آدرس و نحوه ارسال</span>
+        </div>
+        {!showAddForm && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            افزودن آدرس جدید
+          </button>
+        )}
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Address */}
-        {mode === "existing" ? (
-          <div className="space-y-3">
-            {addresses.map((address) => (
-              <button
-                key={address.id}
-                onClick={() => onSelectAddressId(address.id)}
-                className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-right ${
-                  selectedAddressId === address.id ? "ring-2 ring-primary" : "hover:bg-muted/50"
-                }`}
-                style={{
-                  background: selectedAddressId === address.id ? "hsl(var(--primary) / 0.05)" : "hsl(0 0% 98%)",
-                  border: "1px solid hsl(0 0% 0% / 0.08)",
-                }}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5 ${
-                    selectedAddressId === address.id ? "" : "border-2"
-                  }`}
-                  style={{
-                    background: selectedAddressId === address.id ? "hsl(var(--primary))" : "transparent",
-                    borderColor: selectedAddressId === address.id ? "transparent" : "hsl(0 0% 70%)",
-                  }}
+        {/* Add New Address Form */}
+        {showAddForm && (
+          <div 
+            className="rounded-xl p-4 space-y-3"
+            style={{ 
+              background: "hsl(var(--primary) / 0.03)",
+              border: "1px solid hsl(var(--primary) / 0.1)"
+            }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">آدرس جدید</span>
+              {addresses.length > 0 && (
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
-                  {selectedAddressId === address.id && <Check className="w-3 h-3 text-primary-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-sm">{address.title}</h4>
-                    {address.isDefault && (
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{
-                          background: "hsl(var(--primary) / 0.1)",
-                          color: "hsl(var(--primary))",
-                        }}
-                      >
-                        پیشفرض
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-1.5">{address.fullAddress}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{address.recipientName}</span>
-                    <span>•</span>
-                    <span dir="ltr">{address.phone}</span>
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            {selectedAddress && (
-              <div
-                className="rounded-xl p-3"
-                style={{ background: "hsl(0 0% 98%)", border: "1px solid hsl(0 0% 0% / 0.06)" }}
-              >
-                <p className="text-xs text-muted-foreground">ارسال به:</p>
-                <p className="text-sm font-medium mt-1">{selectedAddress.title}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>نام و نام خانوادگی</Label>
-                <Input
-                  value={newAddress.recipientName}
-                  onChange={(e) => setNewAddress((p) => ({ ...p, recipientName: e.target.value }))}
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>شماره موبایل</Label>
-                <Input
-                  value={newAddress.phone}
-                  onChange={(e) => setNewAddress((p) => ({ ...p, phone: e.target.value }))}
-                  className="h-11"
-                  dir="ltr"
-                />
-              </div>
+                  انصراف
+                </button>
+              )}
+            </div>
+            
+            <div className="space-y-1">
+              <Label className="text-xs">عنوان آدرس *</Label>
+              <Input
+                value={newAddress.title}
+                onChange={(e) => setNewAddress((p) => ({ ...p, title: e.target.value }))}
+                placeholder="مثال: خانه، محل کار"
+                className="h-10 text-sm"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>استان</Label>
+                <Label className="text-xs">استان / شهر *</Label>
                 <Input
                   value={newAddress.province}
                   onChange={(e) => setNewAddress((p) => ({ ...p, province: e.target.value }))}
-                  className="h-11"
+                  placeholder="تهران"
+                  className="h-10 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label>شهر</Label>
+                <Label className="text-xs">شهر / منطقه *</Label>
                 <Input
                   value={newAddress.city}
                   onChange={(e) => setNewAddress((p) => ({ ...p, city: e.target.value }))}
-                  className="h-11"
+                  placeholder="منطقه ۳"
+                  className="h-10 text-sm"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>آدرس</Label>
+              <Label className="text-xs">آدرس دقیق *</Label>
               <Input
                 value={newAddress.addressLine}
                 onChange={(e) => setNewAddress((p) => ({ ...p, addressLine: e.target.value }))}
-                className="h-11"
+                placeholder="خیابان، کوچه، پلاک، واحد"
+                className="h-10 text-sm"
               />
             </div>
 
             <div className="space-y-1">
-              <Label>کد پستی</Label>
+              <Label className="text-xs">کد پستی *</Label>
               <Input
                 value={newAddress.postalCode}
                 onChange={(e) => setNewAddress((p) => ({ ...p, postalCode: e.target.value }))}
-                className="h-11"
+                placeholder="۱۲۳۴۵۶۷۸۹۰"
+                className="h-10 text-sm"
                 dir="ltr"
               />
             </div>
 
             <Button
-              className="w-full h-11 rounded-xl"
-              disabled={
-                !newAddress.recipientName ||
-                !newAddress.phone ||
-                !newAddress.province ||
-                !newAddress.city ||
-                !newAddress.addressLine ||
-                !newAddress.postalCode
-              }
-              onClick={() => {
-                onSubmitNewAddress({
-                  title: "آدرس جدید",
-                  fullAddress: `${newAddress.province}، ${newAddress.city}، ${newAddress.addressLine}، کد پستی ${newAddress.postalCode}`,
-                  recipientName: newAddress.recipientName,
-                  phone: newAddress.phone,
-                  isDefault: true,
-                });
-              }}
+              className="w-full h-10 rounded-xl text-sm"
+              disabled={!isNewAddressValid}
+              onClick={handleSubmitNewAddress}
             >
-              ثبت آدرس
+              <Plus className="w-4 h-4 ml-2" />
+              ثبت و انتخاب آدرس
             </Button>
           </div>
         )}
 
-        {/* Divider */}
-        <div className="h-px" style={{ background: "hsl(0 0% 0% / 0.06)" }} />
-
-        {/* Shipping */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">نحوه ارسال</span>
-          </div>
-
+        {/* Existing Addresses */}
+        {!showAddForm && addresses.length > 0 && (
           <div className="space-y-2">
-            {shippingMethods.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => onSelectShippingId(m.id)}
-                className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl transition-all duration-200 ${
-                  selectedShippingId === m.id ? "ring-2 ring-primary" : "hover:bg-muted/50"
-                }`}
-                style={{
-                  background: selectedShippingId === m.id ? "hsl(var(--primary) / 0.05)" : "hsl(0 0% 98%)",
-                  border: "1px solid hsl(0 0% 0% / 0.08)",
-                }}
-              >
-                <div className="text-right">
-                  <p className="text-sm font-medium">{m.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-bold">{m.priceLabel}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{m.etaLabel}</p>
-                </div>
-              </button>
-            ))}
+            <span className="text-xs text-muted-foreground">آدرس تحویل</span>
+            <div className="space-y-2">
+              {addresses.map((address) => (
+                <button
+                  key={address.id}
+                  onClick={() => onSelectAddressId(address.id)}
+                  className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all duration-200 text-right ${
+                    selectedAddressId === address.id ? "ring-2 ring-primary" : "hover:bg-muted/50"
+                  }`}
+                  style={{
+                    background: selectedAddressId === address.id ? "hsl(var(--primary) / 0.05)" : "hsl(0 0% 98%)",
+                    border: "1px solid hsl(0 0% 0% / 0.08)",
+                  }}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5 ${
+                      selectedAddressId === address.id ? "" : "border-2"
+                    }`}
+                    style={{
+                      background: selectedAddressId === address.id ? "hsl(var(--primary))" : "transparent",
+                      borderColor: selectedAddressId === address.id ? "transparent" : "hsl(0 0% 70%)",
+                    }}
+                  >
+                    {selectedAddressId === address.id && <Check className="w-3 h-3 text-primary-foreground" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-sm">{address.title}</h4>
+                      {address.isDefault && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full"
+                          style={{
+                            background: "hsl(var(--primary) / 0.1)",
+                            color: "hsl(var(--primary))",
+                          }}
+                        >
+                          پیشفرض
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{address.fullAddress}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Divider */}
+        {selectedAddressId && merchantShipping.length > 0 && (
+          <div className="h-px" style={{ background: "hsl(0 0% 0% / 0.06)" }} />
+        )}
+
+        {/* Per-Merchant Shipping Selection */}
+        {selectedAddressId && merchantShipping.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">نحوه ارسال برای هر فروشگاه</span>
+            </div>
+
+            {merchantShipping.map((ms) => {
+              const selectedMethod = selectedShippingByMerchant[ms.merchant.id];
+              
+              return (
+                <div 
+                  key={ms.merchant.id}
+                  className="rounded-xl overflow-hidden"
+                  style={{
+                    background: "hsl(0 0% 99%)",
+                    border: "1px solid hsl(0 0% 0% / 0.06)",
+                  }}
+                >
+                  {/* Merchant Header */}
+                  <div 
+                    className="px-3 py-2 flex items-center gap-2"
+                    style={{ 
+                      background: "hsl(0 0% 0% / 0.02)",
+                      borderBottom: "1px solid hsl(0 0% 0% / 0.04)"
+                    }}
+                  >
+                    <span className="text-base">{ms.merchant.logo}</span>
+                    <span className="font-medium text-sm">{ms.merchant.name}</span>
+                  </div>
+
+                  {/* Shipping Methods */}
+                  <div className="p-2 space-y-1.5">
+                    {ms.methods.map((method) => {
+                      const isSelected = selectedMethod === method.id;
+                      return (
+                        <button
+                          key={method.id}
+                          onClick={() => onSelectShipping(ms.merchant.id, method.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-right ${
+                            isSelected ? "ring-1 ring-primary" : "hover:bg-muted/30"
+                          }`}
+                          style={{
+                            background: isSelected ? "hsl(var(--primary) / 0.05)" : "transparent",
+                          }}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center ${
+                              isSelected ? "" : "border-[1.5px]"
+                            }`}
+                            style={{
+                              background: isSelected ? "hsl(var(--primary))" : "transparent",
+                              borderColor: isSelected ? "transparent" : "hsl(0 0% 65%)",
+                            }}
+                          >
+                            {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                          </div>
+                          
+                          {/* Shipping info in exact format */}
+                          <div className="flex-1 flex items-center gap-2 text-xs">
+                            <span className="font-medium">{method.label}</span>
+                            <span className="text-muted-foreground">|</span>
+                            <span className="text-muted-foreground">{method.deliveryWindow}</span>
+                            <span className="text-muted-foreground">|</span>
+                            <span className={method.priceLabel === 'رایگان' ? 'text-green-600 font-medium' : 'font-medium'}>
+                              {method.priceLabel}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <Button className="w-full h-11 rounded-xl" disabled={!canConfirm} onClick={onConfirm}>
           <Check className="w-4 h-4 ml-2" />

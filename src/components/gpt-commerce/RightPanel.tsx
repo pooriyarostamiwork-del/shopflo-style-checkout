@@ -266,75 +266,83 @@ export const RightPanel = ({
                 ) : (
                   <>
                     {/* Grouped by Vendor with Full Details */}
-                    {orderSummary.vendorSummaries.map((vendorSummary) => (
-                      <div 
-                        key={vendorSummary.merchant.id} 
-                        className="rounded-2xl overflow-hidden"
-                        style={{
-                          background: 'hsl(0 0% 100% / 0.6)',
-                          border: '1px solid hsl(0 0% 100% / 0.3)',
-                          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
-                        }}
-                      >
-                        {/* Vendor Header */}
+                    {orderSummary.vendorSummaries.map((vendorSummary, index) => (
+                      <div key={vendorSummary.merchant.id}>
+                        {/* Vendor Separator - visible between vendors */}
+                        {index > 0 && (
+                          <div 
+                            className="my-4 h-px w-full"
+                            style={{ background: 'hsl(0 0% 0% / 0.08)' }}
+                          />
+                        )}
                         <div 
-                          className="px-3 py-2 flex items-center gap-2"
-                          style={{ 
-                            background: 'hsl(var(--primary) / 0.03)',
-                            borderBottom: '1px solid hsl(0 0% 0% / 0.04)'
+                          className="rounded-2xl overflow-hidden"
+                          style={{
+                            background: 'hsl(0 0% 100% / 0.6)',
+                            border: '1px solid hsl(0 0% 0% / 0.08)',
+                            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
                           }}
                         >
-                          <span className="text-lg">{vendorSummary.merchant.logo}</span>
-                          <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
-                          <span className="text-xs text-muted-foreground mr-auto">
-                            {toPersianNumber(vendorSummary.items.length)} کالا
-                          </span>
-                        </div>
-
-                        {/* Items */}
-                        <div className="p-3 space-y-3">
-                          {vendorSummary.items.map((item) => (
-                            <CartItemCard
-                              key={item.id}
-                              item={item}
-                              variants={productVariants[item.id] || []}
-                              onUpdateQuantity={onUpdateQuantity}
-                              onRemoveItem={onRemoveItem}
-                            />
-                          ))}
-                        </div>
-
-                        {/* Vendor Summary */}
-                        <div 
-                          className="px-3 py-2 space-y-1"
-                          style={{ 
-                            background: 'hsl(0 0% 0% / 0.02)',
-                            borderTop: '1px solid hsl(0 0% 0% / 0.04)'
-                          }}
-                        >
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground flex items-center gap-1">
-                              <Truck className="w-3 h-3" />
-                              ارسال
-                            </span>
-                            <span className={vendorSummary.deliveryFee === 0 ? 'text-green-600 font-medium' : ''}>
-                              {vendorSummary.deliveryFee === 0 ? 'رایگان 🎉' : formatPersianPrice(vendorSummary.deliveryFee)}
+                          {/* Vendor Header */}
+                          <div 
+                            className="px-3 py-2 flex items-center gap-2"
+                            style={{ 
+                              background: 'hsl(var(--primary) / 0.03)',
+                              borderBottom: '1px solid hsl(0 0% 0% / 0.06)'
+                            }}
+                          >
+                            <span className="text-lg">{vendorSummary.merchant.logo}</span>
+                            <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
+                            <span className="text-xs text-muted-foreground mr-auto">
+                              {toPersianNumber(vendorSummary.items.length)} کالا
                             </span>
                           </div>
-                          {vendorSummary.discount > 0 && (
+
+                          {/* Items */}
+                          <div className="p-3 space-y-3">
+                            {vendorSummary.items.map((item) => (
+                              <CartItemCard
+                                key={item.id}
+                                item={item}
+                                variants={productVariants[item.id] || []}
+                                onUpdateQuantity={onUpdateQuantity}
+                                onRemoveItem={onRemoveItem}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Vendor Summary */}
+                          <div 
+                            className="px-3 py-2 space-y-1"
+                            style={{ 
+                              background: 'hsl(0 0% 0% / 0.02)',
+                              borderTop: '1px solid hsl(0 0% 0% / 0.06)'
+                            }}
+                          >
                             <div className="flex justify-between text-xs">
                               <span className="text-muted-foreground flex items-center gap-1">
-                                <Tag className="w-3 h-3" />
-                                تخفیف
+                                <Truck className="w-3 h-3" />
+                                ارسال
                               </span>
-                              <span className="text-red-500 font-medium">
-                                -{formatPersianPrice(vendorSummary.discount)}
+                              <span className={vendorSummary.deliveryFee === 0 ? 'text-green-600 font-medium' : ''}>
+                                {vendorSummary.deliveryFee === 0 ? 'رایگان 🎉' : formatPersianPrice(vendorSummary.deliveryFee)}
                               </span>
                             </div>
-                          )}
-                          <div className="flex justify-between text-xs font-medium pt-1 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
-                            <span>جمع فروشگاه</span>
-                            <span>{formatPersianPrice(vendorSummary.total)}</span>
+                            {vendorSummary.discount > 0 && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground flex items-center gap-1">
+                                  <Tag className="w-3 h-3" />
+                                  تخفیف
+                                </span>
+                                <span className="text-red-500 font-medium">
+                                  -{formatPersianPrice(vendorSummary.discount)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-xs font-medium pt-1 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.06)' }}>
+                              <span>جمع فروشگاه</span>
+                              <span>{formatPersianPrice(vendorSummary.total)}</span>
+                            </div>
                           </div>
                         </div>
                       </div>

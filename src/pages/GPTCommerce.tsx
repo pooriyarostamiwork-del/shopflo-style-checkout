@@ -203,36 +203,22 @@ const GPTCommerceContent = () => {
     setIsNewUser(newUser);
     setAgenticState(prev => ({ ...prev, isLoggedIn: true }));
     
-    // Continue with address selection flow
-    if (newUser) {
-      // New user - show address form
-      const addressMessage: ChatMessage = {
-        id: `addr-${Date.now()}`,
-        role: 'assistant',
-        content: 'آدرس و نحوه ارسال را انتخاب کنید:',
-        addressSelector: [], // Empty - will show form for new address
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, addressMessage]);
-    } else {
-      // Existing user - show saved addresses
-      const addressMessage: ChatMessage = {
-        id: `addr-${Date.now()}`,
-        role: 'assistant',
-        content: 'آدرس و نحوه ارسال را انتخاب کنید:',
-        addressSelector: mockAddresses,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, addressMessage]);
-      setSelectedAddressId(mockAddresses[0].id);
-      setAgenticState(prev => ({ 
-        ...prev, 
-        selectedAddress: mockAddresses[0],
-        hasStoredCheckoutDetails: true,
-      }));
-    }
-    setAgenticState(prev => ({ ...prev, step: 'address-confirmation' }));
-  }, []);
+    // Show cart confirmation after OTP verification
+    const orderSummary = calculateOrderSummary(cartItems);
+    const confirmMessage: ChatMessage = {
+      id: `confirm-${Date.now()}`,
+      role: 'assistant',
+      content: 'باشه بذار یه نگاه به سبد خریدت بندازیم:',
+      orderSummary: orderSummary,
+      quickReplies: [
+        { id: 'yes', label: '✅ بله، تأیید می‌کنم', type: 'confirm-cart' },
+        { id: 'no', label: '➕ نه، محصول بیشتر می‌خوام', type: 'add-more' },
+      ],
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+    setAgenticState(prev => ({ ...prev, step: 'cart-confirmation' }));
+  }, [cartItems]);
 
   // Handle address selection
   const handleAddressSelect = useCallback((addressId: string) => {
@@ -308,14 +294,20 @@ const GPTCommerceContent = () => {
       setHasStartedChat(true);
     }
 
-    if (!agenticState.isLoggedIn) {
-      const loginMessage: ChatMessage = {
-        id: `login-${Date.now()}`,
+    if (cartItems.length === 0) {
+      const emptyMessage: ChatMessage = {
+        id: `empty-${Date.now()}`,
         role: 'assistant',
-        content: 'برای نهایی کردن خرید، اول باید وارد حسابت بشی. 🔐',
+        content: 'سبد خریدت خالیه! اول یه محصول به سبد اضافه کن.',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, loginMessage]);
+      setMessages(prev => [...prev, emptyMessage]);
+      return;
+    }
+
+    // If not OTP verified, show OTP modal first
+    if (!isOTPVerified) {
+      setShowOTPModal(true);
       return;
     }
 
@@ -345,7 +337,7 @@ const GPTCommerceContent = () => {
     };
     setMessages(prev => [...prev, confirmMessage]);
     setAgenticState(prev => ({ ...prev, step: 'cart-confirmation' }));
-  }, [agenticState.isLoggedIn, cartItems, hasStartedChat]);
+  }, [cartItems, hasStartedChat, isOTPVerified]);
 
   const handleSendMessage = useCallback((content: string) => {
     // Add user message

@@ -557,6 +557,13 @@ export const ChatInterface = ({
                 </div>
               )}
 
+              {/* Order Summary Card */}
+              {msg.orderSummary && (
+                <div className="mr-11 max-w-[480px]">
+                  <CartSummaryCard orderSummary={msg.orderSummary} />
+                </div>
+              )}
+
               {/* Quick Reply Buttons */}
               {msg.quickReplies && onQuickReply && (
                 <div className="mr-11">

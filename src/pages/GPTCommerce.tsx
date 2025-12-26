@@ -85,7 +85,7 @@ const GPTCommerceContent = () => {
   // Addresses for checkout (mutable in demo; starts with mockAddresses)
   const [checkoutAddresses, setCheckoutAddresses] = useState(() => mockAddresses);
 
-  // Build merchant shipping from cart items
+  // Build merchant shipping from cart items with default marking
   const getMerchantShipping = useCallback(() => {
     const merchantIds = [...new Set(cartItems.map(item => item.merchant.id))];
     return merchantIds.map(merchantId => {
@@ -93,9 +93,9 @@ const GPTCommerceContent = () => {
       return {
         merchant: merchant!,
         methods: [
-          { id: 'standard', label: 'ارسال عادی', deliveryWindow: '۲ تا ۷ روز کاری', priceLabel: '۵۵٬۰۰۰ تومان' },
-          { id: 'express', label: 'ارسال اکسپرس', deliveryWindow: '۲ تا ۴ روز کاری', priceLabel: '۸۵٬۰۰۰ تومان' },
-          { id: 'courier', label: 'ارسال با پیک', deliveryWindow: 'امروز', priceLabel: 'پس کرایه' },
+          { id: 'standard', label: 'ارسال عادی', deliveryWindow: '۲ تا ۷ روز کاری', priceLabel: '۵۵٬۰۰۰ تومان', isDefault: true },
+          { id: 'express', label: 'ارسال اکسپرس', deliveryWindow: '۲ تا ۴ روز کاری', priceLabel: '۸۵٬۰۰۰ تومان', isDefault: false },
+          { id: 'courier', label: 'ارسال با پیک', deliveryWindow: 'امروز', priceLabel: 'پس کرایه', isDefault: false },
         ],
       };
     });

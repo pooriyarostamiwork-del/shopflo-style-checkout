@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import GPTCommerce from "./pages/GPTCommerce";
+import PDPChat from "./pages/PDPChat";
 import Index from "./pages/Index";
 import IndexFarsi from "./pages/IndexFarsi";
 import AgenticCheckout from "./pages/AgenticCheckout";
@@ -39,6 +40,9 @@ const App = () => (
             
             {/* GPT Commerce - Conversational Shopping */}
             <Route path="/gptcommerce" element={<GPTCommerce />} />
+            
+            {/* PDP - Product Detail Page with Anchored Chat */}
+            <Route path="/pdp" element={<PDPChat />} />
             
             {/* Homepage Admin Panel */}
             <Route path="/homepagepanel" element={<HomepagePanel />} />

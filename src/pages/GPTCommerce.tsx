@@ -305,12 +305,6 @@ const GPTCommerceContent = () => {
       return;
     }
 
-    // If not OTP verified, show OTP modal first
-    if (!isOTPVerified) {
-      setShowOTPModal(true);
-      return;
-    }
-
     if (cartItems.length === 0) {
       const emptyMessage: ChatMessage = {
         id: `empty-${Date.now()}`,
@@ -337,7 +331,7 @@ const GPTCommerceContent = () => {
     };
     setMessages(prev => [...prev, confirmMessage]);
     setAgenticState(prev => ({ ...prev, step: 'cart-confirmation' }));
-  }, [cartItems, hasStartedChat, isOTPVerified]);
+  }, [cartItems, hasStartedChat]);
 
   const handleSendMessage = useCallback((content: string) => {
     // Add user message

@@ -489,21 +489,17 @@ export const ChatInterface = ({
               {msg.products && msg.products.length > 0 && (
                 <div className="flex flex-wrap gap-4 mr-11">
                   {msg.products.map((product, index) => (
-                    <div
+                    <ChatProductCard
                       key={product.id}
-                      className="cursor-pointer flex-shrink-0"
-                      onClick={() => setQuickViewProduct(product)}
-                    >
-                      <ChatProductCard
-                        product={product}
-                        index={(msg.productIndexStart || 1) + index}
-                        onAddToCart={onAddToCart}
-                        onCompare={onCompare}
-                        onSave={onSaveProduct}
-                        isInCart={cartItems.some(item => item.id === product.id)}
-                        isSaved={savedProductIds.includes(product.id)}
-                      />
-                    </div>
+                      product={product}
+                      index={(msg.productIndexStart || 1) + index}
+                      onAddToCart={onAddToCart}
+                      onCompare={onCompare}
+                      onSave={onSaveProduct}
+                      onViewDetails={setQuickViewProduct}
+                      isInCart={cartItems.some(item => item.id === product.id)}
+                      isSaved={savedProductIds.includes(product.id)}
+                    />
                   ))}
                 </div>
               )}

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Minus, Check, ShoppingCart, Truck, RotateCcw, Shield, Star, Zap, Store } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, formatPersianPrice, toPersianNumber, mockProducts } from "@/data/gptCommerceData";
+import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 interface PDPProductComponentProps {
@@ -49,9 +49,9 @@ export const PDPProductComponent = ({
 }: PDPProductComponentProps) => {
   const { getProductImage } = useHomepageSettings();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    comments: true, // Comments open by default
+    description: false, // Collapsed by default
+    comments: true, // Only product comments open by default
     specs: false,
-    shipping: false,
     suppliers: false,
   });
 
@@ -201,6 +201,21 @@ export const PDPProductComponent = ({
                 </span>
               </div>
 
+              {/* Shipping Conditions - Embedded, not collapsible */}
+              <div 
+                className="p-3 rounded-lg"
+                style={{ background: 'hsl(var(--primary) / 0.03)', border: '1px solid hsl(var(--primary) / 0.08)' }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium text-foreground">شرایط ارسال</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان. 
+                  زمان تحویل: ۲ تا ۵ روز کاری در تهران و ۳ تا ۷ روز کاری در سایر شهرها.
+                </p>
+              </div>
+
               {/* Actions - No wishlist or share */}
               <div className="flex gap-2 pt-2">
                 <Button
@@ -227,21 +242,18 @@ export const PDPProductComponent = ({
           {/* Expandable Sections */}
           <div className="space-y-2 pt-2">
             
-            {/* Comments Section - Open by default */}
+            {/* 1. Product Description - FIRST, collapsed by default */}
             <div 
               className="rounded-xl overflow-hidden"
               style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
             >
               <button
-                onClick={() => toggleSection('comments')}
+                onClick={() => toggleSection('description')}
                 className="w-full px-4 py-3 flex items-center justify-between text-right hover:bg-muted/30 transition-colors"
                 style={{ background: 'hsl(0 0% 99%)' }}
               >
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Star className="w-4 h-4 text-yellow-500" />
-                  نظرات و امتیازها
-                </span>
-                {expandedSections.comments ? (
+                <span className="text-sm font-medium">توضیحات محصول</span>
+                {expandedSections.description ? (
                   <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (
                   <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -250,32 +262,20 @@ export const PDPProductComponent = ({
               <div 
                 className="overflow-hidden transition-all duration-300 ease-out"
                 style={{
-                  maxHeight: expandedSections.comments ? '400px' : '0px',
-                  opacity: expandedSections.comments ? 1 : 0,
+                  maxHeight: expandedSections.description ? '200px' : '0px',
+                  opacity: expandedSections.description ? 1 : 0,
                 }}
               >
-                <div className="p-4 space-y-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  {/* Product Comments Summary */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-muted-foreground">خلاصه نظرات محصول</h4>
-                    <p className="text-sm text-foreground leading-relaxed">{comments.productSummary}</p>
-                  </div>
-                  
-                  <div className="h-px" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
-                  
-                  {/* Vendor Comments Summary */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                      <span>نظرات درباره فروشنده</span>
-                      <span className="text-foreground">{product.merchant.name}</span>
-                    </h4>
-                    <p className="text-sm text-foreground leading-relaxed">{comments.vendorSummary}</p>
-                  </div>
+                <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    این هدفون با فناوری پیشرفته نویز کنسلینگ، تجربه‌ای بی‌نظیر از گوش دادن به موسیقی را فراهم می‌کند. 
+                    طراحی ارگونومیک و بالشتک‌های نرم، راحتی طولانی‌مدت را تضمین می‌کنند.
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Technical Specs - Redesigned */}
+            {/* 2. Technical Specs - Modern minimal table style */}
             <div 
               className="rounded-xl overflow-hidden"
               style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
@@ -299,30 +299,41 @@ export const PDPProductComponent = ({
                   opacity: expandedSections.specs ? 1 : 0,
                 }}
               >
-                <div className="p-4 space-y-3" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  {/* Vertical definition list - label/value pairs */}
-                  {technicalSpecs.map((spec, idx) => (
-                    <div key={idx} className="flex flex-col gap-0.5">
-                      <span className="text-xs text-muted-foreground">{spec.label}</span>
-                      <span className="text-sm font-medium text-foreground">{spec.value}</span>
-                    </div>
-                  ))}
+                <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
+                  {/* Modern minimal table */}
+                  <div className="space-y-0">
+                    {technicalSpecs.map((spec, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center py-2.5"
+                        style={{ 
+                          borderBottom: idx < technicalSpecs.length - 1 ? '1px solid hsl(0 0% 0% / 0.04)' : 'none' 
+                        }}
+                      >
+                        <span className="text-xs text-muted-foreground w-28 flex-shrink-0">{spec.label}</span>
+                        <span className="text-sm text-foreground">{spec.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Shipping Conditions */}
+            {/* 3. Product Comments - ONLY product comments, always open by default */}
             <div 
               className="rounded-xl overflow-hidden"
               style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
             >
               <button
-                onClick={() => toggleSection('shipping')}
+                onClick={() => toggleSection('comments')}
                 className="w-full px-4 py-3 flex items-center justify-between text-right hover:bg-muted/30 transition-colors"
                 style={{ background: 'hsl(0 0% 99%)' }}
               >
-                <span className="text-sm font-medium">شرایط ارسال</span>
-                {expandedSections.shipping ? (
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <Star className="w-4 h-4 text-yellow-500" />
+                  نظرات محصول
+                </span>
+                {expandedSections.comments ? (
                   <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (
                   <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -331,20 +342,21 @@ export const PDPProductComponent = ({
               <div 
                 className="overflow-hidden transition-all duration-300 ease-out"
                 style={{
-                  maxHeight: expandedSections.shipping ? '200px' : '0px',
-                  opacity: expandedSections.shipping ? 1 : 0,
+                  maxHeight: expandedSections.comments ? '300px' : '0px',
+                  opacity: expandedSections.comments ? 1 : 0,
                 }}
               >
                 <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان. 
-                    زمان تحویل: ۲ تا ۵ روز کاری در تهران و ۳ تا ۷ روز کاری در سایر شهرها.
-                  </p>
+                  {/* Only Product Comments Summary - NO vendor comments here */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-medium text-muted-foreground">خلاصه نظرات کاربران</h4>
+                    <p className="text-sm text-foreground leading-relaxed">{comments.productSummary}</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Other Suppliers */}
+            {/* 4. Other Suppliers */}
             <div 
               className="rounded-xl overflow-hidden"
               style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
@@ -387,39 +399,6 @@ export const PDPProductComponent = ({
                       <span className="text-sm font-bold text-primary">{formatPersianPrice(supplier.price)}</span>
                     </button>
                   ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Product Description */}
-            <div 
-              className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
-            >
-              <button
-                onClick={() => toggleSection('description')}
-                className="w-full px-4 py-3 flex items-center justify-between text-right hover:bg-muted/30 transition-colors"
-                style={{ background: 'hsl(0 0% 99%)' }}
-              >
-                <span className="text-sm font-medium">توضیحات محصول</span>
-                {expandedSections.description ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-              <div 
-                className="overflow-hidden transition-all duration-300 ease-out"
-                style={{
-                  maxHeight: expandedSections.description ? '200px' : '0px',
-                  opacity: expandedSections.description ? 1 : 0,
-                }}
-              >
-                <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    این هدفون با فناوری پیشرفته نویز کنسلینگ، تجربه‌ای بی‌نظیر از گوش دادن به موسیقی را فراهم می‌کند. 
-                    طراحی ارگونومیک و بالشتک‌های نرم، راحتی طولانی‌مدت را تضمین می‌کنند.
-                  </p>
                 </div>
               </div>
             </div>

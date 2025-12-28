@@ -318,13 +318,19 @@ export const AddressShippingSelector = ({
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      {/* Show selected/default shipping summary when collapsed */}
+                      {/* Show selected/default shipping summary WITH PRICE when collapsed */}
                       {!isExpanded && displayMethod && (
                         <div className="flex items-center gap-1.5 text-xs">
                           <span className="text-muted-foreground">{displayMethod.label}</span>
+                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">{displayMethod.deliveryWindow}</span>
+                          <span className="text-muted-foreground">—</span>
+                          <span className={displayMethod.priceLabel === 'رایگان' ? 'text-green-600 font-medium' : 'font-medium text-foreground'}>
+                            {displayMethod.priceLabel}
+                          </span>
                           {displayMethod.isDefault && !selectedMethod && (
                             <span 
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                              className="px-1.5 py-0.5 rounded text-[10px] font-medium mr-1"
                               style={{ 
                                 background: "hsl(var(--primary) / 0.1)", 
                                 color: "hsl(var(--primary))" 
@@ -334,7 +340,7 @@ export const AddressShippingSelector = ({
                             </span>
                           )}
                           {selectedMethod && (
-                            <Check className="w-3.5 h-3.5 text-green-600" />
+                            <Check className="w-3.5 h-3.5 text-green-600 mr-1" />
                           )}
                         </div>
                       )}

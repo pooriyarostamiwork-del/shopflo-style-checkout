@@ -9,6 +9,7 @@ interface ChatProductCardProps {
   onAddToCart: (product: Product) => void;
   onCompare: (product: Product) => void;
   onSave?: (product: Product) => void;
+  onViewDetails?: (product: Product) => void;
   isInCart?: boolean;
   isSaved?: boolean;
 }
@@ -19,6 +20,7 @@ export const ChatProductCard = ({
   onAddToCart, 
   onCompare, 
   onSave,
+  onViewDetails,
   isInCart,
   isSaved 
 }: ChatProductCardProps) => {
@@ -141,11 +143,14 @@ export const ChatProductCard = ({
             <Plus className="w-4 h-4 text-white" />
           </Button>
           
-          {/* Details Button */}
+          {/* Details Button - Opens modal, NOT chat */}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onCompare(product);
+              // Call onViewDetails if available, otherwise fallback (but NOT onCompare)
+              if (onViewDetails) {
+                onViewDetails(product);
+              }
             }}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
             style={{

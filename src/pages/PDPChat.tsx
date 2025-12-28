@@ -19,6 +19,7 @@ import { RightPanel } from "@/components/gpt-commerce/RightPanel";
 import { OTPModal } from "@/components/gpt-commerce/OTPModal";
 import { PDPProductComponent } from "@/components/gpt-commerce/PDPProductComponent";
 import { ProductDetailsModal } from "@/components/gpt-commerce/ProductDetailsModal";
+import { Sidebar, Basket } from "@/components/gpt-commerce/Sidebar";
 import { 
   QuickReplyButtons, 
   CTAButton, 
@@ -64,6 +65,13 @@ const PDPChatContent = () => {
   const [checkoutAddresses, setCheckoutAddresses] = useState(() => mockAddresses);
   const [agenticStep, setAgenticStep] = useState<string>('idle');
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  
+  // Sidebar state
+  const [activeSection, setActiveSection] = useState('basket-1');
+  const [baskets, setBaskets] = useState<Basket[]>([
+    { id: 'basket-1', title: 'سبد خرید اصلی', itemCount: 0, lastActivity: 'الان', savedItems: [] },
+  ]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -322,8 +330,28 @@ const PDPChatContent = () => {
 
   const isInCart = cartItems.some(item => item.id === anchoredProduct.id);
 
+  // Sidebar handlers
+  const handleCreateBasket = () => {
+    const newId = `basket-${Date.now()}`;
+    setBaskets(prev => [...prev, { id: newId, title: `سبد جدید`, itemCount: 0, lastActivity: 'الان', savedItems: [] }]);
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Left Sidebar */}
+      <Sidebar
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        cartItemCount={cartItems.length}
+        activeOrderCount={0}
+        activeBasketId={activeSection}
+        baskets={baskets}
+        onCreateBasket={handleCreateBasket}
+        onDeleteBasket={(id) => setBaskets(prev => prev.filter(b => b.id !== id))}
+        onMergeBasket={() => {}}
+        onBasketSelect={setActiveSection}
+      />
+
       {/* Main Chat Area */}
       <div 
         className="flex-1 flex flex-col h-screen" 
@@ -407,6 +435,7 @@ const PDPChatContent = () => {
                         index={(msg.productIndexStart || 1) + index}
                         onAddToCart={handleAddToCart}
                         onCompare={() => {}}
+                        onViewDetails={setQuickViewProduct}
                         isInCart={cartItems.some(item => item.id === product.id)}
                         isSaved={false}
                       />
@@ -593,6 +622,15 @@ const PDPChatContent = () => {
         isOpen={showOTPModal}
         onClose={() => setShowOTPModal(false)}
         onVerified={handleOTPVerified}
+      />
+
+      {/* Product Details Modal */}
+      <ProductDetailsModal
+        product={quickViewProduct}
+        isOpen={!!quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
+        onAddToCart={handleAddToCart}
+        isInCart={cartItems.some(item => item.id === quickViewProduct?.id)}
       />
     </div>
   );

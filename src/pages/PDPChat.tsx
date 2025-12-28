@@ -322,14 +322,6 @@ const PDPChatContent = () => {
 
   const isInCart = cartItems.some(item => item.id === anchoredProduct.id);
 
-  // Mock product images for gallery
-  const productImages = [
-    anchoredProduct.image,
-    anchoredProduct.image,
-    anchoredProduct.image,
-  ];
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
       {/* Main Chat Area */}

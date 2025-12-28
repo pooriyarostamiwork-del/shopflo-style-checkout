@@ -6,7 +6,7 @@ import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
 import { ProductCarousels } from "./ProductCarousels";
-import { ProductQuickViewModal } from "./ProductQuickViewModal";
+import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import {
@@ -410,12 +410,11 @@ export const ChatInterface = ({
         <Footer onSupportClick={handleSupportClick} onSignInClick={onSignIn} />
 
         {/* Quick View Modal */}
-        <ProductQuickViewModal
+        <ProductDetailsModal
           product={quickViewProduct}
           isOpen={!!quickViewProduct}
           onClose={() => setQuickViewProduct(null)}
           onAddToCart={onAddToCart}
-          onAskAbout={handleAskAbout}
           isInCart={cartItems.some(item => item.id === quickViewProduct?.id)}
         />
       </div>
@@ -690,12 +689,11 @@ export const ChatInterface = ({
       </div>
 
       {/* Quick View Modal */}
-      <ProductQuickViewModal
+      <ProductDetailsModal
         product={quickViewProduct}
         isOpen={!!quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
         onAddToCart={onAddToCart}
-        onAskAbout={handleAskAbout}
         isInCart={cartItems.some(item => item.id === quickViewProduct?.id)}
       />
     </div>

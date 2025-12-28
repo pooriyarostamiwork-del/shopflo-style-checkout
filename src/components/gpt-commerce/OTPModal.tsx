@@ -4,6 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toPersianNumber } from "@/data/gptCommerceData";
 
+// Convert phone number to Persian digits for display
+const toPersianPhone = (phone: string): string => {
+  return phone.split('').map(char => {
+    const digit = parseInt(char);
+    if (!isNaN(digit)) {
+      return toPersianNumber(digit);
+    }
+    return char;
+  }).join('');
+};
+
 interface OTPModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -200,26 +211,36 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
           {step === 'otp' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
-                کد ۶ رقمی ارسال شده به {phone} را وارد کنید
+                کد ۶ رقمی ارسال شده به {toPersianPhone(phone)} را وارد کنید
               </p>
               
-              {/* OTP Inputs */}
+              {/* OTP Inputs - Display Persian digits */}
               <div className="flex justify-center gap-2" dir="ltr">
                 {otp.map((digit, index) => (
-                  <Input
-                    key={index}
-                    ref={(el) => (otpRefs.current[index] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    value={digit}
-                    onChange={(e) => handleOtpChange(index, e.target.value.replace(/\D/g, ''))}
-                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="w-12 h-14 text-center text-xl font-semibold"
-                    style={{
-                      border: error ? '1px solid hsl(0 84% 60%)' : '1px solid hsl(0 0% 0% / 0.12)'
-                    }}
-                    maxLength={1}
-                  />
+                  <div key={index} className="relative">
+                    <Input
+                      ref={(el) => (otpRefs.current[index] = el)}
+                      type="text"
+                      inputMode="numeric"
+                      value={digit}
+                      onChange={(e) => {
+                        // Accept both Persian and Latin digits
+                        const val = e.target.value;
+                        const normalized = val.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g, '');
+                        handleOtpChange(index, normalized);
+                      }}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      className="w-12 h-14 text-center text-xl font-semibold text-transparent caret-foreground"
+                      style={{
+                        border: error ? '1px solid hsl(0 84% 60%)' : '1px solid hsl(0 0% 0% / 0.12)'
+                      }}
+                      maxLength={1}
+                    />
+                    {/* Display layer with Persian digit */}
+                    <span className="absolute inset-0 flex items-center justify-center text-xl font-semibold pointer-events-none">
+                      {digit ? toPersianNumber(parseInt(digit)) : ''}
+                    </span>
+                  </div>
                 ))}
               </div>
               

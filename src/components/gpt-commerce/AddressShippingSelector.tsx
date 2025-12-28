@@ -384,26 +384,29 @@ export const AddressShippingSelector = ({
                               {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                             </div>
                             
-                            {/* Shipping info in exact format */}
-                            <div className="flex-1 flex items-center gap-2 text-xs flex-wrap">
+                            {/* Shipping info in exact format: Method — Delivery — Price */}
+                            <div className="flex-1 text-xs">
                               <span className="font-medium">{method.label}</span>
-                              {method.isDefault && (
-                                <span 
-                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                  style={{ 
-                                    background: "hsl(var(--primary) / 0.1)", 
-                                    color: "hsl(var(--primary))" 
-                                  }}
-                                >
-                                  پیش‌فرض
-                                </span>
-                              )}
-                              <span className="text-muted-foreground">|</span>
+                              <span className="text-muted-foreground mx-1.5">—</span>
                               <span className="text-muted-foreground">{method.deliveryWindow}</span>
-                              <span className="text-muted-foreground">|</span>
+                              <span className="text-muted-foreground mx-1.5">—</span>
                               <span className={method.priceLabel === 'رایگان' ? 'text-green-600 font-medium' : 'font-medium'}>
                                 {method.priceLabel}
                               </span>
+                              {method.isDefault && (
+                                <>
+                                  <span className="text-muted-foreground mx-1.5">|</span>
+                                  <span 
+                                    className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                    style={{ 
+                                      background: "hsl(var(--primary) / 0.1)", 
+                                      color: "hsl(var(--primary))" 
+                                    }}
+                                  >
+                                    پیش‌فرض
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </button>
                         );

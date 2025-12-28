@@ -383,10 +383,10 @@ export const Sidebar = ({
       <div className="border-t border-border/40 bg-muted/20 p-3 space-y-1">
         <button 
           onClick={() => onSectionChange('account')} 
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border border-transparent ${
             activeSection === 'account' 
               ? 'bg-background text-foreground' 
-              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground'
+              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground hover:border-border/60'
           }`}
         >
           <User className="w-4 h-4" />
@@ -395,10 +395,10 @@ export const Sidebar = ({
         
         <button 
           onClick={() => onSectionChange('orders')} 
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border border-transparent ${
             activeSection === 'orders' 
               ? 'bg-background text-foreground' 
-              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground'
+              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground hover:border-border/60'
           }`}
         >
           <Package className="w-4 h-4" />
@@ -412,10 +412,10 @@ export const Sidebar = ({
         
         <button 
           onClick={() => onSectionChange('flowclub')} 
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border border-transparent ${
             activeSection === 'flowclub' 
               ? 'bg-background text-foreground' 
-              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground'
+              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground hover:border-border/60'
           }`}
         >
           <Gift className="w-4 h-4" />

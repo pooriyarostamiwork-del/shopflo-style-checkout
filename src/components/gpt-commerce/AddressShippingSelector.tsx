@@ -354,10 +354,11 @@ export const AddressShippingSelector = ({
 
                   {/* Shipping Methods - Expandable with smooth animation */}
                   <div 
-                    className="overflow-hidden transition-all duration-300 ease-out"
+                    className="overflow-hidden"
                     style={{
                       maxHeight: isExpanded ? '500px' : '0px',
                       opacity: isExpanded ? 1 : 0,
+                      transition: 'max-height 250ms ease-out, opacity 200ms ease-out',
                     }}
                   >
                     <div className="p-2 space-y-1.5">

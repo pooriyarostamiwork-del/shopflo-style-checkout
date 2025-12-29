@@ -1,8 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toPersianNumber } from "@/data/gptCommerceData";
+
+// Persian digits
+const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+// Convert any digit (Persian or Latin) to Latin for internal storage
+const toLatinDigits = (str: string): string => {
+  return str.replace(/[۰-۹]/g, d => String(persianDigits.indexOf(d)));
+};
 
 // Convert phone number to Persian digits for display
 const toPersianPhone = (phone: string): string => {
@@ -171,21 +178,33 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
               </p>
               
               <div className="space-y-2">
-                <Input
-                  type="tel"
-                  placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-                  value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    setError('');
-                  }}
-                  className="text-center text-lg tracking-wider h-12"
-                  style={{
-                    direction: 'ltr',
-                    border: error ? '1px solid hsl(0 84% 60%)' : undefined
-                  }}
-                  maxLength={11}
-                />
+                {/* Phone input with Persian digit display */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={phone}
+                    onChange={(e) => {
+                      // Normalize to Latin digits for internal storage
+                      const normalized = toLatinDigits(e.target.value).replace(/\D/g, '');
+                      if (normalized.length <= 11) {
+                        setPhone(normalized);
+                        setError('');
+                      }
+                    }}
+                    className="w-full h-12 bg-transparent border rounded-md text-center text-lg tracking-wider text-transparent caret-foreground"
+                    style={{
+                      direction: 'ltr',
+                      borderColor: error ? 'hsl(0 84% 60%)' : 'hsl(0 0% 0% / 0.12)'
+                    }}
+                    maxLength={11}
+                    placeholder=""
+                  />
+                  {/* Display layer with Persian digits */}
+                  <span className="absolute inset-0 flex items-center justify-center text-lg tracking-wider pointer-events-none">
+                    {phone ? toPersianPhone(phone) : <span className="text-muted-foreground/50">۰۹۱۲۳۴۵۶۷۸۹</span>}
+                  </span>
+                </div>
                 {error && (
                   <p className="text-xs text-destructive text-center">{error}</p>
                 )}
@@ -218,7 +237,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
               <div className="flex justify-center gap-2" dir="ltr">
                 {otp.map((digit, index) => (
                   <div key={index} className="relative">
-                    <Input
+                    <input
                       ref={(el) => (otpRefs.current[index] = el)}
                       type="text"
                       inputMode="numeric"
@@ -226,11 +245,11 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                       onChange={(e) => {
                         // Accept both Persian and Latin digits
                         const val = e.target.value;
-                        const normalized = val.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g, '');
+                        const normalized = toLatinDigits(val).replace(/\D/g, '');
                         handleOtpChange(index, normalized);
                       }}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className="w-12 h-14 text-center text-xl font-semibold text-transparent caret-foreground"
+                      className="w-12 h-14 text-center text-xl font-semibold text-transparent caret-foreground bg-transparent rounded-md"
                       style={{
                         border: error ? '1px solid hsl(0 84% 60%)' : '1px solid hsl(0 0% 0% / 0.12)'
                       }}

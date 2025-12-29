@@ -436,10 +436,34 @@ const PDPChatContent = () => {
                         onAddToCart={handleAddToCart}
                         onCompare={() => {}}
                         onViewDetails={setQuickViewProduct}
+                        onInlineDetails={(p) => {
+                          // Inject product details as inline chat message
+                          const detailsMessage: ChatMessage = {
+                            id: `details-${Date.now()}`,
+                            role: 'assistant',
+                            content: `جزئیات کامل محصول ${p.name}:`,
+                            inlineProduct: p,
+                            timestamp: new Date(),
+                          };
+                          setMessages(prev => [...prev, detailsMessage]);
+                        }}
+                        useInlineDetails={true} // Use inline details in chat mode
                         isInCart={cartItems.some(item => item.id === product.id)}
                         isSaved={false}
                       />
                     ))}
+                  </div>
+                )}
+
+                {/* Inline Product Details Component */}
+                {msg.inlineProduct && (
+                  <div className="mr-11 max-w-[600px]">
+                    <PDPProductComponent
+                      product={msg.inlineProduct}
+                      isInCart={cartItems.some(item => item.id === msg.inlineProduct?.id)}
+                      onAddToCart={handleAddToCart}
+                      showContextLabel={false}
+                    />
                   </div>
                 )}
 

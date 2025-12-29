@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, Merchant } from "@/data/gptCommerceData";
@@ -7,6 +7,7 @@ import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
 import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
+import { PDPProductComponent } from "./PDPProductComponent";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import {
@@ -35,6 +36,7 @@ interface ChatInterfaceProps {
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   setInputValue?: (value: string) => void;
   savedProductIds?: string[];
+  onInlineProductDetails?: (product: Product) => void; // Handler to inject product details as chat message
   // Agentic props
   onQuickReply?: (reply: QuickReply) => void;
   onFinalizePurchase?: () => void;
@@ -124,6 +126,7 @@ export const ChatInterface = ({
   inputRef: externalInputRef,
   setInputValue: externalSetInputValue,
   savedProductIds = [],
+  onInlineProductDetails,
   onQuickReply,
   onFinalizePurchase,
   onAddressConfirm,
@@ -485,7 +488,7 @@ export const ChatInterface = ({
                 </div>
               </div>
 
-              {/* Product Cards with Number Badges */}
+              {/* Product Cards with Number Badges - Use inline details in chat mode */}
               {msg.products && msg.products.length > 0 && (
                 <div className="flex flex-wrap gap-4 mr-11">
                   {msg.products.map((product, index) => (
@@ -497,10 +500,24 @@ export const ChatInterface = ({
                       onCompare={onCompare}
                       onSave={onSaveProduct}
                       onViewDetails={setQuickViewProduct}
+                      onInlineDetails={onInlineProductDetails}
+                      useInlineDetails={true} // Use inline details in chat mode
                       isInCart={cartItems.some(item => item.id === product.id)}
                       isSaved={savedProductIds.includes(product.id)}
                     />
                   ))}
+                </div>
+              )}
+
+              {/* Inline Product Details Component - rendered when msg has inlineProduct */}
+              {msg.inlineProduct && (
+                <div className="mr-11 max-w-[600px]">
+                  <PDPProductComponent
+                    product={msg.inlineProduct}
+                    isInCart={cartItems.some(item => item.id === msg.inlineProduct?.id)}
+                    onAddToCart={onAddToCart}
+                    showContextLabel={false}
+                  />
                 </div>
               )}
 

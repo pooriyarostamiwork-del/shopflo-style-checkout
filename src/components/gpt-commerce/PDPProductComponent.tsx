@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
@@ -49,8 +49,8 @@ export const PDPProductComponent = ({
 }: PDPProductComponentProps) => {
   const { getProductImage } = useHomepageSettings();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    description: false, // Collapsed by default
-    comments: true, // Only product comments open by default
+    description: true, // Open by default (as per requirement)
+    comments: false, // Closed by default (as per requirement)
     specs: false,
     suppliers: false,
   });
@@ -252,7 +252,10 @@ export const PDPProductComponent = ({
                 className="w-full px-4 py-3 flex items-center justify-between text-right hover:bg-muted/30 transition-colors"
                 style={{ background: 'hsl(0 0% 99%)' }}
               >
-                <span className="text-sm font-medium">توضیحات محصول</span>
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  توضیحات محصول
+                </span>
                 {expandedSections.description ? (
                   <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (
@@ -285,7 +288,10 @@ export const PDPProductComponent = ({
                 className="w-full px-4 py-3 flex items-center justify-between text-right hover:bg-muted/30 transition-colors"
                 style={{ background: 'hsl(0 0% 99%)' }}
               >
-                <span className="text-sm font-medium">مشخصات فنی</span>
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <List className="w-4 h-4 text-muted-foreground" />
+                  مشخصات فنی
+                </span>
                 {expandedSections.specs ? (
                   <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (

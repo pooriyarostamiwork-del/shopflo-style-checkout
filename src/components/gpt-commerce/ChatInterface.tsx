@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, Merchant } from "@/data/gptCommerceData";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, Merchant, CartItem } from "@/data/gptCommerceData";
 import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { CouponChips } from "./CouponChips";
@@ -26,7 +26,7 @@ interface ChatInterfaceProps {
   onAddToCart: (product: Product) => void;
   onCompare: (product: Product) => void;
   onSaveProduct?: (product: Product) => void;
-  cartItems: Product[];
+  cartItems: CartItem[];
   isProcessing: boolean;
   onCheckout: () => void;
   hasStartedChat: boolean;
@@ -570,9 +570,10 @@ export const ChatInterface = ({
               )}
 
               {/* Order Summary Card */}
+              {/* Order Summary Card - Now reactive to cart changes */}
               {msg.orderSummary && (
                 <div className="mr-11 max-w-[480px]">
-                  <CartSummaryCard orderSummary={msg.orderSummary} />
+                  <CartSummaryCard orderSummary={msg.orderSummary} cartItems={cartItems} />
                 </div>
               )}
 

@@ -10,8 +10,10 @@ interface ChatProductCardProps {
   onCompare: (product: Product) => void;
   onSave?: (product: Product) => void;
   onViewDetails?: (product: Product) => void;
+  onInlineDetails?: (product: Product) => void; // For chat mode - injects details inline
   isInCart?: boolean;
   isSaved?: boolean;
+  useInlineDetails?: boolean; // Whether to use inline chat details instead of modal
 }
 
 export const ChatProductCard = ({ 
@@ -21,8 +23,10 @@ export const ChatProductCard = ({
   onCompare, 
   onSave,
   onViewDetails,
+  onInlineDetails,
   isInCart,
-  isSaved 
+  isSaved,
+  useInlineDetails = false // Default to modal behavior
 }: ChatProductCardProps) => {
   const { getChatProductImage } = useHomepageSettings();
   
@@ -143,12 +147,14 @@ export const ChatProductCard = ({
             <Plus className="w-4 h-4 text-white" />
           </Button>
           
-          {/* Details Button - Opens modal, NOT chat */}
+          {/* Details Button - Opens modal OR injects inline chat details based on mode */}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              // Call onViewDetails if available, otherwise fallback (but NOT onCompare)
-              if (onViewDetails) {
+              // Use inline details for chat mode, modal for non-chat
+              if (useInlineDetails && onInlineDetails) {
+                onInlineDetails(product);
+              } else if (onViewDetails) {
                 onViewDetails(product);
               }
             }}

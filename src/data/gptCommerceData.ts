@@ -137,6 +137,7 @@ export interface ChatMessage {
   };
   paymentOptions?: PaymentOption[];
   showCartSummary?: boolean;
+  inlineProduct?: Product; // Product details shown inline in chat (not modal)
   timestamp: Date;
   isCtaActive?: boolean; // Whether this CTA is currently active (only one should be active at a time)
 }

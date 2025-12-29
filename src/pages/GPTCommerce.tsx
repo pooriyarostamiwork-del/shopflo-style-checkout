@@ -657,6 +657,18 @@ const GPTCommerceContent = () => {
     setMessages((prev) => [...prev, compareMessage]);
   }, []);
 
+  // Handle inline product details - inject into chat as a message
+  const handleInlineProductDetails = useCallback((product: Product) => {
+    const detailsMessage: ChatMessage = {
+      id: `details-${Date.now()}`,
+      role: 'assistant',
+      content: `جزئیات کامل محصول ${product.name}:`,
+      inlineProduct: product,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, detailsMessage]);
+  }, []);
+
   const handleCheckout = useCallback(() => {
     if (cartItems.length > 0) {
       setShowCheckout(true);
@@ -902,6 +914,7 @@ const GPTCommerceContent = () => {
         isCartOpen={isCartOpen}
         onSignIn={handleCheckout}
         savedProductIds={savedProductIds}
+        onInlineProductDetails={handleInlineProductDetails}
         onQuickReply={handleQuickReply}
         onFinalizePurchase={handleFinalizePurchase}
         onAddressConfirm={handleAddressConfirm}

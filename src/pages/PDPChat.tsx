@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUp, Zap, Paperclip, Mic } from "lucide-react";
+import { ArrowUp, Zap, Paperclip, Mic, User, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   ChatMessage, 
@@ -28,6 +28,8 @@ import {
 } from "@/components/gpt-commerce/AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "@/components/gpt-commerce/AddressShippingSelector";
 import { LanguageProvider } from "@/i18n/LanguageContext";
+import { CategorySelector } from "@/components/gpt-commerce/CategorySelector";
+import { CouponChips } from "@/components/gpt-commerce/CouponChips";
 
 // Get product by ID or default to first product
 const getAnchoredProduct = (productId?: string): Product => {
@@ -66,6 +68,21 @@ const PDPChatContent = () => {
   const [agenticStep, setAgenticStep] = useState<string>('idle');
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  
+  // Chat mode header state
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [appliedCoupons, setAppliedCoupons] = useState<string[]>([]);
+  
+  // Image gallery state for PDP
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
+  const productImages = [
+    anchoredProduct.image,
+    // Mock additional images
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+    'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=500',
+    'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=500',
+  ];
   
   // Sidebar state
   const [activeSection, setActiveSection] = useState('basket-1');
@@ -361,31 +378,197 @@ const PDPChatContent = () => {
           transition: 'margin-left 0.3s ease-out'
         }}
       >
+        {/* Chat Mode Header - Same as main chat */}
+        <div 
+          className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
+          style={{
+            background: 'hsl(0 0% 100% / 0.95)',
+            backdropFilter: 'blur(8px)',
+            borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
+          }}
+        >
+          <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+          <div className="flex items-center gap-3">
+            <CouponChips onApplyCoupon={(id) => setAppliedCoupons(prev => [...prev, id])} appliedCoupons={appliedCoupons} />
+            <button
+              onClick={() => {}}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:border-primary/20"
+              style={{
+                background: 'hsl(0 0% 100%)',
+                border: '1px solid hsl(0 0% 0% / 0.08)',
+              }}
+            >
+              <User className="w-4 h-4" />
+              <span>ورود / ثبت‌نام</span>
+            </button>
+          </div>
+        </div>
+
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-[820px] mx-auto p-6 space-y-6">
             
-            {/* Anchored Product PDP Component */}
-            <PDPProductComponent
-              product={anchoredProduct}
-              isInCart={isInCart}
-              onAddToCart={handleAddToCart}
-              isCollapsed={isPdpCollapsed}
-              onToggleCollapse={() => setIsPdpCollapsed(!isPdpCollapsed)}
-              showContextLabel={true}
-              onOtherSupplierClick={(supplierName) => {
-                // Add supplier products to chat
-                const supplierMessage: ChatMessage = {
-                  id: `supplier-${Date.now()}`,
-                  role: 'assistant',
-                  content: `محصولات ${supplierName} برای این کالا:`,
-                  products: mockProducts.filter(p => p.id !== anchoredProduct.id).slice(0, 3),
-                  productIndexStart: 1,
-                  timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, supplierMessage]);
+            {/* Anchored Product with Image Gallery */}
+            <div 
+              className="rounded-2xl overflow-hidden"
+              style={{
+                background: 'hsl(0 0% 100%)',
+                border: '1px solid hsl(0 0% 0% / 0.08)',
               }}
-            />
+            >
+              {/* Context Label */}
+              <div 
+                className="px-4 py-2 flex items-center justify-between"
+                style={{ 
+                  background: 'hsl(var(--primary) / 0.05)',
+                  borderBottom: '1px solid hsl(0 0% 0% / 0.05)'
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <span className="text-xs text-primary font-medium">شروع گفتگو از این محصول</span>
+                </div>
+                <button
+                  onClick={() => setIsPdpCollapsed(!isPdpCollapsed)}
+                  className="p-1 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  {isPdpCollapsed ? (
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-90" />
+                  ) : (
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground -rotate-90" />
+                  )}
+                </button>
+              </div>
+              
+              {!isPdpCollapsed && (
+                <div className="p-4">
+                  <div className="flex gap-6">
+                    {/* Image Gallery with Navigation */}
+                    <div className="w-56 flex-shrink-0 space-y-3">
+                      {/* Main Image with Controls */}
+                      <div 
+                        className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
+                        style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
+                        onClick={() => setShowLightbox(true)}
+                      >
+                        <img 
+                          src={productImages[activeImageIndex]} 
+                          alt={anchoredProduct.name}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        
+                        {/* Navigation Arrows */}
+                        {productImages.length > 1 && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveImageIndex(prev => prev > 0 ? prev - 1 : productImages.length - 1);
+                              }}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-white"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveImageIndex(prev => prev < productImages.length - 1 ? prev + 1 : 0);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-white"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        
+                        {/* Expand Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowLightbox(true);
+                          }}
+                          className="absolute top-2 left-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-white"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                        
+                        {/* Discount Badge */}
+                        {anchoredProduct.originalPrice && (
+                          <div 
+                            className="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold text-white"
+                            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+                          >
+                            {toPersianNumber(Math.round((1 - anchoredProduct.price / anchoredProduct.originalPrice) * 100))}٪
+                          </div>
+                        )}
+                        
+                        {/* Image Counter */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/50 text-white text-xs">
+                          {toPersianNumber(activeImageIndex + 1)} / {toPersianNumber(productImages.length)}
+                        </div>
+                      </div>
+                      
+                      {/* Thumbnail Strip */}
+                      <div className="flex gap-2 justify-center">
+                        {productImages.map((img, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setActiveImageIndex(idx)}
+                            className={`w-12 h-12 rounded-lg overflow-hidden transition-all ${
+                              idx === activeImageIndex ? 'ring-2 ring-primary' : 'opacity-60 hover:opacity-100'
+                            }`}
+                          >
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Product Info - Reuse PDPProductComponent's info section style */}
+                    <PDPProductComponent
+                      product={anchoredProduct}
+                      isInCart={isInCart}
+                      onAddToCart={handleAddToCart}
+                      isCollapsed={false}
+                      showContextLabel={false}
+                      onOtherSupplierClick={(supplierName) => {
+                        const supplierMessage: ChatMessage = {
+                          id: `supplier-${Date.now()}`,
+                          role: 'assistant',
+                          content: `محصولات ${supplierName} برای این کالا:`,
+                          products: mockProducts.filter(p => p.id !== anchoredProduct.id).slice(0, 3),
+                          productIndexStart: 1,
+                          timestamp: new Date(),
+                        };
+                        setMessages(prev => [...prev, supplierMessage]);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {isPdpCollapsed && (
+                <div className="px-4 py-3 flex items-center gap-3">
+                  <img 
+                    src={productImages[0]} 
+                    alt={anchoredProduct.name}
+                    className="w-12 h-12 rounded-lg object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium truncate">{anchoredProduct.name}</h3>
+                    <p className="text-xs text-primary font-medium">{formatPersianPrice(anchoredProduct.price)}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAddToCart(anchoredProduct)}
+                    disabled={!anchoredProduct.inStock || isInCart}
+                    className="rounded-lg"
+                  >
+                    {isInCart ? '✓' : '+'}
+                  </Button>
+                </div>
+              )}
+            </div>
 
             {/* Chat Messages */}
             {messages.map((msg) => (
@@ -468,9 +651,10 @@ const PDPChatContent = () => {
                 )}
 
                 {/* Order Summary */}
+                {/* Order Summary - Real-time cart updates */}
                 {msg.orderSummary && (
                   <div className="mr-11 max-w-[480px]">
-                    <CartSummaryCard orderSummary={msg.orderSummary} />
+                    <CartSummaryCard orderSummary={msg.orderSummary} cartItems={cartItems} />
                   </div>
                 )}
 
@@ -656,6 +840,52 @@ const PDPChatContent = () => {
         onAddToCart={handleAddToCart}
         isInCart={cartItems.some(item => item.id === quickViewProduct?.id)}
       />
+
+      {/* Image Lightbox */}
+      {showLightbox && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setShowLightbox(false)}
+        >
+          <button
+            onClick={() => setShowLightbox(false)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveImageIndex(prev => prev > 0 ? prev - 1 : productImages.length - 1);
+            }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          
+          <img 
+            src={productImages[activeImageIndex]} 
+            alt={anchoredProduct.name}
+            className="max-w-[90vw] max-h-[90vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveImageIndex(prev => prev < productImages.length - 1 ? prev + 1 : 0);
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 text-white text-sm">
+            {toPersianNumber(activeImageIndex + 1)} / {toPersianNumber(productImages.length)}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

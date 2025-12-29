@@ -9,6 +9,43 @@ import {
   toPersianNumber,
 } from "@/data/gptCommerceData";
 
+// Helper to calculate order summary from cart items in real-time
+type CartItemInput = { id: string; name: string; price: number; quantity: number; image: string; merchant: { id: string; name: string; logo: string } };
+
+const calculateRealtimeSummary = (items: CartItemInput[]): OrderSummary => {
+  const merchantGroups = items.reduce((acc, item) => {
+    const mid = item.merchant.id;
+    if (!acc[mid]) {
+      acc[mid] = { merchant: item.merchant, items: [] };
+    }
+    acc[mid].items.push(item as any); // Cast for compatibility
+    return acc;
+  }, {} as Record<string, { merchant: typeof items[0]['merchant']; items: any[] }>);
+
+  const vendorSummaries = Object.values(merchantGroups).map(group => {
+    const subtotal = group.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const deliveryFee = subtotal > 500000 ? 0 : 55000;
+    const discount = 0;
+    const total = subtotal + deliveryFee - discount;
+    return {
+      merchant: group.merchant,
+      items: group.items,
+      subtotal,
+      deliveryFee,
+      discount,
+      total,
+    };
+  });
+
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+  const subtotal = vendorSummaries.reduce((s, v) => s + v.subtotal, 0);
+  const totalDelivery = vendorSummaries.reduce((s, v) => s + v.deliveryFee, 0);
+  const totalDiscount = vendorSummaries.reduce((s, v) => s + v.discount, 0);
+  const grandTotal = subtotal + totalDelivery - totalDiscount;
+
+  return { vendorSummaries, totalItems, subtotal, totalDelivery, totalDiscount, grandTotal };
+};
+
 // Quick Reply Buttons Component
 interface QuickReplyButtonsProps {
   replies: QuickReply[];
@@ -74,12 +111,20 @@ export const CTAButton = ({ label, onClick, disabled, disabledReason }: CTAButto
   );
 };
 
-// Cart Summary Card Component
+// Cart Summary Card Component - Now reactive to cart changes
 interface CartSummaryCardProps {
-  orderSummary: OrderSummary;
+  orderSummary?: OrderSummary;
+  cartItems?: Array<{ id: string; name: string; price: number; quantity: number; image: string; merchant: { id: string; name: string; logo: string } }>;
 }
 
-export const CartSummaryCard = ({ orderSummary }: CartSummaryCardProps) => {
+export const CartSummaryCard = ({ orderSummary: propOrderSummary, cartItems }: CartSummaryCardProps) => {
+  // Calculate order summary from cart items if provided (real-time), otherwise use prop
+  const orderSummary = cartItems && cartItems.length > 0 
+    ? calculateRealtimeSummary(cartItems) 
+    : propOrderSummary;
+  
+  if (!orderSummary) return null;
+
   return (
     <div 
       className="mt-4 rounded-xl overflow-hidden"

@@ -101,6 +101,28 @@ const GPTCommerceContent = () => {
     });
   }, [cartItems]);
 
+  // Auto-select default shipping method for each merchant when cart changes
+  // This aligns visual state with validation state
+  useEffect(() => {
+    const merchantShipping = getMerchantShipping();
+    const newSelections: Record<string, string> = { ...selectedShippingByMerchant };
+    let hasChanges = false;
+    
+    merchantShipping.forEach(ms => {
+      if (!newSelections[ms.merchant.id]) {
+        const defaultMethod = ms.methods.find(m => m.isDefault) || ms.methods[0];
+        if (defaultMethod) {
+          newSelections[ms.merchant.id] = defaultMethod.id;
+          hasChanges = true;
+        }
+      }
+    });
+    
+    if (hasChanges) {
+      setSelectedShippingByMerchant(newSelections);
+    }
+  }, [cartItems, getMerchantShipping]);
+
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
 

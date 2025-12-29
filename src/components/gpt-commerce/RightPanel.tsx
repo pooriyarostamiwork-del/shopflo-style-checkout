@@ -4,6 +4,7 @@ import { CartItem, Product, formatPersianPrice, toPersianNumber, favorites, calc
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 interface ProductVariant {
   id: string;
@@ -55,10 +56,14 @@ const CartItemCard = ({
   const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id || '');
   const variantType = variants[0]?.type || 'نوع';
   
+  // Use consistent product image from context
+  const { getChatProductImage } = useHomepageSettings();
+  const productImage = getChatProductImage(item.id, item.image);
+  
   return (
     <div className="flex gap-3">
       <img
-        src={item.image}
+        src={productImage}
         alt={item.name}
         className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
       />
@@ -120,6 +125,55 @@ const CartItemCard = ({
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Separate component for favorites to use hooks properly
+const FavoritesTab = ({ onAddToCart }: { onAddToCart: (product: Product) => void }) => {
+  const { getChatProductImage } = useHomepageSettings();
+  
+  return (
+    <div className="p-4 space-y-2">
+      {favorites.map((product) => {
+        const productImage = getChatProductImage(product.id, product.image);
+        return (
+          <div 
+            key={product.id} 
+            className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 bg-background border border-border/40"
+          >
+            <img
+              src={productImage}
+              alt={product.name}
+              className="w-11 h-11 rounded-lg object-cover bg-muted/30 border border-border/30"
+            />
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-medium text-foreground truncate">
+                {product.name}
+              </h4>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {formatPersianPrice(product.price)}
+              </p>
+            </div>
+            {/* Actions - Always visible */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onAddToCart(product)}
+                className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors border border-border/30 hover:border-primary/30"
+                title="افزودن به سبد"
+              >
+                <Plus className="w-3.5 h-3.5 text-primary" />
+              </button>
+              <button
+                className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors border border-border/30 hover:border-destructive/30"
+                title="حذف"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -353,44 +407,7 @@ export const RightPanel = ({
             )}
 
             {activeTab === 'favorites' && (
-              <div className="p-4 space-y-2">
-                {favorites.map((product) => (
-                  <div 
-                    key={product.id} 
-                    className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 bg-background border border-border/40"
-                  >
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-11 h-11 rounded-lg object-cover bg-muted/30 border border-border/30"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-medium text-foreground truncate">
-                        {product.name}
-                      </h4>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {formatPersianPrice(product.price)}
-                      </p>
-                    </div>
-                    {/* Actions - Always visible */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => onAddToCart(product)}
-                        className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors border border-border/30 hover:border-primary/30"
-                        title="افزودن به سبد"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-primary" />
-                      </button>
-                      <button
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors border border-border/30 hover:border-destructive/30"
-                        title="حذف"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <FavoritesTab onAddToCart={onAddToCart} />
             )}
           </div>
 

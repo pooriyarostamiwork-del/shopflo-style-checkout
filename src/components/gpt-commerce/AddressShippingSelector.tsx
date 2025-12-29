@@ -73,6 +73,8 @@ export const AddressShippingSelector = ({
       return;
     }
     const fullAddress = `${newAddress.province}، ${newAddress.city}، ${newAddress.addressLine}، کد پستی: ${newAddress.postalCode}`;
+    
+    // Call onAddNewAddress - this persists the address and auto-selects it
     onAddNewAddress({
       title: newAddress.title,
       fullAddress,
@@ -80,6 +82,8 @@ export const AddressShippingSelector = ({
       phone: "",
       isDefault: addresses.length === 0,
     });
+    
+    // Clear form and hide it
     setNewAddress({ title: "", province: "", city: "", addressLine: "", postalCode: "" });
     setShowAddForm(false);
   };
@@ -354,13 +358,13 @@ export const AddressShippingSelector = ({
 
                   {/* Shipping Methods - Expandable with smooth animation */}
                   <div 
-                    className="overflow-hidden"
+                    className="grid transition-all duration-300 ease-out"
                     style={{
-                      maxHeight: isExpanded ? '500px' : '0px',
+                      gridTemplateRows: isExpanded ? '1fr' : '0fr',
                       opacity: isExpanded ? 1 : 0,
-                      transition: 'max-height 250ms ease-out, opacity 200ms ease-out',
                     }}
                   >
+                    <div className="overflow-hidden">
                     <div className="p-2 space-y-1.5">
                       {ms.methods.map((method) => {
                         const isSelected = selectedMethodId === method.id;
@@ -418,6 +422,7 @@ export const AddressShippingSelector = ({
                           </button>
                         );
                       })}
+                    </div>
                     </div>
                   </div>
                 </div>

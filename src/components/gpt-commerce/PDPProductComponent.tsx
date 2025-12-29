@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
@@ -12,6 +12,7 @@ interface PDPProductComponentProps {
   onToggleCollapse?: () => void;
   showContextLabel?: boolean;
   onOtherSupplierClick?: (supplierName: string) => void;
+  showImageNavigation?: boolean; // Enable image navigation for PDP page
 }
 
 // Mock other suppliers data
@@ -38,6 +39,14 @@ const getTechnicalSpecs = () => [
   { label: 'گارانتی', value: '۱۸ ماهه' },
 ];
 
+// Mock multiple product images for gallery
+const getProductImages = (productId: string, mainImage: string) => [
+  mainImage,
+  'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=600&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1524678606370-a47ad25cb82a?w=600&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop',
+];
+
 export const PDPProductComponent = ({
   product,
   isInCart,
@@ -46,6 +55,7 @@ export const PDPProductComponent = ({
   onToggleCollapse,
   showContextLabel = true,
   onOtherSupplierClick,
+  showImageNavigation = false,
 }: PDPProductComponentProps) => {
   const { getProductImage } = useHomepageSettings();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -54,14 +64,31 @@ export const PDPProductComponent = ({
     specs: false,
     suppliers: false,
   });
+  
+  // Image gallery state
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  const productImage = getProductImage(product.id, product.image);
+  const mainProductImage = getProductImage(product.id, product.image);
+  const productImages = showImageNavigation 
+    ? getProductImages(product.id, mainProductImage) 
+    : [mainProductImage];
+  const productImage = productImages[currentImageIndex];
+  
   const otherSuppliers = getOtherSuppliers(product.id);
   const comments = getProductComments();
   const technicalSpecs = getTechnicalSpecs();
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const navigateImage = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      setCurrentImageIndex(prev => prev === 0 ? productImages.length - 1 : prev - 1);
+    } else {
+      setCurrentImageIndex(prev => prev === productImages.length - 1 ? 0 : prev + 1);
+    }
   };
 
   const discountPercent = product.originalPrice
@@ -132,16 +159,17 @@ export const PDPProductComponent = ({
         <div className="p-4 space-y-4">
           {/* Product Layout */}
           <div className="flex gap-6">
-            {/* Single Static Image - No gallery interactions */}
+            {/* Product Image with optional navigation */}
             <div className="w-56 flex-shrink-0">
               <div 
-                className="aspect-square rounded-xl overflow-hidden relative"
+                className="aspect-square rounded-xl overflow-hidden relative group cursor-pointer"
                 style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
+                onClick={() => showImageNavigation && setIsLightboxOpen(true)}
               >
                 <img 
                   src={productImage} 
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 {/* Discount Badge */}
                 {discountPercent > 0 && (
@@ -152,7 +180,62 @@ export const PDPProductComponent = ({
                     {toPersianNumber(discountPercent)}٪
                   </div>
                 )}
+                
+                {/* Expand button - only when navigation is enabled */}
+                {showImageNavigation && (
+                  <button 
+                    className="absolute top-2 left-2 w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: 'hsl(0 0% 0% / 0.5)' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsLightboxOpen(true);
+                    }}
+                  >
+                    <Maximize2 className="w-4 h-4 text-white" />
+                  </button>
+                )}
+                
+                {/* Navigation arrows - only when multiple images */}
+                {showImageNavigation && productImages.length > 1 && (
+                  <>
+                    <button 
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: 'hsl(0 0% 100% / 0.9)' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateImage('prev');
+                      }}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <button 
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: 'hsl(0 0% 100% / 0.9)' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateImage('next');
+                      }}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
               </div>
+              
+              {/* Image indicators - only when navigation is enabled */}
+              {showImageNavigation && productImages.length > 1 && (
+                <div className="flex justify-center gap-1.5 mt-2">
+                  {productImages.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                        idx === currentImageIndex ? 'bg-primary w-4' : 'bg-muted-foreground/30'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Product Info */}
@@ -409,6 +492,64 @@ export const PDPProductComponent = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Lightbox Modal */}
+      {isLightboxOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <button 
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+          
+          <div className="relative max-w-4xl max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <img 
+              src={productImage}
+              alt={product.name}
+              className="max-w-full max-h-[80vh] object-contain rounded-xl"
+            />
+            
+            {productImages.length > 1 && (
+              <>
+                <button 
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center"
+                  onClick={() => navigateImage('prev')}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <button 
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center"
+                  onClick={() => navigateImage('next')}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              </>
+            )}
+          </div>
+          
+          {/* Image indicators */}
+          {productImages.length > 1 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+              {productImages.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(idx);
+                  }}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    idx === currentImageIndex ? 'bg-white w-5' : 'bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

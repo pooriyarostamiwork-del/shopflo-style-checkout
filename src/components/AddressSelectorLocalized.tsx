@@ -219,12 +219,12 @@ export const AddressSelectorLocalized = ({
   return (
     <div className={`space-y-3 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
       <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <Label className="text-base font-semibold">{t.checkout.address.title}</Label>
+        <Label className={`text-base font-semibold ${isRTL ? 'order-2' : ''}`}>{t.checkout.address.title}</Label>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsAddingNew(!isAddingNew)}
-          className={`text-primary ${isRTL ? 'flex-row-reverse' : ''}`}
+          className={`text-primary border border-transparent hover:border-primary hover:bg-transparent ${isRTL ? 'flex-row-reverse order-1' : ''}`}
         >
           <Plus className={`w-4 h-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
           {t.checkout.address.addNew}

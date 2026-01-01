@@ -38,12 +38,10 @@ export const EnhancedUpsellCarouselLocalized = ({
   nextTierReward
 }: EnhancedUpsellCarouselLocalizedProps) => {
   const { t, isRTL, language } = useLanguage();
-  const [addingId, setAddingId] = useState<number | null>(null);
+  
   const [selectedVariants, setSelectedVariants] = useState<Record<number, Record<string, string>>>({});
 
   const handleAdd = (product: UpsellProductWithVariants) => {
-    setAddingId(product.id);
-    
     let finalPrice = product.price;
     const productVariants = selectedVariants[product.id] || {};
     
@@ -68,10 +66,8 @@ export const EnhancedUpsellCarouselLocalized = ({
       .filter(Boolean)
       .join(", ");
 
-    setTimeout(() => {
-      onAddProduct({ ...product, price: finalPrice }, variantLabel);
-      setAddingId(null);
-    }, 300);
+    // No animation - immediately add
+    onAddProduct({ ...product, price: finalPrice }, variantLabel);
   };
 
   const handleVariantChange = (productId: number, variantType: string, variantId: string) => {
@@ -116,8 +112,8 @@ export const EnhancedUpsellCarouselLocalized = ({
 
   return (
     <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className={`flex items-center mb-4 ${isRTL ? 'justify-end' : 'justify-between'}`}>
-        <h3 className={`text-base font-semibold text-foreground ${isRTL ? 'order-1' : ''}`}>
+      <div className={`flex items-center mb-4 ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+        <h3 className="text-base font-semibold text-foreground">
           {isRTL ? "شاید این‌ها را هم دوست داشته باشید" : "You might also like"}
         </h3>
         {nextTierThreshold && amountNeeded > 0 && (
@@ -164,7 +160,6 @@ export const EnhancedUpsellCarouselLocalized = ({
           
           const productIdKey = getProductId(product, variantLabel);
           const isAdded = addedProductIds.includes(productIdKey);
-          const isAdding = addingId === product.id;
           
           let displayPrice = product.price;
           if (product.variants) {
@@ -186,7 +181,6 @@ export const EnhancedUpsellCarouselLocalized = ({
                 min-w-[180px] max-w-[180px] bg-background border rounded-xl p-3 flex flex-col
                 transition-colors duration-200
                 ${isAdded ? 'border-accent bg-accent/5' : 'border-border/50'}
-                ${isAdding ? 'animate-scale-in' : ''}
               `}
             >
               {/* Icon placeholder instead of image - Fixed Height */}

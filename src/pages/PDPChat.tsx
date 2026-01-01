@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUp, Zap, Paperclip, Mic, User, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
+import { ArrowUp, Zap, Paperclip, Mic, User, ChevronLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   ChatMessage, 
@@ -73,16 +73,6 @@ const PDPChatContent = () => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [appliedCoupons, setAppliedCoupons] = useState<string[]>([]);
   
-  // Image gallery state for PDP
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [showLightbox, setShowLightbox] = useState(false);
-  const productImages = [
-    anchoredProduct.image,
-    // Mock additional images
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-    'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=500',
-    'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=500',
-  ];
   
   // Sidebar state
   const [activeSection, setActiveSection] = useState('basket-1');
@@ -441,116 +431,31 @@ const PDPChatContent = () => {
               </div>
               
               {!isPdpCollapsed && (
-                <div className="p-4">
-                  <div className="flex gap-6">
-                    {/* Image Gallery with Navigation */}
-                    <div className="w-56 flex-shrink-0 space-y-3">
-                      {/* Main Image with Controls */}
-                      <div 
-                        className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
-                        style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
-                        onClick={() => setShowLightbox(true)}
-                      >
-                        <img 
-                          src={productImages[activeImageIndex]} 
-                          alt={anchoredProduct.name}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        
-                        {/* Navigation Arrows */}
-                        {productImages.length > 1 && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveImageIndex(prev => prev > 0 ? prev - 1 : productImages.length - 1);
-                              }}
-                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-white"
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveImageIndex(prev => prev < productImages.length - 1 ? prev + 1 : 0);
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-white"
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        
-                        {/* Expand Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowLightbox(true);
-                          }}
-                          className="absolute top-2 left-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-white"
-                        >
-                          <Maximize2 className="w-4 h-4" />
-                        </button>
-                        
-                        {/* Discount Badge */}
-                        {anchoredProduct.originalPrice && (
-                          <div 
-                            className="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold text-white"
-                            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
-                          >
-                            {toPersianNumber(Math.round((1 - anchoredProduct.price / anchoredProduct.originalPrice) * 100))}٪
-                          </div>
-                        )}
-                        
-                        {/* Image Counter */}
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/50 text-white text-xs">
-                          {toPersianNumber(activeImageIndex + 1)} / {toPersianNumber(productImages.length)}
-                        </div>
-                      </div>
-                      
-                      {/* Thumbnail Strip */}
-                      <div className="flex gap-2 justify-center">
-                        {productImages.map((img, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setActiveImageIndex(idx)}
-                            className={`w-12 h-12 rounded-lg overflow-hidden transition-all ${
-                              idx === activeImageIndex ? 'ring-2 ring-primary' : 'opacity-60 hover:opacity-100'
-                            }`}
-                          >
-                            <img src={img} alt="" className="w-full h-full object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Product Info - Reuse PDPProductComponent's info section style */}
-                    <PDPProductComponent
-                      product={anchoredProduct}
-                      isInCart={isInCart}
-                      onAddToCart={handleAddToCart}
-                      isCollapsed={false}
-                      showContextLabel={false}
-                      onOtherSupplierClick={(supplierName) => {
-                        const supplierMessage: ChatMessage = {
-                          id: `supplier-${Date.now()}`,
-                          role: 'assistant',
-                          content: `محصولات ${supplierName} برای این کالا:`,
-                          products: mockProducts.filter(p => p.id !== anchoredProduct.id).slice(0, 3),
-                          productIndexStart: 1,
-                          timestamp: new Date(),
-                        };
-                        setMessages(prev => [...prev, supplierMessage]);
-                      }}
-                    />
-                  </div>
-                </div>
+                <PDPProductComponent
+                  product={anchoredProduct}
+                  isInCart={isInCart}
+                  onAddToCart={handleAddToCart}
+                  isCollapsed={false}
+                  showContextLabel={false}
+                  showImageNavigation={true}
+                  onOtherSupplierClick={(supplierName) => {
+                    const supplierMessage: ChatMessage = {
+                      id: `supplier-${Date.now()}`,
+                      role: 'assistant',
+                      content: `محصولات ${supplierName} برای این کالا:`,
+                      products: mockProducts.filter(p => p.id !== anchoredProduct.id).slice(0, 3),
+                      productIndexStart: 1,
+                      timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, supplierMessage]);
+                  }}
+                />
               )}
               
               {isPdpCollapsed && (
                 <div className="px-4 py-3 flex items-center gap-3">
                   <img 
-                    src={productImages[0]} 
+                    src={anchoredProduct.image} 
                     alt={anchoredProduct.name}
                     className="w-12 h-12 rounded-lg object-cover"
                   />
@@ -841,51 +746,6 @@ const PDPChatContent = () => {
         isInCart={cartItems.some(item => item.id === quickViewProduct?.id)}
       />
 
-      {/* Image Lightbox */}
-      {showLightbox && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={() => setShowLightbox(false)}
-        >
-          <button
-            onClick={() => setShowLightbox(false)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveImageIndex(prev => prev > 0 ? prev - 1 : productImages.length - 1);
-            }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          
-          <img 
-            src={productImages[activeImageIndex]} 
-            alt={anchoredProduct.name}
-            className="max-w-[90vw] max-h-[90vh] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-          
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveImageIndex(prev => prev < productImages.length - 1 ? prev + 1 : 0);
-            }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 text-white text-sm">
-            {toPersianNumber(activeImageIndex + 1)} / {toPersianNumber(productImages.length)}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

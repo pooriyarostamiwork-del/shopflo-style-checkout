@@ -17,6 +17,7 @@ interface UpsellProductWithVariants extends UpsellProduct {
     type: string;
     options: ProductVariant[];
   }[];
+  nameFa?: string; // Persian name for products
 }
 
 interface EnhancedUpsellCarouselLocalizedProps {
@@ -27,6 +28,18 @@ interface EnhancedUpsellCarouselLocalizedProps {
   nextTierThreshold?: number;
   nextTierReward?: string;
 }
+
+// Persian product names mapping
+const PRODUCT_NAMES_FA: Record<string, string> = {
+  "Premium Leather Wallet": "کیف پول چرم اصل",
+  "Wireless Earbuds": "ایرپاد بی‌سیم",
+  "Smart Watch Band": "بند ساعت هوشمند",
+  "Phone Case": "قاب گوشی",
+  "Charging Cable": "کابل شارژ",
+  "Screen Protector": "محافظ صفحه",
+  "Power Bank": "پاوربانک",
+  "Bluetooth Speaker": "اسپیکر بلوتوث",
+};
 
 export const EnhancedUpsellCarouselLocalized = ({ 
   products, 
@@ -102,11 +115,21 @@ export const EnhancedUpsellCarouselLocalized = ({
     return `Select ${type}`;
   };
 
+  const getProductName = (product: UpsellProductWithVariants) => {
+    if (isRTL) {
+      return product.nameFa || PRODUCT_NAMES_FA[product.name] || product.name;
+    }
+    return product.name;
+  };
+
+  // Fixed height for variant area to maintain alignment
+  const VARIANT_AREA_HEIGHT = "h-[72px]"; // Fixed height for 1-2 variant selectors
+
   return (
-    <div className={`border-t border-border pt-4 mt-4 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className={`flex items-center justify-between mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+    <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className={`flex items-center justify-between mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
         <h3 className="text-base font-semibold text-foreground">
-          🛍️ {t.checkout.upsells.title}
+          {isRTL ? "شاید این‌ها را هم دوست داشته باشید" : "You might also like"}
         </h3>
         {nextTierThreshold && amountNeeded > 0 && (
           <span className="text-xs text-primary font-medium">
@@ -120,8 +143,8 @@ export const EnhancedUpsellCarouselLocalized = ({
 
       {/* Gamified Progress Bar */}
       {nextTierThreshold && amountNeeded > 0 && (
-        <div className="mb-4 p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl border border-primary/20">
-          <div className={`flex items-center justify-between mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div className="mb-5 p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+          <div className={`flex items-center justify-between mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
             <p className="text-sm font-medium text-foreground">
               {isRTL 
                 ? `${formatCurrency(amountNeeded, language)} دیگر برای فعال‌سازی:`
@@ -129,17 +152,17 @@ export const EnhancedUpsellCarouselLocalized = ({
               }
             </p>
           </div>
-          <Progress value={progress} className="h-2 mb-2" />
+          <Progress value={progress} className="h-2 mb-3" />
           <div className="space-y-1">
-            <p className={`text-xs text-primary font-medium flex items-center gap-1 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
-              <Check className="w-3 h-3" />
+            <p className={`text-xs text-primary font-medium flex items-center gap-1.5 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+              <Check className="w-3.5 h-3.5" />
               {nextTierReward}
             </p>
           </div>
         </div>
       )}
       
-      <div className={`flex gap-3 overflow-x-auto pb-2 scrollbar-hide ${isRTL ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex gap-4 overflow-x-auto pb-2 scrollbar-hide ${isRTL ? 'flex-row-reverse' : ''}`}>
         {products.map((product) => {
           const productVariants = selectedVariants[product.id] || {};
           const variantLabel = Object.entries(productVariants)
@@ -171,70 +194,76 @@ export const EnhancedUpsellCarouselLocalized = ({
             <div
               key={product.id}
               className={`
-                min-w-[180px] bg-background border rounded-xl p-3 
+                min-w-[180px] max-w-[180px] bg-background border rounded-xl p-3 flex flex-col
                 transition-all duration-300 hover:shadow-md hover:-translate-y-1
-                ${isAdded ? 'border-accent bg-accent/10' : 'border-border'}
+                ${isAdded ? 'border-accent bg-accent/5' : 'border-border/50'}
                 ${isAdding ? 'animate-scale-in' : ''}
               `}
             >
-              <div className="aspect-square bg-muted/30 rounded-lg mb-2 overflow-hidden">
+              {/* Image - Fixed Height */}
+              <div className="aspect-square bg-muted/30 rounded-lg mb-3 overflow-hidden">
                 <img 
                   src={product.image} 
-                  alt={product.name}
+                  alt={getProductName(product)}
                   className="w-full h-full object-cover"
                 />
               </div>
               
-              <h4 className={`text-sm font-medium text-foreground mb-1 line-clamp-2 min-h-[2.5rem] ${isRTL ? 'text-right' : ''}`}>
-                {product.name}
+              {/* Title - Fixed Height */}
+              <h4 className={`text-sm font-medium text-foreground mb-2 line-clamp-2 h-10 ${isRTL ? 'text-right' : ''}`}>
+                {getProductName(product)}
               </h4>
 
-              {/* Variant Selectors */}
-              {product.variants && product.variants.map((variantType) => (
-                <div key={variantType.type} className="mb-2">
-                  <Select
-                    value={productVariants[variantType.type] || ""}
-                    onValueChange={(value) => handleVariantChange(product.id, variantType.type, value)}
-                  >
-                    <SelectTrigger className={`h-8 text-xs ${isRTL ? 'text-right' : ''}`}>
-                      <SelectValue placeholder={getVariantPlaceholder(variantType.type)} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {variantType.options.map((option) => (
-                        <SelectItem key={option.id} value={option.id} className="text-xs">
-                          {option.name}
-                          {option.priceModifier !== 0 && (
-                            <span className="text-muted-foreground mx-1">
-                              ({option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier, language)})
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+              {/* Variant Selectors - Fixed Height Container */}
+              <div className={`${product.variants ? VARIANT_AREA_HEIGHT : 'h-0'} mb-2`}>
+                {product.variants && product.variants.map((variantType) => (
+                  <div key={variantType.type} className="mb-2">
+                    <Select
+                      value={productVariants[variantType.type] || ""}
+                      onValueChange={(value) => handleVariantChange(product.id, variantType.type, value)}
+                    >
+                      <SelectTrigger className={`h-8 text-xs ${isRTL ? 'text-right' : ''}`}>
+                        <SelectValue placeholder={getVariantPlaceholder(variantType.type)} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {variantType.options.map((option) => (
+                          <SelectItem key={option.id} value={option.id} className="text-xs">
+                            {option.name}
+                            {option.priceModifier !== 0 && (
+                              <span className="text-muted-foreground mx-1">
+                                ({option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier, language)})
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
               
-              <p className={`text-base font-bold text-foreground mb-2 ${isRTL ? 'text-right' : ''}`}>
+              {/* Price - Fixed Position */}
+              <p className={`text-base font-bold text-foreground mb-3 ${isRTL ? 'text-right' : ''}`}>
                 {formatCurrency(displayPrice, language)}
               </p>
               
+              {/* CTA Button - Fixed Position at Bottom */}
               <Button
                 size="sm"
                 variant={isAdded ? "secondary" : "default"}
-                className={`w-full h-8 text-xs ${isRTL ? 'flex-row-reverse' : ''}`}
+                className={`w-full h-9 text-xs mt-auto ${isRTL ? 'flex-row-reverse' : ''}`}
                 onClick={() => !isAdded && handleAdd(product)}
                 disabled={isAdded || (product.variants && product.variants.some(v => !productVariants[v.type]))}
               >
                 {isAdded ? (
                   <>
-                    <Check className={`w-3 h-3 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+                    <Check className={`w-3.5 h-3.5 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                     {isRTL ? "اضافه شد" : "Added"}
                   </>
                 ) : (
                   <>
-                    <Plus className={`w-3 h-3 ${isRTL ? 'ml-1' : 'mr-1'}`} />
-                    {t.checkout.upsells.addToOrder}
+                    <Plus className={`w-3.5 h-3.5 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+                    {isRTL ? "افزودن به سفارش" : "Add to Order"}
                   </>
                 )}
               </Button>

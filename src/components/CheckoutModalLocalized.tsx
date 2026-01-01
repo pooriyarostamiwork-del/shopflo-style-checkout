@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -43,7 +43,16 @@ interface CheckoutModalLocalizedProps {
 }
 
 type CheckoutStep = "phone" | "otp" | "address" | "payment" | "review";
-type PaymentMethod = "upi" | "card" | "cod";
+type PaymentMethod = "gateway" | "card" | "cod";
+
+// Step configuration for RTL-aware dot progress
+const STEPS_CONFIG: { key: CheckoutStep; labelFa: string; labelEn: string; microFa?: string; microEn?: string }[] = [
+  { key: "phone", labelFa: "ورود", labelEn: "Login", microFa: "برای ادامه، شماره موبایل خود را وارد کنید", microEn: "Enter your mobile to continue" },
+  { key: "otp", labelFa: "تأیید شماره", labelEn: "Verify OTP", microFa: "کد ارسال شده را وارد کنید", microEn: "Enter the code sent to your phone" },
+  { key: "address", labelFa: "آدرس تحویل", labelEn: "Delivery Address", microFa: "آدرس و روش تحویل را انتخاب کنید", microEn: "Choose address and delivery method" },
+  { key: "payment", labelFa: "روش پرداخت", labelEn: "Payment", microFa: "روش پرداخت را انتخاب کنید", microEn: "Select your payment method" },
+  { key: "review", labelFa: "بررسی سفارش", labelEn: "Review", microFa: "اطلاعات نهایی خرید شما", microEn: "Final order details" },
+];
 
 export const CheckoutModalLocalized = ({ 
   isOpen, 
@@ -59,7 +68,7 @@ export const CheckoutModalLocalized = ({
   const { t, isRTL, language } = useLanguage();
   
   const [step, setStep] = useState<CheckoutStep>("phone");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("gateway");
   const [isProcessing, setIsProcessing] = useState(false);
   const [saveDetails, setSaveDetails] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -73,6 +82,9 @@ export const CheckoutModalLocalized = ({
   const [showConfetti, setShowConfetti] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState<CouponTier | null>(null);
   const [currentSection, setCurrentSection] = useState<"address" | "payment" | "coupon" | "review">("address");
+  
+  // Track if greeting has been animated
+  const hasAnimatedGreeting = useRef(false);
 
   // Address management
   const [addresses, setAddresses] = useState<Address[]>([
@@ -90,11 +102,12 @@ export const CheckoutModalLocalized = ({
   ]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(addresses[0]);
 
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const ChevronIcon = isRTL ? ChevronLeft : ChevronRight;
 
-  // Typewriter effect for name
+  // Typewriter effect for name - ONLY on first render after phone/otp
   useEffect(() => {
-    if (isOpen && step !== "phone" && step !== "otp") {
+    if (isOpen && step !== "phone" && step !== "otp" && !hasAnimatedGreeting.current) {
       let currentIndex = 0;
       setDisplayedName("");
       const interval = setInterval(() => {
@@ -103,11 +116,23 @@ export const CheckoutModalLocalized = ({
           currentIndex++;
         } else {
           clearInterval(interval);
+          hasAnimatedGreeting.current = true;
         }
       }, 100);
       return () => clearInterval(interval);
+    } else if (isOpen && step !== "phone" && step !== "otp" && hasAnimatedGreeting.current) {
+      // Already animated, just show the name immediately
+      setDisplayedName(userName);
     }
   }, [isOpen, step, userName]);
+
+  // Reset greeting animation state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasAnimatedGreeting.current = false;
+      setDisplayedName("");
+    }
+  }, [isOpen]);
 
   // Progress bar animation during processing
   useEffect(() => {
@@ -209,11 +234,8 @@ export const CheckoutModalLocalized = ({
 
   if (!isOpen) return null;
 
-  const getProgressPercentage = () => {
-    const steps = ["phone", "otp", "address", "payment", "review"];
-    const currentIndex = steps.indexOf(step);
-    return ((currentIndex + 1) / steps.length) * 100;
-  };
+  const currentStepIndex = STEPS_CONFIG.findIndex(s => s.key === step);
+  const currentStepConfig = STEPS_CONFIG[currentStepIndex];
 
   const handlePlaceOrder = () => {
     setIsProcessing(true);
@@ -223,88 +245,150 @@ export const CheckoutModalLocalized = ({
     }, 2000);
   };
 
+  // Format phone for display - remove country code prefix
+  const formatPhoneDisplay = (phone: string) => {
+    if (isRTL) {
+      // Format as ۰۹۱۲ *** ****
+      const formatted = phone.length >= 4 
+        ? `${phone.slice(0, 4)} *** ****`
+        : phone;
+      return toPersianNumber(formatted);
+    }
+    return phone;
+  };
+
+  // Dot-style progress indicator component
+  const DotProgress = () => {
+    const stepsForDisplay = isRTL ? [...STEPS_CONFIG].reverse() : STEPS_CONFIG;
+    
+    return (
+      <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        {stepsForDisplay.map((stepConfig, index) => {
+          const actualIndex = isRTL ? STEPS_CONFIG.length - 1 - index : index;
+          const isCompleted = actualIndex < currentStepIndex;
+          const isActive = stepConfig.key === step;
+          
+          return (
+            <div
+              key={stepConfig.key}
+              className={`
+                w-2.5 h-2.5 rounded-full transition-all duration-300
+                ${isActive 
+                  ? 'bg-primary scale-125 ring-4 ring-primary/20' 
+                  : isCompleted 
+                    ? 'bg-primary/50' 
+                    : 'border-2 border-muted-foreground/30 bg-transparent'
+                }
+              `}
+            />
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Step header component with proper hierarchy
+  const StepHeader = ({ showBack = false, onBack }: { showBack?: boolean; onBack?: () => void }) => (
+    <div className="mb-6 pb-4 border-b border-border/50">
+      <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        {showBack && onBack && (
+          <button 
+            onClick={onBack}
+            className="p-2 -m-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50"
+          >
+            <BackArrow className="w-5 h-5" />
+          </button>
+        )}
+        <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+          </div>
+          <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+            <h2 className="text-lg font-semibold text-foreground">
+              {isRTL ? currentStepConfig.labelFa : currentStepConfig.labelEn}
+            </h2>
+            {currentStepConfig.microFa && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {isRTL ? currentStepConfig.microFa : currentStepConfig.microEn}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderStep = () => {
     switch (step) {
       case "phone":
         return (
-          <div className={`space-y-4 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className="text-center mb-6">
+          <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+            <StepHeader />
+            
+            <div className="text-center mb-8">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Phone className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                {isRTL ? "ورود برای ادامه" : "Login to Continue"}
-              </h2>
               <p className="text-muted-foreground">
-                {isRTL ? "شماره موبایل خود را وارد کنید" : "Enter your mobile number to proceed"}
+                {isRTL ? "برای ادامه، شماره موبایل خود را وارد کنید" : "Enter your mobile number to proceed"}
               </p>
             </div>
             
-            <div className="space-y-3">
-              <Label htmlFor="phone" className="text-base">
+            <div className="space-y-4">
+              <Label htmlFor="phone" className="text-base font-medium">
                 {isRTL ? "شماره موبایل" : "Mobile Number"}
               </Label>
-              <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className="flex items-center justify-center px-4 h-12 bg-muted/30 border border-border rounded-lg">
-                  <span className="font-medium">{isRTL ? "+98" : "+91"}</span>
-                </div>
+              <div className={`flex gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Input 
                   id="phone"
                   type="tel"
                   placeholder={isRTL ? "۰۹۱۲۳۴۵۶۷۸۹" : "98765 43210"}
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className={`h-12 flex-1 ${isRTL ? 'text-right' : ''}`}
-                  maxLength={10}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                  className={`h-14 flex-1 text-lg ${isRTL ? 'text-right' : ''}`}
+                  maxLength={11}
                   dir="ltr"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {isRTL ? "کد تأیید برای شما ارسال خواهد شد" : "We'll send you a verification code"}
               </p>
             </div>
 
             <Button 
               variant="gradient" 
-              className={`w-full h-12 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
+              className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
               onClick={() => setStep("otp")}
-              disabled={phoneNumber.length !== 10}
+              disabled={phoneNumber.length < 10}
             >
               {isRTL ? "ارسال کد تأیید" : "Send OTP"} 
-              <ChevronIcon className={`w-4 h-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
             </Button>
           </div>
         );
 
       case "otp":
         return (
-          <div className={`space-y-4 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <button 
-                onClick={() => setStep("phone")}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {isRTL ? "→" : "←"}
-              </button>
-              <h2 className="text-2xl font-bold text-foreground">
-                {isRTL ? "تأیید کد" : "Verify OTP"}
-              </h2>
-            </div>
+          <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+            <StepHeader showBack onBack={() => setStep("phone")} />
 
-            <div className="text-center mb-6">
-              <p className="text-muted-foreground" dir="ltr">
-                {isRTL ? `کد ارسال شده به ${toPersianNumber(phoneNumber)} 98+` : `Code sent to +91 ${phoneNumber}`}
+            <div className="text-center mb-8">
+              <p className="text-muted-foreground">
+                {isRTL 
+                  ? `کد ارسال شده به ${formatPhoneDisplay(phoneNumber)}`
+                  : `Code sent to +91 ${phoneNumber}`
+                }
               </p>
               <button 
                 onClick={() => setStep("phone")}
-                className="text-primary text-sm font-medium hover:underline mt-1"
+                className="text-primary text-sm font-medium hover:underline mt-2"
               >
                 {isRTL ? "تغییر شماره" : "Change number"}
               </button>
             </div>
 
-            <div className="space-y-4">
-              <Label className="text-base">
+            <div className="space-y-6">
+              <Label className="text-base font-medium block text-center">
                 {isRTL ? "کد ۶ رقمی را وارد کنید" : "Enter 6-digit OTP"}
               </Label>
               <div className="flex justify-center" dir="ltr">
@@ -324,7 +408,7 @@ export const CheckoutModalLocalized = ({
                 </InputOTP>
               </div>
               <div className="text-center">
-                <button className="text-sm text-muted-foreground hover:text-primary">
+                <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   {isRTL 
                     ? <>کد دریافت نکردید؟ <span className="text-primary font-medium">ارسال مجدد</span></>
                     : <>Didn't receive code? <span className="text-primary font-medium">Resend</span></>
@@ -335,20 +419,20 @@ export const CheckoutModalLocalized = ({
 
             <Button 
               variant="gradient" 
-              className={`w-full h-12 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
+              className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
               onClick={() => setStep("address")}
               disabled={otp.length !== 6}
             >
               {isRTL ? "تأیید و ادامه" : "Verify & Continue"} 
-              <ChevronIcon className={`w-4 h-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
             </Button>
           </div>
         );
 
       case "address":
         return (
-          <div className={`space-y-4 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("address")} dir={isRTL ? 'rtl' : 'ltr'}>
-            <h2 className="text-2xl font-bold text-foreground">{t.checkout.address.title}</h2>
+          <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("address")} dir={isRTL ? 'rtl' : 'ltr'}>
+            <StepHeader />
             
             <AddressSelectorLocalized
               addresses={addresses}
@@ -359,10 +443,10 @@ export const CheckoutModalLocalized = ({
               onSetDefault={handleSetDefaultAddress}
             />
 
-            <div>
-              <Label className="text-base font-semibold mb-3 block">{t.checkout.delivery.title}</Label>
+            <div className="pt-4">
+              <Label className="text-base font-semibold mb-4 block">{t.checkout.delivery.title}</Label>
               <RadioGroup defaultValue="standard" className="space-y-3">
-                <div className={`flex items-center p-4 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <div className={`flex items-center p-4 rounded-xl border border-border hover:bg-muted/30 cursor-pointer transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
                   <RadioGroupItem value="standard" id="standard" />
                   <Label htmlFor="standard" className="flex-1 cursor-pointer">
                     <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -374,7 +458,7 @@ export const CheckoutModalLocalized = ({
                     </div>
                   </Label>
                 </div>
-                <div className={`flex items-center p-4 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <div className={`flex items-center p-4 rounded-xl border border-border hover:bg-muted/30 cursor-pointer transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
                   <RadioGroupItem value="express" id="express" />
                   <Label htmlFor="express" className="flex-1 cursor-pointer">
                     <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -391,131 +475,104 @@ export const CheckoutModalLocalized = ({
 
             <Button 
               variant="gradient" 
-              className={`w-full h-12 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
+              className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
               onClick={() => {
                 setStep("payment");
                 setCurrentSection("payment");
               }}
             >
               {isRTL ? "ادامه به پرداخت" : "Continue to Payment"} 
-              <ChevronIcon className={`w-4 h-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
             </Button>
           </div>
         );
 
       case "payment":
         return (
-          <div className={`space-y-4 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("payment")} dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <button 
-                onClick={() => {
-                  setStep("address");
-                  setCurrentSection("address");
-                }}
-                className="text-muted-foreground hover:text-foreground"
+          <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("payment")} dir={isRTL ? 'rtl' : 'ltr'}>
+            <StepHeader showBack onBack={() => { setStep("address"); setCurrentSection("address"); }} />
+
+            {/* Payment Method Cards - Full Width Selectable */}
+            <div className="space-y-3">
+              <button
+                onClick={() => setPaymentMethod("gateway")}
+                className={`w-full p-4 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
+                  paymentMethod === "gateway" 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
               >
-                {isRTL ? "→" : "←"}
+                <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`p-3 rounded-lg ${paymentMethod === "gateway" ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                    <p className="font-semibold text-foreground">{isRTL ? "درگاه پرداخت" : "Payment Gateway"}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? "پرداخت آنلاین با درگاه بانکی" : "Online payment via bank gateway"}</p>
+                  </div>
+                  {paymentMethod === "gateway" && (
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </div>
               </button>
-              <h2 className="text-2xl font-bold text-foreground">{t.checkout.payment.title}</h2>
-            </div>
 
-            <div className={`flex gap-2 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Button
-                variant={paymentMethod === "upi" ? "default" : "outline"}
-                className={`flex-1 h-12 ${isRTL ? 'flex-row-reverse' : ''}`}
-                onClick={() => setPaymentMethod("upi")}
-              >
-                <Smartphone className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                {t.checkout.payment.upi}
-              </Button>
-              <Button
-                variant={paymentMethod === "card" ? "default" : "outline"}
-                className={`flex-1 h-12 ${isRTL ? 'flex-row-reverse' : ''}`}
+              <button
                 onClick={() => setPaymentMethod("card")}
+                className={`w-full p-4 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
+                  paymentMethod === "card" 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
               >
-                <CreditCard className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                {t.checkout.payment.card}
-              </Button>
-              <Button
-                variant={paymentMethod === "cod" ? "default" : "outline"}
-                className={`flex-1 h-12 ${isRTL ? 'flex-row-reverse' : ''}`}
+                <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`p-3 rounded-lg ${paymentMethod === "card" ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                    <p className="font-semibold text-foreground">{isRTL ? "کارت به کارت" : "Card Transfer"}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? "انتقال وجه به کارت بانکی" : "Transfer to bank card"}</p>
+                  </div>
+                  {paymentMethod === "card" && (
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </div>
+              </button>
+
+              <button
                 onClick={() => setPaymentMethod("cod")}
+                className={`w-full p-4 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${
+                  paymentMethod === "cod" 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
               >
-                <Banknote className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                {t.checkout.payment.cod}
-              </Button>
+                <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`p-3 rounded-lg ${paymentMethod === "cod" ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                    <p className="font-semibold text-foreground">{isRTL ? "پرداخت در محل" : "Cash on Delivery"}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? "پرداخت هنگام تحویل سفارش" : "Pay when you receive your order"}</p>
+                  </div>
+                  {paymentMethod === "cod" && (
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </div>
+              </button>
             </div>
-
-            {paymentMethod === "upi" && (
-              <div className="space-y-3">
-                <Label htmlFor="upi">{isRTL ? "شناسه درگاه پرداخت" : "UPI ID"}</Label>
-                <Input 
-                  id="upi" 
-                  placeholder={isRTL ? "yourname@bank" : "yourname@paytm"}
-                  className={`h-12 ${isRTL ? 'text-right' : ''}`}
-                  dir="ltr"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t.checkout.payment.upiDesc}
-                </p>
-              </div>
-            )}
-
-            {paymentMethod === "card" && (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="cardname">{isRTL ? "نام دارنده کارت" : "Cardholder Name"}</Label>
-                  <Input 
-                    id="cardname" 
-                    placeholder={isRTL ? "علی احمدی" : "Rahul Kumar"}
-                    className={`h-12 mt-2 ${isRTL ? 'text-right' : ''}`}
-                    dir={isRTL ? 'rtl' : 'ltr'}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cardnumber">{isRTL ? "شماره کارت" : "Card Number"}</Label>
-                  <Input 
-                    id="cardnumber" 
-                    placeholder="1234 5678 9012 3456" 
-                    className="h-12 mt-2"
-                    dir="ltr"
-                  />
-                </div>
-                <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'direction-rtl' : ''}`}>
-                  <div>
-                    <Label htmlFor="expiry">{isRTL ? "تاریخ انقضا" : "Expiry Date"}</Label>
-                    <Input 
-                      id="expiry" 
-                      placeholder="MM/YY" 
-                      className="h-12 mt-2"
-                      dir="ltr"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cvv">CVV</Label>
-                    <Input 
-                      id="cvv" 
-                      placeholder="123" 
-                      type="password"
-                      maxLength={3}
-                      className="h-12 mt-2"
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t.checkout.payment.cardDesc}
-                </p>
-              </div>
-            )}
 
             {paymentMethod === "cod" && (
-              <div className="bg-muted/30 p-4 rounded-lg border border-border">
+              <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
                 <p className={`text-sm text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
-                  {t.checkout.payment.codDesc}
                   {isRTL 
-                    ? ". هزینه اضافی ۲۰ تومان ممکن است اعمال شود."
-                    : ". A nominal fee of ₹20 may apply."
+                    ? "پرداخت هنگام تحویل سفارش. هزینه اضافی ۲۰٬۰۰۰ تومان ممکن است اعمال شود."
+                    : "Pay when you receive your order. A nominal fee of ₹20 may apply."
                   }
                 </p>
               </div>
@@ -523,33 +580,22 @@ export const CheckoutModalLocalized = ({
 
             <Button 
               variant="gradient" 
-              className={`w-full h-12 text-base rounded-xl mt-6 ${isRTL ? 'flex-row-reverse' : ''}`}
+              className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
               onClick={() => {
                 setStep("review");
                 setCurrentSection("review");
               }}
             >
-              {isRTL ? "بررسی سفارش" : "Review Order"} 
-              <ChevronIcon className={`w-4 h-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+              {isRTL ? "ادامه و پرداخت" : "Continue to Review"} 
+              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
             </Button>
           </div>
         );
 
       case "review":
         return (
-          <div className={`space-y-4 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("review")} dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <button 
-                onClick={() => {
-                  setStep("payment");
-                  setCurrentSection("payment");
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {isRTL ? "→" : "←"}
-              </button>
-              <h2 className="text-2xl font-bold text-foreground">{t.checkout.review.title}</h2>
-            </div>
+          <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("review")} dir={isRTL ? 'rtl' : 'ltr'}>
+            <StepHeader showBack onBack={() => { setStep("payment"); setCurrentSection("payment"); }} />
 
             {/* Coupon Selector */}
             {couponTiers.length > 0 && (
@@ -575,46 +621,49 @@ export const CheckoutModalLocalized = ({
               />
             )}
 
-            <div className="bg-muted/30 p-4 rounded-lg border border-border space-y-3">
+            {/* Order Summary */}
+            <div className="bg-muted/20 p-5 rounded-xl border border-border/50 space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">
+                <p className={`text-sm text-muted-foreground mb-1 ${isRTL ? 'text-right' : ''}`}>
                   {isRTL ? "تحویل به" : "Delivering to"}
                 </p>
                 {selectedAddress ? (
-                  <>
+                  <div className={isRTL ? 'text-right' : ''}>
                     <p className="font-medium">
-                      {selectedAddress.name}، {isRTL ? toPersianNumber(selectedAddress.phone) : `+91 ${selectedAddress.phone}`}
+                      {selectedAddress.name}، {isRTL ? formatPhoneDisplay(selectedAddress.phone) : `+91 ${selectedAddress.phone}`}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {selectedAddress.line1}، {selectedAddress.line2}، {selectedAddress.city} - {isRTL ? toPersianNumber(selectedAddress.pincode) : selectedAddress.pincode}
                     </p>
-                  </>
+                  </div>
                 ) : (
                   <p className="font-medium">{isRTL ? "آدرسی انتخاب نشده" : "No address selected"}</p>
                 )}
               </div>
-              <div className="border-t border-border pt-3">
-                <p className="text-sm text-muted-foreground">
+              
+              <div className="border-t border-border/50 pt-4">
+                <p className={`text-sm text-muted-foreground mb-1 ${isRTL ? 'text-right' : ''}`}>
                   {isRTL ? "روش پرداخت" : "Payment Method"}
                 </p>
-                <p className="font-medium">
+                <p className={`font-medium ${isRTL ? 'text-right' : ''}`}>
                   {paymentMethod === "cod" 
-                    ? t.checkout.payment.cod 
-                    : paymentMethod === "upi"
-                      ? t.checkout.payment.upi
-                      : t.checkout.payment.card
+                    ? (isRTL ? "پرداخت در محل" : "Cash on Delivery")
+                    : paymentMethod === "gateway"
+                      ? (isRTL ? "درگاه پرداخت" : "Payment Gateway")
+                      : (isRTL ? "کارت به کارت" : "Card Transfer")
                   }
                 </p>
               </div>
-              <div className="border-t border-border pt-3">
-                <div className="space-y-2">
+              
+              <div className="border-t border-border/50 pt-4">
+                <div className="space-y-3">
                   <div className={`flex justify-between text-sm ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <span className="text-muted-foreground">{t.orderSummary.subtotal}</span>
+                    <span className={`text-muted-foreground ${isRTL ? 'text-right' : ''}`}>{t.orderSummary.subtotal}</span>
                     <span className="font-medium">{formatCurrency(initialTotal, language)}</span>
                   </div>
                   {addedUpsells.length > 0 && (
                     <div className={`flex justify-between text-sm ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <span className="text-muted-foreground">
+                      <span className={`text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
                         {isRTL 
                           ? `اقلام اضافه شده (${toPersianNumber(addedUpsells.length)})`
                           : `Added items (${addedUpsells.length})`
@@ -627,12 +676,12 @@ export const CheckoutModalLocalized = ({
                   )}
                   {selectedCoupon && selectedCoupon.value && (
                     <div className={`flex justify-between text-sm text-accent-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <span>{isRTL ? "تخفیف کوپن" : "Coupon Discount"}</span>
+                      <span className={isRTL ? 'text-right' : ''}>{isRTL ? "تخفیف کد" : "Coupon Discount"}</span>
                       <span className="font-medium">-{formatCurrency(selectedCoupon.value, language)}</span>
                     </div>
                   )}
-                  <div className={`flex justify-between pt-2 border-t border-border ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <span className="font-semibold">{t.orderSummary.total}</span>
+                  <div className={`flex justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <span className={`font-semibold ${isRTL ? 'text-right' : ''}`}>{t.orderSummary.total}</span>
                     <span className="text-xl font-bold text-primary">{formatCurrency(finalTotal, language)}</span>
                   </div>
                 </div>
@@ -642,7 +691,7 @@ export const CheckoutModalLocalized = ({
             {/* Auto-Reorder Options */}
             <AutoReorderOptionsLocalized />
 
-            <div className={`flex items-center py-2 ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}>
+            <div className={`flex items-center py-2 ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
               <Checkbox 
                 id="save" 
                 checked={saveDetails}
@@ -668,7 +717,7 @@ export const CheckoutModalLocalized = ({
                   {t.checkout.review.processing}
                 </span>
               ) : (
-                t.checkout.review.placeOrder
+                isRTL ? "ثبت سفارش و پرداخت" : t.checkout.review.placeOrder
               )}
             </Button>
 
@@ -684,145 +733,106 @@ export const CheckoutModalLocalized = ({
     <>
       <Confetti trigger={showConfetti} />
       <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
-      <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className={`relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isRTL ? 'font-vazirmatn' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-        {/* Customizable Header Bar */}
-        {modeConfig?.header && (
-          <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border/50">
-            <h3 className={`text-lg font-semibold text-foreground ${isRTL ? 'text-right' : ''}`}>
-              {modeConfig.header.title}
-            </h3>
-            {modeConfig.header.subtitle && (
-              <p className={`text-sm text-muted-foreground mt-1 ${isRTL ? 'text-right' : ''}`}>
-                {modeConfig.header.subtitle}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Dynamic Banner */}
-        {step !== "phone" && step !== "otp" && (
-          <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-2.5 border-b border-border/50">
-            <div className={`flex items-center justify-center gap-2 text-sm font-medium text-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
-              {getDynamicBanner().icon}
-              <span>{getDynamicBanner().text}</span>
-            </div>
-          </div>
-        )}
-        
-        {/* Header */}
-        <div className={`sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between z-10 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className="flex-1">
-            {step !== "phone" && step !== "otp" && (
-              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <span className="text-base text-foreground">
-                  {t.checkout.greeting} <span className="font-semibold">{displayedName}</span>
-                  <span className={displayedName === userName ? "" : "opacity-0"}>👋</span>
-                  <span className={`text-sm text-muted-foreground ${isRTL ? 'mr-1' : 'ml-1'}`}>
-                    {t.checkout.readyToComplete}
-                  </span>
-                </span>
-              </div>
-            )}
-            {(step === "phone" || step === "otp") && (
-              <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-2 h-2 rounded-full ${step === "phone" || step === "otp" ? "bg-primary" : "bg-muted"}`} />
-                <div className={`w-2 h-2 rounded-full ${step === "phone" || step === "otp" ? "bg-primary" : "bg-muted"}`} />
-                <div className={`w-2 h-2 rounded-full bg-muted`} />
-                <div className={`w-2 h-2 rounded-full bg-muted`} />
-                <div className={`w-2 h-2 rounded-full bg-muted`} />
-              </div>
-            )}
-          </div>
-          
-          {/* Circular Progress Indicator */}
-          {step !== "phone" && step !== "otp" && (
-            <div className={`relative w-12 h-12 ${isRTL ? 'ml-4' : 'mr-4'}`}>
-              <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
-                <circle
-                  cx="24"
-                  cy="24"
-                  r="20"
-                  stroke="hsl(var(--muted))"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <circle
-                  cx="24"
-                  cy="24"
-                  r="20"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="4"
-                  fill="none"
-                  strokeDasharray={`${2 * Math.PI * 20}`}
-                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - getProgressPercentage() / 100)}`}
-                  className="transition-all duration-500"
-                  strokeLinecap="round"
-                />
-              </svg>
-              {getProgressPercentage() === 100 ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Check className="w-5 h-5 text-primary animate-pulse" />
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-primary">
-                    {isRTL ? toPersianNumber(Math.round(getProgressPercentage())) : Math.round(getProgressPercentage())}%
-                  </span>
-                </div>
+        <div 
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={onClose}
+        />
+        <div className={`relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isRTL ? 'font-vazirmatn' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+          {/* Customizable Header Bar */}
+          {modeConfig?.header && (
+            <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border/50">
+              <h3 className={`text-lg font-semibold text-foreground ${isRTL ? 'text-right' : ''}`}>
+                {modeConfig.header.title}
+              </h3>
+              {modeConfig.header.subtitle && (
+                <p className={`text-sm text-muted-foreground mt-1 ${isRTL ? 'text-right' : ''}`}>
+                  {modeConfig.header.subtitle}
+                </p>
               )}
             </div>
           )}
-          
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {isProcessing ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="w-full max-w-xs">
-                <div className="h-1 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-100"
-                    style={{ width: `${processingProgress}%` }}
-                  />
-                </div>
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-base font-medium text-foreground">{t.checkout.review.processing}</p>
-                <p className="text-sm text-muted-foreground">
-                  {processingProgress < 100 
-                    ? `${isRTL ? toPersianNumber(2) : "2"} ${t.checkout.review.secondsToComplete}`
-                    : isRTL ? "تقریباً تمام!" : "Almost done!"
-                  }
-                </p>
+
+          {/* Dynamic Banner */}
+          {step !== "phone" && step !== "otp" && (
+            <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-2.5 border-b border-border/50">
+              <div className={`flex items-center justify-center gap-2 text-sm font-medium text-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
+                {getDynamicBanner().icon}
+                <span>{getDynamicBanner().text}</span>
               </div>
             </div>
-          ) : (
-            renderStep()
           )}
-        </div>
-        
-        {/* Powered by Flowcart Footer */}
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/50 px-6 py-3">
-          <div className={`flex items-center justify-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <Zap className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
-            <span className="text-sm font-medium text-muted-foreground">
-              {t.common.poweredBy}
-            </span>
+          
+          {/* Header with Close Button on LEFT (RTL convention) */}
+          <div className={`sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center z-10 ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
+            {/* Close button - on left for RTL */}
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex-1 flex items-center justify-center">
+              {/* Greeting message */}
+              {step !== "phone" && step !== "otp" && (
+                <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-base text-foreground">
+                    {isRTL ? "سلام" : "Hi"} <span className="font-semibold">{displayedName}</span>
+                    <span className={displayedName === userName ? "" : "opacity-0"}> 👋</span>
+                  </span>
+                </div>
+              )}
+              
+              {/* Dot progress for phone/otp steps */}
+              {(step === "phone" || step === "otp") && (
+                <DotProgress />
+              )}
+            </div>
+            
+            {/* Progress indicator on right */}
+            {step !== "phone" && step !== "otp" && (
+              <DotProgress />
+            )}
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {isProcessing ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="w-full max-w-xs">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-100 rounded-full"
+                      style={{ width: `${processingProgress}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="text-base font-medium text-foreground">{t.checkout.review.processing}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {processingProgress < 100 
+                      ? `${isRTL ? toPersianNumber(2) : "2"} ${t.checkout.review.secondsToComplete}`
+                      : isRTL ? "تقریباً تمام!" : "Almost done!"
+                    }
+                  </p>
+                </div>
+              </div>
+            ) : (
+              renderStep()
+            )}
+          </div>
+          
+          {/* Powered by Flowcart Footer */}
+          <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/50 px-6 py-3">
+            <div className={`flex items-center justify-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <Zap className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+              <span className="text-sm font-medium text-muted-foreground">
+                {t.common.poweredBy}
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 };

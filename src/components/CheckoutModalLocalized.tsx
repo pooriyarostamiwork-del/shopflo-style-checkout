@@ -262,7 +262,7 @@ export const CheckoutModalLocalized = ({
     const stepsForDisplay = isRTL ? [...STEPS_CONFIG].reverse() : STEPS_CONFIG;
     
     return (
-      <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
         {stepsForDisplay.map((stepConfig, index) => {
           const actualIndex = isRTL ? STEPS_CONFIG.length - 1 - index : index;
           const isCompleted = actualIndex < currentStepIndex;
@@ -657,32 +657,32 @@ export const CheckoutModalLocalized = ({
               
               <div className="border-t border-border/50 pt-4">
                 <div className="space-y-3">
-                  <div className={`flex justify-between text-sm ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <span className={`text-muted-foreground ${isRTL ? 'text-right' : ''}`}>{t.orderSummary.subtotal}</span>
-                    <span className="font-medium">{formatCurrency(initialTotal, language)}</span>
+                  <div className={`flex items-center ${isRTL ? 'justify-start' : 'justify-between'}`}>
+                    <span className={`text-sm text-muted-foreground ${isRTL ? 'order-1' : ''}`}>{t.orderSummary.subtotal}</span>
+                    <span className={`text-sm font-medium ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>{formatCurrency(initialTotal, language)}</span>
                   </div>
                   {addedUpsells.length > 0 && (
-                    <div className={`flex justify-between text-sm ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <span className={`text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
+                    <div className={`flex items-center ${isRTL ? 'justify-start' : 'justify-between'}`}>
+                      <span className={`text-sm text-muted-foreground ${isRTL ? 'order-1' : ''}`}>
                         {isRTL 
                           ? `اقلام اضافه شده (${toPersianNumber(addedUpsells.length)})`
                           : `Added items (${addedUpsells.length})`
                         }
                       </span>
-                      <span className="font-medium">
+                      <span className={`text-sm font-medium ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>
                         {formatCurrency(addedUpsells.reduce((sum, p) => sum + p.price, 0), language)}
                       </span>
                     </div>
                   )}
                   {selectedCoupon && selectedCoupon.value && (
-                    <div className={`flex justify-between text-sm text-accent-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <span className={isRTL ? 'text-right' : ''}>{isRTL ? "تخفیف کد" : "Coupon Discount"}</span>
-                      <span className="font-medium">-{formatCurrency(selectedCoupon.value, language)}</span>
+                    <div className={`flex items-center text-accent-foreground ${isRTL ? 'justify-start' : 'justify-between'}`}>
+                      <span className={`text-sm ${isRTL ? 'order-1' : ''}`}>{isRTL ? "تخفیف کد" : "Coupon Discount"}</span>
+                      <span className={`text-sm font-medium ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>-{formatCurrency(selectedCoupon.value, language)}</span>
                     </div>
                   )}
-                  <div className={`flex justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <span className={`font-semibold ${isRTL ? 'text-right' : ''}`}>{t.orderSummary.total}</span>
-                    <span className="text-xl font-bold text-primary">{formatCurrency(finalTotal, language)}</span>
+                  <div className={`flex items-center pt-3 border-t border-border/50 ${isRTL ? 'justify-start' : 'justify-between'}`}>
+                    <span className={`font-semibold ${isRTL ? 'order-1' : ''}`}>{t.orderSummary.total}</span>
+                    <span className={`text-xl font-bold text-primary ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>{formatCurrency(finalTotal, language)}</span>
                   </div>
                 </div>
               </div>
@@ -691,19 +691,6 @@ export const CheckoutModalLocalized = ({
             {/* Auto-Reorder Options */}
             <AutoReorderOptionsLocalized />
 
-            <div className={`flex items-center py-2 ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
-              <Checkbox 
-                id="save" 
-                checked={saveDetails}
-                onCheckedChange={(checked) => setSaveDetails(checked as boolean)}
-              />
-              <Label 
-                htmlFor="save" 
-                className="text-sm cursor-pointer"
-              >
-                {t.checkout.review.saveDetails}
-              </Label>
-            </div>
 
             <Button 
               variant="checkout" 
@@ -763,36 +750,31 @@ export const CheckoutModalLocalized = ({
           )}
           
           {/* Header with Close Button on LEFT (RTL convention) */}
-          <div className={`sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center z-10 ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
-            {/* Close button - on left for RTL */}
-            <button
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="flex-1 flex items-center justify-center">
-              {/* Greeting message */}
+          <div className={`sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between z-10 ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
+            {/* Close button + Greeting - on left for RTL */}
+            <div className={`flex items-center gap-4 ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
+              <button
+                onClick={onClose}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              {/* Greeting message - right next to close button */}
               {step !== "phone" && step !== "otp" && (
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-base text-foreground">
+                  <span className="text-lg font-medium text-foreground">
                     {isRTL ? "سلام" : "Hi"} <span className="font-semibold">{displayedName}</span>
                     <span className={displayedName === userName ? "" : "opacity-0"}> 👋</span>
                   </span>
                 </div>
               )}
-              
-              {/* Dot progress for phone/otp steps */}
-              {(step === "phone" || step === "otp") && (
-                <DotProgress />
-              )}
             </div>
             
-            {/* Progress indicator on right */}
-            {step !== "phone" && step !== "otp" && (
+            {/* Progress dots - centered or at end */}
+            <div className="flex items-center">
               <DotProgress />
-            )}
+            </div>
           </div>
           
           {/* Content */}

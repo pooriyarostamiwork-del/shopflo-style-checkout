@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Check } from "lucide-react";
+import { Plus, Check, Package } from "lucide-react";
 import { Button } from "./ui/button";
 import { UpsellProduct } from "@/types/checkout";
 import { Progress } from "./ui/progress";
@@ -17,7 +17,7 @@ interface UpsellProductWithVariants extends UpsellProduct {
     type: string;
     options: ProductVariant[];
   }[];
-  nameFa?: string; // Persian name for products
+  nameFa?: string;
 }
 
 interface EnhancedUpsellCarouselLocalizedProps {
@@ -28,18 +28,6 @@ interface EnhancedUpsellCarouselLocalizedProps {
   nextTierThreshold?: number;
   nextTierReward?: string;
 }
-
-// Persian product names mapping
-const PRODUCT_NAMES_FA: Record<string, string> = {
-  "Premium Leather Wallet": "کیف پول چرم اصل",
-  "Wireless Earbuds": "ایرپاد بی‌سیم",
-  "Smart Watch Band": "بند ساعت هوشمند",
-  "Phone Case": "قاب گوشی",
-  "Charging Cable": "کابل شارژ",
-  "Screen Protector": "محافظ صفحه",
-  "Power Bank": "پاوربانک",
-  "Bluetooth Speaker": "اسپیکر بلوتوث",
-};
 
 export const EnhancedUpsellCarouselLocalized = ({ 
   products, 
@@ -115,24 +103,25 @@ export const EnhancedUpsellCarouselLocalized = ({
     return `Select ${type}`;
   };
 
-  const getProductName = (product: UpsellProductWithVariants) => {
+  // Get mock product name based on index
+  const getProductName = (index: number) => {
     if (isRTL) {
-      return product.nameFa || PRODUCT_NAMES_FA[product.name] || product.name;
+      return `محصول ${toPersianNumber(index + 1)}`;
     }
-    return product.name;
+    return `Product ${index + 1}`;
   };
 
   // Fixed height for variant area to maintain alignment
-  const VARIANT_AREA_HEIGHT = "h-[72px]"; // Fixed height for 1-2 variant selectors
+  const VARIANT_AREA_HEIGHT = "h-[72px]";
 
   return (
     <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className={`flex items-center justify-between mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <h3 className="text-base font-semibold text-foreground">
+      <div className={`flex items-center mb-4 ${isRTL ? 'justify-end' : 'justify-between'}`}>
+        <h3 className={`text-base font-semibold text-foreground ${isRTL ? 'order-1' : ''}`}>
           {isRTL ? "شاید این‌ها را هم دوست داشته باشید" : "You might also like"}
         </h3>
         {nextTierThreshold && amountNeeded > 0 && (
-          <span className="text-xs text-primary font-medium">
+          <span className={`text-xs text-primary font-medium ${isRTL ? 'order-2 ml-auto mr-0' : ''}`}>
             {isRTL 
               ? `${formatCurrency(amountNeeded, language)} دیگر برای جوایز`
               : `Add ${formatCurrency(amountNeeded, language)} to unlock perks`
@@ -163,7 +152,7 @@ export const EnhancedUpsellCarouselLocalized = ({
       )}
       
       <div className={`flex gap-4 overflow-x-auto pb-2 scrollbar-hide ${isRTL ? 'flex-row-reverse' : ''}`}>
-        {products.map((product) => {
+        {products.map((product, index) => {
           const productVariants = selectedVariants[product.id] || {};
           const variantLabel = Object.entries(productVariants)
             .map(([type, id]) => {
@@ -195,23 +184,19 @@ export const EnhancedUpsellCarouselLocalized = ({
               key={product.id}
               className={`
                 min-w-[180px] max-w-[180px] bg-background border rounded-xl p-3 flex flex-col
-                transition-all duration-300 hover:shadow-md hover:-translate-y-1
+                transition-colors duration-200
                 ${isAdded ? 'border-accent bg-accent/5' : 'border-border/50'}
                 ${isAdding ? 'animate-scale-in' : ''}
               `}
             >
-              {/* Image - Fixed Height */}
-              <div className="aspect-square bg-muted/30 rounded-lg mb-3 overflow-hidden">
-                <img 
-                  src={product.image} 
-                  alt={getProductName(product)}
-                  className="w-full h-full object-cover"
-                />
+              {/* Icon placeholder instead of image - Fixed Height */}
+              <div className="aspect-square bg-muted/30 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+                <Package className="w-12 h-12 text-muted-foreground/40" />
               </div>
               
-              {/* Title - Fixed Height */}
+              {/* Title - Fixed Height with RTL alignment */}
               <h4 className={`text-sm font-medium text-foreground mb-2 line-clamp-2 h-10 ${isRTL ? 'text-right' : ''}`}>
-                {getProductName(product)}
+                {getProductName(index)}
               </h4>
 
               {/* Variant Selectors - Fixed Height Container */}
@@ -242,7 +227,7 @@ export const EnhancedUpsellCarouselLocalized = ({
                 ))}
               </div>
               
-              {/* Price - Fixed Position */}
+              {/* Price - Fixed Position with RTL alignment */}
               <p className={`text-base font-bold text-foreground mb-3 ${isRTL ? 'text-right' : ''}`}>
                 {formatCurrency(displayPrice, language)}
               </p>

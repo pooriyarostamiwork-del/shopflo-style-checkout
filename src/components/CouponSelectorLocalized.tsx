@@ -65,8 +65,9 @@ export const CouponSelectorLocalized = ({
           <button
             className={`w-full p-4 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 border border-border/30 hover:border-primary/30 transition-all ${isRTL ? 'text-right' : 'text-left'}`}
           >
-            <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center ${isRTL ? 'justify-end gap-3' : 'justify-between'}`}>
+              <ChevronIcon className={`w-5 h-5 text-muted-foreground ${isRTL ? 'order-3' : ''}`} />
+              <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse order-1' : ''}`}>
                 <div className="p-2 rounded-lg bg-primary/10">
                   <Tag className="w-4 h-4 text-primary" />
                 </div>
@@ -99,7 +100,6 @@ export const CouponSelectorLocalized = ({
                   )}
                 </div>
               </div>
-              <ChevronIcon className="w-5 h-5 text-muted-foreground" />
             </div>
           </button>
         </SheetTrigger>

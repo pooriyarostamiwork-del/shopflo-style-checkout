@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { Bell, Calendar, TrendingDown } from "lucide-react";
-import { Input } from "./ui/input";
-import { Switch } from "./ui/switch";
-import { useLanguage, toPersianNumber } from "@/i18n";
+import { Calendar, Bell } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { Label } from "./ui/label";
+import { useLanguage } from "@/i18n";
 
 interface AutoReorderOptionsLocalizedProps {
   onOptionsChange?: (options: {
-    priceDropAlert: boolean;
-    priceDropThreshold?: number;
     autoReorderMonthly: boolean;
     priceDecreaseNotify: boolean;
   }) => void;
@@ -15,38 +13,30 @@ interface AutoReorderOptionsLocalizedProps {
 
 export const AutoReorderOptionsLocalized = ({ onOptionsChange }: AutoReorderOptionsLocalizedProps) => {
   const { t, isRTL } = useLanguage();
-  const [priceDropAlert, setPriceDropAlert] = useState(false);
-  const [priceDropThreshold, setPriceDropThreshold] = useState("");
-  const [autoReorderMonthly, setAutoReorderMonthly] = useState(false);
-  const [priceDecreaseNotify, setPriceDecreaseNotify] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  const handleChange = (
-    field: string,
-    value: boolean | string
-  ) => {
-    const updates: any = {
-      priceDropAlert,
-      priceDropThreshold: priceDropThreshold ? parseFloat(priceDropThreshold) : undefined,
-      autoReorderMonthly,
-      priceDecreaseNotify
-    };
-    
-    if (field === 'priceDropAlert') {
-      setPriceDropAlert(value as boolean);
-      updates.priceDropAlert = value;
-    } else if (field === 'priceDropThreshold') {
-      setPriceDropThreshold(value as string);
-      updates.priceDropThreshold = value ? parseFloat(value as string) : undefined;
-    } else if (field === 'autoReorderMonthly') {
-      setAutoReorderMonthly(value as boolean);
-      updates.autoReorderMonthly = value;
-    } else if (field === 'priceDecreaseNotify') {
-      setPriceDecreaseNotify(value as boolean);
-      updates.priceDecreaseNotify = value;
-    }
-
-    onOptionsChange?.(updates);
+  const handleChange = (value: string) => {
+    setSelectedOption(value);
+    onOptionsChange?.({
+      autoReorderMonthly: value === 'monthly',
+      priceDecreaseNotify: value === 'notify'
+    });
   };
+
+  const options = [
+    {
+      id: 'monthly',
+      icon: Calendar,
+      title: isRTL ? "خرید خودکار ماهانه" : "Monthly Auto-Reorder",
+      description: isRTL ? "هر ماه خودکار سفارش می‌دهیم" : "Auto-order every month"
+    },
+    {
+      id: 'notify',
+      icon: Bell,
+      title: isRTL ? "اطلاع‌رسانی کاهش قیمت" : "Price Drop Notification",
+      description: isRTL ? "وقتی قیمت کاهش یافت مطلعم کن" : "Get notified on price drops"
+    }
+  ];
 
   return (
     <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -54,86 +44,48 @@ export const AutoReorderOptionsLocalized = ({ onOptionsChange }: AutoReorderOpti
         {t.checkout.autoReorder.title}
       </h3>
       
-      <div className="space-y-4">
-        {/* Price Drop Alert */}
-        <div className={`flex items-center justify-between py-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <TrendingDown className="w-4 h-4 text-primary" />
-            </div>
-            <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-              <p className="text-sm font-medium text-foreground">
-                {t.checkout.autoReorder.priceDropBelow}
-              </p>
-              {priceDropAlert && (
-                <div className={`mt-2 flex items-center gap-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
-                  <Input
-                    type="number"
-                    value={priceDropThreshold}
-                    onChange={(e) => handleChange('priceDropThreshold', e.target.value)}
-                    placeholder={isRTL ? "مبلغ" : "Amount"}
-                    className={`h-8 w-24 text-sm ${isRTL ? 'text-right' : ''}`}
-                    dir="ltr"
-                  />
-                  <span className="text-sm text-muted-foreground">{isRTL ? 'تومان' : '₹'}</span>
+      <RadioGroup value={selectedOption || ''} onValueChange={handleChange} className="space-y-3">
+        {options.map((option) => {
+          const Icon = option.icon;
+          const isSelected = selectedOption === option.id;
+          
+          return (
+            <div
+              key={option.id}
+              className={`
+                flex items-center p-4 rounded-xl border transition-all cursor-pointer
+                ${isSelected 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border/50 hover:border-border'
+                }
+                ${isRTL ? 'flex-row-reverse' : ''}
+              `}
+              onClick={() => handleChange(option.id)}
+            >
+              <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
+              <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary/10' : 'bg-muted/50'}`}>
+                  <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
                 </div>
-              )}
+                <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                  <p className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {option.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {option.description}
+                  </p>
+                </div>
+              </div>
+              <div className={`
+                w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                ${isSelected ? 'border-primary bg-primary' : 'border-border'}
+              `}>
+                {isSelected && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
+              </div>
             </div>
-          </div>
-          <Switch
-            checked={priceDropAlert}
-            onCheckedChange={(checked) => handleChange('priceDropAlert', checked)}
-          />
-        </div>
-
-        {/* Monthly Auto-Reorder */}
-        <div className={`flex items-center justify-between py-3 border-t border-border/30 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Calendar className="w-4 h-4 text-primary" />
-            </div>
-            <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-              <p className="text-sm font-medium text-foreground">
-                {t.checkout.autoReorder.monthlyReorder}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isRTL 
-                  ? "هر ماه خودکار سفارش می‌دهیم"
-                  : "Auto-order every month"
-                }
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={autoReorderMonthly}
-            onCheckedChange={(checked) => handleChange('autoReorderMonthly', checked)}
-          />
-        </div>
-
-        {/* Price Decrease Notification */}
-        <div className={`flex items-center justify-between py-3 border-t border-border/30 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Bell className="w-4 h-4 text-primary" />
-            </div>
-            <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-              <p className="text-sm font-medium text-foreground">
-                {t.checkout.autoReorder.notifyPriceDrop}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isRTL 
-                  ? "اطلاع‌رسانی کاهش قیمت"
-                  : "Get notified on price drops"
-                }
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={priceDecreaseNotify}
-            onCheckedChange={(checked) => handleChange('priceDecreaseNotify', checked)}
-          />
-        </div>
-      </div>
+          );
+        })}
+      </RadioGroup>
     </div>
   );
 };

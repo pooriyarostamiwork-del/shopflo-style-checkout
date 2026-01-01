@@ -50,8 +50,8 @@ const STEPS_CONFIG: { key: CheckoutStep; labelFa: string; labelEn: string; micro
   { key: "phone", labelFa: "ورود", labelEn: "Login", microFa: "برای ادامه، شماره موبایل خود را وارد کنید", microEn: "Enter your mobile to continue" },
   { key: "otp", labelFa: "تأیید شماره", labelEn: "Verify OTP", microFa: "کد ارسال شده را وارد کنید", microEn: "Enter the code sent to your phone" },
   { key: "address", labelFa: "آدرس تحویل", labelEn: "Delivery Address", microFa: "آدرس و روش تحویل را انتخاب کنید", microEn: "Choose address and delivery method" },
-  { key: "payment", labelFa: "روش پرداخت", labelEn: "Payment", microFa: "روش پرداخت را انتخاب کنید", microEn: "Select your payment method" },
   { key: "review", labelFa: "بررسی سفارش", labelEn: "Review", microFa: "اطلاعات نهایی خرید شما", microEn: "Final order details" },
+  { key: "payment", labelFa: "روش پرداخت", labelEn: "Payment", microFa: "روش پرداخت را انتخاب کنید", microEn: "Select your payment method" },
 ];
 
 export const CheckoutModalLocalized = ({ 
@@ -338,19 +338,25 @@ export const CheckoutModalLocalized = ({
               <Label htmlFor="phone" className="text-base font-medium">
                 {isRTL ? "شماره موبایل" : "Mobile Number"}
               </Label>
-              <div className={`flex gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className="relative">
                 <Input 
                   id="phone"
                   type="tel"
                   placeholder={isRTL ? "۰۹۱۲۳۴۵۶۷۸۹" : "98765 43210"}
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                  className={`h-14 flex-1 text-lg ${isRTL ? 'text-right' : ''}`}
+                  className={`h-14 flex-1 text-lg text-center ${isRTL ? 'text-transparent caret-transparent' : ''}`}
                   maxLength={11}
                   dir="ltr"
                 />
+                {/* Persian digit overlay for RTL */}
+                {isRTL && phoneNumber && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-lg font-medium text-foreground">
+                    {toPersianNumber(phoneNumber)}
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground text-center">
                 {isRTL ? "کد تأیید برای شما ارسال خواهد شد" : "We'll send you a verification code"}
               </p>
             </div>
@@ -396,16 +402,21 @@ export const CheckoutModalLocalized = ({
                   maxLength={6} 
                   value={otp}
                   onChange={(value) => setOtp(value)}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+                  render={({ slots }) => (
+                    <InputOTPGroup>
+                      {slots.map((slot, index) => (
+                        <div key={index} className="relative">
+                          <InputOTPSlot index={index} {...slot} className={isRTL ? 'text-transparent' : ''} />
+                          {isRTL && slot.char && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium text-foreground">
+                              {toPersianNumber(slot.char)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </InputOTPGroup>
+                  )}
+                />
               </div>
               <div className="text-center">
                 <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -477,11 +488,11 @@ export const CheckoutModalLocalized = ({
               variant="gradient" 
               className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
               onClick={() => {
-                setStep("payment");
-                setCurrentSection("payment");
+                setStep("review");
+                setCurrentSection("review");
               }}
             >
-              {isRTL ? "ادامه به پرداخت" : "Continue to Payment"} 
+              {isRTL ? "ادامه به بررسی سفارش" : "Continue to Review"} 
               <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
             </Button>
           </div>
@@ -490,7 +501,7 @@ export const CheckoutModalLocalized = ({
       case "payment":
         return (
           <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("payment")} dir={isRTL ? 'rtl' : 'ltr'}>
-            <StepHeader showBack onBack={() => { setStep("address"); setCurrentSection("address"); }} />
+            <StepHeader showBack onBack={() => { setStep("review"); setCurrentSection("review"); }} />
 
             {/* Payment Method Cards - Full Width Selectable */}
             <div className="space-y-3">
@@ -579,23 +590,31 @@ export const CheckoutModalLocalized = ({
             )}
 
             <Button 
-              variant="gradient" 
-              className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}
-              onClick={() => {
-                setStep("review");
-                setCurrentSection("review");
-              }}
+              variant="checkout" 
+              className="w-full h-14 text-lg rounded-xl"
+              onClick={handlePlaceOrder}
+              disabled={isProcessing}
             >
-              {isRTL ? "ادامه و پرداخت" : "Continue to Review"} 
-              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+              {isProcessing ? (
+                <span className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {t.checkout.review.processing}
+                </span>
+              ) : (
+                isRTL ? "ثبت سفارش و پرداخت" : t.checkout.review.placeOrder
+              )}
             </Button>
+
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              🔒 {isRTL ? "اطلاعات شما امن و رمزگذاری شده است" : "Your data is secure and encrypted"}
+            </p>
           </div>
         );
 
       case "review":
         return (
           <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("review")} dir={isRTL ? 'rtl' : 'ltr'}>
-            <StepHeader showBack onBack={() => { setStep("payment"); setCurrentSection("payment"); }} />
+            <StepHeader showBack onBack={() => { setStep("address"); setCurrentSection("address"); }} />
 
             {/* Coupon Selector */}
             {couponTiers.length > 0 && (
@@ -657,32 +676,32 @@ export const CheckoutModalLocalized = ({
               
               <div className="border-t border-border/50 pt-4">
                 <div className="space-y-3">
-                  <div className={`flex items-center ${isRTL ? 'justify-start' : 'justify-between'}`}>
-                    <span className={`text-sm text-muted-foreground ${isRTL ? 'order-1' : ''}`}>{t.orderSummary.subtotal}</span>
-                    <span className={`text-sm font-medium ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>{formatCurrency(initialTotal, language)}</span>
+                  <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-sm text-muted-foreground">{t.orderSummary.subtotal}</span>
+                    <span className="text-sm font-medium">{formatCurrency(initialTotal, language)}</span>
                   </div>
                   {addedUpsells.length > 0 && (
-                    <div className={`flex items-center ${isRTL ? 'justify-start' : 'justify-between'}`}>
-                      <span className={`text-sm text-muted-foreground ${isRTL ? 'order-1' : ''}`}>
+                    <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <span className="text-sm text-muted-foreground">
                         {isRTL 
                           ? `اقلام اضافه شده (${toPersianNumber(addedUpsells.length)})`
                           : `Added items (${addedUpsells.length})`
                         }
                       </span>
-                      <span className={`text-sm font-medium ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>
+                      <span className="text-sm font-medium">
                         {formatCurrency(addedUpsells.reduce((sum, p) => sum + p.price, 0), language)}
                       </span>
                     </div>
                   )}
                   {selectedCoupon && selectedCoupon.value && (
-                    <div className={`flex items-center text-accent-foreground ${isRTL ? 'justify-start' : 'justify-between'}`}>
-                      <span className={`text-sm ${isRTL ? 'order-1' : ''}`}>{isRTL ? "تخفیف کد" : "Coupon Discount"}</span>
-                      <span className={`text-sm font-medium ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>-{formatCurrency(selectedCoupon.value, language)}</span>
+                    <div className={`flex items-center justify-between text-accent-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <span className="text-sm">{isRTL ? "تخفیف کد" : "Coupon Discount"}</span>
+                      <span className="text-sm font-medium">-{formatCurrency(selectedCoupon.value, language)}</span>
                     </div>
                   )}
-                  <div className={`flex items-center pt-3 border-t border-border/50 ${isRTL ? 'justify-start' : 'justify-between'}`}>
-                    <span className={`font-semibold ${isRTL ? 'order-1' : ''}`}>{t.orderSummary.total}</span>
-                    <span className={`text-xl font-bold text-primary ${isRTL ? 'order-2 mr-auto ml-0' : 'ml-auto'}`}>{formatCurrency(finalTotal, language)}</span>
+                  <div className={`flex items-center justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <span className="font-semibold">{t.orderSummary.total}</span>
+                    <span className="text-xl font-bold text-primary">{formatCurrency(finalTotal, language)}</span>
                   </div>
                 </div>
               </div>

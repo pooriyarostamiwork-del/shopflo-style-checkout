@@ -22,11 +22,9 @@ export const SuccessScreenLocalized = ({ isOpen, onClose, orderId }: SuccessScre
 
   if (!isOpen) return null;
 
+  // Order ID should always be English digits for copy/paste compatibility
   const formatOrderId = (id: string) => {
-    if (isRTL) {
-      return id.replace(/[0-9]/g, (d) => toPersianNumber(d));
-    }
-    return id;
+    return id; // Keep English digits for Order ID
   };
 
   const getDeliveryDate = () => {

@@ -101,27 +101,31 @@ const GPTCommerceContent = () => {
     });
   }, [cartItems]);
 
-  // Auto-select default shipping method for each merchant when cart changes
-  // This aligns visual state with validation state
+  // Auto-select default shipping method for each merchant.
+  // IMPORTANT: this must run when we enter the address step too (we reset selections there),
+  // so visual “selected” and validation state are always aligned.
   useEffect(() => {
+    if (agenticState.step !== 'address-confirmation') return;
+
     const merchantShipping = getMerchantShipping();
-    const newSelections: Record<string, string> = { ...selectedShippingByMerchant };
-    let hasChanges = false;
-    
-    merchantShipping.forEach(ms => {
-      if (!newSelections[ms.merchant.id]) {
-        const defaultMethod = ms.methods.find(m => m.isDefault) || ms.methods[0];
-        if (defaultMethod) {
-          newSelections[ms.merchant.id] = defaultMethod.id;
-          hasChanges = true;
+
+    setSelectedShippingByMerchant((prev) => {
+      const next: Record<string, string> = { ...prev };
+      let changed = false;
+
+      merchantShipping.forEach((ms) => {
+        if (!next[ms.merchant.id]) {
+          const def = ms.methods.find((m) => m.isDefault) || ms.methods[0];
+          if (def) {
+            next[ms.merchant.id] = def.id;
+            changed = true;
+          }
         }
-      }
+      });
+
+      return changed ? next : prev;
     });
-    
-    if (hasChanges) {
-      setSelectedShippingByMerchant(newSelections);
-    }
-  }, [cartItems, getMerchantShipping]);
+  }, [agenticState.step, getMerchantShipping]);
 
   // Track recommended products for number reference
   const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
@@ -305,9 +309,35 @@ const GPTCommerceContent = () => {
   const handleAddNewAddress = useCallback((addr: Omit<typeof mockAddresses[0], "id">) => {
     const id = `addr-${Date.now()}`;
     const created: typeof mockAddresses[0] = { id, ...addr, recipientName: addr.recipientName || '', phone: addr.phone || '' };
+
     setCheckoutAddresses((prev) => [created, ...prev]);
     setSelectedAddressId(id);
     setAgenticState((prev) => ({ ...prev, selectedAddress: created, hasStoredCheckoutDetails: true }));
+
+    // IMPORTANT: the in-chat AddressShipping component is rendered from the chat message.
+    // Update that message immediately so the new address appears in the list without reload.
+    setMessages((prev) => {
+      const lastIdx = [...prev].reverse().findIndex((m) => !!m.addressShipping);
+      if (lastIdx === -1) return prev;
+      const idx = prev.length - 1 - lastIdx;
+      const target = prev[idx];
+      if (!target.addressShipping) return prev;
+
+      const existing = target.addressShipping.addresses ?? [];
+      const nextAddresses = [created, ...existing.filter((a) => a.id !== created.id)];
+
+      const updated: ChatMessage = {
+        ...target,
+        addressShipping: {
+          ...target.addressShipping,
+          addresses: nextAddresses,
+        },
+      };
+
+      const next = [...prev];
+      next[idx] = updated;
+      return next;
+    });
   }, []);
 
   // Handle payment selection

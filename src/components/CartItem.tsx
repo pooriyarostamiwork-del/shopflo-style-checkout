@@ -5,6 +5,7 @@ import { Badge } from "./ui/badge";
 export interface CartProduct {
   id: number;
   name: string;
+  nameFa?: string;
   price: number;
   originalPrice?: number;
   image: string;

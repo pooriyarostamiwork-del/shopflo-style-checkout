@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft } from "lucide-react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft, Minus, Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag, Truck } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -40,7 +40,7 @@ interface CheckoutModalLocalizedProps {
   upsellProducts?: UpsellProduct[];
   couponTiers?: CouponTier[];
 }
-type CheckoutStep = "phone" | "otp" | "address" | "payment" | "review";
+type CheckoutStep = "cart" | "phone" | "otp" | "address" | "payment" | "review";
 type PaymentMethod = "gateway" | "card" | "cod";
 
 // Step configuration for RTL-aware dot progress
@@ -51,6 +51,12 @@ const STEPS_CONFIG: {
   microFa?: string;
   microEn?: string;
 }[] = [{
+  key: "cart",
+  labelFa: "سبد خرید",
+  labelEn: "Cart",
+  microFa: "آخرین بررسی قبل از نهایی سازی",
+  microEn: "Final review before checkout"
+}, {
   key: "phone",
   labelFa: "ورود",
   labelEn: "Login",
@@ -97,7 +103,10 @@ export const CheckoutModalLocalized = ({
     isRTL,
     language
   } = useLanguage();
-  const [step, setStep] = useState<CheckoutStep>("phone");
+  const [step, setStep] = useState<CheckoutStep>("cart");
+  const [localCartItems, setLocalCartItems] = useState(cartItems);
+  const [isCouponExpanded, setIsCouponExpanded] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("gateway");
   const [deliveryMethod, setDeliveryMethod] = useState<string>("standard");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -137,9 +146,9 @@ export const CheckoutModalLocalized = ({
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const ChevronIcon = isRTL ? ChevronLeft : ChevronRight;
 
-  // Typewriter effect for name - ONLY on first render after phone/otp
+  // Typewriter effect for name - ONLY on first render after cart/phone/otp
   useEffect(() => {
-    if (isOpen && step !== "phone" && step !== "otp" && !hasAnimatedGreeting.current) {
+    if (isOpen && step !== "cart" && step !== "phone" && step !== "otp" && !hasAnimatedGreeting.current) {
       let currentIndex = 0;
       setDisplayedName("");
       const interval = setInterval(() => {
@@ -152,7 +161,7 @@ export const CheckoutModalLocalized = ({
         }
       }, 100);
       return () => clearInterval(interval);
-    } else if (isOpen && step !== "phone" && step !== "otp" && hasAnimatedGreeting.current) {
+    } else if (isOpen && step !== "cart" && step !== "phone" && step !== "otp" && hasAnimatedGreeting.current) {
       // Already animated, just show the name immediately
       setDisplayedName(userName);
     }
@@ -342,11 +351,185 @@ export const CheckoutModalLocalized = ({
         </div>
       </div>
     </div>;
+
+  // Cart step handlers
+  const handleUpdateQuantity = (id: number, quantity: number) => {
+    setLocalCartItems(prev => prev.map(item => 
+      item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item
+    ));
+  };
+
+  const handleRemoveItem = (id: number) => {
+    setLocalCartItems(prev => prev.filter(item => item.id !== id));
+    // TODO: Show undo toast
+  };
+
+  const cartSubtotal = localCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const shippingCost = 0; // Free shipping
+  const cartDiscount = selectedCoupon?.value || 0;
+  const cartTotal = Math.max(cartSubtotal + shippingCost - cartDiscount, 0);
+
   const renderStep = () => {
     switch (step) {
+      case "cart":
+        return <div className={`space-y-5 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+            <StepHeader />
+            
+            {/* Cart Items List */}
+            <div className="space-y-3">
+              {localCartItems.map((item) => {
+                const displayName = isRTL && item.nameFa ? item.nameFa : item.name;
+                const displayQuantity = isRTL ? toPersianNumber(item.quantity) : item.quantity;
+                const hasDiscount = item.originalPrice && item.originalPrice > item.price;
+                
+                return (
+                  <div 
+                    key={item.id} 
+                    className={`flex gap-3 p-3 rounded-xl border border-border/50 bg-card ${isRTL ? 'flex-row-reverse' : ''}`}
+                  >
+                    {/* Product Thumbnail */}
+                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted/30 border border-border/30">
+                      <img src={item.image} alt={displayName} className="w-full h-full object-cover" />
+                    </div>
+                    
+                    {/* Product Info */}
+                    <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : ''}`}>
+                      <h4 className="font-medium text-sm text-foreground line-clamp-1">{displayName}</h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isRTL ? "رنگ مشکی · حافظه ۱۲۸ گیگ" : "Black · 128GB"}
+                      </p>
+                      
+                      {/* Price */}
+                      <div className={`flex items-center gap-2 mt-1.5 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                        <span className="font-semibold text-sm text-foreground">
+                          {formatCurrency(item.price, language)}
+                        </span>
+                        {hasDiscount && (
+                          <span className="text-xs text-muted-foreground line-through">
+                            {formatCurrency(item.originalPrice!, language)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Quantity & Remove */}
+                    <div className={`flex flex-col items-end justify-between ${isRTL ? 'items-start' : ''}`}>
+                      <button 
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      
+                      <div className={`flex items-center gap-1 bg-muted/50 rounded-lg ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <button 
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          className="p-1.5 hover:bg-muted rounded transition-colors"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
+                        <button 
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          className="p-1.5 hover:bg-muted rounded transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Shipping Summary */}
+            <div className={`flex items-center gap-3 p-3 rounded-xl bg-accent/5 border border-accent/20 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className="p-2 rounded-lg bg-accent/10">
+                <Truck className="w-4 h-4 text-accent" />
+              </div>
+              <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                <p className="text-sm font-medium text-foreground">{isRTL ? "ارسال رایگان" : "Free Shipping"}</p>
+                <p className="text-xs text-muted-foreground">{isRTL ? "تحویل فوری · ارسال امروز" : "Express · Ships today"}</p>
+              </div>
+              <span className="px-2 py-1 text-xs font-medium bg-accent/10 text-accent rounded-full">
+                {isRTL ? "ارسال امروز" : "Ships Today"}
+              </span>
+            </div>
+
+            {/* Coupon Section - Collapsible */}
+            <div className="rounded-xl border border-border/50 overflow-hidden">
+              <button 
+                onClick={() => setIsCouponExpanded(!isCouponExpanded)}
+                className={`w-full flex items-center justify-between p-3 hover:bg-muted/30 transition-colors ${isRTL ? 'flex-row-reverse' : ''}`}
+              >
+                <span className="text-sm font-medium text-foreground">
+                  {isRTL ? "افزودن کد تخفیف" : "Add coupon code"}
+                </span>
+                {isCouponExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </button>
+              
+              {isCouponExpanded && (
+                <div className="p-3 pt-0 border-t border-border/30">
+                  <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <Input 
+                      placeholder={isRTL ? "کد تخفیف" : "Enter code"}
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      className="flex-1 h-10"
+                      dir={isRTL ? 'rtl' : 'ltr'}
+                    />
+                    <Button variant="outline" size="sm" className="h-10 px-4">
+                      {isRTL ? "اعمال" : "Apply"}
+                    </Button>
+                  </div>
+                  {selectedCoupon && (
+                    <div className={`mt-2 p-2 rounded-lg bg-accent/5 flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <Check className="w-4 h-4 text-accent" />
+                      <span className="text-sm text-accent font-medium">
+                        {isRTL ? `${toPersianNumber(selectedCoupon.value?.toLocaleString() || '0')} تومان تخفیف اعمال شد` : `${selectedCoupon.value} saved!`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Price Breakdown */}
+            <div className="space-y-3 p-4 rounded-xl bg-muted/20 border border-border/50">
+              <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <span className="text-sm text-muted-foreground">{isRTL ? "مجموع کالاها" : "Subtotal"}</span>
+                <span className="text-sm font-medium">{formatCurrency(cartSubtotal, language)}</span>
+              </div>
+              <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <span className="text-sm text-muted-foreground">{isRTL ? "هزینه ارسال" : "Shipping"}</span>
+                <span className="text-sm font-medium text-accent">{isRTL ? "رایگان" : "Free"}</span>
+              </div>
+              {cartDiscount > 0 && (
+                <div className={`flex items-center justify-between text-accent ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-sm">{isRTL ? "تخفیف" : "Discount"}</span>
+                  <span className="text-sm font-medium">-{formatCurrency(cartDiscount, language)}</span>
+                </div>
+              )}
+              <div className={`flex items-center justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <span className="font-semibold text-foreground">{isRTL ? "مبلغ نهایی" : "Total"}</span>
+                <span className="text-lg font-bold text-primary">{formatCurrency(cartTotal, language)}</span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <Button 
+              variant="gradient" 
+              className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`} 
+              onClick={() => setStep("phone")}
+              disabled={localCartItems.length === 0}
+            >
+              {isRTL ? "ادامه به پرداخت" : "Continue to Checkout"} 
+              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+            </Button>
+          </div>;
       case "phone":
         return <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-            <StepHeader />
+            <StepHeader showBack onBack={() => setStep("cart")} />
             
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -388,53 +571,54 @@ export const CheckoutModalLocalized = ({
               </button>
             </div>
 
-            <div className="space-y-6">
-              <Label className="text-base font-medium block text-center">
+            <div className="space-y-6 flex flex-col items-center">
+              <Label className="text-base font-medium block text-center w-full">
                 {isRTL ? "کد ۶ رقمی را وارد کنید" : "Enter 6-digit OTP"}
               </Label>
-              <div className="flex justify-center gap-2" dir="ltr">
-                {[0, 1, 2, 3, 4, 5].map((index) => (
-                  <div 
-                    key={index} 
-                    className={`
-                      relative w-12 h-14 rounded-xl border-2 flex items-center justify-center
-                      transition-all duration-200 cursor-text
-                      ${otp.length === index 
-                        ? 'border-primary ring-2 ring-primary/20' 
-                        : otp[index] 
-                          ? 'border-primary/50 bg-primary/5' 
-                          : 'border-border'
-                      }
-                    `}
-                    onClick={() => {
-                      const input = document.getElementById('otp-input-main') as HTMLInputElement;
-                      input?.focus();
-                    }}
-                  >
-                    <span className="text-xl font-semibold text-foreground">
-                      {otp[index] ? (isRTL ? toPersianNumber(otp[index]) : otp[index]) : ''}
-                    </span>
-                    {otp.length === index && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-0.5 h-6 bg-primary animate-pulse" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="relative">
+                <div className="flex justify-center gap-2" dir="ltr">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <div 
+                      key={index} 
+                      className={`
+                        relative w-12 h-14 rounded-xl border-2 flex items-center justify-center
+                        transition-all duration-200 cursor-text
+                        ${otp.length === index 
+                          ? 'border-primary ring-2 ring-primary/20' 
+                          : otp[index] 
+                            ? 'border-primary/50 bg-primary/5' 
+                            : 'border-border'
+                        }
+                      `}
+                      onClick={() => {
+                        const input = document.getElementById('otp-input-main') as HTMLInputElement;
+                        input?.focus();
+                      }}
+                    >
+                      <span className="text-xl font-semibold text-foreground">
+                        {otp[index] ? (isRTL ? toPersianNumber(otp[index]) : otp[index]) : ''}
+                      </span>
+                      {otp.length === index && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-0.5 h-6 bg-primary animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Hidden input for OTP */}
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  id="otp-input-main"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-text"
+                  autoFocus
+                />
               </div>
-              {/* Visible but styled input for OTP */}
-              <input
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                id="otp-input-main"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="absolute opacity-0 w-full h-12 cursor-text"
-                style={{ pointerEvents: 'none' }}
-                autoFocus
-              />
               <div className="text-center">
                 {canResendOtp ? (
                   <button 
@@ -502,16 +686,16 @@ export const CheckoutModalLocalized = ({
                       <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
                       <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                            <p className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {option.title}
-                            </p>
-                            <span className={`font-semibold ${option.priceClass}`}>{option.price}</span>
-                          </div>
+                          <p className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            {option.title}
+                          </p>
                           <p className="text-sm text-muted-foreground mt-0.5">
                             {option.description}
                           </p>
                         </div>
+                        <span className={`font-semibold flex-shrink-0 min-w-[80px] ${isRTL ? 'text-left' : 'text-right'} ${option.priceClass}`}>
+                          {option.price}
+                        </span>
                       </div>
                       <div className={`
                         w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
@@ -705,8 +889,8 @@ export const CheckoutModalLocalized = ({
             </div>
           )}
 
-          {/* Dynamic Banner - Not visible on phone/otp steps */}
-          {step !== "phone" && step !== "otp" && <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-2.5 border-b border-border/50">
+          {/* Dynamic Banner - Not visible on cart/phone/otp steps */}
+          {step !== "cart" && step !== "phone" && step !== "otp" && <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-2.5 border-b border-border/50">
               <div className={`flex items-center justify-center gap-2 text-sm font-medium text-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
                 {getDynamicBanner().icon}
                 <span>{getDynamicBanner().text}</span>
@@ -722,7 +906,7 @@ export const CheckoutModalLocalized = ({
               </button>
               
               {/* Greeting message - right next to close button */}
-              {step !== "phone" && step !== "otp" && <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              {step !== "cart" && step !== "phone" && step !== "otp" && <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <span className="text-lg font-medium text-foreground">
                     {isRTL ? "سلام" : "Hi"} <span className="font-semibold">{displayedName}</span>
                     <span className={displayedName === userName ? "" : "opacity-0"}> 👋</span>

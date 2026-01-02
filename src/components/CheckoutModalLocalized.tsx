@@ -371,8 +371,39 @@ export const CheckoutModalLocalized = ({
   const renderStep = () => {
     switch (step) {
       case "cart":
+        const discountThreshold = 2000000;
+        const progressPercent = Math.min((cartSubtotal / discountThreshold) * 100, 100);
+        const remainingForDiscount = Math.max(discountThreshold - cartSubtotal, 0);
+        const isDiscountUnlocked = cartSubtotal >= discountThreshold;
+        
         return <div className={`space-y-5 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
             <StepHeader />
+            
+            {/* Discount Progress Bar */}
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className={`flex items-center justify-between mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <span className="text-sm font-medium text-foreground">
+                  {isDiscountUnlocked 
+                    ? (isRTL ? "🎉 ۱۵٪ تخفیف فعال شد!" : "🎉 15% discount unlocked!")
+                    : (isRTL ? "۱۵٪ تخفیف با سبد ۲ میلیون تومانی" : "15% off with ₹2M cart")
+                  }
+                </span>
+                {!isDiscountUnlocked && (
+                  <span className="text-xs text-muted-foreground">
+                    {isRTL 
+                      ? `${toPersianNumber(remainingForDiscount.toLocaleString())} تومان مانده`
+                      : `₹${remainingForDiscount.toLocaleString()} to go`
+                    }
+                  </span>
+                )}
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-500 rounded-full ${isDiscountUnlocked ? 'bg-accent' : 'bg-primary'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
             
             {/* Cart Items List */}
             <div className="space-y-3">
@@ -386,41 +417,41 @@ export const CheckoutModalLocalized = ({
                     key={item.id} 
                     className={`flex gap-3 p-3 rounded-xl border border-border/50 bg-card ${isRTL ? 'flex-row-reverse' : ''}`}
                   >
-                    {/* Product Thumbnail + Controls Column */}
-                    <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted/30 border border-border/30">
-                        <img src={item.image} alt={displayName} className="w-full h-full object-cover" />
-                      </div>
-                      
+                    {/* Product Thumbnail */}
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted/30 border border-border/30 flex-shrink-0">
+                      <img src={item.image} alt={displayName} className="w-full h-full object-cover" />
+                    </div>
+                    
+                    {/* Controls beside photo */}
+                    <div className="flex flex-col items-center justify-between flex-shrink-0">
                       {/* Quantity Controls */}
-                      <div className={`flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        <button 
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                          className="p-1.5 hover:bg-background rounded-md transition-colors"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
+                      <div className={`flex flex-col items-center gap-0.5 bg-muted/50 rounded-lg p-0.5`}>
                         <button 
                           onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                           className="p-1.5 hover:bg-background rounded-md transition-colors"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
+                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
+                        <button 
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          className="p-1.5 hover:bg-background rounded-md transition-colors"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
                       </div>
+                      {/* Remove button */}
+                      <button 
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                     
                     {/* Product Info */}
                     <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : ''}`}>
-                      <div className={`flex items-start justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        <h4 className="font-medium text-sm text-foreground line-clamp-2 flex-1">{displayName}</h4>
-                        <button 
-                          onClick={() => handleRemoveItem(item.id)}
-                          className={`p-1 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 ${isRTL ? 'mr-auto ml-0' : 'ml-auto mr-0'}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <h4 className="font-medium text-sm text-foreground line-clamp-2">{displayName}</h4>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {isRTL ? "رنگ مشکی · حافظه ۱۲۸ گیگ" : "Black · 128GB"}
                       </p>
@@ -442,6 +473,21 @@ export const CheckoutModalLocalized = ({
               })}
             </div>
 
+            {/* Upsell Carousel */}
+            {upsellProducts.length > 0 && (
+              <EnhancedUpsellCarouselLocalized 
+                products={upsellProducts.map(p => ({
+                  ...p,
+                  nameFa: p.name // fallback
+                }))}
+                onAddProduct={handleAddUpsell}
+                addedProductIds={addedUpsellIds}
+                currentTotal={cartSubtotal}
+                nextTierThreshold={discountThreshold}
+                nextTierReward={isRTL ? "۱۵٪ تخفیف" : "15% off"}
+              />
+            )}
+
             {/* Shipping Summary */}
             <div className={`flex items-center gap-3 p-3 rounded-xl bg-accent/5 border border-accent/20 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <div className="p-2 rounded-lg bg-accent/10">
@@ -456,14 +502,11 @@ export const CheckoutModalLocalized = ({
               </span>
             </div>
 
-            {/* Coupon Section - Static Input */}
+            {/* Coupon Section - Static Input (no title) */}
             <div className="rounded-xl border border-border/50 p-3">
-              <span className={`text-sm font-medium text-foreground block mb-2 ${isRTL ? 'text-right' : ''}`}>
-                {isRTL ? "کد تخفیف" : "Discount code"}
-              </span>
               <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Input 
-                  placeholder={isRTL ? "کد تخفیف را وارد کنید" : "Enter code"}
+                  placeholder={isRTL ? "کد تخفیف را وارد کنید" : "Enter discount code"}
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
                   className="flex-1 h-10"

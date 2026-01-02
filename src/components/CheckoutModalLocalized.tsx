@@ -99,6 +99,7 @@ export const CheckoutModalLocalized = ({
   } = useLanguage();
   const [step, setStep] = useState<CheckoutStep>("phone");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("gateway");
+  const [deliveryMethod, setDeliveryMethod] = useState<string>("standard");
   const [isProcessing, setIsProcessing] = useState(false);
   const [saveDetails, setSaveDetails] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -289,12 +290,14 @@ export const CheckoutModalLocalized = ({
     }, 2000);
   };
 
-  // Format phone for display - remove country code prefix
+  // Format phone for display - show as LTR formatted
   const formatPhoneDisplay = (phone: string) => {
-    if (isRTL) {
-      // Format as ۰۹۱۲ *** ****
-      const formatted = phone.length >= 4 ? `${phone.slice(0, 4)} *** ****` : phone;
+    if (isRTL && phone.length >= 11) {
+      // Format as ۰۹۱۲ ۲۷۵ ۲۵۴۰ (Persian digits, LTR order)
+      const formatted = `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
       return toPersianNumber(formatted);
+    } else if (isRTL) {
+      return toPersianNumber(phone);
     }
     return phone;
   };
@@ -376,8 +379,9 @@ export const CheckoutModalLocalized = ({
             <StepHeader showBack onBack={() => setStep("phone")} />
 
             <div className="text-center mb-8">
-              <p className="text-muted-foreground">
-                {isRTL ? `کد ارسال شده به ${formatPhoneDisplay(phoneNumber)}` : `Code sent to +91 ${phoneNumber}`}
+              <p className="text-muted-foreground" dir="ltr">
+                {isRTL ? `کد ارسال شده به ` : `Code sent to +91 `}
+                <span dir="ltr" className="inline-block">{isRTL ? toPersianNumber(phoneNumber.slice(0, 4) + ' ' + phoneNumber.slice(4, 7) + ' ' + phoneNumber.slice(7)) : phoneNumber}</span>
               </p>
               <button onClick={() => setStep("phone")} className="text-primary text-sm font-medium hover:underline mt-2">
                 {isRTL ? "تغییر شماره" : "Change number"}
@@ -394,7 +398,7 @@ export const CheckoutModalLocalized = ({
                     key={index} 
                     className={`
                       relative w-12 h-14 rounded-xl border-2 flex items-center justify-center
-                      transition-all duration-200
+                      transition-all duration-200 cursor-text
                       ${otp.length === index 
                         ? 'border-primary ring-2 ring-primary/20' 
                         : otp[index] 
@@ -402,6 +406,10 @@ export const CheckoutModalLocalized = ({
                           : 'border-border'
                       }
                     `}
+                    onClick={() => {
+                      const input = document.getElementById('otp-input-main') as HTMLInputElement;
+                      input?.focus();
+                    }}
                   >
                     <span className="text-xl font-semibold text-foreground">
                       {otp[index] ? (isRTL ? toPersianNumber(otp[index]) : otp[index]) : ''}
@@ -413,28 +421,18 @@ export const CheckoutModalLocalized = ({
                     )}
                   </div>
                 ))}
-                {/* Hidden input for OTP */}
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="absolute opacity-0 w-0 h-0"
-                  autoFocus
-                />
               </div>
-              {/* Clickable area to focus the hidden input */}
+              {/* Visible but styled input for OTP */}
               <input
                 type="tel"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
+                id="otp-input-main"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="sr-only"
-                id="otp-input"
+                className="absolute opacity-0 w-full h-12 cursor-text"
+                style={{ pointerEvents: 'none' }}
                 autoFocus
               />
               <div className="text-center">
@@ -469,31 +467,62 @@ export const CheckoutModalLocalized = ({
 
             <div className="pt-4">
               <Label className="text-base font-semibold mb-4 block">{t.checkout.delivery.title}</Label>
-              <RadioGroup defaultValue="standard" className="space-y-3">
-                <div className={`flex items-center p-4 rounded-xl border border-border hover:bg-muted/30 cursor-pointer transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
-                  <RadioGroupItem value="standard" id="standard" />
-                  <Label htmlFor="standard" className="flex-1 cursor-pointer">
-                    <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <div className={isRTL ? 'text-right' : ''}>
-                        <p className="font-medium">{t.checkout.delivery.standard}</p>
-                        <p className="text-sm text-muted-foreground">{t.checkout.delivery.standardTime}</p>
+              <RadioGroup value={deliveryMethod} onValueChange={setDeliveryMethod} className="space-y-3">
+                {[
+                  {
+                    id: 'standard',
+                    title: t.checkout.delivery.standard,
+                    description: t.checkout.delivery.standardTime,
+                    price: t.common.free,
+                    priceClass: 'text-accent'
+                  },
+                  {
+                    id: 'express',
+                    title: t.checkout.delivery.express,
+                    description: t.checkout.delivery.expressTime,
+                    price: formatCurrency(49000, language),
+                    priceClass: ''
+                  }
+                ].map((option) => {
+                  const isSelected = deliveryMethod === option.id;
+                  
+                  return (
+                    <div
+                      key={option.id}
+                      className={`
+                        flex items-center p-4 rounded-xl border transition-all cursor-pointer
+                        ${isSelected 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border/50 hover:border-border'
+                        }
+                        ${isRTL ? 'flex-row-reverse' : ''}
+                      `}
+                      onClick={() => setDeliveryMethod(option.id)}
+                    >
+                      <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
+                      <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                            <p className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {option.title}
+                            </p>
+                            <span className={`font-semibold ${option.priceClass}`}>{option.price}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {option.description}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-accent font-semibold">{t.common.free}</span>
-                    </div>
-                  </Label>
-                </div>
-                <div className={`flex items-center p-4 rounded-xl border border-border hover:bg-muted/30 cursor-pointer transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
-                  <RadioGroupItem value="express" id="express" />
-                  <Label htmlFor="express" className="flex-1 cursor-pointer">
-                    <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <div className={isRTL ? 'text-right' : ''}>
-                        <p className="font-medium">{t.checkout.delivery.express}</p>
-                        <p className="text-sm text-muted-foreground">{t.checkout.delivery.expressTime}</p>
+                      <div className={`
+                        w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                        ${isSelected ? 'border-primary bg-primary' : 'border-border'}
+                        ${isRTL ? 'mr-3' : 'ml-3'}
+                      `}>
+                        {isSelected && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
                       </div>
-                      <span className="font-semibold">{formatCurrency(49, language)}</span>
                     </div>
-                  </Label>
-                </div>
+                  );
+                })}
               </RadioGroup>
             </div>
 
@@ -663,9 +692,9 @@ export const CheckoutModalLocalized = ({
         <div className={`relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isRTL ? 'font-vazirmatn' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
           {/* Phone Step Header - Only visible on phone step */}
           {step === "phone" && (
-            <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border/50">
-              <div className={`flex items-center justify-center gap-2 text-sm font-medium text-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <Zap className="w-4 h-4 text-primary" />
+            <div className="bg-gradient-to-r from-primary to-primary/80 px-6 py-3 rounded-t-2xl">
+              <div className={`flex items-center justify-center gap-2 text-sm font-medium text-primary-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <Zap className="w-4 h-4" />
                 <span>
                   {isRTL 
                     ? "سفارش خود را در ۱۰ ثانیه تکمیل کنید — بدون نیاز به ورود، سریع و امن"

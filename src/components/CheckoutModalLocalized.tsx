@@ -371,7 +371,7 @@ export const CheckoutModalLocalized = ({
   const renderStep = () => {
     switch (step) {
       case "cart":
-        const discountThreshold = 2000000;
+        const discountThreshold = 4000000;
         const progressPercent = Math.min((cartSubtotal / discountThreshold) * 100, 100);
         const remainingForDiscount = Math.max(discountThreshold - cartSubtotal, 0);
         const isDiscountUnlocked = cartSubtotal >= discountThreshold;

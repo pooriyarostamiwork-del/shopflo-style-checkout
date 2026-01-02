@@ -112,12 +112,12 @@ export const EnhancedUpsellCarouselLocalized = ({
 
   return (
     <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className={`flex items-center mb-4 ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <h3 className="text-base font-semibold text-foreground">
+      <div className={`flex items-center mb-4 justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <h3 className={`text-base font-semibold text-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
           {isRTL ? "شاید این‌ها را هم دوست داشته باشید" : "You might also like"}
         </h3>
         {nextTierThreshold && amountNeeded > 0 && (
-          <span className={`text-xs text-primary font-medium ${isRTL ? 'order-2 ml-auto mr-0' : ''}`}>
+          <span className="text-xs text-primary font-medium">
             {isRTL 
               ? `${formatCurrency(amountNeeded, language)} دیگر برای جوایز`
               : `Add ${formatCurrency(amountNeeded, language)} to unlock perks`
@@ -201,12 +201,12 @@ export const EnhancedUpsellCarouselLocalized = ({
                       value={productVariants[variantType.type] || ""}
                       onValueChange={(value) => handleVariantChange(product.id, variantType.type, value)}
                     >
-                      <SelectTrigger className={`h-8 text-xs ${isRTL ? 'text-right' : ''}`}>
+                      <SelectTrigger className={`h-8 text-xs rounded-lg ${isRTL ? 'text-right' : ''}`}>
                         <SelectValue placeholder={getVariantPlaceholder(variantType.type)} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-lg">
                         {variantType.options.map((option) => (
-                          <SelectItem key={option.id} value={option.id} className="text-xs">
+                          <SelectItem key={option.id} value={option.id} className="text-xs hover:bg-muted/50 focus:bg-muted/50">
                             {option.name}
                             {option.priceModifier !== 0 && (
                               <span className="text-muted-foreground mx-1">
@@ -230,7 +230,7 @@ export const EnhancedUpsellCarouselLocalized = ({
               <Button
                 size="sm"
                 variant={isAdded ? "secondary" : "default"}
-                className={`w-full h-9 text-xs mt-auto ${isRTL ? 'flex-row-reverse' : ''}`}
+                className={`w-full h-9 text-xs mt-auto rounded-lg ${isRTL ? 'flex-row-reverse' : ''}`}
                 onClick={() => !isAdded && handleAdd(product)}
                 disabled={isAdded || (product.variants && product.variants.some(v => !productVariants[v.type]))}
               >

@@ -71,8 +71,16 @@ export const CouponSelectorLocalized = ({
                   <Tag className="w-4 h-4 text-primary" />
                 </div>
                 <div className={isRTL ? 'text-right' : 'text-left'}>
-                  <p className={`font-medium text-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <p className="font-medium text-foreground">
                     {isRTL ? "کدهای تخفیف موجود" : "Available Discount Codes"}
+                    {availableCoupons.length > 0 && !selectedCoupon && (
+                      <span className="text-sm text-muted-foreground font-normal mx-2">
+                        {isRTL 
+                          ? `${toPersianNumber(availableCoupons.length)} کد فعال`
+                          : `${availableCoupons.length} active`
+                        }
+                      </span>
+                    )}
                   </p>
                   {selectedCoupon ? (
                     <p className="text-sm text-primary font-medium">
@@ -85,16 +93,12 @@ export const CouponSelectorLocalized = ({
                         </>
                       )}
                     </p>
-                  ) : availableCoupons.length > 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {isRTL 
-                        ? `${toPersianNumber(availableCoupons.length)} کد فعال`
-                        : `${availableCoupons.length} code${availableCoupons.length > 1 ? 's' : ''} available`
-                      }
-                    </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      {isRTL ? "برای فعال‌سازی بیشتر خرید کنید" : "Add more to unlock"}
+                      {availableCoupons.length === 0 
+                        ? (isRTL ? "برای فعال‌سازی بیشتر خرید کنید" : "Add more to unlock")
+                        : ""
+                      }
                     </p>
                   )}
                 </div>

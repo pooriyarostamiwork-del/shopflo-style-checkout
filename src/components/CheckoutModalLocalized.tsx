@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Checkbox } from "./ui/checkbox";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
+
 import { Confetti } from "./Confetti";
 import { AddressSelectorLocalized, Address } from "./AddressSelectorLocalized";
 import { CouponSelectorLocalized } from "./CouponSelectorLocalized";
@@ -112,6 +112,10 @@ export const CheckoutModalLocalized = ({
   const [showConfetti, setShowConfetti] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState<CouponTier | null>(null);
   const [currentSection, setCurrentSection] = useState<"address" | "payment" | "coupon" | "review">("address");
+  
+  // OTP resend countdown timer
+  const [otpCountdown, setOtpCountdown] = useState(60);
+  const [canResendOtp, setCanResendOtp] = useState(false);
 
   // Track if greeting has been animated
   const hasAnimatedGreeting = useRef(false);
@@ -158,8 +162,29 @@ export const CheckoutModalLocalized = ({
     if (!isOpen) {
       hasAnimatedGreeting.current = false;
       setDisplayedName("");
+      setOtpCountdown(60);
+      setCanResendOtp(false);
     }
   }, [isOpen]);
+
+  // OTP countdown timer effect
+  useEffect(() => {
+    if (step === "otp" && otpCountdown > 0) {
+      const timer = setTimeout(() => {
+        setOtpCountdown(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (otpCountdown === 0) {
+      setCanResendOtp(true);
+    }
+  }, [step, otpCountdown]);
+
+  // Handle OTP resend
+  const handleResendOtp = () => {
+    setOtpCountdown(60);
+    setCanResendOtp(false);
+    setOtp("");
+  };
 
   // Progress bar animation during processing
   useEffect(() => {
@@ -303,14 +328,13 @@ export const CheckoutModalLocalized = ({
             <BackArrow className="w-5 h-5" />
           </button>}
         <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-primary-foreground" />
-          </div>
           <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
             <h2 className="text-lg font-semibold text-foreground">
               {isRTL ? currentStepConfig.labelFa : currentStepConfig.labelEn}
             </h2>
-            {currentStepConfig.microFa}
+            <p className="text-sm text-muted-foreground mt-1">
+              {isRTL ? currentStepConfig.microFa : currentStepConfig.microEn}
+            </p>
           </div>
         </div>
       </div>
@@ -364,26 +388,71 @@ export const CheckoutModalLocalized = ({
               <Label className="text-base font-medium block text-center">
                 {isRTL ? "کد ۶ رقمی را وارد کنید" : "Enter 6-digit OTP"}
               </Label>
-              <div className="flex justify-center" dir="ltr">
-                <InputOTP maxLength={6} value={otp} onChange={value => setOtp(value)}>
-                  <InputOTPGroup>
-                    {[0, 1, 2, 3, 4, 5].map((index) => (
-                      <div key={index} className="relative">
-                        <InputOTPSlot index={index} className={isRTL ? 'text-transparent' : ''} />
-                        {isRTL && otp[index] && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium text-foreground">
-                            {toPersianNumber(otp[index])}
-                          </div>
-                        )}
+              <div className="flex justify-center gap-2" dir="ltr">
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <div 
+                    key={index} 
+                    className={`
+                      relative w-12 h-14 rounded-xl border-2 flex items-center justify-center
+                      transition-all duration-200
+                      ${otp.length === index 
+                        ? 'border-primary ring-2 ring-primary/20' 
+                        : otp[index] 
+                          ? 'border-primary/50 bg-primary/5' 
+                          : 'border-border'
+                      }
+                    `}
+                  >
+                    <span className="text-xl font-semibold text-foreground">
+                      {otp[index] ? (isRTL ? toPersianNumber(otp[index]) : otp[index]) : ''}
+                    </span>
+                    {otp.length === index && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-0.5 h-6 bg-primary animate-pulse" />
                       </div>
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
+                    )}
+                  </div>
+                ))}
+                {/* Hidden input for OTP */}
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="absolute opacity-0 w-0 h-0"
+                  autoFocus
+                />
               </div>
+              {/* Clickable area to focus the hidden input */}
+              <input
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="sr-only"
+                id="otp-input"
+                autoFocus
+              />
               <div className="text-center">
-                <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {isRTL ? <>کد دریافت نکردید؟ <span className="text-primary font-medium">ارسال مجدد</span></> : <>Didn't receive code? <span className="text-primary font-medium">Resend</span></>}
-                </button>
+                {canResendOtp ? (
+                  <button 
+                    onClick={handleResendOtp}
+                    className="text-sm text-primary font-medium hover:underline transition-colors"
+                  >
+                    {isRTL ? "ارسال مجدد کد" : "Resend code"}
+                  </button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {isRTL 
+                      ? <>ارسال مجدد کد تا <span className="text-primary font-medium">{toPersianNumber(otpCountdown)}</span> ثانیه دیگر</>
+                      : <>Resend code in <span className="text-primary font-medium">{otpCountdown}</span> seconds</>
+                    }
+                  </p>
+                )}
               </div>
             </div>
 
@@ -394,7 +463,7 @@ export const CheckoutModalLocalized = ({
           </div>;
       case "address":
         return <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} onFocus={() => setCurrentSection("address")} dir={isRTL ? 'rtl' : 'ltr'}>
-            <StepHeader />
+            <StepHeader showBack onBack={() => setStep("otp")} />
             
             <AddressSelectorLocalized addresses={addresses} selectedAddress={selectedAddress} onSelectAddress={setSelectedAddress} onAddAddress={handleAddAddress} onEditAddress={handleEditAddress} onSetDefault={handleSetDefaultAddress} />
 
@@ -442,6 +511,14 @@ export const CheckoutModalLocalized = ({
             setStep("review");
             setCurrentSection("review");
           }} />
+
+            {/* Order Total Summary */}
+            <div className="bg-muted/20 p-4 rounded-xl border border-border/50">
+              <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <span className="font-medium text-foreground">{isRTL ? "مبلغ قابل پرداخت" : "Amount to Pay"}</span>
+                <span className="text-xl font-bold text-primary">{formatCurrency(finalTotal, language)}</span>
+              </div>
+            </div>
 
             {/* Payment Method Cards - Full Width Selectable */}
             <div className="space-y-3">
@@ -540,15 +617,6 @@ export const CheckoutModalLocalized = ({
               </div>
               
               <div className="border-t border-border/50 pt-4">
-                <p className={`text-sm text-muted-foreground mb-1 ${isRTL ? 'text-right' : ''}`}>
-                  {isRTL ? "روش پرداخت" : "Payment Method"}
-                </p>
-                <p className={`font-medium ${isRTL ? 'text-right' : ''}`}>
-                  {paymentMethod === "cod" ? isRTL ? "پرداخت در محل" : "Cash on Delivery" : paymentMethod === "gateway" ? isRTL ? "درگاه پرداخت" : "Payment Gateway" : isRTL ? "کارت به کارت" : "Card Transfer"}
-                </p>
-              </div>
-              
-              <div className="border-t border-border/50 pt-4">
                 <div className="space-y-3">
                   <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
                     <span className="text-sm text-muted-foreground">{t.orderSummary.subtotal}</span>
@@ -578,16 +646,13 @@ export const CheckoutModalLocalized = ({
             <AutoReorderOptionsLocalized />
 
 
-            <Button variant="checkout" className="w-full h-14 text-lg rounded-xl" onClick={handlePlaceOrder} disabled={isProcessing}>
-              {isProcessing ? <span className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {t.checkout.review.processing}
-                </span> : isRTL ? "ثبت سفارش و پرداخت" : t.checkout.review.placeOrder}
+            <Button variant="gradient" className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`} onClick={() => {
+              setStep("payment");
+              setCurrentSection("payment");
+            }}>
+              {isRTL ? "ادامه به پرداخت" : "Continue to Payment"} 
+              <ChevronIcon className={`w-5 h-5 ${isRTL ? 'mr-2' : 'ml-2'}`} />
             </Button>
-
-            <p className="text-xs text-center text-muted-foreground mt-2">
-              🔒 {isRTL ? "اطلاعات شما امن و رمزگذاری شده است" : "Your data is secure and encrypted"}
-            </p>
           </div>;
     }
   };
@@ -596,17 +661,22 @@ export const CheckoutModalLocalized = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
         <div className={`relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isRTL ? 'font-vazirmatn' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-          {/* Customizable Header Bar */}
-          {modeConfig?.header && <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border/50">
-              <h3 className={`text-lg font-semibold text-foreground ${isRTL ? 'text-right' : ''}`}>
-                {modeConfig.header.title}
-              </h3>
-              {modeConfig.header.subtitle && <p className={`text-sm text-muted-foreground mt-1 ${isRTL ? 'text-right' : ''}`}>
-                  {modeConfig.header.subtitle}
-                </p>}
-            </div>}
+          {/* Phone Step Header - Only visible on phone step */}
+          {step === "phone" && (
+            <div className="bg-gradient-to-r from-primary/5 to-primary/10 px-6 py-4 border-b border-border/50">
+              <div className={`flex items-center justify-center gap-2 text-sm font-medium text-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <Zap className="w-4 h-4 text-primary" />
+                <span>
+                  {isRTL 
+                    ? "سفارش خود را در ۱۰ ثانیه تکمیل کنید — بدون نیاز به ورود، سریع و امن"
+                    : "Complete your order in 10 seconds - No login required — fast & secure"
+                  }
+                </span>
+              </div>
+            </div>
+          )}
 
-          {/* Dynamic Banner */}
+          {/* Dynamic Banner - Not visible on phone/otp steps */}
           {step !== "phone" && step !== "otp" && <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-2.5 border-b border-border/50">
               <div className={`flex items-center justify-center gap-2 text-sm font-medium text-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
                 {getDynamicBanner().icon}

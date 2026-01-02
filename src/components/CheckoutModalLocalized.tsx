@@ -379,29 +379,34 @@ export const CheckoutModalLocalized = ({
         return <div className={`space-y-5 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
             <StepHeader />
             
-            {/* Discount Progress Bar */}
-            <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
-              <div className={`flex items-center justify-between mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <span className="text-sm font-medium text-foreground">
-                  {isDiscountUnlocked 
-                    ? (isRTL ? "🎉 ۱۵٪ تخفیف فعال شد!" : "🎉 15% discount unlocked!")
-                    : (isRTL ? "۱۵٪ تخفیف با سبد ۲ میلیون تومانی" : "15% off with ₹2M cart")
-                  }
-                </span>
-                {!isDiscountUnlocked && (
-                  <span className="text-xs text-muted-foreground">
-                    {isRTL 
-                      ? `${toPersianNumber(remainingForDiscount.toLocaleString())} تومان مانده`
-                      : `₹${remainingForDiscount.toLocaleString()} to go`
+            {/* Discount Progress Task */}
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+              <div className={`flex items-start gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDiscountUnlocked ? 'bg-accent/20' : 'bg-primary/10'}`}>
+                  <ShoppingBag className={`w-5 h-5 ${isDiscountUnlocked ? 'text-accent' : 'text-primary'}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium text-foreground ${isRTL ? 'text-right' : ''}`}>
+                    {isDiscountUnlocked 
+                      ? (isRTL ? "🎉 ۱۵٪ تخفیف فعال شد!" : "🎉 15% discount unlocked!")
+                      : (isRTL ? "سبد خود را به ۴ میلیون تومان برسانید و ۱۵٪ تخفیف بگیرید" : "Get 15% off by reaching ₹4M cart value")
                     }
-                  </span>
-                )}
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 rounded-full ${isDiscountUnlocked ? 'bg-accent' : 'bg-primary'}`}
-                  style={{ width: `${progressPercent}%` }}
-                />
+                  </p>
+                  {!isDiscountUnlocked && (
+                    <div className={`flex items-center gap-2 mt-1.5 text-xs text-muted-foreground ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                      <span>{isRTL ? toPersianNumber(cartSubtotal.toLocaleString()) : cartSubtotal.toLocaleString()}</span>
+                      <span>/</span>
+                      <span>{isRTL ? toPersianNumber(discountThreshold.toLocaleString()) : discountThreshold.toLocaleString()}</span>
+                      <span>{isRTL ? "تومان" : "₹"}</span>
+                    </div>
+                  )}
+                  <div className="h-2 bg-muted rounded-full overflow-hidden mt-2">
+                    <div 
+                      className={`h-full transition-all duration-500 rounded-full ${isDiscountUnlocked ? 'bg-accent' : 'bg-primary'}`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -424,20 +429,20 @@ export const CheckoutModalLocalized = ({
                     
                     {/* Controls beside photo */}
                     <div className="flex flex-col items-center justify-between flex-shrink-0">
-                      {/* Quantity Controls */}
-                      <div className={`flex flex-col items-center gap-0.5 bg-muted/50 rounded-lg p-0.5`}>
-                        <button 
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                          className="p-1.5 hover:bg-background rounded-md transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
+                      {/* Quantity Controls - Horizontal */}
+                      <div className={`flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5`}>
                         <button 
                           onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                           className="p-1.5 hover:bg-background rounded-md transition-colors"
                         >
                           <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
+                        <button 
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          className="p-1.5 hover:bg-background rounded-md transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       {/* Remove button */}

@@ -365,16 +365,20 @@ export const CheckoutModalLocalized = ({
                 {isRTL ? "کد ۶ رقمی را وارد کنید" : "Enter 6-digit OTP"}
               </Label>
               <div className="flex justify-center" dir="ltr">
-                <InputOTP maxLength={6} value={otp} onChange={value => setOtp(value)} render={({
-                slots
-              }) => <InputOTPGroup>
-                      {slots.map((slot, index) => <div key={index} className="relative">
-                          <InputOTPSlot index={index} {...slot} className={isRTL ? 'text-transparent' : ''} />
-                          {isRTL && slot.char && <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium text-foreground">
-                              {toPersianNumber(slot.char)}
-                            </div>}
-                        </div>)}
-                    </InputOTPGroup>} />
+                <InputOTP maxLength={6} value={otp} onChange={value => setOtp(value)}>
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                      <div key={index} className="relative">
+                        <InputOTPSlot index={index} className={isRTL ? 'text-transparent' : ''} />
+                        {isRTL && otp[index] && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-sm font-medium text-foreground">
+                            {toPersianNumber(otp[index])}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
               </div>
               <div className="text-center">
                 <button className="text-sm text-muted-foreground hover:text-primary transition-colors">

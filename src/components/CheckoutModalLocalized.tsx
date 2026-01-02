@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft, Minus, Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag, Truck } from "lucide-react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Truck } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -105,7 +105,6 @@ export const CheckoutModalLocalized = ({
   } = useLanguage();
   const [step, setStep] = useState<CheckoutStep>("cart");
   const [localCartItems, setLocalCartItems] = useState(cartItems);
-  const [isCouponExpanded, setIsCouponExpanded] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("gateway");
   const [deliveryMethod, setDeliveryMethod] = useState<string>("standard");
@@ -387,20 +386,47 @@ export const CheckoutModalLocalized = ({
                     key={item.id} 
                     className={`flex gap-3 p-3 rounded-xl border border-border/50 bg-card ${isRTL ? 'flex-row-reverse' : ''}`}
                   >
-                    {/* Product Thumbnail */}
-                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted/30 border border-border/30">
-                      <img src={item.image} alt={displayName} className="w-full h-full object-cover" />
+                    {/* Product Thumbnail + Controls Column */}
+                    <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted/30 border border-border/30">
+                        <img src={item.image} alt={displayName} className="w-full h-full object-cover" />
+                      </div>
+                      
+                      {/* Quantity Controls */}
+                      <div className={`flex items-center gap-0.5 bg-muted/50 rounded-lg p-0.5 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <button 
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          className="p-1.5 hover:bg-background rounded-md transition-colors"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
+                        <button 
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          className="p-1.5 hover:bg-background rounded-md transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     
                     {/* Product Info */}
                     <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : ''}`}>
-                      <h4 className="font-medium text-sm text-foreground line-clamp-1">{displayName}</h4>
+                      <div className={`flex items-start justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <h4 className="font-medium text-sm text-foreground line-clamp-2 flex-1">{displayName}</h4>
+                        <button 
+                          onClick={() => handleRemoveItem(item.id)}
+                          className={`p-1 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 ${isRTL ? 'mr-auto ml-0' : 'ml-auto mr-0'}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {isRTL ? "رنگ مشکی · حافظه ۱۲۸ گیگ" : "Black · 128GB"}
                       </p>
                       
                       {/* Price */}
-                      <div className={`flex items-center gap-2 mt-1.5 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                      <div className={`flex items-center gap-2 mt-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
                         <span className="font-semibold text-sm text-foreground">
                           {formatCurrency(item.price, language)}
                         </span>
@@ -409,32 +435,6 @@ export const CheckoutModalLocalized = ({
                             {formatCurrency(item.originalPrice!, language)}
                           </span>
                         )}
-                      </div>
-                    </div>
-                    
-                    {/* Quantity & Remove */}
-                    <div className={`flex flex-col items-end justify-between ${isRTL ? 'items-start' : ''}`}>
-                      <button 
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      
-                      <div className={`flex items-center gap-1 bg-muted/50 rounded-lg ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        <button 
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                          className="p-1.5 hover:bg-muted rounded transition-colors"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-medium">{displayQuantity}</span>
-                        <button 
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                          className="p-1.5 hover:bg-muted rounded transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -456,40 +456,29 @@ export const CheckoutModalLocalized = ({
               </span>
             </div>
 
-            {/* Coupon Section - Collapsible */}
-            <div className="rounded-xl border border-border/50 overflow-hidden">
-              <button 
-                onClick={() => setIsCouponExpanded(!isCouponExpanded)}
-                className={`w-full flex items-center justify-between p-3 hover:bg-muted/30 transition-colors ${isRTL ? 'flex-row-reverse' : ''}`}
-              >
-                <span className="text-sm font-medium text-foreground">
-                  {isRTL ? "افزودن کد تخفیف" : "Add coupon code"}
-                </span>
-                {isCouponExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-              </button>
-              
-              {isCouponExpanded && (
-                <div className="p-3 pt-0 border-t border-border/30">
-                  <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <Input 
-                      placeholder={isRTL ? "کد تخفیف" : "Enter code"}
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      className="flex-1 h-10"
-                      dir={isRTL ? 'rtl' : 'ltr'}
-                    />
-                    <Button variant="outline" size="sm" className="h-10 px-4">
-                      {isRTL ? "اعمال" : "Apply"}
-                    </Button>
-                  </div>
-                  {selectedCoupon && (
-                    <div className={`mt-2 p-2 rounded-lg bg-accent/5 flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <Check className="w-4 h-4 text-accent" />
-                      <span className="text-sm text-accent font-medium">
-                        {isRTL ? `${toPersianNumber(selectedCoupon.value?.toLocaleString() || '0')} تومان تخفیف اعمال شد` : `${selectedCoupon.value} saved!`}
-                      </span>
-                    </div>
-                  )}
+            {/* Coupon Section - Static Input */}
+            <div className="rounded-xl border border-border/50 p-3">
+              <span className={`text-sm font-medium text-foreground block mb-2 ${isRTL ? 'text-right' : ''}`}>
+                {isRTL ? "کد تخفیف" : "Discount code"}
+              </span>
+              <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <Input 
+                  placeholder={isRTL ? "کد تخفیف را وارد کنید" : "Enter code"}
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  className="flex-1 h-10"
+                  dir={isRTL ? 'rtl' : 'ltr'}
+                />
+                <Button variant="outline" size="sm" className="h-10 px-4">
+                  {isRTL ? "اعمال" : "Apply"}
+                </Button>
+              </div>
+              {selectedCoupon && (
+                <div className={`mt-2 p-2 rounded-lg bg-accent/5 flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <Check className="w-4 h-4 text-accent" />
+                  <span className="text-sm text-accent font-medium">
+                    {isRTL ? `${toPersianNumber(selectedCoupon.value?.toLocaleString() || '0')} تومان تخفیف اعمال شد` : `${selectedCoupon.value} saved!`}
+                  </span>
                 </div>
               )}
             </div>
@@ -874,8 +863,8 @@ export const CheckoutModalLocalized = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
         <div className={`relative bg-background rounded-2xl shadow-soft w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col ${isRTL ? 'font-vazirmatn' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-          {/* Phone Step Header - Only visible on phone step */}
-          {step === "phone" && (
+          {/* Cart/Phone Step Header - Visible on cart and phone steps */}
+          {(step === "cart" || step === "phone") && (
             <div className="bg-gradient-to-r from-primary to-primary/80 px-6 py-3 rounded-t-2xl">
               <div className={`flex items-center justify-center gap-2 text-sm font-medium text-primary-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Zap className="w-4 h-4" />

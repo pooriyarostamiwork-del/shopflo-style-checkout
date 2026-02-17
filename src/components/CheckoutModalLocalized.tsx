@@ -105,7 +105,7 @@ export const CheckoutModalLocalized = ({
   const [saveDetails, setSaveDetails] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
-  const [userName] = useState(isRTL ? "علی" : "Alex");
+  const [userName] = useState(isRTL ? "ایمان" : "Alex");
   const [displayedName, setDisplayedName] = useState("");
   const [processingProgress, setProcessingProgress] = useState(0);
   const [addedUpsells, setAddedUpsells] = useState<UpsellProduct[]>([]);
@@ -123,10 +123,10 @@ export const CheckoutModalLocalized = ({
 
   const [addresses, setAddresses] = useState<Address[]>([{
     id: "1",
-    name: isRTL ? "علی احمدی" : "Rahul Kumar",
-    phone: isRTL ? "09123456789" : "98765 43210",
-    line1: isRTL ? "خیابان ولیعصر، پلاک ۱۲۳" : "123, MG Road",
-    line2: isRTL ? "منطقه ۶" : "Koramangala",
+    name: isRTL ? "ایمان صادق‌زاده" : "Rahul Kumar",
+    phone: isRTL ? "09122752540" : "98765 43210",
+    line1: isRTL ? "خیابان حافظ شمالی، نبش زرتشت شرقی" : "123, MG Road",
+    line2: isRTL ? "سازمان فناوری اطلاعات شهرداری تهران، طبقه هشتم" : "Koramangala",
     city: isRTL ? "تهران" : "Bangalore",
     state: isRTL ? "تهران" : "Karnataka",
     pincode: isRTL ? "1234567890" : "560034",

@@ -289,12 +289,12 @@ export const skincareProducts: Product[] = [
 export const coffeeProducts: Product[] = [
   {
     id: 'cf1', name: 'اسپرسوساز دلونگی', price: 18500000, originalPrice: 21000000,
-    image: 'https://images.unsplash.com/photo-1585515320310-259814833e62?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=300&h=300&fit=crop',
     merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'cf2', name: 'آسیاب قهوه باراتزا', price: 8900000,
-    image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1587080413959-06b859fb107d?w=300&h=300&fit=crop',
     merchant: merchants[2], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
@@ -304,7 +304,7 @@ export const coffeeProducts: Product[] = [
   },
   {
     id: 'cf4', name: 'فنجان اسپرسو ست ۶ تایی', price: 950000,
-    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefda?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1517256064527-9d164d0667b0?w=300&h=300&fit=crop',
     merchant: merchants[0], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
@@ -314,7 +314,7 @@ export const coffeeProducts: Product[] = [
   },
   {
     id: 'cf6', name: 'کتابچه آموزش باریستا', price: 350000,
-    image: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=300&fit=crop',
     merchant: merchants[1], rating: 4.5, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
 ];
@@ -357,7 +357,7 @@ export const gamingProducts: Product[] = [
 export const babyProducts: Product[] = [
   {
     id: 'bb1', name: 'صندلی غذای کودک چیکو', price: 7200000, originalPrice: 8500000,
-    image: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1531983412531-1f49a365ffed?w=300&h=300&fit=crop',
     merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
@@ -372,12 +372,12 @@ export const babyProducts: Product[] = [
   },
   {
     id: 'bb4', name: 'پیش‌بند سیلیکونی با جیب', price: 380000,
-    image: 'https://images.unsplash.com/photo-1606791405792-1004f1718d0c?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1590080876351-941da357d5e0?w=300&h=300&fit=crop',
     merchant: merchants[0], rating: 4.4, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
   {
     id: 'bb5', name: 'لیوان آموزشی ۳۶۰ درجه', price: 550000,
-    image: 'https://images.unsplash.com/photo-1584839404428-3f8f0554cc34?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1590080875852-ba44e8e756e5?w=300&h=300&fit=crop',
     merchant: merchants[1], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
@@ -401,7 +401,7 @@ export const fitnessProducts: Product[] = [
   },
   {
     id: 'ft3', name: 'کش مقاومتی ست ۵ تایی', price: 650000,
-    image: 'https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1517344884509-a0c97ec11bcc?w=300&h=300&fit=crop',
     merchant: merchants[4], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
@@ -434,18 +434,18 @@ export const favorites: Product[] = [
 export const mockAddresses: DeliveryAddress[] = [
   {
     id: 'addr1',
-    title: 'خانه',
-    fullAddress: 'تهران، منطقه ۳، خیابان ولیعصر، کوچه گلستان، پلاک ۱۲، واحد ۴',
-    recipientName: 'علی محمدی',
-    phone: '۰۹۱۲۳۴۵۶۷۸۹',
+    title: 'محل کار',
+    fullAddress: 'تهران، خیابان حافظ شمالی، نبش زرتشت شرقی، سازمان فناوری اطلاعات شهرداری تهران، طبقه هشتم',
+    recipientName: 'ایمان صادق‌زاده',
+    phone: '۰۹۱۲۲۷۵۲۵۴۰',
     isDefault: true,
   },
   {
     id: 'addr2',
-    title: 'محل کار',
+    title: 'خانه',
     fullAddress: 'تهران، میدان آرژانتین، خیابان احمد قصیر، ساختمان برج آبی، طبقه ۵',
-    recipientName: 'علی محمدی',
-    phone: '۰۹۱۲۳۴۵۶۷۸۹',
+    recipientName: 'ایمان صادق‌زاده',
+    phone: '۰۹۱۲۲۷۵۲۵۴۰',
   },
 ];
 

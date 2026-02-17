@@ -18,9 +18,9 @@ interface AccountPanelProps {
 }
 
 const userProfile = {
-  name: 'علی محمدی',
-  phone: '۰۹۱۲۳۴۵۶۷۸۹',
-  email: 'ali@example.com',
+  name: 'ایمان صادق‌زاده',
+  phone: '۰۹۱۲۲۷۵۲۵۴۰',
+  email: 'iman@example.com',
 };
 
 const getStatusLabel = (status: OrderStatus) => {

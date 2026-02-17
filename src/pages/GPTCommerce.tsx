@@ -896,6 +896,17 @@ const GPTCommerceContent = () => {
     // Simply switch - state is already stored in basketStates[basketId]
     setActiveBasketId(basketId);
     setActiveSection('active-cart');
+    // Ensure the basket opens in chat mode (not landing) if it has conversation history
+    setBasketStates(prev => {
+      const bs = prev[basketId];
+      if (bs && bs.messages.length > 1) {
+        return { ...prev, [basketId]: { ...bs, hasStartedChat: true } };
+      }
+      if (bs) {
+        return { ...prev, [basketId]: { ...bs, hasStartedChat: true } };
+      }
+      return prev;
+    });
   }, []);
 
   // Collapse cart sidebar when switching to non-basket sections

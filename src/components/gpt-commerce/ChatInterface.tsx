@@ -244,7 +244,10 @@ export const ChatInterface = ({
         >
           <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
           <div className="flex items-center gap-3">
-            <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
+              <span className="text-foreground/80">تا صد میلیون خیال جمع — فلوکارت هست، پول کم؟ کم‌کم!</span>
+              <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
+            </div>
             <button
               onClick={onSignIn}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:border-primary/20"
@@ -443,9 +446,10 @@ export const ChatInterface = ({
         }}
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-        {appliedCoupons.length < 4 && (
-          <CouponChips onApplyCoupon={handleApplyCoupon} appliedCoupons={appliedCoupons} />
-        )}
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
+          <span className="text-foreground/80">تا صد میلیون خیال جمع — فلوکارت هست، پول کم؟ کم‌کم!</span>
+          <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
+        </div>
       </div>
 
       {/* Messages Area */}

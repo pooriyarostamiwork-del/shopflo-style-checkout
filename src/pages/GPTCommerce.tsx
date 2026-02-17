@@ -129,7 +129,10 @@ const getInitialBasketStates = (): Record<string, BasketState> => {
 const getInitialGlobalAddresses = (): DeliveryAddress[] => {
   try {
     const stored = localStorage.getItem(GLOBAL_ADDRESSES_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch (e) { console.error('Failed to load global addresses:', e); }
   return [...mockAddresses];
 };

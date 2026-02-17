@@ -369,11 +369,17 @@ export const CheckoutModalLocalized = ({
                   }
                 </p>
                 {!isDiscountUnlocked && (
-                  <div className={`flex items-center gap-2 mt-1.5 text-xs text-muted-foreground ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
-                    <span>{isRTL ? toPersianNumber(cartSubtotal.toLocaleString()) : cartSubtotal.toLocaleString()}</span>
-                    <span>/</span>
-                    <span>{isRTL ? toPersianNumber(discountThreshold.toLocaleString()) : discountThreshold.toLocaleString()}</span>
-                    <span>{isRTL ? "تومان" : "₹"}</span>
+                  <div className={`mt-1.5 text-xs text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
+                    {isRTL ? (
+                      <span>
+                        <span dir="ltr" className="inline-block unicode-bidi-isolate">{toPersianNumber(cartSubtotal.toLocaleString())}</span>
+                        {" / "}
+                        <span dir="ltr" className="inline-block unicode-bidi-isolate">{toPersianNumber(discountThreshold.toLocaleString())}</span>
+                        {" تومان"}
+                      </span>
+                    ) : (
+                      <span>{cartSubtotal.toLocaleString()} / {discountThreshold.toLocaleString()} ₹</span>
+                    )}
                   </div>
                 )}
                 <div className="h-2 bg-muted rounded-full overflow-hidden mt-2">
@@ -431,7 +437,7 @@ export const CheckoutModalLocalized = ({
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {isRTL ? "رنگ مشکی · حافظه ۱۲۸ گیگ" : "Black · 128GB"}
                     </p>
-                    <div className={`flex items-center gap-2 mt-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                    <div className={`flex items-center gap-2 mt-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                       <span className="font-semibold text-sm text-foreground">
                         {formatCurrency(item.price, language)}
                       </span>
@@ -573,9 +579,15 @@ export const CheckoutModalLocalized = ({
         return <div className={`space-y-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
           <StepHeader showBack onBack={() => setStep("phone")} />
           <div className="text-center mb-8">
-            <p className="text-muted-foreground" dir="ltr">
-              {isRTL ? `کد ارسال شده به ` : `Code sent to +91 `}
-              <span dir="ltr" className="inline-block">{isRTL ? toPersianNumber(phoneNumber.slice(0, 4) + ' ' + phoneNumber.slice(4, 7) + ' ' + phoneNumber.slice(7)) : phoneNumber}</span>
+            <p className="text-muted-foreground" dir={isRTL ? 'rtl' : 'ltr'}>
+              {isRTL ? (
+                <>
+                  <span>کد ارسال شده به </span>
+                  <span dir="ltr" className="inline-block" style={{ unicodeBidi: 'isolate' }}>{toPersianNumber(phoneNumber.slice(0, 4) + ' ' + phoneNumber.slice(4, 7) + ' ' + phoneNumber.slice(7))}</span>
+                </>
+              ) : (
+                <>Code sent to +91 {phoneNumber}</>
+              )}
             </p>
             <button onClick={() => setStep("phone")} className="text-primary text-sm font-medium hover:underline mt-2">
               {isRTL ? "تغییر شماره" : "Change number"}
@@ -703,10 +715,10 @@ export const CheckoutModalLocalized = ({
               </p>
               {selectedAddress ? <div className={isRTL ? 'text-right' : ''}>
                 <p className="font-medium">
-                  {selectedAddress.name}، {isRTL ? formatPhoneDisplay(selectedAddress.phone) : `+91 ${selectedAddress.phone}`}
+                  {selectedAddress.name}، {isRTL ? <span dir="ltr" className="inline-block" style={{ unicodeBidi: 'isolate' }}>{formatPhoneDisplay(selectedAddress.phone)}</span> : `+91 ${selectedAddress.phone}`}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedAddress.line1}، {selectedAddress.line2}، {selectedAddress.city} - {isRTL ? toPersianNumber(selectedAddress.pincode) : selectedAddress.pincode}
+                  {selectedAddress.line1}، {selectedAddress.line2}، {selectedAddress.city} - {isRTL ? <span dir="ltr" className="inline-block" style={{ unicodeBidi: 'isolate' }}>{toPersianNumber(selectedAddress.pincode)}</span> : selectedAddress.pincode}
                 </p>
               </div> : <p className="font-medium">{isRTL ? "آدرسی انتخاب نشده" : "No address selected"}</p>}
             </div>
@@ -853,7 +865,7 @@ export const CheckoutModalLocalized = ({
                   <Zap className="w-5 h-5" />
                 </div>
                 <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                     <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-500 border border-red-200 whitespace-nowrap">
                       {isRTL ? "۵٪ تخفیف تا سقف ۱۰۰ هزار تومان" : "5% off up to 100K"}
                     </span>

@@ -94,7 +94,11 @@ serve(async (req) => {
                         name: { type: "string", description: "Product name in Persian/Farsi" },
                         price: { type: "number", description: "Current price in Toman (without comma separators)" },
                         original_price: { type: "number", description: "Original price before discount in Toman, null if no discount" },
-                        image_url: { type: "string", description: "Product image URL" },
+                        image_url: { type: "string", description: "Product main/thumbnail image URL" },
+                        image_urls: { type: "array", items: { type: "string" }, description: "All product image URLs from the gallery" },
+                        description: { type: "string", description: "Full product description in Persian from the product page" },
+                        specs: { type: "array", items: { type: "object", properties: { label: { type: "string" }, value: { type: "string" } } }, description: "Technical specifications as label/value pairs" },
+                        reviews_summary: { type: "string", description: "Summary of user reviews in Persian" },
                         brand: { type: "string", description: "Brand name" },
                         rating: { type: "number", description: "Rating out of 5" },
                         review_count: { type: "number", description: "Number of reviews" },
@@ -133,24 +137,30 @@ serve(async (req) => {
         }
 
         // Map to database schema
-        const dbProducts = products.map((p: any, idx: number) => ({
-          name: p.name || "محصول بدون نام",
-          description: p.description || "",
-          price: typeof p.price === "number" ? Math.round(p.price) : 0,
-          original_price: p.original_price && typeof p.original_price === "number" ? Math.round(p.original_price) : null,
-          image_url: p.image_url || "",
-          category: cat.category,
-          subcategory: cat.subcategory,
-          brand: p.brand || null,
-          merchant_id: MERCHANTS[idx % MERCHANTS.length], // Distribute across merchants
-          rating: p.rating && typeof p.rating === "number" ? Math.min(5, Math.max(1, p.rating)) : 4.0 + Math.random() * 0.9,
-          review_count: p.review_count || Math.floor(Math.random() * 500) + 10,
-          in_stock: p.in_stock !== false,
-          fast_delivery: p.fast_delivery || Math.random() > 0.4,
-          return_guarantee: Math.random() > 0.2,
-          tags: [cat.category, cat.subcategory, p.brand].filter(Boolean),
-          source_url: p.source_url || null,
-        })).filter((p: any) => p.price > 0 && p.name !== "محصول بدون نام");
+        const dbProducts = products.map((p: any, idx: number) => {
+          const imageUrls = Array.isArray(p.image_urls) ? p.image_urls.filter((u: string) => u && u.startsWith('http')) : [];
+          return {
+            name: p.name || "محصول بدون نام",
+            description: p.description || "",
+            price: typeof p.price === "number" ? Math.round(p.price) : 0,
+            original_price: p.original_price && typeof p.original_price === "number" ? Math.round(p.original_price) : null,
+            image_url: imageUrls[0] || p.image_url || "",
+            image_urls: imageUrls,
+            specs: Array.isArray(p.specs) ? p.specs : [],
+            reviews_summary: p.reviews_summary || "",
+            category: cat.category,
+            subcategory: cat.subcategory,
+            brand: p.brand || null,
+            merchant_id: MERCHANTS[idx % MERCHANTS.length],
+            rating: p.rating && typeof p.rating === "number" ? Math.min(5, Math.max(1, p.rating)) : 4.0 + Math.random() * 0.9,
+            review_count: p.review_count || Math.floor(Math.random() * 500) + 10,
+            in_stock: p.in_stock !== false,
+            fast_delivery: p.fast_delivery || Math.random() > 0.4,
+            return_guarantee: Math.random() > 0.2,
+            tags: [cat.category, cat.subcategory, p.brand].filter(Boolean),
+            source_url: p.source_url || null,
+          };
+        }).filter((p: any) => p.price > 0 && p.name !== "محصول بدون نام");
 
         // Insert into database
         if (dbProducts.length > 0) {

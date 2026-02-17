@@ -10,6 +10,10 @@ export interface Product {
   price: number;
   originalPrice?: number;
   image: string;
+  imageUrls?: string[];
+  description?: string;
+  specs?: Array<{label: string; value: string}>;
+  reviewsSummary?: string;
   merchant: Merchant;
   rating: number;
   fastDelivery: boolean;

@@ -23,6 +23,7 @@ export type Database = {
           fast_delivery: boolean
           id: string
           image_url: string
+          image_urls: string[] | null
           in_stock: boolean
           merchant_id: string
           name: string
@@ -31,8 +32,10 @@ export type Database = {
           rating: number
           return_guarantee: boolean
           review_count: number
+          reviews_summary: string | null
           search_vector: unknown
           source_url: string | null
+          specs: Json | null
           subcategory: string | null
           tags: string[] | null
         }
@@ -44,6 +47,7 @@ export type Database = {
           fast_delivery?: boolean
           id?: string
           image_url?: string
+          image_urls?: string[] | null
           in_stock?: boolean
           merchant_id?: string
           name: string
@@ -52,8 +56,10 @@ export type Database = {
           rating?: number
           return_guarantee?: boolean
           review_count?: number
+          reviews_summary?: string | null
           search_vector?: unknown
           source_url?: string | null
+          specs?: Json | null
           subcategory?: string | null
           tags?: string[] | null
         }
@@ -65,6 +71,7 @@ export type Database = {
           fast_delivery?: boolean
           id?: string
           image_url?: string
+          image_urls?: string[] | null
           in_stock?: boolean
           merchant_id?: string
           name?: string
@@ -73,8 +80,10 @@ export type Database = {
           rating?: number
           return_guarantee?: boolean
           review_count?: number
+          reviews_summary?: string | null
           search_vector?: unknown
           source_url?: string | null
+          specs?: Json | null
           subcategory?: string | null
           tags?: string[] | null
         }

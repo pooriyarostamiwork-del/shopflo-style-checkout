@@ -35,6 +35,11 @@ import {
   DeliveryAddress,
   calculateOrderSummary,
   toPersianNumber,
+  skincareProducts,
+  coffeeProducts,
+  gamingProducts,
+  babyProducts,
+  fitnessProducts,
 } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 
@@ -632,6 +637,26 @@ const GPTCommerceContent = () => {
         } else {
           responseContent = 'سبد خریدت خالیه! اول یه چیزی به سبد اضافه کن.';
         }
+      } else if (content.includes('هدیه') || content.includes('مراقبت پوست') || content.includes('کرم') || content.includes('زیبایی') || content.includes('آرایشی') || content.includes('مادر')) {
+        responseContent = 'برای هدیه این محصولات عالین! 🎁 مخصوصاً اگه پوست حساسی داره، سراوی و لاروش پوزای انتخاب‌های فوق‌العاده‌ای هستن. ست هدیه بادی شاپ هم بسته‌بندی خیلی شیکی داره.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
+        products = skincareProducts;
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
+      } else if (content.includes('قهوه') || content.includes('اسپرسو') || content.includes('باریستا') || content.includes('کافی')) {
+        responseContent = 'عالیه که قهوه‌خور شدی! ☕ یه ست کامل برات آماده کردم: از اسپرسوساز و آسیاب گرفته تا دونه قهوه و فنجان. با این ست می‌تونی خونه‌ت رو تبدیل به کافه کنی!\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
+        products = coffeeProducts;
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
+      } else if (content.includes('گیمینگ') || content.includes('بازی') || content.includes('مانیتور') || content.includes('کیبورد') || content.includes('ست گیمینگ')) {
+        responseContent = 'یه ست گیمینگ حرفه‌ای برات چیدم! 🎮 مانیتور ۲۷ اینچ ایسوس با کیبورد ریزر و موس لاجیتک ترکیب خیلی خوبیه. اگه بودجه‌ت محدوده بگو تا بهینه‌ش کنم.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
+        products = gamingProducts;
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
+      } else if (content.includes('بچه') || content.includes('کودک') || content.includes('نوزاد') || content.includes('صندلی غذا') || content.includes('سیسمونی')) {
+        responseContent = 'برای کوچولوت بهترین‌ها رو انتخاب کردم! 👶 همه محصولات BPA-free و استاندارد ایمنی دارن. صندلی چیکو برای ۶ ماه به بالا عالیه و ظرف‌های بامبو هم کاملاً بهداشتی هستن.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
+        products = babyProducts;
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
+      } else if (content.includes('ورزش') || content.includes('فیتنس') || content.includes('بدنسازی') || content.includes('دمبل') || content.includes('یوگا')) {
+        responseContent = 'عالیه که می‌خوای ورزش رو شروع کنی! 💪 یه پک شروع کامل برات آماده کردم. ساعت هوشمند شیائومی هم برای ترک پیشرفتت خیلی کمک‌کننده‌ست.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
+        products = fitnessProducts;
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
       } else if (content.includes('هدفون') || content.includes('ایرپاد') || content.includes('می‌خوام') || content.includes('میخوام')) {
         responseContent = 'این محصولات رو پیدا کردم که فکر می‌کنم بهت می‌خوره:\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
         products = mockProducts.filter(p => p.name.includes('هدفون') || p.name.includes('ایرپاد'));
@@ -645,7 +670,7 @@ const GPTCommerceContent = () => {
           responseContent = 'سفارش فعالی نداری. می‌خوای یه خرید جدید شروع کنیم؟';
         }
       } else {
-        responseContent = 'بگو دنبال چی می‌گردی تا بهترین گزینه‌ها رو پیدا کنم! می‌تونی بگی مثلاً:\n• هدفون بی‌سیم می‌خوام\n• گوشی با قیمت مناسب\n• لپ‌تاپ برای کار\n\nیا شماره محصول رو بگو تا به سبدت اضافه کنم.';
+        responseContent = 'بگو دنبال چی می‌گردی تا بهترین گزینه‌ها رو پیدا کنم! می‌تونی بگی مثلاً:\n• یه هدیه برای مادرم می‌خوام 🎁\n• قهوه‌خور شدم، چی لازمه؟ ☕\n• با ۲۰ میلیون ست گیمینگ می‌خوام 🎮\n• وسایل غذاخوری بچه ۶ ماهه 👶\n• می‌خوام ورزش رو شروع کنم 💪\n• هدفون بی‌سیم می‌خوام 🎧';
       }
 
       const assistantMessage: ChatMessage = {

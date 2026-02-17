@@ -1,123 +1,171 @@
 
 
-# Add Intent-Driven Product Groups for Agentic Commerce
+# AI-Powered Product Search for /gptcommerce
 
-Currently, the `/gptcommerce` page only has **one product category** (headphones - 6 items) and the chat only responds to "هدفون" or "ایرپاد" queries. This severely limits the demo's ability to showcase agentic shopping value.
+## Overview
 
-This plan adds **5 new product groups**, each designed around a specific **user intent** that highlights why AI-driven shopping beats traditional browse-and-filter ecommerce.
+Transform the /gptcommerce chat from hardcoded keyword matching (36 products, 6 categories) into a real AI-powered shopping assistant backed by a database of 10,000+ products scraped from Digikala.
 
----
+## Phase 1: Infrastructure Setup
 
-## New Product Groups & Intents
+### 1.1 Enable Lovable Cloud
+- Activate Cloud for database, edge functions, and secrets management
+- This gives us Supabase (Postgres DB + Edge Functions) and auto-provisions `LOVABLE_API_KEY`
 
-### 1. Skincare / Beauty - "Gift Recommendation" Intent
-**Demo prompt:** "یه هدیه برای مادرم می‌خوام، به پوستش حساسه"
-**Why agentic wins:** Traditional ecommerce can't understand "gift for mom with sensitive skin." The agent interprets context (gift, recipient persona, skin sensitivity) and curates a bundle.
+### 1.2 Connect Firecrawl
+- Link the Firecrawl connector to the project for web scraping capabilities
+- This injects `FIRECRAWL_API_KEY` as an environment variable
 
-**Products (6 items):**
-- ست مراقبت پوست سراوی (CeraVe) - ۲,۸۰۰,۰۰۰ تومان
-- سرم ویتامین C اوردینری - ۱,۹۰۰,۰۰۰ تومان  
-- کرم مرطوب‌کننده لاروش پوزای - ۳,۵۰۰,۰۰۰ تومان
-- ماسک ورقه‌ای کره‌ای (بسته ۱۰ عددی) - ۸۵۰,۰۰۰ تومان
-- ست هدیه بادی شاپ - ۴,۲۰۰,۰۰۰ تومان
-- روغن آرگان خالص - ۱,۲۰۰,۰۰۰ تومان
+## Phase 2: Database Schema
 
-### 2. Coffee & Kitchen - "Routine Optimization" Intent
-**Demo prompt:** "قهوه‌خور شدم، چی لازمه برای شروع؟"
-**Why agentic wins:** Instead of searching "coffee maker" then "grinder" then "beans" separately, the agent understands the full intent ("I'm starting coffee as a hobby") and recommends a complete starter kit across categories.
+### 2.1 Create `products` table
 
-**Products (6 items):**
-- اسپرسوساز دلونگی - ۱۸,۵۰۰,۰۰۰ تومان
-- آسیاب قهوه باراتزا - ۸,۹۰۰,۰۰۰ تومان
-- قهوه تازه‌رست ایلی (۱ کیلو) - ۱,۴۰۰,۰۰۰ تومان
-- فنجان اسپرسو ست ۶ تایی - ۹۵۰,۰۰۰ تومان
-- تمپر و توزیع‌کننده قهوه - ۶۵۰,۰۰۰ تومان
-- کتابچه آموزش باریستا - ۳۵۰,۰۰۰ تومان
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid (PK) | Auto-generated |
+| name | text | Persian product name |
+| description | text | Persian description |
+| price | integer | Price in Toman |
+| original_price | integer (nullable) | Original price for discount display |
+| image_url | text | Product image URL |
+| category | text | Top-level category |
+| subcategory | text (nullable) | Subcategory |
+| brand | text (nullable) | Brand name |
+| merchant_id | text | References merchant (m1-m5) |
+| rating | numeric | 1.0-5.0 |
+| review_count | integer | Number of reviews |
+| in_stock | boolean | Availability |
+| fast_delivery | boolean | Express shipping available |
+| return_guarantee | boolean | Return policy |
+| tags | text[] | Persian search keywords |
+| source_url | text (nullable) | Original Digikala URL |
+| created_at | timestamptz | Auto-generated |
 
-### 3. Gaming Setup - "Budget-Constrained Bundle" Intent
-**Demo prompt:** "با ۲۰ میلیون یه ست گیمینگ می‌خوام"
-**Why agentic wins:** The agent respects a hard budget constraint, allocates spend optimally across monitor + keyboard + mouse + headset, and explains trade-offs -- impossible with traditional category filters.
+### 2.2 Full-text search index
+- Create a GIN index on `name`, `description`, and `tags` for fast Persian text search
+- Add a `search_vector` tsvector column with a trigger to auto-update
 
-**Products (6 items):**
-- مانیتور گیمینگ ایسوس ۲۷ اینچ - ۹,۸۰۰,۰۰۰ تومان
-- کیبورد مکانیکی ریزر - ۳,۲۰۰,۰۰۰ تومان
-- موس گیمینگ لاجیتک G Pro - ۲,۸۰۰,۰۰۰ تومان
-- هدست گیمینگ هایپرایکس - ۲,۵۰۰,۰۰۰ تومان
-- پد موس بزرگ RGB - ۸۵۰,۰۰۰ تومان
-- صندلی گیمینگ DXRacer - ۱۲,۵۰۰,۰۰۰ تومان
+## Phase 3: Digikala Scraping Pipeline
 
-### 4. Baby & Kids - "Safety-First Decision" Intent
-**Demo prompt:** "بچه‌م ۶ ماهشه، صندلی غذا و وسایل غذاخوری می‌خوام"
-**Why agentic wins:** The agent factors in age-appropriateness, safety certifications, and material safety (BPA-free) -- nuances that traditional filters can't capture. Shows trust-building through expert recommendations.
+### 3.1 Edge Function: `scrape-digikala`
 
-**Products (6 items):**
-- صندلی غذای کودک چیکو - ۷,۲۰۰,۰۰۰ تومان
-- ست ظرف غذای بامبو - ۱,۱۰۰,۰۰۰ تومان
-- قاشق سیلیکونی حساس به دما (ست ۴ تایی) - ۴۵۰,۰۰۰ تومان
-- پیش‌بند سیلیکونی با جیب - ۳۸۰,۰۰۰ تومان
-- لیوان آموزشی ۳۶۰ درجه - ۵۵۰,۰۰۰ تومان
-- کتاب راهنمای تغذیه تکمیلی - ۲۸۰,۰۰۰ تومان
+A pipeline edge function that:
 
-### 5. Fitness & Wellness - "Lifestyle Transition" Intent
-**Demo prompt:** "می‌خوام ورزش رو شروع کنم، از کجا شروع کنم؟"
-**Why agentic wins:** Understands vague, aspirational intent. Instead of dumping "fitness" category products, the agent asks clarifying questions and builds a personalized starter pack based on fitness level and goals.
+1. Uses Firecrawl's **map** endpoint to discover product URLs from Digikala category pages
+2. Uses Firecrawl's **scrape** with JSON extraction to pull structured product data (name, price, image, specs, rating)
+3. Inserts products into the `products` table
 
-**Products (6 items):**
-- دمبل قابل تنظیم ست - ۴,۵۰۰,۰۰۰ تومان
-- مت یوگا حرفه‌ای - ۱,۲۰۰,۰۰۰ تومان
-- کش مقاومتی ست ۵ تایی - ۶۵۰,۰۰۰ تومان
-- ساعت هوشمند شیائومی Band 8 - ۲,۸۰۰,۰۰۰ تومان
-- بطری آب ورزشی ۱ لیتری - ۳۵۰,۰۰۰ تومان
-- پودر پروتئین وی ۱ کیلویی - ۱,۸۰۰,۰۰۰ تومان
+Target categories (10+ URLs per category):
+- Electronics (laptops, phones, headphones, smartwatches)
+- Home & Kitchen (appliances, cookware, decor)
+- Beauty & Personal Care (skincare, makeup, fragrance)
+- Fashion (clothing, shoes, accessories)
+- Sports & Fitness (equipment, supplements, apparel)
+- Baby & Kids (feeding, toys, safety)
+- Books & Stationery
+- Food & Grocery (coffee, tea, snacks)
+- Gaming (peripherals, consoles, accessories)
+- Tools & Garden
 
----
+### 3.2 Scraping Strategy
 
-## Technical Changes
+Each Digikala category page lists ~20-40 products. We target:
+- ~30 category/subcategory URLs
+- ~20-40 products per page
+- Multiple pages per category via pagination
+- Target: 10,000+ unique products
 
-### File 1: `src/data/gptCommerceData.ts`
+The scrape function will be invokable manually (or via a simple admin trigger) to populate the database. It runs in batches to stay within Firecrawl rate limits.
 
-**Add 2 new merchants** to support the new categories:
-- `m4`: "آرایشی‌بهداشتی آنلاین" (Health & Beauty marketplace)
-- `m5`: "کالای ورزشی پرو" (Sports D2C)
+## Phase 4: AI Agent Edge Function
 
-**Add 30 new products** (6 per category) to `mockProducts` array with:
-- Persian names, realistic Toman prices
-- Unsplash images matching each product
-- Distributed across merchants (m1-m5)
-- Categories: `skincare`, `coffee`, `gaming`, `baby`, `fitness`
-- Proper `rating`, `fastDelivery`, `returnGuarantee`, `originalPrice` (for some)
+### 4.1 Edge Function: `gpt-commerce-agent`
 
-### File 2: `src/pages/GPTCommerce.tsx`
+Uses Lovable AI (Gemini 3 Flash) with **tool calling** for natural language shopping.
 
-**Update `handleSendMessage`** (around line 635-648) to recognize new intent keywords:
+**System prompt** (in Persian): Acts as Flowcart shopping assistant, understands Persian queries, provides contextual product recommendations.
 
-Current matching logic only handles:
+**Tools available to the AI:**
+
+| Tool | Parameters | What it does |
+|------|-----------|--------------|
+| `search_products` | query, category?, max_price?, min_rating? | Full-text search on products table, returns top 6 matches |
+| `get_product_details` | product_id | Returns full product info for a specific item |
+| `recommend_products` | intent (gift/routine/budget/safety/lifestyle) | Returns curated recommendations based on shopping intent |
+
+The AI returns structured JSON responses that the frontend renders:
+- Text response (Persian)
+- Product list (array of product objects)
+- Quick replies (suggested follow-up actions)
+
+### 4.2 Response Format
+
+The edge function returns a JSON object:
+```text
+{
+  "content": "Persian text response",
+  "products": [...],  // Array of product objects from DB
+  "quickReplies": [...],  // Optional suggested actions
+}
 ```
-content.includes('هدفون') || content.includes('ایرپاد')
-```
 
-Expand to match:
-- **Skincare/Gift:** هدیه, مراقبت پوست, کرم, زیبایی, آرایشی, مادر
-- **Coffee:** قهوه, اسپرسو, باریستا, کافی
-- **Gaming:** گیمینگ, بازی, مانیتور, کیبورد, ست گیمینگ
-- **Baby:** بچه, کودک, نوزاد, صندلی غذا, سیسمونی
-- **Fitness:** ورزش, فیتنس, بدنسازی, دمبل, یوگا
+No streaming needed for this use case since we need structured tool-call results, not free-form text.
 
-Each category returns a contextual agent response that demonstrates intent understanding, not just keyword matching. For example:
-- Gift intent: "برای هدیه مادرت این محصولات عالین، مخصوصاً اگه پوست حساسی داره..."
-- Budget intent: "با ۲۰ میلیون این ست رو می‌تونم پیشنهاد بدم..."
-- Lifestyle intent: "عالیه که می‌خوای ورزش رو شروع کنی! این وسایل پایه‌ای رو نیاز داری..."
+## Phase 5: Frontend Integration
 
-Also update the **default fallback message** (line 648) to include the new example prompts.
+### 5.1 Update `GPTCommerce.tsx`
 
----
+Replace the hardcoded `handleSendMessage` logic (lines ~500-690) with:
 
-## Summary
+1. Send user message to `gpt-commerce-agent` edge function
+2. Parse structured response
+3. Map DB products to existing `Product` interface
+4. Render using existing `ChatProductCard` components
+5. Cart/checkout/address flows remain unchanged (client-side)
 
-| What | Where | Lines |
-|------|-------|-------|
-| Add 2 merchants + 30 products | `gptCommerceData.ts` | After existing mockProducts |
-| Add keyword matching for 5 new categories | `GPTCommerce.tsx` | Lines ~635-648 |
-| Add contextual agent responses per intent | `GPTCommerce.tsx` | Lines ~635-648 |
-| Update fallback help text with new examples | `GPTCommerce.tsx` | Line ~648 |
+### 5.2 Product Interface Mapping
+
+The DB product schema maps directly to the existing `Product` interface:
+- `merchant_id` maps to the existing `merchants` array (m1-m5)
+- Images come from Digikala's CDN (scraped URLs)
+- Prices are already in Toman
+
+### 5.3 What stays the same
+- All cart management (add/remove/quantity)
+- Checkout flow via Flowcart modal
+- Address/payment selection
+- Basket/sidebar management
+- Product card rendering (ChatProductCard)
+- Landing page carousels (keep existing mock products for carousel display)
+
+### 5.4 What changes
+- Chat message handling: API call instead of keyword matching
+- Product results come from DB instead of hardcoded arrays
+- AI understands any Persian query, not just predefined keywords
+- Fallback: if edge function fails, gracefully show error message
+
+## Phase 6: Landing Page Carousels
+
+Keep the existing mock products for the landing carousels (they work well for the demo), but add a "search all products" prompt in the chat suggestions that demonstrates the full AI search capability.
+
+## Implementation Order
+
+1. Enable Lovable Cloud
+2. Connect Firecrawl
+3. Create `products` table migration
+4. Build `scrape-digikala` edge function
+5. Run initial scrape to populate DB
+6. Build `gpt-commerce-agent` edge function with Lovable AI + tool calling
+7. Update `GPTCommerce.tsx` to call the agent
+8. Test end-to-end
+
+## Technical Details
+
+- **AI Model**: google/gemini-3-flash-preview (default, fast and capable)
+- **Database**: Supabase Postgres via Lovable Cloud
+- **Scraping**: Firecrawl connector (JSON extraction mode)
+- **Product Search**: Postgres full-text search with Persian tsvector
+- **Edge Functions**: 2 new functions (`scrape-digikala`, `gpt-commerce-agent`)
+- **Frontend**: Minimal changes -- only `handleSendMessage` in `GPTCommerce.tsx` is rewritten
+- **No breaking changes**: All existing UI components, cart logic, and checkout flows are preserved
 

@@ -112,9 +112,10 @@ const getInitialBasketStates = (): Record<string, BasketState> => {
     const stored = localStorage.getItem(BASKET_STATES_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Rehydrate Date objects in messages
+      // Rehydrate Date objects in messages and reset hasStartedChat so landing page shows on refresh
       for (const key of Object.keys(parsed)) {
         const bs = parsed[key];
+        bs.hasStartedChat = false;
         if (bs.messages) {
           bs.messages = bs.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
         }

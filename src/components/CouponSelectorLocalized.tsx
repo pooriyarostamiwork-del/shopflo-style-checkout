@@ -45,8 +45,8 @@ export const CouponSelectorLocalized = ({
         onClick={() => setIsOpen(true)}
         className="w-full p-4 rounded-xl bg-muted/20 border border-border/50 hover:border-primary/30 transition-all"
       >
-        <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
               <Tag className="w-4 h-4 text-primary" />
             </div>

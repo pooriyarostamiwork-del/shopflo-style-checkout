@@ -15,16 +15,15 @@ interface PDPProductComponentProps {
   showImageNavigation?: boolean; // Enable image navigation for PDP page
 }
 
-// Generate dynamic supplier prices based on product price (±10%)
-const getOtherSuppliers = (productPrice: number) => {
+// Generate random supplier prices based on product price (±10%)
+const generateSupplierPrices = (productPrice: number) => {
   const names = [
     { id: 's1', name: 'دیجی‌استور', logo: '🏪', deliverySummary: '۳ تا ۵ روز کاری' },
     { id: 's2', name: 'تکنوشاپ', logo: '🛒', deliverySummary: 'ارسال اکسپرس' },
     { id: 's3', name: 'هایپرتک', logo: '📦', deliverySummary: '۲ تا ۴ روز کاری' },
   ];
-  // Use seeded pseudo-random based on price to keep stable across renders
-  return names.map((s, i) => {
-    const variance = ((((productPrice * (i + 7)) % 20) - 10) / 100); // -10% to +10%
+  return names.map((s) => {
+    const variance = (Math.random() * 0.2 - 0.1); // -10% to +10%
     const price = Math.round((productPrice * (1 + variance)) / 10000) * 10000;
     return { ...s, price: Math.max(price, 10000) };
   });
@@ -59,7 +58,7 @@ export const PDPProductComponent = ({
     : [mainProductImage];
   const productImage = productImages[currentImageIndex] || mainProductImage;
   
-  const otherSuppliers = getOtherSuppliers(product.price);
+  const [otherSuppliers] = useState(() => generateSupplierPrices(product.price));
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));

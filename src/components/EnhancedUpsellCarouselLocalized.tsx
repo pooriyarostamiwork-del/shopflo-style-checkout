@@ -103,6 +103,12 @@ export const EnhancedUpsellCarouselLocalized = ({
     return `Product ${index + 1}`;
   };
 
+  // Offer badges for select products (not all)
+  const offerBadges: Record<number, string> = {
+    0: isRTL ? "۱۰٪ تخفیف" : "10% OFF",
+    2: isRTL ? "۱۵٪ تخفیف" : "15% OFF",
+  };
+
   // Fixed height for variant area to maintain alignment
   const VARIANT_AREA_HEIGHT = "h-[72px]";
   return <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -143,8 +149,13 @@ export const EnhancedUpsellCarouselLocalized = ({
                 ${isAdded ? 'border-accent bg-accent/5' : 'border-border/50'}
               `}>
               {/* Icon placeholder instead of image - Fixed Height */}
-              <div className="aspect-square bg-muted/30 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+              <div className="aspect-square bg-muted/30 rounded-lg mb-3 overflow-hidden flex items-center justify-center relative">
                 <Package className="w-12 h-12 text-muted-foreground/40" />
+                {offerBadges[index] && (
+                  <span className={`absolute top-1.5 ${isRTL ? 'right-1.5' : 'left-1.5'} px-2 py-0.5 text-[10px] font-bold rounded-md bg-red-500 text-white`}>
+                    {offerBadges[index]}
+                  </span>
+                )}
               </div>
               
               {/* Title - Fixed Height with RTL alignment */}

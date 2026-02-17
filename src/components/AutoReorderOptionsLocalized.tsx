@@ -53,34 +53,31 @@ export const AutoReorderOptionsLocalized = ({ onOptionsChange }: AutoReorderOpti
             <div
               key={option.id}
               className={`
-                flex items-center p-4 rounded-xl border transition-all cursor-pointer
+                flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer
                 ${isSelected 
                   ? 'border-primary bg-primary/5' 
                   : 'border-border/50 hover:border-border'
                 }
-                ${isRTL ? 'flex-row-reverse' : ''}
               `}
               onClick={() => handleChange(option.id)}
             >
               <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
-              <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary/10' : 'bg-muted/50'}`}>
-                  <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                </div>
-                <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                  <p className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {option.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {option.description}
-                  </p>
-                </div>
-              </div>
               <div className={`
                 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
                 ${isSelected ? 'border-primary bg-primary' : 'border-border'}
               `}>
                 {isSelected && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
+              </div>
+              <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                <p className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {option.title}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {option.description}
+                </p>
+              </div>
+              <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary/10' : 'bg-muted/50'}`}>
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
               </div>
             </div>
           );

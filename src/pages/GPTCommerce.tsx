@@ -769,6 +769,7 @@ const GPTCommerceContent = () => {
     };
     setBaskets(prev => [newBasket, ...prev]);
     setActiveBasketId(newBasket.id);
+    setActiveSection('active-cart');
     // Create fresh isolated state for new basket
     setBasketStates(prev => ({
       ...prev,
@@ -871,6 +872,14 @@ const GPTCommerceContent = () => {
     setActiveSection('active-cart');
   }, []);
 
+  // Collapse cart sidebar when switching to non-basket sections
+  const handleSectionChange = useCallback((section: string) => {
+    setActiveSection(section);
+    if (section === 'account' || section === 'orders' || section === 'flowclub') {
+      setIsCartOpen(false);
+    }
+  }, []);
+
   const handleRemoveSavedItem = useCallback((basketId: string, itemId: string) => {
     setBaskets(prev => prev.map(b =>
       b.id === basketId ? { ...b, savedItems: b.savedItems.filter(i => i.id !== itemId) } : b
@@ -964,7 +973,7 @@ const GPTCommerceContent = () => {
       {hasStartedChat && (
         <Sidebar
           activeSection={activeSection}
-          onSectionChange={setActiveSection}
+          onSectionChange={handleSectionChange}
           cartItemCount={cartItems.length}
           activeOrderCount={mockOrders.length}
           baskets={baskets}

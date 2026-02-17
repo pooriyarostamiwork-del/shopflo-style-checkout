@@ -412,14 +412,14 @@ export const Sidebar = ({
         
         <button 
           onClick={() => onSectionChange('flowclub')} 
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border border-transparent ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 border ${
             activeSection === 'flowclub' 
-              ? 'bg-background text-foreground' 
-              : 'text-foreground/60 hover:bg-background/60 hover:text-foreground hover:border-border/60'
+              ? 'bg-[hsl(142_76%_92%)] text-[hsl(142_50%_30%)] border-[hsl(142_60%_75%)]' 
+              : 'bg-[hsl(142_76%_95%)] text-[hsl(142_50%_35%)] border-[hsl(142_60%_85%)] hover:bg-[hsl(142_76%_90%)] hover:border-[hsl(142_60%_75%)]'
           }`}
         >
           <Gift className="w-4 h-4" />
-          <span className="text-sm">فلوکلاب</span>
+          <span className="text-sm font-medium">فلوکلاب</span>
         </button>
       </div>
     </aside>

@@ -175,6 +175,8 @@ export const merchants: Merchant[] = [
   { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
   { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
   { id: 'm3', name: 'تکنولایف', logo: '💻' },
+  { id: 'm4', name: 'آرایشی‌بهداشتی آنلاین', logo: '💄' },
+  { id: 'm5', name: 'کالای ورزشی پرو', logo: '🏋️' },
 ];
 
 export const mockProducts: Product[] = [
@@ -246,6 +248,176 @@ export const mockProducts: Product[] = [
     fastDelivery: false,
     returnGuarantee: true,
     inStock: true,
+  },
+];
+
+// Skincare / Beauty products
+export const skincareProducts: Product[] = [
+  {
+    id: 'sk1', name: 'ست مراقبت پوست سراوی (CeraVe)', price: 2800000,
+    image: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300&h=300&fit=crop',
+    merchant: merchants[3], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'sk2', name: 'سرم ویتامین C اوردینری', price: 1900000,
+    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&h=300&fit=crop',
+    merchant: merchants[3], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'sk3', name: 'کرم مرطوب‌کننده لاروش پوزای', price: 3500000, originalPrice: 4000000,
+    image: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.9, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'sk4', name: 'ماسک ورقه‌ای کره‌ای (بسته ۱۰ عددی)', price: 850000,
+    image: 'https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=300&h=300&fit=crop',
+    merchant: merchants[3], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'sk5', name: 'ست هدیه بادی شاپ', price: 4200000, originalPrice: 4800000,
+    image: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&h=300&fit=crop',
+    merchant: merchants[3], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'sk6', name: 'روغن آرگان خالص', price: 1200000,
+    image: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.4, fastDelivery: false, returnGuarantee: false, inStock: true,
+  },
+];
+
+// Coffee & Kitchen products
+export const coffeeProducts: Product[] = [
+  {
+    id: 'cf1', name: 'اسپرسوساز دلونگی', price: 18500000, originalPrice: 21000000,
+    image: 'https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'cf2', name: 'آسیاب قهوه باراتزا', price: 8900000,
+    image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=300&h=300&fit=crop',
+    merchant: merchants[2], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'cf3', name: 'قهوه تازه‌رست ایلی (۱ کیلو)', price: 1400000,
+    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.6, fastDelivery: true, returnGuarantee: false, inStock: true,
+  },
+  {
+    id: 'cf4', name: 'فنجان اسپرسو ست ۶ تایی', price: 950000,
+    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefda?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'cf5', name: 'تمپر و توزیع‌کننده قهوه', price: 650000,
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=300&fit=crop',
+    merchant: merchants[2], rating: 4.3, fastDelivery: false, returnGuarantee: false, inStock: true,
+  },
+  {
+    id: 'cf6', name: 'کتابچه آموزش باریستا', price: 350000,
+    image: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.5, fastDelivery: true, returnGuarantee: false, inStock: true,
+  },
+];
+
+// Gaming Setup products
+export const gamingProducts: Product[] = [
+  {
+    id: 'gm1', name: 'مانیتور گیمینگ ایسوس ۲۷ اینچ', price: 9800000, originalPrice: 11500000,
+    image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=300&h=300&fit=crop',
+    merchant: merchants[2], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'gm2', name: 'کیبورد مکانیکی ریزر', price: 3200000,
+    image: 'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'gm3', name: 'موس گیمینگ لاجیتک G Pro', price: 2800000,
+    image: 'https://images.unsplash.com/photo-1527814050087-3793815479db?w=300&h=300&fit=crop',
+    merchant: merchants[2], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'gm4', name: 'هدست گیمینگ هایپرایکس', price: 2500000, originalPrice: 3000000,
+    image: 'https://images.unsplash.com/photo-1599669454699-248893623440?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'gm5', name: 'پد موس بزرگ RGB', price: 850000,
+    image: 'https://images.unsplash.com/photo-1616588589676-62b3d4ff6a10?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.3, fastDelivery: true, returnGuarantee: false, inStock: true,
+  },
+  {
+    id: 'gm6', name: 'صندلی گیمینگ DXRacer', price: 12500000,
+    image: 'https://images.unsplash.com/photo-1598550476439-6847785fcea6?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
+  },
+];
+
+// Baby & Kids products
+export const babyProducts: Product[] = [
+  {
+    id: 'bb1', name: 'صندلی غذای کودک چیکو', price: 7200000, originalPrice: 8500000,
+    image: 'https://images.unsplash.com/photo-1586105251261-72a756497a31?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'bb2', name: 'ست ظرف غذای بامبو', price: 1100000,
+    image: 'https://images.unsplash.com/photo-1590073242678-70ee3fc28e8e?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'bb3', name: 'قاشق سیلیکونی حساس به دما (ست ۴ تایی)', price: 450000,
+    image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'bb4', name: 'پیش‌بند سیلیکونی با جیب', price: 380000,
+    image: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.4, fastDelivery: true, returnGuarantee: false, inStock: true,
+  },
+  {
+    id: 'bb5', name: 'لیوان آموزشی ۳۶۰ درجه', price: 550000,
+    image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'bb6', name: 'کتاب راهنمای تغذیه تکمیلی', price: 280000,
+    image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.3, fastDelivery: false, returnGuarantee: false, inStock: true,
+  },
+];
+
+// Fitness & Wellness products
+export const fitnessProducts: Product[] = [
+  {
+    id: 'ft1', name: 'دمبل قابل تنظیم ست', price: 4500000, originalPrice: 5200000,
+    image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=300&fit=crop',
+    merchant: merchants[4], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'ft2', name: 'مت یوگا حرفه‌ای', price: 1200000,
+    image: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=300&h=300&fit=crop',
+    merchant: merchants[4], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'ft3', name: 'کش مقاومتی ست ۵ تایی', price: 650000,
+    image: 'https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=300&h=300&fit=crop',
+    merchant: merchants[4], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'ft4', name: 'ساعت هوشمند شیائومی Band 8', price: 2800000,
+    image: 'https://images.unsplash.com/photo-1575311373937-040b8e1fd5b6?w=300&h=300&fit=crop',
+    merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+  },
+  {
+    id: 'ft5', name: 'بطری آب ورزشی ۱ لیتری', price: 350000,
+    image: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=300&h=300&fit=crop',
+    merchant: merchants[1], rating: 4.3, fastDelivery: true, returnGuarantee: false, inStock: true,
+  },
+  {
+    id: 'ft6', name: 'پودر پروتئین وی ۱ کیلویی', price: 1800000,
+    image: 'https://images.unsplash.com/photo-1593095948071-474c5cc2c4d8?w=300&h=300&fit=crop',
+    merchant: merchants[4], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
 ];
 

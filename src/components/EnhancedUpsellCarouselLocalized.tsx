@@ -112,8 +112,8 @@ export const EnhancedUpsellCarouselLocalized = ({
   // Fixed height for variant area to maintain alignment
   const VARIANT_AREA_HEIGHT = "h-[72px]";
   return <div className={`border-t border-border/50 pt-6 mt-6 ${isRTL ? 'text-right' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className={`flex items-center mb-4 justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <h3 className={`text-base font-semibold text-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
+      <div className="flex items-center mb-4 justify-between">
+        <h3 className="text-base font-semibold text-foreground">
           {isRTL ? "شاید این‌ها را هم دوست داشته باشید" : "You might also like"}
         </h3>
         {nextTierThreshold && amountNeeded > 0}

@@ -241,18 +241,7 @@ export const CheckoutModalLocalized = ({
     }
   };
 
-  const calculateTotal = () => {
-    const upsellTotal = addedUpsells.reduce((sum, product) => sum + product.price, 0);
-    let finalTotal = initialTotal + upsellTotal;
-    if (selectedCoupon && selectedCoupon.value) {
-      finalTotal -= selectedCoupon.value;
-    }
-    if (flowpointsActive) {
-      finalTotal -= flowpointsValue;
-    }
-    return Math.max(finalTotal, 0);
-  };
-  const finalTotal = calculateTotal();
+  // calculateTotal moved below flowpointsValue declaration
 
   const sortedTiers = [...couponTiers].sort((a, b) => a.threshold - b.threshold);
   const nextTier = sortedTiers.find(tier => total >= tier.threshold && (!selectedCoupon || tier.threshold > selectedCoupon.threshold));
@@ -335,6 +324,19 @@ export const CheckoutModalLocalized = ({
   const flowpointsRedeemable = 42; // Mock existing points
   const flowpointsValue = flowpointsRedeemable * 1000; // 1 point = 1000 toman
   const flowpointsDiscount = flowpointsActive ? flowpointsValue : 0;
+
+  const calculateTotal = () => {
+    const upsellTotal = addedUpsells.reduce((sum, product) => sum + product.price, 0);
+    let finalTotal = initialTotal + upsellTotal;
+    if (selectedCoupon && selectedCoupon.value) {
+      finalTotal -= selectedCoupon.value;
+    }
+    if (flowpointsActive) {
+      finalTotal -= flowpointsValue;
+    }
+    return Math.max(finalTotal, 0);
+  };
+  const finalTotal = calculateTotal();
 
   const renderStep = () => {
     switch (step) {

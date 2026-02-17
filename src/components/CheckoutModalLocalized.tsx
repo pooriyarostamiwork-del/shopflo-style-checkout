@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Truck, Calendar, Star, Hash } from "lucide-react";
-import { Switch } from "./ui/switch";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -325,6 +324,9 @@ export const CheckoutModalLocalized = ({
   const flowpointsValue = flowpointsRedeemable * 1000; // 1 point = 1000 toman
   const flowpointsDiscount = flowpointsActive ? flowpointsValue : 0;
 
+  // Direct debit discount: 5% up to 100,000 toman
+  const directDebitDiscountValue = paymentMethod === "direct-debit" ? Math.min(Math.floor(cartSubtotal * 0.05), 100000) : 0;
+
   const calculateTotal = () => {
     const upsellTotal = addedUpsells.reduce((sum, product) => sum + product.price, 0);
     let finalTotal = initialTotal + upsellTotal;
@@ -333,6 +335,9 @@ export const CheckoutModalLocalized = ({
     }
     if (flowpointsActive) {
       finalTotal -= flowpointsValue;
+    }
+    if (directDebitDiscountValue > 0) {
+      finalTotal -= directDebitDiscountValue;
     }
     return Math.max(finalTotal, 0);
   };
@@ -728,6 +733,10 @@ export const CheckoutModalLocalized = ({
                   <span className="text-sm">{isRTL ? "تخفیف فلوپوینت" : "Flowpoints Discount"}</span>
                   <span className="text-sm font-medium">-{formatCurrency(flowpointsValue, language)}</span>
                 </div>}
+                {directDebitDiscountValue > 0 && <div className={`flex items-center justify-between text-accent ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-sm">{isRTL ? "تخفیف پرداخت مستقیم" : "Direct Debit Discount"}</span>
+                  <span className="text-sm font-medium">-{formatCurrency(directDebitDiscountValue, language)}</span>
+                </div>}
                 <div className={`flex items-center justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <span className="font-semibold">{isRTL ? "مبلغ قابل پرداخت" : "Amount to Pay"}</span>
                   <span className="text-xl font-bold text-primary">{formatCurrency(finalTotal, language)}</span>
@@ -736,20 +745,13 @@ export const CheckoutModalLocalized = ({
             </div>
           </div>
 
-          {/* Flowpoints Component with Toggle */}
-          <div className={`p-4 rounded-xl border ${flowpointsActive ? 'border-emerald-400 bg-emerald-50/80' : 'border-emerald-200 bg-emerald-50/50'} space-y-3 transition-all`} dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <Star className="w-4 h-4 text-emerald-600" />
-                <span className="text-sm font-semibold text-emerald-800">
-                  {isRTL ? "فلوپوینت" : "Flowpoints"}
-                </span>
-              </div>
-              <Switch
-                checked={flowpointsActive}
-                onCheckedChange={setFlowpointsActive}
-                className="data-[state=checked]:bg-emerald-500"
-              />
+          {/* Flowpoints Component with Radio Buttons */}
+          <div className={`p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3 transition-all`} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <Star className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-800">
+                {isRTL ? "فلوپوینت" : "Flowpoints"}
+              </span>
             </div>
             <div className="space-y-2">
               <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -768,12 +770,6 @@ export const CheckoutModalLocalized = ({
                   {isRTL ? toPersianNumber(flowpointsRedeemable) : flowpointsRedeemable}
                 </span>
               </div>
-              {flowpointsActive && (
-                <div className={`flex items-center justify-between text-emerald-700 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-sm">{isRTL ? "تخفیف فلوپوینت" : "Flowpoints discount"}</span>
-                  <span className="text-sm font-bold">-{formatCurrency(flowpointsValue, language)}</span>
-                </div>
-              )}
               <div className={`pt-2 border-t border-emerald-200 ${isRTL ? 'text-right' : ''}`}>
                 <p className="text-xs text-emerald-600">
                   {isRTL
@@ -783,6 +779,54 @@ export const CheckoutModalLocalized = ({
                 </p>
               </div>
             </div>
+
+            {/* Radio buttons like auto-reorder style */}
+            <RadioGroup value={flowpointsActive ? 'use' : 'save'} onValueChange={(v) => setFlowpointsActive(v === 'use')} className="space-y-2 pt-2">
+              {[
+                {
+                  id: 'use',
+                  title: isRTL ? "استفاده از فلوپوینت" : "Use Flowpoints",
+                  description: isRTL ? `${toPersianNumber(flowpointsRedeemable)} امتیاز = ${formatCurrency(flowpointsValue, language)} تخفیف` : `${flowpointsRedeemable} points = ${formatCurrency(flowpointsValue, language)} discount`
+                },
+                {
+                  id: 'save',
+                  title: isRTL ? "ذخیره برای بعد" : "Save for later",
+                  description: isRTL ? "امتیازها را برای خرید بعدی نگه دار" : "Keep points for next purchase"
+                }
+              ].map((option) => {
+                const isSelected = (option.id === 'use' && flowpointsActive) || (option.id === 'save' && !flowpointsActive);
+                return (
+                  <div
+                    key={option.id}
+                    className={`
+                      flex items-center p-3 rounded-xl border transition-all cursor-pointer
+                      ${isSelected
+                        ? 'border-emerald-400 bg-emerald-100/60'
+                        : 'border-emerald-200/60 hover:border-emerald-300'
+                      }
+                      ${isRTL ? 'flex-row-reverse' : ''}
+                    `}
+                    onClick={() => setFlowpointsActive(option.id === 'use')}
+                  >
+                    <RadioGroupItem value={option.id} id={`fp-${option.id}`} className="sr-only" />
+                    <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                      <p className={`text-sm font-medium ${isSelected ? 'text-emerald-800' : 'text-emerald-600'}`}>
+                        {option.title}
+                      </p>
+                      <p className="text-xs text-emerald-500 mt-0.5">
+                        {option.description}
+                      </p>
+                    </div>
+                    <div className={`
+                      w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                      ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-emerald-300'}
+                    `}>
+                      {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </RadioGroup>
           </div>
 
           {/* Payment Method Cards */}
@@ -809,7 +853,12 @@ export const CheckoutModalLocalized = ({
                   <Zap className="w-5 h-5" />
                 </div>
                 <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                  <p className="font-semibold text-foreground">{isRTL ? "پرداخت مستقیم یک کلیکی" : "Direct Debit — One Click"}</p>
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                    <p className="font-semibold text-foreground">{isRTL ? "پرداخت مستقیم یک کلیکی" : "Direct Debit — One Click"}</p>
+                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-accent/15 text-accent border border-accent/30 whitespace-nowrap">
+                      {isRTL ? "۵٪ تخفیف تا سقف ۱۰۰ هزار تومان" : "5% off up to 100K"}
+                    </span>
+                  </div>
                   <p className="text-sm text-muted-foreground">{isRTL ? "برداشت مستقیم از حساب بانکی" : "Direct debit from bank account"}</p>
                 </div>
                 {paymentMethod === "direct-debit" && <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -835,12 +884,12 @@ export const CheckoutModalLocalized = ({
               </button>
               {paymentMethod === "card" && (
                 <div className="px-4 pb-4 space-y-3" dir={isRTL ? 'rtl' : 'ltr'}>
-                  <div className={`p-3 rounded-lg bg-muted/30 border border-border/50 ${isRTL ? 'text-right' : ''}`}>
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
                     <p className="text-xs text-muted-foreground mb-1">
                       {isRTL ? "شماره کارت مقصد" : "Destination card number"}
                     </p>
-                    <p className="font-mono text-sm font-semibold text-foreground" dir="ltr">
-                      ۶۰۳۷ - ۹۹۱۸ - ۲۵۴۱ - ۷۷۸۳
+                    <p className="text-base font-semibold text-foreground tracking-widest" dir="ltr" style={{ fontFamily: 'inherit' }}>
+                      6037 - 9918 - 2541 - 7783
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {isRTL ? "به نام: فلوکارت" : "Name: Flowcart"}

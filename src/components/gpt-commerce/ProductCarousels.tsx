@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp, Grid2X2 } from "lucide-react";
-import { Product, mockProducts, toPersianNumber, formatPersianPrice } from "@/data/gptCommerceData";
+import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp, Grid2X2, Gift, Coffee, Gamepad2, Baby, Dumbbell } from "lucide-react";
+import { Product, mockProducts, toPersianNumber, formatPersianPrice, skincareProducts, coffeeProducts, gamingProducts, babyProducts, fitnessProducts } from "@/data/gptCommerceData";
 import { useRef, useState } from "react";
 import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from "@/contexts/HomepageSettingsContext";
 
@@ -275,6 +275,11 @@ const carouselCategories = {
   hotDeals: ['همه', 'هدفون', 'ساعت هوشمند', 'لوازم جانبی'],
   youMayLike: ['همه', 'کیبورد', 'ماوس', 'هدفون', 'ساعت'],
   popular: ['همه', 'موبایل', 'لپ‌تاپ', 'هدفون'],
+  skincare: ['همه', 'کرم', 'سرم', 'ماسک', 'ست هدیه'],
+  coffee: ['همه', 'دستگاه', 'دانه قهوه', 'لوازم'],
+  gaming: ['همه', 'مانیتور', 'کیبورد', 'موس', 'هدست'],
+  baby: ['همه', 'صندلی', 'ظرف', 'لوازم غذاخوری'],
+  fitness: ['همه', 'دمبل', 'یوگا', 'ساعت', 'مکمل'],
 };
 
 interface CarouselSectionProps {
@@ -696,6 +701,72 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
         accentColor="linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))"
         categories={carouselCategories.popular}
         bannerKey="mostPopular"
+      />
+
+      {/* New Intent-Driven Categories */}
+      <CarouselSection
+        title="هدیه و مراقبت پوست"
+        icon={<Gift className="w-4 h-4 text-white" />}
+        products={skincareProducts}
+        onAddToCart={onAddToCart}
+        onQuickView={onQuickView}
+        onAskAbout={onAskAbout}
+        cartItems={cartItems}
+        accentColor="linear-gradient(135deg, #a855f7, #d946ef)"
+        categories={carouselCategories.skincare}
+        bannerKey="hotDeals"
+      />
+
+      <CarouselSection
+        title="دنیای قهوه"
+        icon={<Coffee className="w-4 h-4 text-white" />}
+        products={coffeeProducts}
+        onAddToCart={onAddToCart}
+        onQuickView={onQuickView}
+        onAskAbout={onAskAbout}
+        cartItems={cartItems}
+        accentColor="linear-gradient(135deg, #92400e, #b45309)"
+        categories={carouselCategories.coffee}
+        bannerKey="youMayLike"
+      />
+
+      <CarouselSection
+        title="ست گیمینگ"
+        icon={<Gamepad2 className="w-4 h-4 text-white" />}
+        products={gamingProducts}
+        onAddToCart={onAddToCart}
+        onQuickView={onQuickView}
+        onAskAbout={onAskAbout}
+        cartItems={cartItems}
+        accentColor="linear-gradient(135deg, #6366f1, #818cf8)"
+        categories={carouselCategories.gaming}
+        bannerKey="mostPopular"
+      />
+
+      <CarouselSection
+        title="لوازم کودک و نوزاد"
+        icon={<Baby className="w-4 h-4 text-white" />}
+        products={babyProducts}
+        onAddToCart={onAddToCart}
+        onQuickView={onQuickView}
+        onAskAbout={onAskAbout}
+        cartItems={cartItems}
+        accentColor="linear-gradient(135deg, #14b8a6, #2dd4bf)"
+        categories={carouselCategories.baby}
+        bannerKey="hotDeals"
+      />
+
+      <CarouselSection
+        title="ورزش و تناسب اندام"
+        icon={<Dumbbell className="w-4 h-4 text-white" />}
+        products={fitnessProducts}
+        onAddToCart={onAddToCart}
+        onQuickView={onQuickView}
+        onAskAbout={onAskAbout}
+        cartItems={cartItems}
+        accentColor="linear-gradient(135deg, #16a34a, #22c55e)"
+        categories={carouselCategories.fitness}
+        bannerKey="youMayLike"
       />
     </div>
   );

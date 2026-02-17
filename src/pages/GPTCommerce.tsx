@@ -795,10 +795,10 @@ const GPTCommerceContent = () => {
     setBaskets(prev => [newBasket, ...prev]);
     setActiveBasketId(newBasket.id);
     setActiveSection('active-cart');
-    // Create fresh isolated state for new basket
+    // Create fresh isolated state for new basket (keep hasStartedChat true since sidebar is visible)
     setBasketStates(prev => ({
       ...prev,
-      [newBasket.id]: createDefaultBasketState(),
+      [newBasket.id]: { ...createDefaultBasketState(), hasStartedChat: true },
     }));
   }, [baskets]);
 

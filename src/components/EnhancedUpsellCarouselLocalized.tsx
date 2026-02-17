@@ -122,7 +122,7 @@ export const EnhancedUpsellCarouselLocalized = ({
       {/* Gamified Progress Bar */}
       {nextTierThreshold && amountNeeded > 0}
       
-      <div className={`flex gap-4 overflow-x-auto pb-2 scrollbar-hide ${isRTL ? 'flex-row-reverse' : ''}`}>
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide" style={isRTL ? { direction: 'rtl' } : undefined}>
         {products.map((product, index) => {
         const productVariants = selectedVariants[product.id] || {};
         const variantLabel = Object.entries(productVariants).map(([type, id]) => {
@@ -170,8 +170,8 @@ export const EnhancedUpsellCarouselLocalized = ({
                       <SelectTrigger className={`h-8 text-xs rounded-lg ${isRTL ? 'text-right' : ''}`}>
                         <SelectValue placeholder={getVariantPlaceholder(variantType.type)} />
                       </SelectTrigger>
-                      <SelectContent className="rounded-lg">
-                        {variantType.options.map(option => <SelectItem key={option.id} value={option.id} className="text-xs hover:bg-muted/50 focus:bg-muted/50">
+                      <SelectContent className="rounded-lg" dir={isRTL ? 'rtl' : 'ltr'}>
+                        {variantType.options.map(option => <SelectItem key={option.id} value={option.id} className={`text-xs hover:bg-muted/50 focus:bg-muted/50 ${isRTL ? 'text-right' : ''}`}>
                             {option.name}
                             {option.priceModifier !== 0 && <span className="text-muted-foreground mx-1">
                                 ({option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier, language)})

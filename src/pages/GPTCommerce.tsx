@@ -1,4 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+
+// Clear old localStorage on structure change (one-time migration)
+const STORAGE_VERSION_KEY = 'flowcart-storage-version';
+const CURRENT_VERSION = '2';
+if (typeof window !== 'undefined') {
+  const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+  if (storedVersion !== CURRENT_VERSION) {
+    localStorage.removeItem('flowcart-basket-states');
+    localStorage.removeItem('flowcart-baskets');
+    localStorage.removeItem('flowcart-active-basket');
+    localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_VERSION);
+  }
+}
 import { Sidebar, Basket, SavedItem } from "@/components/gpt-commerce/Sidebar";
 import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
@@ -976,7 +989,12 @@ const GPTCommerceContent = () => {
           onUpdateAddress={handleAccountUpdateAddress}
           activeAddressIds={activeAddressIds}
           initialTab={activeSection === 'orders' ? 'orders' : 'profile'}
+          onStartNewChat={() => {
+            handleCreateBasket();
+            setActiveSection('active-cart');
+          }}
         />
+
       ) : (
         <ChatInterface
           messages={messages}

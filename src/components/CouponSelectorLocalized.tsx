@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Tag, ChevronRight, ChevronLeft, Check, Gift, Truck, Percent, Sparkles } from "lucide-react";
+import { Tag, Check, Gift, Truck, Percent, Sparkles, X } from "lucide-react";
 import { Button } from "./ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import { CouponTier } from "@/types/checkout";
 import { Progress } from "./ui/progress";
 import { useLanguage, formatCurrency, toPersianNumber } from "@/i18n";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
 interface CouponSelectorLocalizedProps {
   currentTotal: number;
@@ -23,208 +23,159 @@ export const CouponSelectorLocalized = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const sortedTiers = [...tiers].sort((a, b) => a.threshold - b.threshold);
-  
   const availableCoupons = sortedTiers.filter(tier => currentTotal >= tier.threshold);
   const unavailableCoupons = sortedTiers.filter(tier => currentTotal < tier.threshold);
 
-  // Auto-apply best coupon feedback
-  const bestCoupon = availableCoupons.length > 0 
-    ? availableCoupons.reduce((best, current) => 
-        (current.value || 0) > (best.value || 0) ? current : best
-      )
-    : null;
-
   const getIcon = (type: string) => {
     switch (type) {
-      case "shipping":
-        return <Truck className="w-4 h-4" />;
-      case "gift":
-        return <Gift className="w-4 h-4" />;
-      case "discount":
-        return <Percent className="w-4 h-4" />;
-      default:
-        return <Tag className="w-4 h-4" />;
+      case "shipping": return <Truck className="w-4 h-4" />;
+      case "gift": return <Gift className="w-4 h-4" />;
+      case "discount": return <Percent className="w-4 h-4" />;
+      default: return <Tag className="w-4 h-4" />;
     }
   };
 
-  const getProgress = (threshold: number) => {
-    return Math.min((currentTotal / threshold) * 100, 100);
-  };
-
-  const getAmountNeeded = (threshold: number) => {
-    return threshold - currentTotal;
-  };
-
-  const ChevronIcon = isRTL ? ChevronLeft : ChevronRight;
+  const getProgress = (threshold: number) => Math.min((currentTotal / threshold) * 100, 100);
+  const getAmountNeeded = (threshold: number) => threshold - currentTotal;
 
   return (
     <div className="space-y-3" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Accordion-style Coupon Section */}
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetTrigger asChild>
-          <button
-            className="w-full p-4 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 border border-border/30 hover:border-primary/30 transition-all text-right"
-          >
-            <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Tag className="w-4 h-4 text-primary" />
-                </div>
-                <div className={isRTL ? 'text-right' : 'text-left'}>
-                  <p className="font-medium text-foreground">
-                    {isRTL ? "کدهای تخفیف موجود" : "Available Discount Codes"}
-                    {availableCoupons.length > 0 && !selectedCoupon && (
-                      <span className="text-sm text-muted-foreground font-normal mx-2">
-                        {isRTL 
-                          ? `${toPersianNumber(availableCoupons.length)} کد فعال`
-                          : `${availableCoupons.length} active`
-                        }
-                      </span>
-                    )}
-                  </p>
-                  {selectedCoupon ? (
-                    <p className="text-sm text-primary font-medium">
-                      {selectedCoupon.value && (
-                        <>
-                          {isRTL 
-                            ? `${formatCurrency(selectedCoupon.value, language)} تخفیف`
-                            : `${formatCurrency(selectedCoupon.value, language)} off`
-                          }
-                        </>
-                      )}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {availableCoupons.length === 0 
-                        ? (isRTL ? "برای فعال‌سازی بیشتر خرید کنید" : "Add more to unlock")
-                        : ""
-                      }
-                    </p>
-                  )}
-                </div>
-              </div>
-              <ChevronIcon className="w-5 h-5 text-muted-foreground" />
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="w-full p-4 rounded-xl bg-muted/20 border border-border/50 hover:border-primary/30 transition-all"
+      >
+        <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Tag className="w-4 h-4 text-primary" />
             </div>
-          </button>
-        </SheetTrigger>
+            <div className={isRTL ? 'text-right' : 'text-left'}>
+              <p className="font-medium text-foreground text-sm">
+                {isRTL ? "کوپن های موجود" : "Available Coupons"}
+                {availableCoupons.length > 0 && !selectedCoupon && (
+                  <span className="text-xs text-muted-foreground font-normal mx-2">
+                    {isRTL 
+                      ? `${toPersianNumber(availableCoupons.length)} کوپن فعال`
+                      : `${availableCoupons.length} active`
+                    }
+                  </span>
+                )}
+              </p>
+              {selectedCoupon?.value && (
+                <p className="text-xs text-primary font-medium mt-0.5">
+                  {isRTL 
+                    ? `${formatCurrency(selectedCoupon.value, language)} تخفیف اعمال شده`
+                    : `${formatCurrency(selectedCoupon.value, language)} off applied`
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isRTL ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+          </svg>
+        </div>
+      </button>
 
-        <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className={`text-xl font-bold ${isRTL ? 'text-right' : ''}`}>
-              {isRTL ? "کدهای تخفیف موجود" : "Available Discount Codes"}
-            </SheetTitle>
-          </SheetHeader>
+      {/* Coupon Modal */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md p-0 gap-0 rounded-2xl overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4">
+            <DialogHeader>
+              <DialogTitle className={`text-lg font-bold ${isRTL ? 'text-right' : ''}`}>
+                {isRTL ? "کوپن های موجود" : "Available Coupons"}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
 
-          <div className="mt-6 space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-            {/* Available Coupons */}
+          {/* Content */}
+          <div className="px-6 pb-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* Unlocked Coupons */}
             {availableCoupons.length > 0 && (
-              <div className="space-y-3">
-                <h3 className={`text-sm font-semibold text-muted-foreground uppercase tracking-wide ${isRTL ? 'text-right' : ''}`}>
-                  {isRTL ? "فعال شده" : "Unlocked"}
-                </h3>
+              <div className="space-y-2.5">
+                <p className={`text-xs font-medium text-muted-foreground uppercase tracking-wider ${isRTL ? 'text-right' : ''}`}>
+                  {isRTL ? "قابل استفاده" : "Available"}
+                </p>
                 {availableCoupons.map((tier, index) => {
                   const isSelected = selectedCoupon?.threshold === tier.threshold;
-                  
                   return (
-                    <div
+                    <button
                       key={index}
-                      className={`
-                        p-4 rounded-xl transition-all cursor-pointer
-                        ${isSelected 
-                          ? 'bg-primary/10 border-2 border-primary' 
-                          : 'bg-muted/20 border border-border/50 hover:border-primary/30 hover:bg-muted/30'
-                        }
-                      `}
                       onClick={() => {
                         onSelectCoupon(isSelected ? null : tier);
                         setIsOpen(false);
                       }}
+                      className={`w-full p-4 rounded-xl transition-all text-right
+                        ${isSelected 
+                          ? 'bg-primary/8 border-2 border-primary' 
+                          : 'bg-card border border-border/50 hover:border-primary/30'
+                        }`}
                     >
-                      <div className={`flex items-start justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        <div className={`flex items-start gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                          <div className={`
-                            mt-0.5 p-2.5 rounded-xl
-                            ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}
-                          `}>
-                            {getIcon(tier.type)}
-                          </div>
-                          
-                          <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                            <h4 className="font-semibold text-foreground mb-1">
-                              {tier.reward}
-                            </h4>
-                            <p className="text-sm text-muted-foreground">
+                      <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <div className={`p-2.5 rounded-xl flex-shrink-0 ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground'}`}>
+                          {getIcon(tier.type)}
+                        </div>
+                        <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : 'text-left'}`}>
+                          <p className="font-semibold text-sm text-foreground">{tier.reward}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {isRTL 
+                              ? `سفارش‌های بالای ${formatCurrency(tier.threshold, language)}`
+                              : `Orders above ${formatCurrency(tier.threshold, language)}`
+                            }
+                          </p>
+                          {tier.value && (
+                            <p className="text-xs text-primary font-semibold mt-1">
                               {isRTL 
-                                ? `سفارش‌های بالای ${formatCurrency(tier.threshold, language)}`
-                                : `On orders above ${formatCurrency(tier.threshold, language)}`
+                                ? `صرفه‌جویی ${formatCurrency(tier.value, language)}`
+                                : `Save ${formatCurrency(tier.value, language)}`
                               }
                             </p>
-                            {tier.value && (
-                              <p className="text-sm text-primary font-semibold mt-2">
-                                {isRTL 
-                                  ? `${formatCurrency(tier.value, language)} تخفیف`
-                                  : `Save ${formatCurrency(tier.value, language)}`
-                                }
-                              </p>
-                            )}
-                          </div>
+                          )}
                         </div>
-
-                        <div className={`
-                          w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0
-                          ${isSelected ? 'border-primary bg-primary' : 'border-border'}
-                        `}>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-primary bg-primary' : 'border-border'}`}>
+                          {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             )}
 
-            {/* Unavailable Coupons with Progress */}
+            {/* Locked Coupons */}
             {unavailableCoupons.length > 0 && (
-              <div className="space-y-3 pt-2">
-                <h3 className={`text-sm font-semibold text-muted-foreground uppercase tracking-wide ${isRTL ? 'text-right' : ''}`}>
-                  {isRTL ? "برای فعال‌سازی بیشتر خرید کنید" : "Add more to unlock"}
-                </h3>
+              <div className="space-y-2.5">
+                <p className={`text-xs font-medium text-muted-foreground uppercase tracking-wider ${isRTL ? 'text-right' : ''}`}>
+                  {isRTL ? "بیشتر خرید کنید" : "Add more to unlock"}
+                </p>
                 {unavailableCoupons.map((tier, index) => {
                   const progress = getProgress(tier.threshold);
                   const amountNeeded = getAmountNeeded(tier.threshold);
-                  
                   return (
-                    <div
-                      key={index}
-                      className="p-4 rounded-xl bg-muted/10 border border-border/30"
-                    >
-                      <div className={`flex items-start gap-3 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        <div className="mt-0.5 p-2.5 rounded-xl bg-muted/50 text-muted-foreground opacity-60">
+                    <div key={index} className="p-4 rounded-xl bg-muted/10 border border-border/30">
+                      <div className={`flex items-center gap-3 mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <div className="p-2.5 rounded-xl bg-muted/30 text-muted-foreground/50 flex-shrink-0">
                           {getIcon(tier.type)}
                         </div>
-                        
-                        <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                          <h4 className="font-semibold text-foreground/60 mb-1">
-                            {tier.reward}
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
+                        <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : 'text-left'}`}>
+                          <p className="font-semibold text-sm text-foreground/50">{tier.reward}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {isRTL 
                               ? `سفارش‌های بالای ${formatCurrency(tier.threshold, language)}`
-                              : `On orders above ${formatCurrency(tier.threshold, language)}`
+                              : `Orders above ${formatCurrency(tier.threshold, language)}`
                             }
                           </p>
                         </div>
                       </div>
-
-                      <div className="space-y-2">
-                        <Progress value={progress} className="h-2" />
-                        <p className={`text-sm text-primary font-medium ${isRTL ? 'text-right' : ''}`}>
-                          {isRTL 
-                            ? `${formatCurrency(amountNeeded, language)} دیگر برای فعال‌سازی`
-                            : `Add ${formatCurrency(amountNeeded, language)} more to unlock`
-                          }
-                        </p>
-                      </div>
+                      <Progress value={progress} className="h-1.5 mb-2" />
+                      <p className={`text-xs text-primary font-medium ${isRTL ? 'text-right' : ''}`}>
+                        {isRTL 
+                          ? `${formatCurrency(amountNeeded, language)} دیگر تا فعال‌سازی`
+                          : `${formatCurrency(amountNeeded, language)} more to unlock`
+                        }
+                      </p>
                     </div>
                   );
                 })}
@@ -232,23 +183,23 @@ export const CouponSelectorLocalized = ({
             )}
 
             {availableCoupons.length === 0 && unavailableCoupons.length === 0 && (
-              <div className="text-center py-12">
-                <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-30" />
-                <p className="text-muted-foreground">
-                  {isRTL ? "کدی موجود نیست" : "No codes available"}
+              <div className="text-center py-10">
+                <Tag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {isRTL ? "کوپنی موجود نیست" : "No coupons available"}
                 </p>
               </div>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      {/* Auto-applied feedback message */}
+      {/* Applied feedback */}
       {selectedCoupon && (
         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/10 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <Sparkles className="w-4 h-4 text-accent-foreground" />
-          <span className="text-sm text-accent-foreground font-medium">
-            {isRTL ? "بهترین تخفیف به‌صورت خودکار اعمال شد" : "Best discount auto-applied"}
+          <Sparkles className="w-3.5 h-3.5 text-accent-foreground" />
+          <span className="text-xs text-accent-foreground font-medium">
+            {isRTL ? "بهترین تخفیف اعمال شد" : "Best discount applied"}
           </span>
         </div>
       )}

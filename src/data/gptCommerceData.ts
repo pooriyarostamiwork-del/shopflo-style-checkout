@@ -142,12 +142,32 @@ export interface ChatMessage {
   isCtaActive?: boolean; // Whether this CTA is currently active (only one should be active at a time)
 }
 
+export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+
+export interface OrderMerchantGroup {
+  merchant: Merchant;
+  items: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
+  discount: number;
+  total: number;
+  shippingMethod: string;
+  trackingNumber?: string;
+}
+
 export interface Order {
   id: string;
-  status: 'processing' | 'shipped' | 'delivered';
+  status: OrderStatus;
   items: CartItem[];
   total: number;
   date: Date;
+  // Extended fields for detail view
+  merchantGroups: OrderMerchantGroup[];
+  paymentMethod: string;
+  deliveryAddress: DeliveryAddress;
+  subtotal: number;
+  totalShipping: number;
+  totalDiscount: number;
 }
 
 // Mock data
@@ -297,11 +317,84 @@ export const initialMessages: ChatMessage[] = [
 
 export const mockOrders: Order[] = [
   {
-    id: 'ORD-۱۲۳۴',
+    id: '#۱۲۳۴۵',
     status: 'shipped',
-    items: [{ ...mockProducts[0], quantity: 1 }],
-    total: 12500000,
+    items: [{ ...mockProducts[0], quantity: 1 }, { ...mockProducts[2], quantity: 2 }],
+    total: 21500000,
     date: new Date(Date.now() - 86400000 * 2),
+    merchantGroups: [
+      {
+        merchant: merchants[0],
+        items: [{ ...mockProducts[0], quantity: 1 }],
+        subtotal: 12500000,
+        deliveryFee: 0,
+        discount: 1500000,
+        total: 12500000,
+        shippingMethod: 'ارسال اکسپرس',
+        trackingNumber: '۹۸۷۶۵۴۳۲۱',
+      },
+      {
+        merchant: merchants[1],
+        items: [{ ...mockProducts[2], quantity: 2 }],
+        subtotal: 9000000,
+        deliveryFee: 55000,
+        discount: 1400000,
+        total: 9055000,
+        shippingMethod: 'ارسال عادی',
+      },
+    ],
+    paymentMethod: 'درگاه پرداخت',
+    deliveryAddress: mockAddresses[0],
+    subtotal: 21500000,
+    totalShipping: 55000,
+    totalDiscount: 2900000,
+  },
+  {
+    id: '#۱۲۳۴۰',
+    status: 'delivered',
+    items: [{ ...mockProducts[1], quantity: 1 }],
+    total: 9800000,
+    date: new Date(Date.now() - 86400000 * 10),
+    merchantGroups: [
+      {
+        merchant: merchants[2],
+        items: [{ ...mockProducts[1], quantity: 1 }],
+        subtotal: 9800000,
+        deliveryFee: 0,
+        discount: 0,
+        total: 9800000,
+        shippingMethod: 'ارسال اکسپرس',
+        trackingNumber: '۱۲۳۴۵۶۷۸۹',
+      },
+    ],
+    paymentMethod: 'کیف پول',
+    deliveryAddress: mockAddresses[0],
+    subtotal: 9800000,
+    totalShipping: 0,
+    totalDiscount: 0,
+  },
+  {
+    id: '#۱۲۳۳۵',
+    status: 'cancelled',
+    items: [{ ...mockProducts[4], quantity: 1 }],
+    total: 8900000,
+    date: new Date(Date.now() - 86400000 * 15),
+    merchantGroups: [
+      {
+        merchant: merchants[2],
+        items: [{ ...mockProducts[4], quantity: 1 }],
+        subtotal: 8900000,
+        deliveryFee: 0,
+        discount: 1600000,
+        total: 8900000,
+        shippingMethod: 'ارسال عادی',
+      },
+    ],
+    paymentMethod: 'درگاه پرداخت',
+    deliveryAddress: mockAddresses[1],
+    subtotal: 8900000,
+    totalShipping: 0,
+    totalDiscount: 1600000,
   },
 ];
 

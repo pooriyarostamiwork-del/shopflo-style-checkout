@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Sidebar, Basket, SavedItem } from "@/components/gpt-commerce/Sidebar";
 import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
+import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/gpt-commerce/OTPModal";
@@ -18,26 +19,65 @@ import {
   AgenticState,
   QuickReply,
   PaymentMethod,
-  ShippingMethod,
+  DeliveryAddress,
   calculateOrderSummary,
   toPersianNumber,
 } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 
-// localStorage key for baskets
+// ========== PER-BASKET STATE ==========
+interface BasketState {
+  messages: ChatMessage[];
+  cartItems: CartItem[];
+  agenticState: AgenticState;
+  selectedAddressId: string | null;
+  selectedShippingByMerchant: Record<string, string>;
+  lastRecommendedProducts: Product[];
+  isProcessing: boolean;
+  hasStartedChat: boolean;
+  checkoutAddresses: DeliveryAddress[];
+  isOTPVerified: boolean;
+  isNewUser: boolean;
+}
+
+const createDefaultBasketState = (): BasketState => ({
+  messages: [{
+    id: `welcome-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    role: 'assistant',
+    content: 'سلام! 👋 من دستیار خرید هوشمند فلوکارت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
+    timestamp: new Date(),
+  }],
+  cartItems: [],
+  agenticState: {
+    step: 'idle',
+    isLoggedIn: false,
+    hasStoredCheckoutDetails: false,
+    selectedAddress: null,
+    selectedPayment: null,
+    orderId: null,
+  },
+  selectedAddressId: null,
+  selectedShippingByMerchant: {},
+  lastRecommendedProducts: [],
+  isProcessing: false,
+  hasStartedChat: false,
+  checkoutAddresses: [...mockAddresses],
+  isOTPVerified: false,
+  isNewUser: false,
+});
+
+// localStorage keys
 const BASKETS_STORAGE_KEY = 'flowcart-baskets';
 const ACTIVE_BASKET_KEY = 'flowcart-active-basket';
+const BASKET_STATES_KEY = 'flowcart-basket-states';
+// Global addresses (account-level)
+const GLOBAL_ADDRESSES_KEY = 'flowcart-global-addresses';
 
-// Get initial baskets from localStorage or use default
 const getInitialBaskets = (): Basket[] => {
   try {
     const stored = localStorage.getItem(BASKETS_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.error('Failed to load baskets from localStorage:', e);
-  }
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error('Failed to load baskets:', e); }
   return [{ id: 'basket-1', title: 'هدفون‌های بی‌سیم', itemCount: 0, lastActivity: 'الان', savedItems: [] }];
 };
 
@@ -45,47 +85,125 @@ const getInitialActiveBasketId = (): string => {
   try {
     const stored = localStorage.getItem(ACTIVE_BASKET_KEY);
     if (stored) return stored;
-  } catch (e) {
-    console.error('Failed to load active basket from localStorage:', e);
-  }
+  } catch (e) { console.error('Failed to load active basket:', e); }
   return 'basket-1';
 };
 
+const getInitialBasketStates = (): Record<string, BasketState> => {
+  try {
+    const stored = localStorage.getItem(BASKET_STATES_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Rehydrate Date objects in messages
+      for (const key of Object.keys(parsed)) {
+        const bs = parsed[key];
+        if (bs.messages) {
+          bs.messages = bs.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
+        }
+      }
+      return parsed;
+    }
+  } catch (e) { console.error('Failed to load basket states:', e); }
+  return {};
+};
+
+const getInitialGlobalAddresses = (): DeliveryAddress[] => {
+  try {
+    const stored = localStorage.getItem(GLOBAL_ADDRESSES_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error('Failed to load global addresses:', e); }
+  return [...mockAddresses];
+};
+
 const GPTCommerceContent = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [activeSection, setActiveSection] = useState('active-cart');
-  const [hasStartedChat, setHasStartedChat] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [showOTPModal, setShowOTPModal] = useState(false);
-  const [isOTPVerified, setIsOTPVerified] = useState(false);
-  const [isNewUser, setIsNewUser] = useState(false);
-  
-  // Basket state - persisted to localStorage
+  // === BASKET MANAGEMENT ===
   const [baskets, setBaskets] = useState<Basket[]>(() => getInitialBaskets());
   const [activeBasketId, setActiveBasketId] = useState<string>(() => getInitialActiveBasketId());
   
-  // Agentic state - default to guest (not logged in for OTP flow demo)
-  const [agenticState, setAgenticState] = useState<AgenticState>({
-    step: 'idle',
-    isLoggedIn: false, // Default: guest user - will be verified via OTP
-    hasStoredCheckoutDetails: false,
-    selectedAddress: null,
-    selectedPayment: null,
-    orderId: null,
-  });
-  
-  // Selected address ID + shipping per merchant
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [selectedShippingByMerchant, setSelectedShippingByMerchant] = useState<Record<string, string>>({});
+  // Per-basket state storage
+  const [basketStates, setBasketStates] = useState<Record<string, BasketState>>(() => getInitialBasketStates());
 
-  // Addresses for checkout (mutable in demo; starts with mockAddresses)
-  const [checkoutAddresses, setCheckoutAddresses] = useState(() => mockAddresses);
+  // Global addresses (account-level, available to all baskets)
+  const [globalAddresses, setGlobalAddresses] = useState<DeliveryAddress[]>(() => getInitialGlobalAddresses());
 
-  // Build merchant shipping from cart items with default marking
+  // Get or create state for current basket
+  const getCurrentBasketState = useCallback((): BasketState => {
+    return basketStates[activeBasketId] || createDefaultBasketState();
+  }, [basketStates, activeBasketId]);
+
+  // Current basket state (derived)
+  const currentState = getCurrentBasketState();
+
+  // Active state accessors
+  const messages = currentState.messages;
+  const cartItems = currentState.cartItems;
+  const agenticState = currentState.agenticState;
+  const selectedAddressId = currentState.selectedAddressId;
+  const selectedShippingByMerchant = currentState.selectedShippingByMerchant;
+  const lastRecommendedProducts = currentState.lastRecommendedProducts;
+  const isProcessing = currentState.isProcessing;
+  const hasStartedChat = currentState.hasStartedChat;
+  const checkoutAddresses = currentState.checkoutAddresses;
+  const isOTPVerified = currentState.isOTPVerified;
+  const isNewUser = currentState.isNewUser;
+
+  // Helper to update current basket state
+  const updateCurrentBasket = useCallback((updater: (prev: BasketState) => BasketState) => {
+    setBasketStates(prev => {
+      const current = prev[activeBasketId] || createDefaultBasketState();
+      return { ...prev, [activeBasketId]: updater(current) };
+    });
+  }, [activeBasketId]);
+
+  // UI-only state (not per-basket)
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [activeSection, setActiveSection] = useState('active-cart');
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+
+  // Persist baskets
+  useEffect(() => {
+    try { localStorage.setItem(BASKETS_STORAGE_KEY, JSON.stringify(baskets)); } catch (e) { console.error(e); }
+  }, [baskets]);
+
+  // Persist active basket ID
+  useEffect(() => {
+    try { localStorage.setItem(ACTIVE_BASKET_KEY, activeBasketId); } catch (e) { console.error(e); }
+  }, [activeBasketId]);
+
+  // Persist basket states
+  useEffect(() => {
+    try { localStorage.setItem(BASKET_STATES_KEY, JSON.stringify(basketStates)); } catch (e) { console.error(e); }
+  }, [basketStates]);
+
+  // Persist global addresses
+  useEffect(() => {
+    try { localStorage.setItem(GLOBAL_ADDRESSES_KEY, JSON.stringify(globalAddresses)); } catch (e) { console.error(e); }
+  }, [globalAddresses]);
+
+  // Initialize state for basket-1 if not exists
+  useEffect(() => {
+    if (!basketStates[activeBasketId]) {
+      setBasketStates(prev => ({
+        ...prev,
+        [activeBasketId]: createDefaultBasketState(),
+      }));
+    }
+  }, [activeBasketId, basketStates]);
+
+  // Open cart when chat starts
+  useEffect(() => {
+    if (hasStartedChat) {
+      setIsCartOpen(true);
+    }
+  }, [hasStartedChat]);
+
+  const handleStartChat = useCallback(() => {
+    updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
+  }, [updateCurrentBasket]);
+
+  // Build merchant shipping from cart items
   const getMerchantShipping = useCallback(() => {
     const merchantIds = [...new Set(cartItems.map(item => item.merchant.id))];
     return merchantIds.map(merchantId => {
@@ -101,63 +219,24 @@ const GPTCommerceContent = () => {
     });
   }, [cartItems]);
 
-  // Auto-select default shipping method for each merchant.
-  // IMPORTANT: this must run when we enter the address step too (we reset selections there),
-  // so visual “selected” and validation state are always aligned.
+  // Auto-select default shipping
   useEffect(() => {
     if (agenticState.step !== 'address-confirmation') return;
-
     const merchantShipping = getMerchantShipping();
+    const needsUpdate = merchantShipping.some(ms => !selectedShippingByMerchant[ms.merchant.id]);
+    if (!needsUpdate) return;
 
-    setSelectedShippingByMerchant((prev) => {
-      const next: Record<string, string> = { ...prev };
-      let changed = false;
-
-      merchantShipping.forEach((ms) => {
+    updateCurrentBasket(s => {
+      const next = { ...s.selectedShippingByMerchant };
+      merchantShipping.forEach(ms => {
         if (!next[ms.merchant.id]) {
-          const def = ms.methods.find((m) => m.isDefault) || ms.methods[0];
-          if (def) {
-            next[ms.merchant.id] = def.id;
-            changed = true;
-          }
+          const def = ms.methods.find(m => m.isDefault) || ms.methods[0];
+          if (def) next[ms.merchant.id] = def.id;
         }
       });
-
-      return changed ? next : prev;
+      return { ...s, selectedShippingByMerchant: next };
     });
-  }, [agenticState.step, getMerchantShipping]);
-
-  // Track recommended products for number reference
-  const [lastRecommendedProducts, setLastRecommendedProducts] = useState<Product[]>([]);
-
-  // Persist baskets to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(BASKETS_STORAGE_KEY, JSON.stringify(baskets));
-    } catch (e) {
-      console.error('Failed to save baskets to localStorage:', e);
-    }
-  }, [baskets]);
-
-  // Persist active basket ID to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(ACTIVE_BASKET_KEY, activeBasketId);
-    } catch (e) {
-      console.error('Failed to save active basket ID to localStorage:', e);
-    }
-  }, [activeBasketId]);
-
-  // Open cart by default when chat has started
-  useEffect(() => {
-    if (hasStartedChat) {
-      setIsCartOpen(true);
-    }
-  }, [hasStartedChat]);
-
-  const handleStartChat = useCallback(() => {
-    setHasStartedChat(true);
-  }, []);
+  }, [agenticState.step, getMerchantShipping, selectedShippingByMerchant, updateCurrentBasket]);
 
   // Parse "add product number X" commands
   const parseProductSelection = (content: string): number | null => {
@@ -166,14 +245,12 @@ const GPTCommerceContent = () => {
       'یک': 1, 'دو': 2, 'سه': 3, 'چهار': 4, 'پنج': 5, 'شش': 6,
       '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
     };
-    
     const patterns = [
       /محصول\s*(شماره\s*)?(\d|۱|۲|۳|۴|۵|۶|یک|دو|سه|چهار|پنج|شش)/,
       /شماره\s*(\d|۱|۲|۳|۴|۵|۶)/,
       /اضافه.*(\d|۱|۲|۳|۴|۵|۶)/,
       /#(\d|۱|۲|۳|۴|۵|۶)/,
     ];
-    
     for (const pattern of patterns) {
       const match = content.match(pattern);
       if (match) {
@@ -184,42 +261,39 @@ const GPTCommerceContent = () => {
     return null;
   };
 
-  // Handle quick reply selection
+  // Handle quick reply
   const handleQuickReply = useCallback((reply: QuickReply) => {
     if (reply.type === 'confirm-cart') {
-      // If user is not OTP verified, show OTP modal first
       if (!isOTPVerified) {
         setShowOTPModal(true);
         return;
       }
-
-      // Verified -> go directly to address + shipping selection
       const addressMessage: ChatMessage = {
         id: `addr-${Date.now()}`,
         role: 'assistant',
         content: 'آدرس و نحوه ارسال را انتخاب کنید:',
         addressShipping: {
           mode: isNewUser ? 'new' : 'existing',
-          addresses: isNewUser ? [] : checkoutAddresses,
+          addresses: isNewUser ? [] : globalAddresses,
           shippingMethods: [],
         },
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, addressMessage]);
-      setAgenticState((prev) => ({ ...prev, step: 'address-confirmation' }));
-
-      if (!isNewUser && checkoutAddresses[0]) {
-        setSelectedAddressId(checkoutAddresses[0].id);
-        setAgenticState((prev) => ({
-          ...prev,
-          selectedAddress: checkoutAddresses[0],
-          isLoggedIn: true,
-          hasStoredCheckoutDetails: true,
-        }));
-      }
-
-      // Reset shipping selection when entering this step
-      setSelectedShippingByMerchant({});
+      updateCurrentBasket(s => ({
+        ...s,
+        messages: [...s.messages, addressMessage],
+        agenticState: {
+          ...s.agenticState,
+          step: 'address-confirmation',
+          ...((!isNewUser && globalAddresses[0]) ? {
+            selectedAddress: globalAddresses[0],
+            isLoggedIn: true,
+            hasStoredCheckoutDetails: true,
+          } : {}),
+        },
+        selectedAddressId: (!isNewUser && globalAddresses[0]) ? globalAddresses[0].id : null,
+        selectedShippingByMerchant: {},
+      }));
     } else if (reply.type === 'add-more') {
       const moreMessage: ChatMessage = {
         id: `more-${Date.now()}`,
@@ -227,8 +301,11 @@ const GPTCommerceContent = () => {
         content: 'باشه! بگو دنبال چی می‌گردی تا پیداش کنم.',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, moreMessage]);
-      setAgenticState(prev => ({ ...prev, step: 'idle' }));
+      updateCurrentBasket(s => ({
+        ...s,
+        messages: [...s.messages, moreMessage],
+        agenticState: { ...s.agenticState, step: 'idle' },
+      }));
     } else if (reply.type === 'track-order') {
       const trackMessage: ChatMessage = {
         id: `track-${Date.now()}`,
@@ -236,65 +313,70 @@ const GPTCommerceContent = () => {
         content: `سفارش ${agenticState.orderId} در حال پردازش هست و تا ۲ روز آینده به دستت می‌رسه! 📦`,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, trackMessage]);
+      updateCurrentBasket(s => ({
+        ...s,
+        messages: [...s.messages, trackMessage],
+      }));
     }
-  }, [agenticState.orderId, checkoutAddresses, isNewUser, isOTPVerified]);
+  }, [agenticState.orderId, globalAddresses, isNewUser, isOTPVerified, updateCurrentBasket]);
 
-  // Handle OTP verification complete
+  // Handle OTP verification
   const handleOTPVerified = useCallback((newUser: boolean) => {
     setShowOTPModal(false);
-    setIsOTPVerified(true);
-    setIsNewUser(newUser);
-    setAgenticState(prev => ({ ...prev, isLoggedIn: true }));
-
-    // After OTP, continue directly to address + shipping (NOT cart confirmation again)
     const addressMessage: ChatMessage = {
       id: `addr-${Date.now()}`,
       role: 'assistant',
       content: 'آدرس و نحوه ارسال را انتخاب کنید:',
       addressShipping: {
         mode: newUser ? 'new' : 'existing',
-        addresses: newUser ? [] : checkoutAddresses,
+        addresses: newUser ? [] : globalAddresses,
         shippingMethods: [],
       },
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, addressMessage]);
-    setAgenticState(prev => ({ ...prev, step: 'address-confirmation' }));
-
-    if (!newUser && checkoutAddresses[0]) {
-      setSelectedAddressId(checkoutAddresses[0].id);
-      setAgenticState(prev => ({
-        ...prev,
-        selectedAddress: checkoutAddresses[0],
-        hasStoredCheckoutDetails: true,
-      }));
-    }
-
-    setSelectedShippingByMerchant({});
-  }, [checkoutAddresses]);
+    updateCurrentBasket(s => ({
+      ...s,
+      isOTPVerified: true,
+      isNewUser: newUser,
+      messages: [...s.messages, addressMessage],
+      agenticState: {
+        ...s.agenticState,
+        step: 'address-confirmation',
+        isLoggedIn: true,
+        ...((!newUser && globalAddresses[0]) ? {
+          selectedAddress: globalAddresses[0],
+          hasStoredCheckoutDetails: true,
+        } : {}),
+      },
+      selectedAddressId: (!newUser && globalAddresses[0]) ? globalAddresses[0].id : null,
+      selectedShippingByMerchant: {},
+    }));
+  }, [globalAddresses, updateCurrentBasket]);
 
   // Handle address selection
   const handleAddressSelect = useCallback((addressId: string) => {
-    setSelectedAddressId(addressId);
-    const selectedAddr = checkoutAddresses.find(a => a.id === addressId);
-    if (selectedAddr) {
-      setAgenticState(prev => ({ ...prev, selectedAddress: selectedAddr }));
-    }
-  }, [checkoutAddresses]);
+    const selectedAddr = globalAddresses.find(a => a.id === addressId);
+    updateCurrentBasket(s => ({
+      ...s,
+      selectedAddressId: addressId,
+      agenticState: selectedAddr ? { ...s.agenticState, selectedAddress: selectedAddr } : s.agenticState,
+    }));
+  }, [globalAddresses, updateCurrentBasket]);
 
-  // Handle shipping selection per merchant
+  // Handle shipping selection
   const handleSelectShipping = useCallback((merchantId: string, shippingId: string) => {
-    setSelectedShippingByMerchant(prev => ({ ...prev, [merchantId]: shippingId }));
-  }, []);
+    updateCurrentBasket(s => ({
+      ...s,
+      selectedShippingByMerchant: { ...s.selectedShippingByMerchant, [merchantId]: shippingId },
+    }));
+  }, [updateCurrentBasket]);
 
-  // Handle address confirmation - combined with shipping
+  // Handle address confirmation
   const handleAddressConfirm = useCallback(() => {
     const merchantShipping = getMerchantShipping();
     const allSelected = merchantShipping.every(ms => selectedShippingByMerchant[ms.merchant.id]);
     if (!allSelected) return;
 
-    // Show payment selection with updated confirmation message
     const paymentMessage: ChatMessage = {
       id: `payment-${Date.now()}`,
       role: 'assistant',
@@ -302,63 +384,66 @@ const GPTCommerceContent = () => {
       paymentOptions: paymentOptions,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, paymentMessage]);
-    setAgenticState(prev => ({ ...prev, step: 'payment-selection' }));
-  }, [selectedShippingByMerchant, getMerchantShipping]);
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: [...s.messages, paymentMessage],
+      agenticState: { ...s.agenticState, step: 'payment-selection' },
+    }));
+  }, [selectedShippingByMerchant, getMerchantShipping, updateCurrentBasket]);
 
-  const handleAddNewAddress = useCallback((addr: Omit<typeof mockAddresses[0], "id">) => {
+  const handleAddNewAddress = useCallback((addr: Omit<DeliveryAddress, "id">) => {
     const id = `addr-${Date.now()}`;
-    const created: typeof mockAddresses[0] = { id, ...addr, recipientName: addr.recipientName || '', phone: addr.phone || '' };
+    const created: DeliveryAddress = { id, ...addr, recipientName: addr.recipientName || '', phone: addr.phone || '' };
 
-    setCheckoutAddresses((prev) => [created, ...prev]);
-    setSelectedAddressId(id);
-    setAgenticState((prev) => ({ ...prev, selectedAddress: created, hasStoredCheckoutDetails: true }));
+    // Add to global addresses
+    setGlobalAddresses(prev => [created, ...prev]);
 
-    // IMPORTANT: the in-chat AddressShipping component is rendered from the chat message.
-    // Update that message immediately so the new address appears in the list without reload.
-    setMessages((prev) => {
-      const lastIdx = [...prev].reverse().findIndex((m) => !!m.addressShipping);
-      if (lastIdx === -1) return prev;
-      const idx = prev.length - 1 - lastIdx;
-      const target = prev[idx];
-      if (!target.addressShipping) return prev;
-
-      const existing = target.addressShipping.addresses ?? [];
-      const nextAddresses = [created, ...existing.filter((a) => a.id !== created.id)];
-
-      const updated: ChatMessage = {
-        ...target,
-        addressShipping: {
-          ...target.addressShipping,
-          addresses: nextAddresses,
-        },
+    updateCurrentBasket(s => {
+      // Update address shipping message in chat
+      const msgs = [...s.messages];
+      const lastIdx = [...msgs].reverse().findIndex(m => !!m.addressShipping);
+      if (lastIdx !== -1) {
+        const idx = msgs.length - 1 - lastIdx;
+        const target = msgs[idx];
+        if (target.addressShipping) {
+          const existing = target.addressShipping.addresses ?? [];
+          msgs[idx] = {
+            ...target,
+            addressShipping: {
+              ...target.addressShipping,
+              addresses: [created, ...existing.filter(a => a.id !== created.id)],
+            },
+          };
+        }
+      }
+      return {
+        ...s,
+        messages: msgs,
+        selectedAddressId: id,
+        agenticState: { ...s.agenticState, selectedAddress: created, hasStoredCheckoutDetails: true },
       };
-
-      const next = [...prev];
-      next[idx] = updated;
-      return next;
     });
-  }, []);
+  }, [updateCurrentBasket]);
 
   // Handle payment selection
   const handlePaymentSelect = useCallback((paymentId: string) => {
-    setAgenticState(prev => ({ ...prev, selectedPayment: paymentId as PaymentMethod }));
-    
-    // Process payment
-    setIsProcessing(true);
-    const processingMessage: ChatMessage = {
-      id: `processing-${Date.now()}`,
-      role: 'assistant',
-      content: 'ممنون! 🙏 داریم پرداخت رو پردازش می‌کنیم...',
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, processingMessage]);
-    setAgenticState(prev => ({ ...prev, step: 'processing-payment' }));
+    updateCurrentBasket(s => {
+      const processingMessage: ChatMessage = {
+        id: `processing-${Date.now()}`,
+        role: 'assistant',
+        content: 'ممنون! 🙏 داریم پرداخت رو پردازش می‌کنیم...',
+        timestamp: new Date(),
+      };
+      return {
+        ...s,
+        isProcessing: true,
+        messages: [...s.messages, processingMessage],
+        agenticState: { ...s.agenticState, selectedPayment: paymentId as PaymentMethod, step: 'processing-payment' },
+      };
+    });
 
-    // Simulate payment processing
     setTimeout(() => {
       const orderId = `FLC-${Date.now().toString().slice(-6)}`;
-      
       const successMessage: ChatMessage = {
         id: `success-${Date.now()}`,
         role: 'assistant',
@@ -370,25 +455,21 @@ const GPTCommerceContent = () => {
         ],
         timestamp: new Date(),
       };
-      
-      setMessages(prev => [...prev, successMessage]);
-      setAgenticState(prev => ({ 
-        ...prev, 
-        step: 'order-complete',
-        orderId,
+      updateCurrentBasket(s => ({
+        ...s,
+        messages: [...s.messages, successMessage],
+        agenticState: { ...s.agenticState, step: 'order-complete', orderId },
+        cartItems: [],
+        isProcessing: false,
       }));
-      setCartItems([]);
-      setIsProcessing(false);
     }, 2000);
-  }, []);
+  }, [updateCurrentBasket]);
 
-  // Handle CTA button click (Finalize Purchase) - also handles first page AI checkout
+  // Handle finalize purchase
   const handleFinalizePurchase = useCallback(() => {
-    // If on first page (not in chat mode), start chat mode first
     if (!hasStartedChat) {
-      setHasStartedChat(true);
+      updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
     }
-
     if (cartItems.length === 0) {
       const emptyMessage: ChatMessage = {
         id: `empty-${Date.now()}`,
@@ -396,22 +477,9 @@ const GPTCommerceContent = () => {
         content: 'سبد خریدت خالیه! اول یه محصول به سبد اضافه کن.',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, emptyMessage]);
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, emptyMessage] }));
       return;
     }
-
-    if (cartItems.length === 0) {
-      const emptyMessage: ChatMessage = {
-        id: `empty-${Date.now()}`,
-        role: 'assistant',
-        content: 'سبد خریدت خالیه! اول یه محصول به سبد اضافه کن.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, emptyMessage]);
-      return;
-    }
-
-    // Show cart confirmation - this is the entry point from first page CTA
     const orderSummary = calculateOrderSummary(cartItems);
     const confirmMessage: ChatMessage = {
       id: `confirm-${Date.now()}`,
@@ -424,86 +492,65 @@ const GPTCommerceContent = () => {
       ],
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, confirmMessage]);
-    setAgenticState(prev => ({ ...prev, step: 'cart-confirmation' }));
-  }, [cartItems, hasStartedChat]);
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: [...s.messages, confirmMessage],
+      agenticState: { ...s.agenticState, step: 'cart-confirmation' },
+    }));
+  }, [cartItems, hasStartedChat, updateCurrentBasket]);
 
   const handleSendMessage = useCallback((content: string) => {
-    // Add user message
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
       content,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMessage]);
-    setIsProcessing(true);
+    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    // Simulate AI response
     setTimeout(() => {
       let responseContent = '';
       let products: Product[] | undefined;
       let ctaButton: ChatMessage['ctaButton'] | undefined;
       let quickReplies: QuickReply[] | undefined;
 
-      // Check for product selection by number
       const selectedNumber = parseProductSelection(content);
-      
-      // Detect direct payment command: "با پرداخت مستقیم بخر و به خانه بفرست"
       const isDirectPayment = content.includes('پرداخت مستقیم') && (content.includes('بخر') || content.includes('خرید'));
-      
-      // Detect buy and send command: "بخر و به خانه بفرست" (without direct payment)
-      const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) && 
+      const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) &&
                           (content.includes('خانه') || content.includes('بفرست') || content.includes('ارسال'));
-      
+
       if (selectedNumber && lastRecommendedProducts.length >= selectedNumber) {
         const selectedProduct = lastRecommendedProducts[selectedNumber - 1];
-        
-        // Add to cart
-        setCartItems((prev) => {
-          const existing = prev.find((item) => item.id === selectedProduct.id);
-          if (existing) {
-            return prev.map((item) =>
-              item.id === selectedProduct.id
-                ? { ...item, quantity: item.quantity + 1 }
-                : item
-            );
-          }
-          return [...prev, { ...selectedProduct, quantity: 1 }];
+
+        // Add to cart in basket state
+        updateCurrentBasket(s => {
+          const existing = s.cartItems.find(item => item.id === selectedProduct.id);
+          const newCart = existing
+            ? s.cartItems.map(item => item.id === selectedProduct.id ? { ...item, quantity: item.quantity + 1 } : item)
+            : [...s.cartItems, { ...selectedProduct, quantity: 1 }];
+          return { ...s, cartItems: newCart };
         });
 
-        // Handle direct payment flow - skip to order confirmation
         if (isDirectPayment) {
           if (!agenticState.isLoggedIn) {
             responseContent = 'برای خرید مستقیم، اول باید وارد حسابت بشی. 🔐';
-            const assistantMessage: ChatMessage = {
-              id: `assistant-${Date.now()}`,
-              role: 'assistant',
-              content: responseContent,
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, assistantMessage]);
-            setIsProcessing(false);
+            const assistantMessage: ChatMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: responseContent, timestamp: new Date() };
+            updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
             return;
           }
-          
-          // Add product confirmation
           const addedMessage: ChatMessage = {
             id: `added-${Date.now()}`,
             role: 'assistant',
             content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nداریم سفارشت رو با پرداخت مستقیم پردازش می‌کنیم...`,
             timestamp: new Date(),
           };
-          setMessages((prev) => [...prev, addedMessage]);
-          
-          // Simulate processing and go directly to order confirmation
+          updateCurrentBasket(s => ({ ...s, messages: [...s.messages, addedMessage] }));
           setTimeout(() => {
             const orderId = `FLC-${Date.now().toString().slice(-6)}`;
-            
             const successMessage: ChatMessage = {
               id: `success-${Date.now()}`,
               role: 'assistant',
-              content: `سفارشت با موفقیت ثبت شد! 🎉\n\nشماره سفارش: ${orderId}\n📍 آدرس: ${mockAddresses[0].fullAddress}\n💳 پرداخت: درگاه مستقیم\n\nمی‌تونی از همین‌جا سفارشت رو پیگیری کنی.`,
+              content: `سفارشت با موفقیت ثبت شد! 🎉\n\nشماره سفارش: ${orderId}\n📍 آدرس: ${globalAddresses[0]?.fullAddress || ''}\n💳 پرداخت: درگاه مستقیم\n\nمی‌تونی از همین‌جا سفارشت رو پیگیری کنی.`,
               quickReplies: [
                 { id: 'track', label: '📦 پیگیری سفارش', type: 'track-order' },
                 { id: 'modify', label: '✏️ ویرایش آدرس', type: 'modify-address' },
@@ -511,112 +558,80 @@ const GPTCommerceContent = () => {
               ],
               timestamp: new Date(),
             };
-            
-            setMessages((prev) => [...prev, successMessage]);
-            setAgenticState(prev => ({ 
-              ...prev, 
-              step: 'order-complete',
-              orderId,
-              selectedPayment: 'gateway',
+            updateCurrentBasket(s => ({
+              ...s,
+              messages: [...s.messages, successMessage],
+              agenticState: { ...s.agenticState, step: 'order-complete', orderId, selectedPayment: 'gateway' },
+              cartItems: [],
+              isProcessing: false,
             }));
-            setCartItems([]);
-            setIsProcessing(false);
           }, 2000);
-          
-          setIsProcessing(false);
-          return;
-        }
-        
-        // Handle buy and send flow - skip to payment selection
-        if (isBuyAndSend) {
-          if (!agenticState.isLoggedIn) {
-            responseContent = 'برای خرید سریع، اول باید وارد حسابت بشی. 🔐';
-            const assistantMessage: ChatMessage = {
-              id: `assistant-${Date.now()}`,
-              role: 'assistant',
-              content: responseContent,
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, assistantMessage]);
-            setIsProcessing(false);
-            return;
-          }
-          
-          // Add product and show payment selection directly
-          const addedMessage: ChatMessage = {
-            id: `added-${Date.now()}`,
-            role: 'assistant',
-            content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\n📍 آدرس تحویل: ${mockAddresses[0].fullAddress}\n\nحالا روش پرداخت رو انتخاب کن:`,
-            paymentOptions: paymentOptions,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, addedMessage]);
-          setAgenticState(prev => ({ ...prev, step: 'payment-selection' }));
-          setIsProcessing(false);
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
           return;
         }
 
-        // Default flow - product added, deactivate previous CTAs and show new finalize CTA
-        responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`;
-        
-        ctaButton = {
-          label: 'نهایی کردن خرید',
-          action: 'finalize',
-          disabled: false,
-        };
-        
-        // Deactivate previous CTAs
-        setMessages(prev => prev.map(msg => {
-          if (msg.ctaButton) {
-            return {
-              ...msg,
-              ctaButton: undefined,
-              content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»'
-            };
+        if (isBuyAndSend) {
+          if (!agenticState.isLoggedIn) {
+            responseContent = 'برای خرید سریع، اول باید وارد حسابت بشی. 🔐';
+            const assistantMessage: ChatMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: responseContent, timestamp: new Date() };
+            updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
+            return;
           }
-          return msg;
+          const addedMessage: ChatMessage = {
+            id: `added-${Date.now()}`,
+            role: 'assistant',
+            content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\n📍 آدرس تحویل: ${globalAddresses[0]?.fullAddress || ''}\n\nحالا روش پرداخت رو انتخاب کن:`,
+            paymentOptions: paymentOptions,
+            timestamp: new Date(),
+          };
+          updateCurrentBasket(s => ({
+            ...s,
+            messages: [...s.messages, addedMessage],
+            agenticState: { ...s.agenticState, step: 'payment-selection' },
+            isProcessing: false,
+          }));
+          return;
+        }
+
+        // Default - product added
+        responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`;
+        ctaButton = { label: 'نهایی کردن خرید', action: 'finalize', disabled: false };
+
+        // Deactivate previous CTAs
+        updateCurrentBasket(s => ({
+          ...s,
+          messages: s.messages.map(msg =>
+            msg.ctaButton
+              ? { ...msg, ctaButton: undefined, content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»' }
+              : msg
+          ),
+          agenticState: { ...s.agenticState, step: 'product-added' },
         }));
-        
-        setAgenticState(prev => ({ ...prev, step: 'product-added' }));
-      }
-      // Check for finalize intent
-      else if (content.includes('نهایی') || content.includes('انجام بده') || content.includes('تموم')) {
+      } else if (content.includes('نهایی') || content.includes('انجام بده') || content.includes('تموم')) {
         handleFinalizePurchase();
-        setIsProcessing(false);
+        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
         return;
-      }
-      // Check for checkout intent
-      else if (content.includes('خرید') && content.includes('انجام')) {
+      } else if (content.includes('خرید') && content.includes('انجام')) {
         if (cartItems.length > 0) {
           handleFinalizePurchase();
-          setIsProcessing(false);
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
           return;
         } else {
           responseContent = 'سبد خریدت خالیه! اول یه چیزی به سبد اضافه کن.';
         }
-      }
-      // Check for product search
-      else if (content.includes('هدفون') || content.includes('ایرپاد') || content.includes('می‌خوام') || content.includes('میخوام')) {
+      } else if (content.includes('هدفون') || content.includes('ایرپاد') || content.includes('می‌خوام') || content.includes('میخوام')) {
         responseContent = 'این محصولات رو پیدا کردم که فکر می‌کنم بهت می‌خوره:\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = mockProducts.filter(p => 
-          p.name.includes('هدفون') || p.name.includes('ایرپاد')
-        );
-        setLastRecommendedProducts(products);
-      }
-      // Check for comparison
-      else if (content.includes('مقایسه')) {
+        products = mockProducts.filter(p => p.name.includes('هدفون') || p.name.includes('ایرپاد'));
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
+      } else if (content.includes('مقایسه')) {
         responseContent = 'برای مقایسه، محصولات مورد نظرت رو به سبد اضافه کن یا بگو کدوم‌ها رو می‌خوای مقایسه کنم.';
-      }
-      // Check for tracking
-      else if (content.includes('پیگیری') || content.includes('سفارش')) {
+      } else if (content.includes('پیگیری') || content.includes('سفارش')) {
         if (mockOrders.length > 0) {
           responseContent = `سفارش ${mockOrders[0].id} ارسال شده و تا فردا به دستت می‌رسه! 📦`;
         } else {
           responseContent = 'سفارش فعالی نداری. می‌خوای یه خرید جدید شروع کنیم؟';
         }
-      }
-      // Default response
-      else {
+      } else {
         responseContent = 'بگو دنبال چی می‌گردی تا بهترین گزینه‌ها رو پیدا کنم! می‌تونی بگی مثلاً:\n• هدفون بی‌سیم می‌خوام\n• گوشی با قیمت مناسب\n• لپ‌تاپ برای کار\n\nیا شماره محصول رو بگو تا به سبدت اضافه کنم.';
       }
 
@@ -630,74 +645,57 @@ const GPTCommerceContent = () => {
         quickReplies,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsProcessing(false);
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
     }, 1500);
-  }, [cartItems.length, lastRecommendedProducts, agenticState, handleFinalizePurchase]);
+  }, [cartItems.length, lastRecommendedProducts, agenticState, handleFinalizePurchase, updateCurrentBasket, globalAddresses]);
 
   const handleAddToCart = useCallback((product: Product) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
+    updateCurrentBasket(s => {
+      const existing = s.cartItems.find(item => item.id === product.id);
+      const newCart = existing
+        ? s.cartItems.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
+        : [...s.cartItems, { ...product, quantity: 1 }];
 
-    setIsCartOpen(true);
+      // Deactivate previous CTAs
+      const updatedMessages = s.messages.map(msg =>
+        msg.ctaButton
+          ? { ...msg, ctaButton: undefined, content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»' }
+          : msg
+      );
 
-    // Deactivate all previous CTAs and add new message with active CTA
-    setMessages((prev) => {
-      // Mark all previous CTAs as inactive (replace with update message)
-      const updatedMessages = prev.map(msg => {
-        if (msg.ctaButton) {
-          return {
-            ...msg,
-            ctaButton: undefined,
-            content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»'
-          };
-        }
-        return msg;
-      });
-      
-      // Add new message with active CTA
       const confirmMessage: ChatMessage = {
         id: `confirm-${Date.now()}`,
         role: 'assistant',
         content: `${product.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`,
-        ctaButton: {
-          label: 'نهایی کردن خرید',
-          action: 'finalize',
-          disabled: false,
-        },
+        ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false },
         timestamp: new Date(),
       };
-      
-      return [...updatedMessages, confirmMessage];
+
+      return {
+        ...s,
+        cartItems: newCart,
+        messages: [...updatedMessages, confirmMessage],
+        agenticState: { ...s.agenticState, step: 'product-added' },
+      };
     });
-    
-    setAgenticState(prev => ({ ...prev, step: 'product-added' }));
-  }, [agenticState.hasStoredCheckoutDetails]);
+    setIsCartOpen(true);
+  }, [updateCurrentBasket]);
 
   const handleUpdateQuantity = useCallback((productId: string, quantity: number) => {
-    if (quantity < 1) {
-      setCartItems((prev) => prev.filter((item) => item.id !== productId));
-    } else {
-      setCartItems((prev) =>
-        prev.map((item) =>
-          item.id === productId ? { ...item, quantity } : item
-        )
-      );
-    }
-  }, []);
+    updateCurrentBasket(s => ({
+      ...s,
+      cartItems: quantity < 1
+        ? s.cartItems.filter(item => item.id !== productId)
+        : s.cartItems.map(item => item.id === productId ? { ...item, quantity } : item),
+    }));
+  }, [updateCurrentBasket]);
 
   const handleRemoveItem = useCallback((productId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== productId));
-  }, []);
+    updateCurrentBasket(s => ({
+      ...s,
+      cartItems: s.cartItems.filter(item => item.id !== productId),
+    }));
+  }, [updateCurrentBasket]);
 
   const handleCompare = useCallback((product: Product) => {
     const compareMessage: ChatMessage = {
@@ -706,10 +704,9 @@ const GPTCommerceContent = () => {
       content: `می‌خوای ${product.name} رو با چی مقایسه کنم؟`,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, compareMessage]);
-  }, []);
+    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, compareMessage] }));
+  }, [updateCurrentBasket]);
 
-  // Handle inline product details - inject into chat as a message
   const handleInlineProductDetails = useCallback((product: Product) => {
     const detailsMessage: ChatMessage = {
       id: `details-${Date.now()}`,
@@ -718,20 +715,18 @@ const GPTCommerceContent = () => {
       inlineProduct: product,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, detailsMessage]);
-  }, []);
+    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, detailsMessage] }));
+  }, [updateCurrentBasket]);
 
   const handleCheckout = useCallback(() => {
-    if (cartItems.length > 0) {
-      setShowCheckout(true);
-    }
+    if (cartItems.length > 0) setShowCheckout(true);
   }, [cartItems.length]);
 
   const handleCheckoutSuccess = useCallback(() => {
     setShowCheckout(false);
     setShowSuccess(true);
-    setCartItems([]);
-  }, []);
+    updateCurrentBasket(s => ({ ...s, cartItems: [] }));
+  }, [updateCurrentBasket]);
 
   const handleSuccessClose = useCallback(() => {
     setShowSuccess(false);
@@ -741,18 +736,16 @@ const GPTCommerceContent = () => {
       content: 'خرید با موفقیت انجام شد 🎉\nمی‌خوای پیگیری سفارش رو انجام بدم؟',
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, postPurchaseMessage]);
-  }, []);
+    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, postPurchaseMessage] }));
+  }, [updateCurrentBasket]);
 
   // === BASKET MANAGEMENT ===
   const handleCreateBasket = useCallback(() => {
-    // Generate unique name
     const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید') && !b.isSaved);
     let newTitle = 'سبد جدید';
     if (existingNewBaskets.length > 0) {
       newTitle = `سبد جدید ${toPersianNumber(existingNewBaskets.length + 1)}`;
     }
-    
     const newBasket: Basket = {
       id: `basket-${Date.now()}`,
       title: newTitle,
@@ -761,67 +754,85 @@ const GPTCommerceContent = () => {
       savedItems: [],
       isSaved: false,
     };
-    
     setBaskets(prev => [newBasket, ...prev]);
     setActiveBasketId(newBasket.id);
-    
-    // Reset chat for new basket
-    setMessages([{
-      id: `welcome-${Date.now()}`,
-      role: 'assistant',
-      content: 'این یک سبد جدیده. بگو چی می‌خوای بخرم یا مقایسه کنم.',
-      timestamp: new Date(),
-    }]);
-    setCartItems([]);
+    // Create fresh isolated state for new basket
+    setBasketStates(prev => ({
+      ...prev,
+      [newBasket.id]: createDefaultBasketState(),
+    }));
   }, [baskets]);
 
   const handleDeleteBasket = useCallback((basketId: string) => {
     setBaskets(prev => prev.filter(b => b.id !== basketId));
-    
-    // If deleting active basket, switch to first remaining active basket
+    setBasketStates(prev => {
+      const next = { ...prev };
+      delete next[basketId];
+      return next;
+    });
     if (basketId === activeBasketId) {
       const remaining = baskets.filter(b => b.id !== basketId && !b.isSaved);
       if (remaining.length > 0) {
         setActiveBasketId(remaining[0].id);
       } else {
-        // Create a new basket if none remain
-        handleCreateBasket();
+        // Create new basket
+        const newBasket: Basket = {
+          id: `basket-${Date.now()}`,
+          title: 'سبد جدید',
+          itemCount: 0,
+          lastActivity: 'الان',
+          savedItems: [],
+          isSaved: false,
+        };
+        setBaskets(prev => [...prev.filter(b => b.id !== basketId), newBasket]);
+        setActiveBasketId(newBasket.id);
+        setBasketStates(prev => {
+          const next = { ...prev };
+          delete next[basketId];
+          next[newBasket.id] = createDefaultBasketState();
+          return next;
+        });
       }
     }
-  }, [baskets, activeBasketId, handleCreateBasket]);
+  }, [baskets, activeBasketId]);
 
   const handleMergeBasket = useCallback((sourceId: string, targetId: string) => {
+    setBasketStates(prev => {
+      const sourceState = prev[sourceId] || createDefaultBasketState();
+      const targetState = prev[targetId] || createDefaultBasketState();
+      // Merge cart items
+      const mergedCart = [...targetState.cartItems];
+      sourceState.cartItems.forEach(item => {
+        const existing = mergedCart.find(i => i.id === item.id);
+        if (existing) {
+          existing.quantity += item.quantity;
+        } else {
+          mergedCart.push({ ...item });
+        }
+      });
+      const next = { ...prev };
+      next[targetId] = { ...targetState, cartItems: mergedCart };
+      delete next[sourceId];
+      return next;
+    });
     setBaskets(prev => {
       const source = prev.find(b => b.id === sourceId);
       const target = prev.find(b => b.id === targetId);
       if (!source || !target) return prev;
-      
-      // Merge saved items
       const mergedSavedItems = [...target.savedItems, ...source.savedItems];
-      
       return prev
         .filter(b => b.id !== sourceId)
-        .map(b => b.id === targetId 
-          ? { ...b, savedItems: mergedSavedItems, itemCount: b.itemCount + source.itemCount }
-          : b
-        );
+        .map(b => b.id === targetId ? { ...b, savedItems: mergedSavedItems, itemCount: b.itemCount + source.itemCount } : b);
     });
-    
-    // Switch to target basket
     setActiveBasketId(targetId);
   }, []);
 
   const handleSaveBasket = useCallback((basketId: string) => {
-    setBaskets(prev => prev.map(b => 
-      b.id === basketId ? { ...b, isSaved: true } : b
-    ));
-    
-    // Switch to another active basket or create new one
+    setBaskets(prev => prev.map(b => b.id === basketId ? { ...b, isSaved: true } : b));
     const remaining = baskets.filter(b => b.id !== basketId && !b.isSaved);
     if (remaining.length > 0) {
       setActiveBasketId(remaining[0].id);
     } else {
-      // Create a new basket
       const newBasket: Basket = {
         id: `basket-${Date.now()}`,
         title: 'سبد جدید',
@@ -832,32 +843,24 @@ const GPTCommerceContent = () => {
       };
       setBaskets(prev => [newBasket, ...prev]);
       setActiveBasketId(newBasket.id);
-      setMessages([{
-        id: `welcome-${Date.now()}`,
-        role: 'assistant',
-        content: 'این یک سبد جدیده. بگو چی می‌خوای بخرم یا مقایسه کنم.',
-        timestamp: new Date(),
-      }]);
-      setCartItems([]);
+      setBasketStates(prev => ({ ...prev, [newBasket.id]: createDefaultBasketState() }));
     }
   }, [baskets]);
 
   const handleResumeBasket = useCallback((basketId: string) => {
-    setBaskets(prev => prev.map(b => 
-      b.id === basketId ? { ...b, isSaved: false } : b
-    ));
+    setBaskets(prev => prev.map(b => b.id === basketId ? { ...b, isSaved: false } : b));
     setActiveBasketId(basketId);
   }, []);
 
   const handleBasketSelect = useCallback((basketId: string) => {
+    // Simply switch - state is already stored in basketStates[basketId]
     setActiveBasketId(basketId);
+    setActiveSection('active-cart');
   }, []);
 
   const handleRemoveSavedItem = useCallback((basketId: string, itemId: string) => {
-    setBaskets(prev => prev.map(b => 
-      b.id === basketId 
-        ? { ...b, savedItems: b.savedItems.filter(i => i.id !== itemId) }
-        : b
+    setBaskets(prev => prev.map(b =>
+      b.id === basketId ? { ...b, savedItems: b.savedItems.filter(i => i.id !== itemId) } : b
     ));
   }, []);
 
@@ -865,35 +868,28 @@ const GPTCommerceContent = () => {
     const basket = baskets.find(b => b.id === basketId);
     const item = basket?.savedItems.find(i => i.id === itemId);
     if (!item) return;
-    
-    // Find the product and add to cart
     const product = mockProducts.find(p => p.id === item.productId);
     if (product) {
-      setCartItems(prev => {
-        const existing = prev.find(i => i.id === product.id);
-        if (existing) {
-          return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-        }
-        return [...prev, { ...product, quantity: 1 }];
+      updateCurrentBasket(s => {
+        const existing = s.cartItems.find(i => i.id === product.id);
+        return {
+          ...s,
+          cartItems: existing
+            ? s.cartItems.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+            : [...s.cartItems, { ...product, quantity: 1 }],
+        };
       });
     }
-    
-    // Remove from saved
     handleRemoveSavedItem(basketId, itemId);
-  }, [baskets, handleRemoveSavedItem]);
+  }, [baskets, handleRemoveSavedItem, updateCurrentBasket]);
 
   const handleSaveProduct = useCallback((product: Product) => {
     setBaskets(prev => prev.map(b => {
       if (b.id !== activeBasketId) return b;
-      
-      // Check if already saved
       const alreadySaved = b.savedItems.some(i => i.productId === product.id);
       if (alreadySaved) {
-        // Unsave
         return { ...b, savedItems: b.savedItems.filter(i => i.productId !== product.id) };
       }
-      
-      // Save
       const newSavedItem: SavedItem = {
         id: `saved-${Date.now()}`,
         productId: product.id,
@@ -907,15 +903,32 @@ const GPTCommerceContent = () => {
 
   // Update basket item count when cart changes
   useEffect(() => {
-    setBaskets(prev => prev.map(b => 
+    setBaskets(prev => prev.map(b =>
       b.id === activeBasketId ? { ...b, itemCount: cartItems.length } : b
     ));
   }, [cartItems.length, activeBasketId]);
 
-  const totalPrice = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  // === ACCOUNT-LEVEL HANDLERS ===
+  const handleAccountAddAddress = useCallback((addr: Omit<DeliveryAddress, "id">) => {
+    const id = `addr-${Date.now()}`;
+    const created: DeliveryAddress = { id, ...addr };
+    setGlobalAddresses(prev => [created, ...prev]);
+  }, []);
+
+  const handleAccountDeleteAddress = useCallback((addressId: string) => {
+    setGlobalAddresses(prev => prev.filter(a => a.id !== addressId));
+  }, []);
+
+  const handleAccountUpdateAddress = useCallback((address: DeliveryAddress) => {
+    setGlobalAddresses(prev => prev.map(a => a.id === address.id ? address : a));
+  }, []);
+
+  // Get address IDs currently in use by active baskets
+  const activeAddressIds = Object.values(basketStates)
+    .map(s => s.selectedAddressId)
+    .filter((id): id is string => !!id);
+
+  const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const checkoutCartItems = cartItems.map((item) => ({
     id: parseInt(item.id.replace('p', '')),
@@ -927,9 +940,11 @@ const GPTCommerceContent = () => {
     inStock: item.inStock,
   }));
 
-  // Get current basket's saved product IDs for checking save state
   const currentBasket = baskets.find(b => b.id === activeBasketId);
   const savedProductIds = currentBasket?.savedItems.map(i => i.productId) || [];
+
+  // Show account panel when section is 'account' or 'orders'
+  const showAccountPanel = activeSection === 'account' || activeSection === 'orders';
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
@@ -952,33 +967,45 @@ const GPTCommerceContent = () => {
         />
       )}
 
-      <ChatInterface
-        messages={messages}
-        onSendMessage={handleSendMessage}
-        onAddToCart={handleAddToCart}
-        onCompare={handleCompare}
-        onSaveProduct={handleSaveProduct}
-        cartItems={cartItems}
-        isProcessing={isProcessing}
-        onCheckout={handleCheckout}
-        hasStartedChat={hasStartedChat}
-        onStartChat={handleStartChat}
-        isCartOpen={isCartOpen}
-        onSignIn={handleCheckout}
-        savedProductIds={savedProductIds}
-        onInlineProductDetails={handleInlineProductDetails}
-        onQuickReply={handleQuickReply}
-        onFinalizePurchase={handleFinalizePurchase}
-        onAddressConfirm={handleAddressConfirm}
-        onAddressSelect={handleAddressSelect}
-        selectedAddressId={selectedAddressId}
-        merchantShipping={getMerchantShipping()}
-        selectedShippingByMerchant={selectedShippingByMerchant}
-        onSelectShipping={handleSelectShipping}
-        onAddNewAddress={handleAddNewAddress}
-        onPaymentSelect={handlePaymentSelect}
-        agenticState={agenticState}
-      />
+      {showAccountPanel ? (
+        <AccountPanel
+          onBack={() => setActiveSection('active-cart')}
+          addresses={globalAddresses}
+          onAddAddress={handleAccountAddAddress}
+          onDeleteAddress={handleAccountDeleteAddress}
+          onUpdateAddress={handleAccountUpdateAddress}
+          activeAddressIds={activeAddressIds}
+          initialTab={activeSection === 'orders' ? 'orders' : 'profile'}
+        />
+      ) : (
+        <ChatInterface
+          messages={messages}
+          onSendMessage={handleSendMessage}
+          onAddToCart={handleAddToCart}
+          onCompare={handleCompare}
+          onSaveProduct={handleSaveProduct}
+          cartItems={cartItems}
+          isProcessing={isProcessing}
+          onCheckout={handleCheckout}
+          hasStartedChat={hasStartedChat}
+          onStartChat={handleStartChat}
+          isCartOpen={isCartOpen}
+          onSignIn={handleCheckout}
+          savedProductIds={savedProductIds}
+          onInlineProductDetails={handleInlineProductDetails}
+          onQuickReply={handleQuickReply}
+          onFinalizePurchase={handleFinalizePurchase}
+          onAddressConfirm={handleAddressConfirm}
+          onAddressSelect={handleAddressSelect}
+          selectedAddressId={selectedAddressId}
+          merchantShipping={getMerchantShipping()}
+          selectedShippingByMerchant={selectedShippingByMerchant}
+          onSelectShipping={handleSelectShipping}
+          onAddNewAddress={handleAddNewAddress}
+          onPaymentSelect={handlePaymentSelect}
+          agenticState={agenticState}
+        />
+      )}
 
       <RightPanel
         cartItems={cartItems}

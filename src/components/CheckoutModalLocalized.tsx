@@ -854,10 +854,10 @@ export const CheckoutModalLocalized = ({
                 </div>
                 <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
                   <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
-                    <p className="font-semibold text-foreground">{isRTL ? "پرداخت مستقیم یک کلیکی" : "Direct Debit — One Click"}</p>
-                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-accent/15 text-accent border border-accent/30 whitespace-nowrap">
+                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-500 border border-red-200 whitespace-nowrap">
                       {isRTL ? "۵٪ تخفیف تا سقف ۱۰۰ هزار تومان" : "5% off up to 100K"}
                     </span>
+                    <p className="font-semibold text-foreground">{isRTL ? "پرداخت مستقیم یک کلیکی" : "Direct Debit — One Click"}</p>
                   </div>
                   <p className="text-sm text-muted-foreground">{isRTL ? "برداشت مستقیم از حساب بانکی" : "Direct debit from bank account"}</p>
                 </div>
@@ -889,7 +889,7 @@ export const CheckoutModalLocalized = ({
                       {isRTL ? "شماره کارت مقصد" : "Destination card number"}
                     </p>
                     <p className="text-base font-semibold text-foreground tracking-widest" dir="ltr" style={{ fontFamily: 'inherit' }}>
-                      6037 - 9918 - 2541 - 7783
+                      {isRTL ? toPersianNumber("6037 - 9918 - 2541 - 7783") : "6037 - 9918 - 2541 - 7783"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {isRTL ? "به نام: فلوکارت" : "Name: Flowcart"}

@@ -1,171 +1,129 @@
 
 
-# AI-Powered Product Search for /gptcommerce
+# Fix Product Photos, Descriptions, Other Sellers Pricing, and Markdown Rendering
 
-## Overview
+## Problem Summary
 
-Transform the /gptcommerce chat from hardcoded keyword matching (36 products, 6 categories) into a real AI-powered shopping assistant backed by a database of 10,000+ products scraped from Digikala.
+1. **No product photos**: DB has placeholder URLs like `https://example.com/product1.jpg`. The scraper didn't capture real image URLs.
+2. **No product descriptions**: The `description` column is empty for most products. The PDP component uses hardcoded mock text instead of DB data.
+3. **Other Sellers pricing**: Uses hardcoded static prices unrelated to the actual product price.
+4. **Markdown not rendering**: Chat messages use `whitespace-pre-wrap` plain text rendering -- markdown syntax shows as raw text.
 
-## Phase 1: Infrastructure Setup
+---
 
-### 1.1 Enable Lovable Cloud
-- Activate Cloud for database, edge functions, and secrets management
-- This gives us Supabase (Postgres DB + Edge Functions) and auto-provisions `LOVABLE_API_KEY`
+## Fix 1: Product Images
 
-### 1.2 Connect Firecrawl
-- Link the Firecrawl connector to the project for web scraping capabilities
-- This injects `FIRECRAWL_API_KEY` as an environment variable
+### 1a. Update DB schema -- add `image_urls` column (text array)
+- Add migration: `ALTER TABLE products ADD COLUMN image_urls text[] DEFAULT '{}'::text[];`
+- Keep the existing `image_url` column as the primary/thumbnail image.
+- `image_urls` stores all gallery images for the PDP slider.
 
-## Phase 2: Database Schema
+### 1b. Update scraper (`scrape-digikala`)
+- Add `image_urls` to the Firecrawl extraction schema: `{ type: "array", items: { type: "string" }, description: "All product image URLs from the gallery" }`
+- Map scraped `image_urls` into both `image_url` (first one) and `image_urls` (all) during DB insert.
 
-### 2.1 Create `products` table
+### 1c. Update seed data with real Digikala CDN image URLs
+- Replace `https://example.com/product1.jpg` style URLs with actual working Digikala product image URLs (e.g., `https://dkstatics-public.digikala.com/digikala-products/...`).
+- Some seeded products already have Digikala URLs -- keep those, fix the rest.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid (PK) | Auto-generated |
-| name | text | Persian product name |
-| description | text | Persian description |
-| price | integer | Price in Toman |
-| original_price | integer (nullable) | Original price for discount display |
-| image_url | text | Product image URL |
-| category | text | Top-level category |
-| subcategory | text (nullable) | Subcategory |
-| brand | text (nullable) | Brand name |
-| merchant_id | text | References merchant (m1-m5) |
-| rating | numeric | 1.0-5.0 |
-| review_count | integer | Number of reviews |
-| in_stock | boolean | Availability |
-| fast_delivery | boolean | Express shipping available |
-| return_guarantee | boolean | Return policy |
-| tags | text[] | Persian search keywords |
-| source_url | text (nullable) | Original Digikala URL |
-| created_at | timestamptz | Auto-generated |
+### 1d. Update `Product` interface in `gptCommerceData.ts`
+- Add optional `imageUrls?: string[]` field.
 
-### 2.2 Full-text search index
-- Create a GIN index on `name`, `description`, and `tags` for fast Persian text search
-- Add a `search_vector` tsvector column with a trigger to auto-update
+### 1e. Update `mapDbProduct` in `GPTCommerce.tsx`
+- Map `image_urls` from DB to `imageUrls` on the Product interface.
+- Use `image_url` as the primary `image` field (no fallback to Unsplash placeholder if URL exists).
 
-## Phase 3: Digikala Scraping Pipeline
+### 1f. Update `PDPProductComponent.tsx`
+- Replace `getProductImages()` mock function: use `product.imageUrls` if available, otherwise fall back to `[product.image]`.
+- The image slider already works -- just needs real data piped in.
 
-### 3.1 Edge Function: `scrape-digikala`
+### 1g. Update `ChatProductCard.tsx`
+- Currently uses `getChatProductImage()` from HomepageSettings context. For DB products, the `product.image` field already contains the URL. Ensure it falls through correctly (it should, since `getChatProductImage` returns the passed image if no override exists).
 
-A pipeline edge function that:
+---
 
-1. Uses Firecrawl's **map** endpoint to discover product URLs from Digikala category pages
-2. Uses Firecrawl's **scrape** with JSON extraction to pull structured product data (name, price, image, specs, rating)
-3. Inserts products into the `products` table
+## Fix 2: Product Descriptions, Specs, and Reviews
 
-Target categories (10+ URLs per category):
-- Electronics (laptops, phones, headphones, smartwatches)
-- Home & Kitchen (appliances, cookware, decor)
-- Beauty & Personal Care (skincare, makeup, fragrance)
-- Fashion (clothing, shoes, accessories)
-- Sports & Fitness (equipment, supplements, apparel)
-- Baby & Kids (feeding, toys, safety)
-- Books & Stationery
-- Food & Grocery (coffee, tea, snacks)
-- Gaming (peripherals, consoles, accessories)
-- Tools & Garden
+### 2a. Update DB schema -- add `specs` and `reviews_summary` columns
+- Add migration:
+  - `ALTER TABLE products ADD COLUMN specs jsonb DEFAULT '[]'::jsonb;`
+  - `ALTER TABLE products ADD COLUMN reviews_summary text DEFAULT '';`
 
-### 3.2 Scraping Strategy
+### 2b. Update scraper (`scrape-digikala`)
+- Add to Firecrawl extraction schema:
+  - `description`: "Full product description in Persian from the product page"
+  - `specs`: "Array of {label, value} objects for technical specifications"
+  - `reviews_summary`: "Summary of user reviews in Persian"
 
-Each Digikala category page lists ~20-40 products. We target:
-- ~30 category/subcategory URLs
-- ~20-40 products per page
-- Multiple pages per category via pagination
-- Target: 10,000+ unique products
+### 2c. Update `PDPProductComponent.tsx`
+- Accept `description`, `specs`, and `reviewsSummary` from the product data instead of using mock functions.
+- For the "توضیحات محصول" tab: show `product.description` or "توضیحی برای این محصول ارائه نشده است."
+- For the "مشخصات فنی" tab: show `product.specs` array or "مشخصات فنی برای این محصول ارائه نشده."
+- For the "نظرات محصول" tab: show `product.reviewsSummary` or "نظری برای این محصول ارائه نشده."
 
-The scrape function will be invokable manually (or via a simple admin trigger) to populate the database. It runs in batches to stay within Firecrawl rate limits.
+### 2d. Update `Product` interface
+- Add optional fields: `description?: string`, `specs?: Array<{label: string, value: string}>`, `reviewsSummary?: string`.
 
-## Phase 4: AI Agent Edge Function
+### 2e. Update `mapDbProduct` in `GPTCommerce.tsx`
+- Map `description`, `specs`, `reviews_summary` from DB to the Product interface.
 
-### 4.1 Edge Function: `gpt-commerce-agent`
+---
 
-Uses Lovable AI (Gemini 3 Flash) with **tool calling** for natural language shopping.
+## Fix 3: Other Sellers Pricing
 
-**System prompt** (in Persian): Acts as Flowcart shopping assistant, understands Persian queries, provides contextual product recommendations.
+### Update `getOtherSuppliers` in `PDPProductComponent.tsx`
+- Change from hardcoded static prices to dynamically generated prices based on the product's actual price.
+- Each supplier price = `product.price * (1 + random(-0.10, +0.10))`, rounded to nearest 10,000 Toman.
+- Pass `product.price` into the function instead of just `productId`.
 
-**Tools available to the AI:**
+---
 
-| Tool | Parameters | What it does |
-|------|-----------|--------------|
-| `search_products` | query, category?, max_price?, min_rating? | Full-text search on products table, returns top 6 matches |
-| `get_product_details` | product_id | Returns full product info for a specific item |
-| `recommend_products` | intent (gift/routine/budget/safety/lifestyle) | Returns curated recommendations based on shopping intent |
+## Fix 4: Markdown Rendering in Chat
 
-The AI returns structured JSON responses that the frontend renders:
-- Text response (Persian)
-- Product list (array of product objects)
-- Quick replies (suggested follow-up actions)
-
-### 4.2 Response Format
-
-The edge function returns a JSON object:
-```text
-{
-  "content": "Persian text response",
-  "products": [...],  // Array of product objects from DB
-  "quickReplies": [...],  // Optional suggested actions
-}
+### 4a. The chat message bubble (line 489 in `ChatInterface.tsx`) currently renders:
 ```
+<p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+  {msg.content}
+</p>
+```
+This shows raw markdown (bold, lists, etc.) as plain text.
 
-No streaming needed for this use case since we need structured tool-call results, not free-form text.
+### 4b. Create a simple `MarkdownContent` component
+- Parse basic markdown inline: `**bold**`, `*italic*`, line breaks, bullet lists.
+- Use a lightweight approach with regex replacements and `dangerouslySetInnerHTML` or a small component tree, avoiding heavy dependencies.
+- Alternatively, strip markdown formatting on the edge function side before returning content by adding instructions to the AI system prompt to not use markdown.
 
-## Phase 5: Frontend Integration
+### 4c. Recommended approach: Add to the AI system prompt
+- Add instruction: "پاسخ‌ها رو بدون فرمت مارک‌داون بنویس. از ستاره، هشتگ، و علائم مارک‌داون استفاده نکن."
+- This is the simplest fix -- no frontend changes needed.
+- Additionally, clean the response on the frontend as a safety net: strip `**`, `*`, `#`, `- ` patterns from `msg.content` before rendering.
 
-### 5.1 Update `GPTCommerce.tsx`
+---
 
-Replace the hardcoded `handleSendMessage` logic (lines ~500-690) with:
+## Technical Details: Implementation Order
 
-1. Send user message to `gpt-commerce-agent` edge function
-2. Parse structured response
-3. Map DB products to existing `Product` interface
-4. Render using existing `ChatProductCard` components
-5. Cart/checkout/address flows remain unchanged (client-side)
+1. Database migration (add `image_urls`, `specs`, `reviews_summary` columns)
+2. Update `Product` interface in `gptCommerceData.ts`
+3. Update `mapDbProduct` in `GPTCommerce.tsx`
+4. Update `PDPProductComponent.tsx` (use real data + dynamic supplier pricing)
+5. Update `ChatInterface.tsx` (markdown stripping/rendering)
+6. Update `gpt-commerce-agent` system prompt (no markdown output)
+7. Update `scrape-digikala` edge function (extract images, description, specs, reviews)
+8. Update seed data with real image URLs (SQL UPDATE)
+9. Deploy edge functions
 
-### 5.2 Product Interface Mapping
+---
 
-The DB product schema maps directly to the existing `Product` interface:
-- `merchant_id` maps to the existing `merchants` array (m1-m5)
-- Images come from Digikala's CDN (scraped URLs)
-- Prices are already in Toman
+## Files Modified
 
-### 5.3 What stays the same
-- All cart management (add/remove/quantity)
-- Checkout flow via Flowcart modal
-- Address/payment selection
-- Basket/sidebar management
-- Product card rendering (ChatProductCard)
-- Landing page carousels (keep existing mock products for carousel display)
-
-### 5.4 What changes
-- Chat message handling: API call instead of keyword matching
-- Product results come from DB instead of hardcoded arrays
-- AI understands any Persian query, not just predefined keywords
-- Fallback: if edge function fails, gracefully show error message
-
-## Phase 6: Landing Page Carousels
-
-Keep the existing mock products for the landing carousels (they work well for the demo), but add a "search all products" prompt in the chat suggestions that demonstrates the full AI search capability.
-
-## Implementation Order
-
-1. Enable Lovable Cloud
-2. Connect Firecrawl
-3. Create `products` table migration
-4. Build `scrape-digikala` edge function
-5. Run initial scrape to populate DB
-6. Build `gpt-commerce-agent` edge function with Lovable AI + tool calling
-7. Update `GPTCommerce.tsx` to call the agent
-8. Test end-to-end
-
-## Technical Details
-
-- **AI Model**: google/gemini-3-flash-preview (default, fast and capable)
-- **Database**: Supabase Postgres via Lovable Cloud
-- **Scraping**: Firecrawl connector (JSON extraction mode)
-- **Product Search**: Postgres full-text search with Persian tsvector
-- **Edge Functions**: 2 new functions (`scrape-digikala`, `gpt-commerce-agent`)
-- **Frontend**: Minimal changes -- only `handleSendMessage` in `GPTCommerce.tsx` is rewritten
-- **No breaking changes**: All existing UI components, cart logic, and checkout flows are preserved
+| File | Change |
+|------|--------|
+| `supabase/migrations/new_migration.sql` | Add `image_urls`, `specs`, `reviews_summary` columns |
+| `src/data/gptCommerceData.ts` | Add optional fields to `Product` interface |
+| `src/pages/GPTCommerce.tsx` | Update `mapDbProduct` to include new fields |
+| `src/components/gpt-commerce/PDPProductComponent.tsx` | Use real product data for description/specs/reviews; dynamic supplier pricing |
+| `src/components/gpt-commerce/ChatInterface.tsx` | Add markdown stripping to message content rendering |
+| `supabase/functions/gpt-commerce-agent/index.ts` | Update system prompt to avoid markdown |
+| `supabase/functions/scrape-digikala/index.ts` | Add image_urls, description, specs, reviews to extraction |
+| SQL data update | Replace placeholder image URLs with real ones |
 

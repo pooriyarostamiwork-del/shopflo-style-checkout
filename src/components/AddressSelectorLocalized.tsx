@@ -250,41 +250,39 @@ export const AddressSelectorLocalized = ({
               onClick={() => onSelectAddress(address)}
               dir={isRTL ? 'rtl' : 'ltr'}
             >
-              <div className={`flex items-start justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className={`flex items-start gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <div className={`
-                    mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
-                    ${isSelected ? 'border-primary bg-primary' : 'border-border'}
-                  `}>
-                    {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                  </div>
-                  
-                  <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : ''}`}>
-                    <div className={`flex items-center gap-2 mb-1 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
-                      <p className="font-semibold text-foreground">{address.name}</p>
-                      {address.isDefault && (
-                        <span className="text-xs px-2 py-0.5 bg-accent/20 text-accent-foreground rounded-full">
-                          {t.checkout.address.default}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-1" dir="ltr">
-                      {isRTL ? toPersianNumber(address.phone) : `+91 ${address.phone}`}
-                    </p>
-                    
-                    {isSelected && (
-                      <div className={`text-sm text-muted-foreground mt-2 ${isRTL ? 'text-right' : ''}`}>
-                        <p>{address.line1}</p>
-                        <p>{address.line2}</p>
-                        <p>
-                          {address.city}، {address.state} - {isRTL ? toPersianNumber(address.pincode) : address.pincode}
-                        </p>
-                      </div>
+              <div className="flex items-start gap-3">
+                <div className={`
+                  mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                  ${isSelected ? 'border-primary bg-primary' : 'border-border'}
+                `}>
+                  {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                </div>
+                
+                <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : ''}`}>
+                  <div className={`flex items-center gap-2 mb-1`}>
+                    <p className="font-semibold text-foreground">{address.name}</p>
+                    {address.isDefault && (
+                      <span className="text-xs px-2 py-0.5 bg-accent/20 text-accent-foreground rounded-full">
+                        {t.checkout.address.default}
+                      </span>
                     )}
                   </div>
+                  <p className="text-sm text-muted-foreground mb-1" dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                    {isRTL ? toPersianNumber(address.phone) : `+91 ${address.phone}`}
+                  </p>
+                  
+                  {isSelected && (
+                    <div className={`text-sm text-muted-foreground mt-2 ${isRTL ? 'text-right' : ''}`}>
+                      <p>{address.line1}</p>
+                      <p>{address.line2}</p>
+                      <p>
+                        {address.city}، {address.state} - {isRTL ? toPersianNumber(address.pincode) : address.pincode}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <div className={`flex gap-1 ${isRTL ? 'mr-2' : 'ml-2'}`}>
+                <div className="flex gap-1 flex-shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

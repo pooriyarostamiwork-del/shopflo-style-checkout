@@ -669,26 +669,24 @@ export const CheckoutModalLocalized = ({
             <Label className="text-base font-semibold mb-4 block">{t.checkout.delivery.title}</Label>
             <RadioGroup value={deliveryMethod} onValueChange={setDeliveryMethod} className="space-y-3">
               {[
-                { id: 'standard', title: t.checkout.delivery.standard, description: t.checkout.delivery.standardTime, price: t.common.free, priceClass: 'text-accent' },
-                { id: 'express', title: t.checkout.delivery.express, description: t.checkout.delivery.expressTime, price: formatCurrency(49000, language), priceClass: '' }
-              ].map((option) => {
-                const isSelected = deliveryMethod === option.id;
-                return (
-                  <div key={option.id} className={`flex items-center p-4 rounded-xl border transition-all cursor-pointer ${isSelected ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`} onClick={() => setDeliveryMethod(option.id)}>
-                    <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex-1">
-                        <p className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{option.title}</p>
-                        <p className="text-sm text-muted-foreground mt-0.5">{option.description}</p>
-                      </div>
-                      <span className={`font-semibold flex-shrink-0 min-w-[80px] ${isRTL ? 'text-left' : 'text-right'} ${option.priceClass}`}>{option.price}</span>
-                    </div>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-primary bg-primary' : 'border-border'} ${isRTL ? 'me-3' : 'ms-3'}`}>
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
-                    </div>
-                  </div>
-                );
-              })}
+                 { id: 'standard', title: t.checkout.delivery.standard, description: t.checkout.delivery.standardTime, price: t.common.free, priceClass: 'text-accent' },
+                 { id: 'express', title: t.checkout.delivery.express, description: t.checkout.delivery.expressTime, price: formatCurrency(49000, language), priceClass: '' }
+               ].map((option) => {
+                 const isSelected = deliveryMethod === option.id;
+                 return (
+                   <div key={option.id} className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${isSelected ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`} onClick={() => setDeliveryMethod(option.id)}>
+                     <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
+                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-primary bg-primary' : 'border-border'}`}>
+                       {isSelected && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
+                     </div>
+                     <div className="flex-1">
+                       <p className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{option.title}</p>
+                       <p className={`text-sm text-muted-foreground mt-0.5 ${isRTL ? 'text-right' : 'text-left'}`}>{option.description}</p>
+                     </div>
+                     <span className={`font-semibold flex-shrink-0 min-w-[80px] ${isRTL ? 'text-left' : 'text-right'} ${option.priceClass}`}>{option.price}</span>
+                   </div>
+                 );
+               })}
             </RadioGroup>
           </div>
           <Button variant="gradient" className={`w-full h-14 text-base rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`} onClick={() => {
@@ -811,16 +809,21 @@ export const CheckoutModalLocalized = ({
                   <div
                     key={option.id}
                     className={`
-                      flex items-center p-3 rounded-xl border transition-all cursor-pointer
+                      flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer
                       ${isSelected
                         ? 'border-emerald-400 bg-emerald-100/60'
                         : 'border-emerald-200/60 hover:border-emerald-300'
                       }
-                      ${isRTL ? 'flex-row-reverse' : ''}
                     `}
                     onClick={() => setFlowpointsActive(option.id === 'use')}
                   >
                     <RadioGroupItem value={option.id} id={`fp-${option.id}`} className="sr-only" />
+                    <div className={`
+                      w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                      ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-emerald-300'}
+                    `}>
+                      {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
                     <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
                       <p className={`text-sm font-medium ${isSelected ? 'text-emerald-800' : 'text-emerald-600'}`}>
                         {option.title}
@@ -828,12 +831,6 @@ export const CheckoutModalLocalized = ({
                       <p className="text-xs text-emerald-500 mt-0.5">
                         {option.description}
                       </p>
-                    </div>
-                    <div className={`
-                      w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
-                      ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-emerald-300'}
-                    `}>
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
                     </div>
                   </div>
                 );
@@ -1014,8 +1011,13 @@ export const CheckoutModalLocalized = ({
             </button>
             {step !== "cart" && step !== "phone" && step !== "otp" && <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <span className="text-lg font-medium text-foreground">
-                {isRTL ? "سلام" : "Hi"} <span className="font-semibold">{displayedName}</span>
-                <span className={displayedName === userName ? "" : "opacity-0"}> 👋</span>
+                {isRTL
+                  ? (step === "payment"
+                    ? <>قابلتم نداشت <span className="font-semibold">{displayedName}</span> جان<span className={displayedName === userName ? "" : "opacity-0"}> 😊</span></>
+                    : <>سلام <span className="font-semibold">{displayedName}</span><span className={displayedName === userName ? "" : "opacity-0"}> 👋</span></>
+                  )
+                  : <>Hi <span className="font-semibold">{displayedName}</span><span className={displayedName === userName ? "" : "opacity-0"}> 👋</span></>
+                }
               </span>
             </div>}
           </div>

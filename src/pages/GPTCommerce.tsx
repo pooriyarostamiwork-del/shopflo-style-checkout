@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 // Clear old localStorage on structure change (one-time migration)
 const STORAGE_VERSION_KEY = 'flowcart-storage-version';
@@ -40,6 +41,7 @@ import {
   gamingProducts,
   babyProducts,
   fitnessProducts,
+  merchants,
 } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 
@@ -521,7 +523,26 @@ const GPTCommerceContent = () => {
     }));
   }, [cartItems, hasStartedChat, updateCurrentBasket]);
 
-  const handleSendMessage = useCallback((content: string) => {
+  // Map DB product to frontend Product interface
+  const mapDbProduct = useCallback((dbProduct: any): Product => {
+    const merchantMap: Record<string, typeof merchants[0]> = {
+      m1: merchants[0], m2: merchants[1], m3: merchants[2], m4: merchants[3], m5: merchants[4],
+    };
+    return {
+      id: dbProduct.id,
+      name: dbProduct.name,
+      price: dbProduct.price,
+      originalPrice: dbProduct.original_price || undefined,
+      image: dbProduct.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop',
+      merchant: merchantMap[dbProduct.merchant_id] || merchants[0],
+      rating: Number(dbProduct.rating) || 4.0,
+      fastDelivery: dbProduct.fast_delivery || false,
+      returnGuarantee: dbProduct.return_guarantee || true,
+      inStock: dbProduct.in_stock !== false,
+    };
+  }, []);
+
+  const handleSendMessage = useCallback(async (content: string) => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -530,166 +551,158 @@ const GPTCommerceContent = () => {
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    setTimeout(() => {
-      let responseContent = '';
-      let products: Product[] | undefined;
-      let ctaButton: ChatMessage['ctaButton'] | undefined;
-      let quickReplies: QuickReply[] | undefined;
+    // Check for product selection by number (still works client-side for quick add)
+    const selectedNumber = parseProductSelection(content);
+    const isDirectPayment = content.includes('پرداخت مستقیم') && (content.includes('بخر') || content.includes('خرید'));
+    const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) &&
+                        (content.includes('خانه') || content.includes('بفرست') || content.includes('ارسال'));
 
-      const selectedNumber = parseProductSelection(content);
-      const isDirectPayment = content.includes('پرداخت مستقیم') && (content.includes('بخر') || content.includes('خرید'));
-      const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) &&
-                          (content.includes('خانه') || content.includes('بفرست') || content.includes('ارسال'));
+    if (selectedNumber && lastRecommendedProducts.length >= selectedNumber) {
+      const selectedProduct = lastRecommendedProducts[selectedNumber - 1];
 
-      if (selectedNumber && lastRecommendedProducts.length >= selectedNumber) {
-        const selectedProduct = lastRecommendedProducts[selectedNumber - 1];
+      // Add to cart
+      updateCurrentBasket(s => {
+        const existing = s.cartItems.find(item => item.id === selectedProduct.id);
+        const newCart = existing
+          ? s.cartItems.map(item => item.id === selectedProduct.id ? { ...item, quantity: item.quantity + 1 } : item)
+          : [...s.cartItems, { ...selectedProduct, quantity: 1 }];
+        return { ...s, cartItems: newCart };
+      });
 
-        // Add to cart in basket state
-        updateCurrentBasket(s => {
-          const existing = s.cartItems.find(item => item.id === selectedProduct.id);
-          const newCart = existing
-            ? s.cartItems.map(item => item.id === selectedProduct.id ? { ...item, quantity: item.quantity + 1 } : item)
-            : [...s.cartItems, { ...selectedProduct, quantity: 1 }];
-          return { ...s, cartItems: newCart };
-        });
-
-        if (isDirectPayment) {
-          if (!agenticState.isLoggedIn) {
-            responseContent = 'برای خرید مستقیم، اول باید وارد حسابت بشی. 🔐';
-            const assistantMessage: ChatMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: responseContent, timestamp: new Date() };
-            updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
-            return;
-          }
-          const addedMessage: ChatMessage = {
-            id: `added-${Date.now()}`,
-            role: 'assistant',
-            content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nداریم سفارشت رو با پرداخت مستقیم پردازش می‌کنیم...`,
-            timestamp: new Date(),
-          };
-          updateCurrentBasket(s => ({ ...s, messages: [...s.messages, addedMessage] }));
-          setTimeout(() => {
-            const orderId = `FLC-${Date.now().toString().slice(-6)}`;
-            const successMessage: ChatMessage = {
-              id: `success-${Date.now()}`,
-              role: 'assistant',
-              content: `سفارشت با موفقیت ثبت شد! 🎉\n\nشماره سفارش: ${orderId}\n📍 آدرس: ${globalAddresses[0]?.fullAddress || ''}\n💳 پرداخت: درگاه مستقیم\n\nمی‌تونی از همین‌جا سفارشت رو پیگیری کنی.`,
-              quickReplies: [
-                { id: 'track', label: '📦 پیگیری سفارش', type: 'track-order' },
-                { id: 'modify', label: '✏️ ویرایش آدرس', type: 'modify-address' },
-                { id: 'invoice', label: '🧾 مشاهده فاکتور', type: 'view-invoice' },
-              ],
-              timestamp: new Date(),
-            };
-            updateCurrentBasket(s => ({
-              ...s,
-              messages: [...s.messages, successMessage],
-              agenticState: { ...s.agenticState, step: 'order-complete', orderId, selectedPayment: 'gateway' },
-              cartItems: [],
-              isProcessing: false,
-            }));
-          }, 2000);
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+      if (isDirectPayment) {
+        if (!agenticState.isLoggedIn) {
+          const assistantMessage: ChatMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: 'برای خرید مستقیم، اول باید وارد حسابت بشی. 🔐', timestamp: new Date() };
+          updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
           return;
         }
-
-        if (isBuyAndSend) {
-          if (!agenticState.isLoggedIn) {
-            responseContent = 'برای خرید سریع، اول باید وارد حسابت بشی. 🔐';
-            const assistantMessage: ChatMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: responseContent, timestamp: new Date() };
-            updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
-            return;
-          }
-          const addedMessage: ChatMessage = {
-            id: `added-${Date.now()}`,
-            role: 'assistant',
-            content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\n📍 آدرس تحویل: ${globalAddresses[0]?.fullAddress || ''}\n\nحالا روش پرداخت رو انتخاب کن:`,
-            paymentOptions: paymentOptions,
+        const addedMessage: ChatMessage = {
+          id: `added-${Date.now()}`, role: 'assistant',
+          content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nداریم سفارشت رو با پرداخت مستقیم پردازش می‌کنیم...`,
+          timestamp: new Date(),
+        };
+        updateCurrentBasket(s => ({ ...s, messages: [...s.messages, addedMessage] }));
+        setTimeout(() => {
+          const orderId = `FLC-${Date.now().toString().slice(-6)}`;
+          const successMessage: ChatMessage = {
+            id: `success-${Date.now()}`, role: 'assistant',
+            content: `سفارشت با موفقیت ثبت شد! 🎉\n\nشماره سفارش: ${orderId}\n📍 آدرس: ${globalAddresses[0]?.fullAddress || ''}\n💳 پرداخت: درگاه مستقیم`,
+            quickReplies: [
+              { id: 'track', label: '📦 پیگیری سفارش', type: 'track-order' },
+              { id: 'modify', label: '✏️ ویرایش آدرس', type: 'modify-address' },
+              { id: 'invoice', label: '🧾 مشاهده فاکتور', type: 'view-invoice' },
+            ],
             timestamp: new Date(),
           };
           updateCurrentBasket(s => ({
-            ...s,
-            messages: [...s.messages, addedMessage],
-            agenticState: { ...s.agenticState, step: 'payment-selection' },
-            isProcessing: false,
+            ...s, messages: [...s.messages, successMessage],
+            agenticState: { ...s.agenticState, step: 'order-complete', orderId, selectedPayment: 'gateway' },
+            cartItems: [], isProcessing: false,
           }));
+        }, 2000);
+        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+        return;
+      }
+
+      if (isBuyAndSend) {
+        if (!agenticState.isLoggedIn) {
+          const assistantMessage: ChatMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: 'برای خرید سریع، اول باید وارد حسابت بشی. 🔐', timestamp: new Date() };
+          updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
           return;
         }
-
-        // Default - product added
-        responseContent = `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟\nمی‌تونی از سبد خریدت تعداد و نوع محصول رو تغییر بدی.`;
-        ctaButton = { label: 'نهایی کردن خرید', action: 'finalize', disabled: false };
-
-        // Deactivate previous CTAs
+        const addedMessage: ChatMessage = {
+          id: `added-${Date.now()}`, role: 'assistant',
+          content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\n📍 آدرس تحویل: ${globalAddresses[0]?.fullAddress || ''}\n\nحالا روش پرداخت رو انتخاب کن:`,
+          paymentOptions: paymentOptions, timestamp: new Date(),
+        };
         updateCurrentBasket(s => ({
-          ...s,
-          messages: s.messages.map(msg =>
-            msg.ctaButton
-              ? { ...msg, ctaButton: undefined, content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»' }
-              : msg
-          ),
-          agenticState: { ...s.agenticState, step: 'product-added' },
+          ...s, messages: [...s.messages, addedMessage],
+          agenticState: { ...s.agenticState, step: 'payment-selection' }, isProcessing: false,
         }));
-      } else if (content.includes('نهایی') || content.includes('انجام بده') || content.includes('تموم')) {
+        return;
+      }
+
+      // Default - product added
+      updateCurrentBasket(s => ({
+        ...s,
+        messages: s.messages.map(msg =>
+          msg.ctaButton ? { ...msg, ctaButton: undefined, content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»' } : msg
+        ),
+        agenticState: { ...s.agenticState, step: 'product-added' },
+      }));
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`, role: 'assistant',
+        content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟`,
+        ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false },
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
+      return;
+    }
+
+    // Handle finalize commands client-side
+    if (content.includes('نهایی') || content.includes('انجام بده') || content.includes('تموم')) {
+      handleFinalizePurchase();
+      updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+      return;
+    }
+    if (content.includes('خرید') && content.includes('انجام')) {
+      if (cartItems.length > 0) {
         handleFinalizePurchase();
         updateCurrentBasket(s => ({ ...s, isProcessing: false }));
         return;
-      } else if (content.includes('خرید') && content.includes('انجام')) {
-        if (cartItems.length > 0) {
-          handleFinalizePurchase();
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-          return;
-        } else {
-          responseContent = 'سبد خریدت خالیه! اول یه چیزی به سبد اضافه کن.';
-        }
-      } else if (content.includes('هدیه') || content.includes('مراقبت پوست') || content.includes('کرم') || content.includes('زیبایی') || content.includes('آرایشی') || content.includes('مادر')) {
-        responseContent = 'برای هدیه این محصولات عالین! 🎁 مخصوصاً اگه پوست حساسی داره، سراوی و لاروش پوزای انتخاب‌های فوق‌العاده‌ای هستن. ست هدیه بادی شاپ هم بسته‌بندی خیلی شیکی داره.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = skincareProducts;
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
-      } else if (content.includes('قهوه') || content.includes('اسپرسو') || content.includes('باریستا') || content.includes('کافی')) {
-        responseContent = 'عالیه که قهوه‌خور شدی! ☕ یه ست کامل برات آماده کردم: از اسپرسوساز و آسیاب گرفته تا دونه قهوه و فنجان. با این ست می‌تونی خونه‌ت رو تبدیل به کافه کنی!\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = coffeeProducts;
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
-      } else if (content.includes('گیمینگ') || content.includes('بازی') || content.includes('مانیتور') || content.includes('کیبورد') || content.includes('ست گیمینگ')) {
-        responseContent = 'یه ست گیمینگ حرفه‌ای برات چیدم! 🎮 مانیتور ۲۷ اینچ ایسوس با کیبورد ریزر و موس لاجیتک ترکیب خیلی خوبیه. اگه بودجه‌ت محدوده بگو تا بهینه‌ش کنم.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = gamingProducts;
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
-      } else if (content.includes('بچه') || content.includes('کودک') || content.includes('نوزاد') || content.includes('صندلی غذا') || content.includes('سیسمونی')) {
-        responseContent = 'برای کوچولوت بهترین‌ها رو انتخاب کردم! 👶 همه محصولات BPA-free و استاندارد ایمنی دارن. صندلی چیکو برای ۶ ماه به بالا عالیه و ظرف‌های بامبو هم کاملاً بهداشتی هستن.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = babyProducts;
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
-      } else if (content.includes('ورزش') || content.includes('فیتنس') || content.includes('بدنسازی') || content.includes('دمبل') || content.includes('یوگا')) {
-        responseContent = 'عالیه که می‌خوای ورزش رو شروع کنی! 💪 یه پک شروع کامل برات آماده کردم. ساعت هوشمند شیائومی هم برای ترک پیشرفتت خیلی کمک‌کننده‌ست.\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = fitnessProducts;
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
-      } else if (content.includes('هدفون') || content.includes('ایرپاد') || content.includes('می‌خوام') || content.includes('میخوام')) {
-        responseContent = 'این محصولات رو پیدا کردم که فکر می‌کنم بهت می‌خوره:\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»';
-        products = mockProducts.filter(p => p.name.includes('هدفون') || p.name.includes('ایرپاد'));
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: products! }));
-      } else if (content.includes('مقایسه')) {
-        responseContent = 'برای مقایسه، محصولات مورد نظرت رو به سبد اضافه کن یا بگو کدوم‌ها رو می‌خوای مقایسه کنم.';
-      } else if (content.includes('پیگیری') || content.includes('سفارش')) {
-        if (mockOrders.length > 0) {
-          responseContent = `سفارش ${mockOrders[0].id} ارسال شده و تا فردا به دستت می‌رسه! 📦`;
-        } else {
-          responseContent = 'سفارش فعالی نداری. می‌خوای یه خرید جدید شروع کنیم؟';
-        }
-      } else {
-        responseContent = 'بگو دنبال چی می‌گردی تا بهترین گزینه‌ها رو پیدا کنم! می‌تونی بگی مثلاً:\n• یه هدیه برای مادرم می‌خوام 🎁\n• قهوه‌خور شدم، چی لازمه؟ ☕\n• با ۲۰ میلیون ست گیمینگ می‌خوام 🎮\n• وسایل غذاخوری بچه ۶ ماهه 👶\n• می‌خوام ورزش رو شروع کنم 💪\n• هدفون بی‌سیم می‌خوام 🎧';
+      }
+    }
+
+    // === AI-POWERED SEARCH via edge function ===
+    try {
+      // Build conversation history for context
+      const conversationHistory = messages
+        .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))
+        .slice(-6)
+        .map(m => ({ role: m.role, content: m.content }));
+      conversationHistory.push({ role: 'user', content });
+
+      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', {
+        body: { messages: conversationHistory },
+      });
+
+      if (error) {
+        console.error('Agent error:', error);
+        throw new Error(error.message);
+      }
+
+      const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
+      const dbProducts = data?.products || [];
+
+      // Map DB products to frontend Product interface
+      const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
+
+      if (mappedProducts.length > 0) {
+        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
       }
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: responseContent,
-        products,
-        productIndexStart: products ? 1 : undefined,
-        ctaButton,
-        quickReplies,
+        content: responseContent + (mappedProducts.length > 0 ? '\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»' : ''),
+        products: mappedProducts.length > 0 ? mappedProducts : undefined,
+        productIndexStart: mappedProducts.length > 0 ? 1 : undefined,
         timestamp: new Date(),
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
-    }, 1500);
-  }, [cartItems.length, lastRecommendedProducts, agenticState, handleFinalizePurchase, updateCurrentBasket, globalAddresses]);
+
+    } catch (err) {
+      console.error('Failed to call agent:', err);
+      // Fallback to a helpful message
+      const fallbackMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: 'متأسفانه در حال حاضر سرویس جستجو در دسترس نیست. لطفاً دوباره تلاش کنید. 🙏',
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
+    }
+  }, [cartItems.length, lastRecommendedProducts, messages, agenticState, handleFinalizePurchase, updateCurrentBasket, globalAddresses, mapDbProduct]);
 
   const handleAddToCart = useCallback((product: Product) => {
     updateCurrentBasket(s => {

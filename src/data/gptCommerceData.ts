@@ -255,7 +255,7 @@ export const mockProducts: Product[] = [
 export const skincareProducts: Product[] = [
   {
     id: 'sk1', name: 'ست مراقبت پوست سراوی (CeraVe)', price: 2800000,
-    image: 'https://images.unsplash.com/photo-1570194065650-d99fb4a38c0a?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop',
     merchant: merchants[3], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
@@ -304,7 +304,7 @@ export const coffeeProducts: Product[] = [
   },
   {
     id: 'cf4', name: 'فنجان اسپرسو ست ۶ تایی', price: 950000,
-    image: 'https://images.unsplash.com/photo-1517256064527-9d164d0667b0?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=300&h=300&fit=crop',
     merchant: merchants[0], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
@@ -362,22 +362,22 @@ export const babyProducts: Product[] = [
   },
   {
     id: 'bb2', name: 'ست ظرف غذای بامبو', price: 1100000,
-    image: 'https://images.unsplash.com/photo-1604006852748-903f12068286?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=300&h=300&fit=crop',
     merchant: merchants[1], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'bb3', name: 'قاشق سیلیکونی حساس به دما (ست ۴ تایی)', price: 450000,
-    image: 'https://images.unsplash.com/photo-1590080876351-941da357d5e0?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1519340241574-2cec6aef0c01?w=300&h=300&fit=crop',
     merchant: merchants[1], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
     id: 'bb4', name: 'پیش‌بند سیلیکونی با جیب', price: 380000,
-    image: 'https://images.unsplash.com/photo-1590080876351-941da357d5e0?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=300&h=300&fit=crop',
     merchant: merchants[0], rating: 4.4, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
   {
     id: 'bb5', name: 'لیوان آموزشی ۳۶۰ درجه', price: 550000,
-    image: 'https://images.unsplash.com/photo-1590080875852-ba44e8e756e5?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1570831739435-6601aa3fa4fb?w=300&h=300&fit=crop',
     merchant: merchants[1], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
@@ -416,7 +416,7 @@ export const fitnessProducts: Product[] = [
   },
   {
     id: 'ft6', name: 'پودر پروتئین وی ۱ کیلویی', price: 1800000,
-    image: 'https://images.unsplash.com/photo-1593095948071-474c5cc2c4d8?w=300&h=300&fit=crop',
+    image: 'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=300&h=300&fit=crop',
     merchant: merchants[4], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
 ];

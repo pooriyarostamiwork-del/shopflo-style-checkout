@@ -347,7 +347,7 @@ export const CheckoutModalLocalized = ({
     switch (step) {
       case "cart":
         // Higher threshold so progress bar is NOT full for demo
-        const discountThreshold = 18000000;
+        const discountThreshold = 25000000;
         const progressPercent = Math.min((cartSubtotal / discountThreshold) * 100, 100);
         const remainingForDiscount = Math.max(discountThreshold - cartSubtotal, 0);
         const isDiscountUnlocked = cartSubtotal >= discountThreshold;

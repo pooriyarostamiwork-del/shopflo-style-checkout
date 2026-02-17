@@ -61,7 +61,7 @@ const heroSlides = [
 const allProducts: StoreProduct[] = [
   // Electronics
   { id: 1, name: "Premium Wireless Headphones", nameFa: "هدفون بی‌سیم سونی WH-1000XM5", price: 12500000, originalPrice: 14000000, image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop", category: "electronics", rating: 4.8, ratingCount: 342, badge: "پرفروش", badgeColor: "hsl(var(--primary))" },
-  { id: 2, name: "Smart Fitness Watch", nameFa: "ساعت هوشمند اپل واچ سری ۹", price: 18900000, originalPrice: 21000000, image: "https://images.unsplash.com/photo-1546868871-af0de0ae72be?w=400&h=400&fit=crop", category: "electronics", rating: 4.9, ratingCount: 518, badge: "جدید" },
+  { id: 2, name: "Smart Fitness Watch", nameFa: "ساعت هوشمند اپل واچ سری ۹", price: 18900000, originalPrice: 21000000, image: "https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=400&h=400&fit=crop", category: "electronics", rating: 4.9, ratingCount: 518, badge: "جدید" },
   { id: 3, name: "Laptop", nameFa: "لپ‌تاپ مک‌بوک ایر M3", price: 62000000, originalPrice: 68000000, image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=400&fit=crop", category: "electronics", rating: 4.9, ratingCount: 876 },
   { id: 4, name: "AirPods", nameFa: "ایرپاد پرو ۲ اپل", price: 9800000, image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400&h=400&fit=crop", category: "electronics", rating: 4.7, ratingCount: 234 },
   { id: 5, name: "iPad", nameFa: "آیپد پرو ۱۲.۹ اینچ", price: 45000000, originalPrice: 49000000, image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&h=400&fit=crop", category: "electronics", rating: 4.8, ratingCount: 167 },

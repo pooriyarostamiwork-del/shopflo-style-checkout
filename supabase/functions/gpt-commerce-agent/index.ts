@@ -90,41 +90,59 @@ async function executeTool(
 ): Promise<any> {
   if (toolName === "search_products") {
     const { query, category, max_price, min_rating } = args;
+    
+    // Split query into individual words for broader matching
+    const queryWords = query.split(/\s+/).filter((w: string) => w.length > 1);
 
-    // Build the query using full-text search
+    // Try full-text search first (with category if provided)
     let dbQuery = supabase
       .from("products")
       .select("*")
       .eq("in_stock", true)
-      .textSearch("search_vector", query.split(/\s+/).join(" & "), {
+      .textSearch("search_vector", queryWords.join(" & "), {
         type: "plain",
         config: "simple",
       })
       .limit(6);
 
-    if (category) {
-      dbQuery = dbQuery.eq("category", category);
-    }
-    if (max_price) {
-      dbQuery = dbQuery.lte("price", max_price);
-    }
-    if (min_rating) {
-      dbQuery = dbQuery.gte("rating", min_rating);
+    if (category) dbQuery = dbQuery.eq("category", category);
+    if (max_price) dbQuery = dbQuery.lte("price", max_price);
+    if (min_rating) dbQuery = dbQuery.gte("rating", min_rating);
+
+    let { data, error } = await dbQuery;
+
+    // If category filter returned 0, retry without category
+    if ((!data || data.length === 0) && category && !error) {
+      console.log("Retrying without category filter");
+      let retryQuery = supabase
+        .from("products")
+        .select("*")
+        .eq("in_stock", true)
+        .textSearch("search_vector", queryWords.join(" & "), { type: "plain", config: "simple" })
+        .limit(6);
+      if (max_price) retryQuery = retryQuery.lte("price", max_price);
+      if (min_rating) retryQuery = retryQuery.gte("rating", min_rating);
+      const retry = await retryQuery;
+      data = retry.data;
+      error = retry.error;
     }
 
-    const { data, error } = await dbQuery;
-
-    if (error) {
-      console.error("Search error:", error);
-      // Fallback: try ilike search
+    // Fallback to ilike if full-text returned nothing
+    if (error || !data || data.length === 0) {
+      if (error) console.error("Search error:", error);
+      
+      // Build OR conditions for each query word
+      const orConditions = queryWords
+        .map((w: string) => `name.ilike.%${w}%,description.ilike.%${w}%,tags.cs.{${w}}`)
+        .join(",");
+      
       let fallbackQuery = supabase
         .from("products")
         .select("*")
         .eq("in_stock", true)
-        .ilike("name", `%${query}%`)
+        .or(orConditions)
         .limit(6);
       
-      if (category) fallbackQuery = fallbackQuery.eq("category", category);
       if (max_price) fallbackQuery = fallbackQuery.lte("price", max_price);
       if (min_rating) fallbackQuery = fallbackQuery.gte("rating", min_rating);
 
@@ -133,23 +151,6 @@ async function executeTool(
         console.error("Fallback search error:", fallbackError);
         return { products: [], message: "جستجو با مشکل مواجه شد" };
       }
-      return { products: fallbackData || [] };
-    }
-
-    // If no results from full-text, try ilike
-    if (!data || data.length === 0) {
-      let fallbackQuery = supabase
-        .from("products")
-        .select("*")
-        .eq("in_stock", true)
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%,category.ilike.%${query}%,subcategory.ilike.%${query}%`)
-        .limit(6);
-
-      if (category) fallbackQuery = fallbackQuery.eq("category", category);
-      if (max_price) fallbackQuery = fallbackQuery.lte("price", max_price);
-      if (min_rating) fallbackQuery = fallbackQuery.gte("rating", min_rating);
-
-      const { data: fallbackData } = await fallbackQuery;
       return { products: fallbackData || [] };
     }
 
@@ -188,7 +189,7 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { messages: userMessages } = await req.json();

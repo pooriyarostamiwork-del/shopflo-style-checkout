@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Truck, Calendar, Star } from "lucide-react";
+import { X, CreditCard, Smartphone, Banknote, ChevronRight, ChevronLeft, Phone, Check, Zap, Shield, Clock, ArrowRight, ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Truck, Calendar, Star, Hash } from "lucide-react";
+import { Switch } from "./ui/switch";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -114,6 +115,8 @@ export const CheckoutModalLocalized = ({
   const [showConfetti, setShowConfetti] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState<CouponTier | null>(null);
   const [currentSection, setCurrentSection] = useState<"address" | "payment" | "coupon" | "review">("address");
+  const [flowpointsActive, setFlowpointsActive] = useState(false);
+  const [trackingCode, setTrackingCode] = useState("");
   
   const [otpCountdown, setOtpCountdown] = useState(60);
   const [canResendOtp, setCanResendOtp] = useState(false);
@@ -244,6 +247,9 @@ export const CheckoutModalLocalized = ({
     if (selectedCoupon && selectedCoupon.value) {
       finalTotal -= selectedCoupon.value;
     }
+    if (flowpointsActive) {
+      finalTotal -= flowpointsValue;
+    }
     return Math.max(finalTotal, 0);
   };
   const finalTotal = calculateTotal();
@@ -328,6 +334,7 @@ export const CheckoutModalLocalized = ({
   const flowpointsEarned = Math.floor(cartSubtotal / 100000);
   const flowpointsRedeemable = 42; // Mock existing points
   const flowpointsValue = flowpointsRedeemable * 1000; // 1 point = 1000 toman
+  const flowpointsDiscount = flowpointsActive ? flowpointsValue : 0;
 
   const renderStep = () => {
     switch (step) {
@@ -715,6 +722,10 @@ export const CheckoutModalLocalized = ({
                   <span className="text-sm">{isRTL ? "تخفیف کد" : "Coupon Discount"}</span>
                   <span className="text-sm font-medium">-{formatCurrency(selectedCoupon.value, language)}</span>
                 </div>}
+                {flowpointsActive && <div className={`flex items-center justify-between text-emerald-700 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-sm">{isRTL ? "تخفیف فلوپوینت" : "Flowpoints Discount"}</span>
+                  <span className="text-sm font-medium">-{formatCurrency(flowpointsValue, language)}</span>
+                </div>}
                 <div className={`flex items-center justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <span className="font-semibold">{isRTL ? "مبلغ قابل پرداخت" : "Amount to Pay"}</span>
                   <span className="text-xl font-bold text-primary">{formatCurrency(finalTotal, language)}</span>
@@ -723,13 +734,20 @@ export const CheckoutModalLocalized = ({
             </div>
           </div>
 
-          {/* Flowpoints Component */}
-          <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3" dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Star className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-semibold text-emerald-800">
-                {isRTL ? "فلوپوینت" : "Flowpoints"}
-              </span>
+          {/* Flowpoints Component with Toggle */}
+          <div className={`p-4 rounded-xl border ${flowpointsActive ? 'border-emerald-400 bg-emerald-50/80' : 'border-emerald-200 bg-emerald-50/50'} space-y-3 transition-all`} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <Star className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-semibold text-emerald-800">
+                  {isRTL ? "فلوپوینت" : "Flowpoints"}
+                </span>
+              </div>
+              <Switch
+                checked={flowpointsActive}
+                onCheckedChange={setFlowpointsActive}
+                className="data-[state=checked]:bg-emerald-500"
+              />
             </div>
             <div className="space-y-2">
               <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -748,6 +766,12 @@ export const CheckoutModalLocalized = ({
                   {isRTL ? toPersianNumber(flowpointsRedeemable) : flowpointsRedeemable}
                 </span>
               </div>
+              {flowpointsActive && (
+                <div className={`flex items-center justify-between text-emerald-700 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <span className="text-sm">{isRTL ? "تخفیف فلوپوینت" : "Flowpoints discount"}</span>
+                  <span className="text-sm font-bold">-{formatCurrency(flowpointsValue, language)}</span>
+                </div>
+              )}
               <div className={`pt-2 border-t border-emerald-200 ${isRTL ? 'text-right' : ''}`}>
                 <p className="text-xs text-emerald-600">
                   {isRTL
@@ -769,7 +793,6 @@ export const CheckoutModalLocalized = ({
                 </div>
                 <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
                   <p className="font-semibold text-foreground">{isRTL ? "درگاه پرداخت" : "Payment Gateway"}</p>
-                  <p className="text-sm text-muted-foreground">{isRTL ? "پرداخت آنلاین با درگاه بانکی" : "Online payment via bank gateway"}</p>
                 </div>
                 {paymentMethod === "gateway" && <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                   <Check className="w-4 h-4 text-primary-foreground" />
@@ -784,7 +807,7 @@ export const CheckoutModalLocalized = ({
                   <Zap className="w-5 h-5" />
                 </div>
                 <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                  <p className="font-semibold text-foreground">{isRTL ? "پرداخت مستقیم — یک کلیکی" : "Direct Debit — One Click"}</p>
+                  <p className="font-semibold text-foreground">{isRTL ? "پرداخت مستقیم یک کلیکی" : "Direct Debit — One Click"}</p>
                   <p className="text-sm text-muted-foreground">{isRTL ? "برداشت مستقیم از حساب بانکی" : "Direct debit from bank account"}</p>
                 </div>
                 {paymentMethod === "direct-debit" && <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -794,20 +817,53 @@ export const CheckoutModalLocalized = ({
             </button>
 
             {/* Card Transfer */}
-            <button onClick={() => setPaymentMethod("card")} className={`w-full p-4 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${paymentMethod === "card" ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-              <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className={`p-3 rounded-lg ${paymentMethod === "card" ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                  <CreditCard className="w-5 h-5" />
+            <div className={`rounded-xl border-2 transition-all overflow-hidden ${paymentMethod === "card" ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+              <button onClick={() => setPaymentMethod("card")} className={`w-full p-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`p-3 rounded-lg ${paymentMethod === "card" ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
+                    <p className="font-semibold text-foreground">{isRTL ? "کارت به کارت" : "Card Transfer"}</p>
+                  </div>
+                  {paymentMethod === "card" && <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-4 h-4 text-primary-foreground" />
+                  </div>}
                 </div>
-                <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                  <p className="font-semibold text-foreground">{isRTL ? "کارت به کارت" : "Card Transfer"}</p>
-                  <p className="text-sm text-muted-foreground">{isRTL ? "انتقال وجه به کارت بانکی" : "Transfer to bank card"}</p>
+              </button>
+              {paymentMethod === "card" && (
+                <div className="px-4 pb-4 space-y-3" dir={isRTL ? 'rtl' : 'ltr'}>
+                  <div className={`p-3 rounded-lg bg-muted/30 border border-border/50 ${isRTL ? 'text-right' : ''}`}>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {isRTL ? "شماره کارت مقصد" : "Destination card number"}
+                    </p>
+                    <p className="font-mono text-sm font-semibold text-foreground" dir="ltr">
+                      ۶۰۳۷ - ۹۹۱۸ - ۲۵۴۱ - ۷۷۸۳
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isRTL ? "به نام: فلوکارت" : "Name: Flowcart"}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">
+                      {isRTL ? "کد رهگیری تراکنش" : "Transaction tracking code"}
+                    </Label>
+                    <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <div className="relative flex-1">
+                        <Hash className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground ${isRTL ? 'right-3' : 'left-3'}`} />
+                        <Input
+                          placeholder={isRTL ? "کد رهگیری را وارد کنید" : "Enter tracking code"}
+                          value={trackingCode}
+                          onChange={(e) => setTrackingCode(e.target.value)}
+                          className={`h-10 ${isRTL ? 'pr-9' : 'pl-9'}`}
+                          dir="ltr"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                {paymentMethod === "card" && <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                  <Check className="w-4 h-4 text-primary-foreground" />
-                </div>}
-              </div>
-            </button>
+              )}
+            </div>
 
             {/* BNPL - Pastel purple */}
             <button onClick={() => setPaymentMethod("bnpl")} className={`w-full p-4 rounded-xl border-2 transition-all ${isRTL ? 'text-right' : 'text-left'} ${paymentMethod === "bnpl" ? 'border-violet-400 bg-violet-50' : 'border-violet-200 bg-violet-50/30 hover:border-violet-300'}`}>
@@ -816,7 +872,7 @@ export const CheckoutModalLocalized = ({
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div className={`flex-1 ${isRTL ? 'text-right' : ''}`}>
-                  <p className="font-semibold text-foreground">{isRTL ? "الان بخر، بعدا پرداخت کن" : "Buy Now, Pay Later"}</p>
+                  <p className="font-semibold text-foreground">{isRTL ? "الان بخر بعدا پرداخت کن" : "Buy Now, Pay Later"}</p>
                   <p className="text-sm text-violet-600">{isRTL ? "خرید ۴ قسطه با اعتبار فلوپی" : "Pay in 4 installments with Flowpay"}</p>
                 </div>
                 {paymentMethod === "bnpl" && <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center">
@@ -841,12 +897,6 @@ export const CheckoutModalLocalized = ({
               </div>
             </button>
           </div>
-
-          {paymentMethod === "cod" && <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
-            <p className={`text-sm text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
-              {isRTL ? "پرداخت هنگام تحویل سفارش. هزینه اضافی ۲۰٬۰۰۰ تومان ممکن است اعمال شود." : "Pay when you receive your order. A nominal fee of ₹20 may apply."}
-            </p>
-          </div>}
 
           {/* Auto-Reorder Options - moved here from review */}
           <AutoReorderOptionsLocalized />

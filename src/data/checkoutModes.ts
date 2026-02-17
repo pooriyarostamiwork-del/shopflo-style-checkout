@@ -97,16 +97,16 @@ export const upsellProducts: UpsellProduct[] = [
       {
         type: "size",
         options: [
-          { id: "13inch", name: "13 inch", priceModifier: 0 },
-          { id: "15inch", name: "15 inch", priceModifier: 50000 },
-          { id: "17inch", name: "17 inch", priceModifier: 100000 }
+          { id: "13inch", name: "۱۳ اینچ", priceModifier: 0 },
+          { id: "15inch", name: "۱۵ اینچ", priceModifier: 50000 },
+          { id: "17inch", name: "۱۷ اینچ", priceModifier: 100000 }
         ]
       },
       {
         type: "color",
         options: [
-          { id: "black", name: "Black", priceModifier: 0 },
-          { id: "brown", name: "Brown", priceModifier: 20000 }
+          { id: "black", name: "مشکی", priceModifier: 0 },
+          { id: "brown", name: "قهوه‌ای", priceModifier: 20000 }
         ]
       }
     ]
@@ -121,9 +121,9 @@ export const upsellProducts: UpsellProduct[] = [
       {
         type: "color",
         options: [
-          { id: "black", name: "Black", priceModifier: 0 },
-          { id: "white", name: "White", priceModifier: 0 },
-          { id: "silver", name: "Silver", priceModifier: 50000 }
+          { id: "black", name: "مشکی", priceModifier: 0 },
+          { id: "white", name: "سفید", priceModifier: 0 },
+          { id: "silver", name: "نقره‌ای", priceModifier: 50000 }
         ]
       }
     ]
@@ -138,9 +138,9 @@ export const upsellProducts: UpsellProduct[] = [
       {
         type: "pack",
         options: [
-          { id: "single", name: "Single", priceModifier: 0 },
-          { id: "pack2", name: "Pack of 2", priceModifier: 600000 },
-          { id: "pack3", name: "Pack of 3", priceModifier: 1100000 }
+          { id: "single", name: "تکی", priceModifier: 0 },
+          { id: "pack2", name: "بسته ۲ عددی", priceModifier: 600000 },
+          { id: "pack3", name: "بسته ۳ عددی", priceModifier: 1100000 }
         ]
       }
     ]
@@ -155,9 +155,9 @@ export const upsellProducts: UpsellProduct[] = [
       {
         type: "color",
         options: [
-          { id: "black", name: "Black", priceModifier: 0 },
-          { id: "white", name: "White", priceModifier: 0 },
-          { id: "rose-gold", name: "Rose Gold", priceModifier: 30000 }
+          { id: "black", name: "مشکی", priceModifier: 0 },
+          { id: "white", name: "سفید", priceModifier: 0 },
+          { id: "rose-gold", name: "رزگلد", priceModifier: 30000 }
         ]
       }
     ]
@@ -172,9 +172,9 @@ export const upsellProducts: UpsellProduct[] = [
       {
         type: "size",
         options: [
-          { id: "small", name: "Small (5 slots)", priceModifier: 0 },
-          { id: "medium", name: "Medium (10 slots)", priceModifier: 50000 },
-          { id: "large", name: "Large (15 slots)", priceModifier: 100000 }
+          { id: "small", name: "کوچک (۵ شیار)", priceModifier: 0 },
+          { id: "medium", name: "متوسط (۱۰ شیار)", priceModifier: 50000 },
+          { id: "large", name: "بزرگ (۱۵ شیار)", priceModifier: 100000 }
         ]
       }
     ]

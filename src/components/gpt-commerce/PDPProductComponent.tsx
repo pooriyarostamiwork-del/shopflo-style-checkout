@@ -15,37 +15,20 @@ interface PDPProductComponentProps {
   showImageNavigation?: boolean; // Enable image navigation for PDP page
 }
 
-// Mock other suppliers data
-const getOtherSuppliers = (productId: string) => [
-  { id: 's1', name: 'دیجی‌استور', logo: '🏪', price: 4850000, deliverySummary: '۳ تا ۵ روز کاری' },
-  { id: 's2', name: 'تکنوشاپ', logo: '🛒', price: 4920000, deliverySummary: 'ارسال اکسپرس' },
-  { id: 's3', name: 'هایپرتک', logo: '📦', price: 4780000, deliverySummary: '۲ تا ۴ روز کاری' },
-];
-
-// Mock comments data - AI generated summaries
-const getProductComments = () => ({
-  productSummary: 'کاربران از کیفیت صدای عالی و نویز کنسلینگ قوی این محصول راضی هستند. باتری طولانی و راحتی بالا از نقاط قوت اصلی ذکر شده است. برخی کاربران اشاره کردند که در استفاده طولانی مدت کمی سنگین احساس می‌شود.',
-  vendorSummary: 'این فروشنده امتیاز ۴.۷ از ۵ را کسب کرده و ۹۸٪ سفارشات را به موقع ارسال کرده است. پاسخگویی سریع و بسته‌بندی مناسب از مزایای اصلی این فروشگاه است.',
-});
-
-// Technical specs data
-const getTechnicalSpecs = () => [
-  { label: 'وزن', value: '۲۳۰ گرم' },
-  { label: 'ابعاد', value: '۱۴ × ۷ × ۰.۸ سانتی‌متر' },
-  { label: 'نوع اتصال', value: 'بلوتوث ۵.۰' },
-  { label: 'عمر باتری', value: '۳۰ ساعت' },
-  { label: 'زمان شارژ', value: '۲ ساعت' },
-  { label: 'رنگ', value: 'مشکی' },
-  { label: 'گارانتی', value: '۱۸ ماهه' },
-];
-
-// Mock multiple product images for gallery
-const getProductImages = (productId: string, mainImage: string) => [
-  mainImage,
-  'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=600&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1524678606370-a47ad25cb82a?w=600&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop',
-];
+// Generate dynamic supplier prices based on product price (±10%)
+const getOtherSuppliers = (productPrice: number) => {
+  const names = [
+    { id: 's1', name: 'دیجی‌استور', logo: '🏪', deliverySummary: '۳ تا ۵ روز کاری' },
+    { id: 's2', name: 'تکنوشاپ', logo: '🛒', deliverySummary: 'ارسال اکسپرس' },
+    { id: 's3', name: 'هایپرتک', logo: '📦', deliverySummary: '۲ تا ۴ روز کاری' },
+  ];
+  // Use seeded pseudo-random based on price to keep stable across renders
+  return names.map((s, i) => {
+    const variance = ((((productPrice * (i + 7)) % 20) - 10) / 100); // -10% to +10%
+    const price = Math.round((productPrice * (1 + variance)) / 10000) * 10000;
+    return { ...s, price: Math.max(price, 10000) };
+  });
+};
 
 export const PDPProductComponent = ({
   product,
@@ -70,14 +53,13 @@ export const PDPProductComponent = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const mainProductImage = getProductImage(product.id, product.image);
-  const productImages = showImageNavigation 
-    ? getProductImages(product.id, mainProductImage) 
+  // Use real image URLs from product data, fall back to main image only
+  const productImages = product.imageUrls && product.imageUrls.length > 0
+    ? product.imageUrls
     : [mainProductImage];
-  const productImage = productImages[currentImageIndex];
+  const productImage = productImages[currentImageIndex] || mainProductImage;
   
-  const otherSuppliers = getOtherSuppliers(product.id);
-  const comments = getProductComments();
-  const technicalSpecs = getTechnicalSpecs();
+  const otherSuppliers = getOtherSuppliers(product.price);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -354,8 +336,7 @@ export const PDPProductComponent = ({
               >
                 <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    این هدفون با فناوری پیشرفته نویز کنسلینگ، تجربه‌ای بی‌نظیر از گوش دادن به موسیقی را فراهم می‌کند. 
-                    طراحی ارگونومیک و بالشتک‌های نرم، راحتی طولانی‌مدت را تضمین می‌کنند.
+                    {product.description || 'توضیحی برای این محصول ارائه نشده است.'}
                   </p>
                 </div>
               </div>
@@ -389,21 +370,24 @@ export const PDPProductComponent = ({
                 }}
               >
                 <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  {/* Modern minimal table */}
-                  <div className="space-y-0">
-                    {technicalSpecs.map((spec, idx) => (
-                      <div 
-                        key={idx} 
-                        className="flex items-center py-2.5"
-                        style={{ 
-                          borderBottom: idx < technicalSpecs.length - 1 ? '1px solid hsl(0 0% 0% / 0.04)' : 'none' 
-                        }}
-                      >
-                        <span className="text-xs text-muted-foreground w-28 flex-shrink-0">{spec.label}</span>
-                        <span className="text-sm text-foreground">{spec.value}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {product.specs && product.specs.length > 0 ? (
+                    <div className="space-y-0">
+                      {product.specs.map((spec, idx) => (
+                        <div 
+                          key={idx} 
+                          className="flex items-center py-2.5"
+                          style={{ 
+                            borderBottom: idx < product.specs!.length - 1 ? '1px solid hsl(0 0% 0% / 0.04)' : 'none' 
+                          }}
+                        >
+                          <span className="text-xs text-muted-foreground w-28 flex-shrink-0">{spec.label}</span>
+                          <span className="text-sm text-foreground">{spec.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">مشخصات فنی برای این محصول ارائه نشده.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -436,10 +420,11 @@ export const PDPProductComponent = ({
                 }}
               >
                 <div className="p-4" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  {/* Only Product Comments Summary - NO vendor comments here */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-medium text-muted-foreground">خلاصه نظرات کاربران</h4>
-                    <p className="text-sm text-foreground leading-relaxed">{comments.productSummary}</p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {product.reviewsSummary || 'نظری برای این محصول ارائه نشده.'}
+                    </p>
                   </div>
                 </div>
               </div>

@@ -487,7 +487,12 @@ export const ChatInterface = ({
                   }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-                    {msg.content}
+                    {msg.content
+                      .replace(/\*\*(.*?)\*\*/g, '$1')
+                      .replace(/\*(.*?)\*/g, '$1')
+                      .replace(/^#{1,6}\s+/gm, '')
+                      .replace(/^[-*]\s+/gm, '• ')
+                    }
                   </p>
                 </div>
               </div>

@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Service-role client for database access
+// Admin client for database access
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
 const JWT_SECRET = Deno.env.get("SUPABASE_JWT_SECRET")!;
@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
 
   try {
     const { phone, code } = await req.json();
-
     if (!phone || !code) {
       return new Response(JSON.stringify({ error: "شماره موبایل و کد الزامی است" }), {
         status: 400,
@@ -61,18 +60,14 @@ Deno.serve(async (req) => {
       .eq("phone", phone)
       .maybeSingle();
 
-    let userId: string;
     let isNewUser = false;
+    let userId: string;
 
     if (!profile) {
       isNewUser = true;
-
-      // Generate a deterministic UUID for the user (optional) or let Supabase autogenerate
       const { data: newProfile, error: profileError } = await supabase
         .from("profiles")
-        .insert({
-          phone,
-        })
+        .insert({ phone })
         .select("id, phone, full_name")
         .maybeSingle();
 
@@ -91,8 +86,8 @@ Deno.serve(async (req) => {
 
     // 3️⃣ Generate JWT
     const payload = {
-      sub: userId,
-      role: "authenticated",
+      sub: userId, // must match profile.id
+      role: "authenticated", // required
       aud: "authenticated",
       exp: getNumericDate(60 * 60), // 1 hour expiry
     };
@@ -107,7 +102,7 @@ Deno.serve(async (req) => {
           access_token,
           token_type: "bearer",
           expires_in: 3600,
-          refresh_token: null, // optional
+          refresh_token: null,
         },
         profile,
       }),

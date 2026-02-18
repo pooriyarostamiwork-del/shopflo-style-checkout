@@ -1180,9 +1180,7 @@ const GPTCommerceContent = () => {
           userProfile={profile ? { name: profile.full_name || '', phone: profile.phone, email: '' } : undefined}
           isAuthenticated={isAuthenticated}
           onSignOut={signOut}
-          onUpdateProfileName={async (name: string) => {
-            const { updateProfileName } = await import("@/contexts/AuthContext").then(m => ({ updateProfileName: m.useAuth }));
-          }}
+          onUpdateProfileName={updateProfileName}
         />
 
       ) : (

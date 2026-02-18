@@ -442,7 +442,10 @@ const GPTCommerceContent = () => {
 
     // If authenticated, save to DB
     if (isAuthenticated) {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
       const { data } = await supabase.from('user_addresses').insert({
+        user_id: userId,
         title: addr.title,
         full_address: addr.fullAddress,
         recipient_name: addr.recipientName || '',
@@ -508,36 +511,40 @@ const GPTCommerceContent = () => {
         const orderSummary = calculateOrderSummary(currentBasketState.cartItems);
         const selectedAddr = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId);
         
-        await supabase.from('orders').insert({
-          order_number: orderId,
-          items: currentBasketState.cartItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            image: item.image,
-          })),
-          merchant_groups: orderSummary.vendorSummaries.map(vs => ({
-            merchant: vs.merchant,
-            items: vs.items.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image })),
-            shippingMethod: currentBasketState.selectedShippingByMerchant[vs.merchant.id] || 'standard',
-            subtotal: vs.subtotal,
-            deliveryFee: vs.deliveryFee,
-            discount: vs.discount,
-            total: vs.total,
-          })),
-          delivery_address: selectedAddr ? {
-            title: selectedAddr.title,
-            fullAddress: selectedAddr.fullAddress,
-            recipientName: selectedAddr.recipientName,
-            phone: selectedAddr.phone,
-          } : {},
-          payment_method: paymentId,
-          subtotal: orderSummary.subtotal,
-          total_shipping: orderSummary.totalShipping,
-          total_discount: orderSummary.totalDiscount,
-          total: orderSummary.total,
-        });
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+        if (userId) {
+          await supabase.from('orders').insert({
+            user_id: userId,
+            order_number: orderId,
+            items: currentBasketState.cartItems.map(item => ({
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              image: item.image,
+            })) as any,
+            merchant_groups: orderSummary.vendorSummaries.map(vs => ({
+              merchant: vs.merchant,
+              items: vs.items.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image })),
+              shippingMethod: currentBasketState.selectedShippingByMerchant[vs.merchant.id] || 'standard',
+              subtotal: vs.subtotal,
+              deliveryFee: vs.deliveryFee,
+              discount: vs.discount,
+              total: vs.total,
+            })) as any,
+            delivery_address: (selectedAddr ? {
+              title: selectedAddr.title,
+              fullAddress: selectedAddr.fullAddress,
+              recipientName: selectedAddr.recipientName,
+              phone: selectedAddr.phone,
+            } : {}) as any,
+            payment_method: paymentId,
+            subtotal: orderSummary.subtotal,
+            total_shipping: orderSummary.totalDelivery,
+            total_discount: orderSummary.totalDiscount,
+            total: orderSummary.grandTotal,
+          } as any);
+        }
 
         // Refresh orders
         const { data: updatedOrders } = await supabase
@@ -1058,7 +1065,10 @@ const GPTCommerceContent = () => {
     const created: DeliveryAddress = { id, ...addr };
     
     if (isAuthenticated) {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
       const { data } = await supabase.from('user_addresses').insert({
+        user_id: userId,
         title: addr.title,
         full_address: addr.fullAddress,
         recipient_name: addr.recipientName || '',
@@ -1166,10 +1176,6 @@ const GPTCommerceContent = () => {
             handleCreateBasket();
             setActiveSection('active-cart');
           }}
-          orders={dbOrders}
-          userProfile={profile ? { name: profile.full_name || '', phone: profile.phone, email: '' } : undefined}
-          isAuthenticated={isAuthenticated}
-          onSignOut={signOut}
         />
 
       ) : (
@@ -1199,9 +1205,6 @@ const GPTCommerceContent = () => {
           onAddNewAddress={handleAddNewAddress}
           onPaymentSelect={handlePaymentSelect}
           agenticState={agenticState}
-          isAuthenticated={isAuthenticated}
-          userProfile={profile}
-          onViewOrders={handleViewOrdersCTA}
         />
       )}
 

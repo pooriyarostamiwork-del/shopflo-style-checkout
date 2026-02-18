@@ -1,129 +1,176 @@
 
 
-# Fix Product Photos, Descriptions, Other Sellers Pricing, and Markdown Rendering
+# Digikala CSV Data Import Plan
 
-## Problem Summary
+## Data Assessment Summary
 
-1. **No product photos**: DB has placeholder URLs like `https://example.com/product1.jpg`. The scraper didn't capture real image URLs.
-2. **No product descriptions**: The `description` column is empty for most products. The PDP component uses hardcoded mock text instead of DB data.
-3. **Other Sellers pricing**: Uses hardcoded static prices unrelated to the actual product price.
-4. **Markdown not rendering**: Chat messages use `whitespace-pre-wrap` plain text rendering -- markdown syntax shows as raw text.
+Five CSV files were scraped from Digikala using WebScraper.io. Here is the breakdown:
 
----
+| File | Category | Total Lines | Data Rows (non-empty) | Columns |
+|------|----------|-------------|----------------------|---------|
+| digikala-com-2026-02-18.csv | Headphones (هدفون) | 1454 | ~60-80 products | 27 cols: title, price, rate, seller, description, images, specs, category |
+| digikala-com-2026-02-18-2.csv | Digital Cameras (دوربین دیجیتال) | 705 | ~30-40 products | 27 cols: title, prices (original+discount+final), SKU, description, images, specs, rezayat |
+| digikala-com-2026-02-18-4.csv | Wearable Gadgets (ساعت هوشمند) | 2415 | ~100-120 products | 26 cols: title, rate, comments, seller, final price, images, variants, specs, description, brand |
+| digikala-com-2026-02-18-5.csv | External Hard Disks (هارد اکسترنال) | 709 | ~30-40 products | 24 cols: title, prices, seller, description, images, variants, specs |
+| digikala-com-2026-02-18-6.csv | Mobile Accessories (لوازم جانبی موبایل) | 883 | ~50-60 products | 36 cols: title, prices, rate, seller, description, images, specs, comments, brand, multi-level categories |
 
-## Fix 1: Product Images
+**Key Issues Found:**
+1. Roughly 70-80% of rows in each file are completely empty (only contain the scraper order ID and URL)
+2. Each file has a different column schema (different column names and order)
+3. Prices are in Persian numerals with comma separators (e.g., "۱,۸۶۹,۰۰۰")
+4. Some products are out of stock ("ناموجود")
+5. Images are multi-line (newline-separated URLs within a single CSV cell)
+6. Specs are raw concatenated text, not structured key-value pairs
+7. Descriptions are sometimes truncated with "..."
 
-### 1a. Update DB schema -- add `image_urls` column (text array)
-- Add migration: `ALTER TABLE products ADD COLUMN image_urls text[] DEFAULT '{}'::text[];`
-- Keep the existing `image_url` column as the primary/thumbnail image.
-- `image_urls` stores all gallery images for the PDP slider.
+## Implementation Plan
 
-### 1b. Update scraper (`scrape-digikala`)
-- Add `image_urls` to the Firecrawl extraction schema: `{ type: "array", items: { type: "string" }, description: "All product image URLs from the gallery" }`
-- Map scraped `image_urls` into both `image_url` (first one) and `image_urls` (all) during DB insert.
+### Step 1: Create a CSV Processing Edge Function
 
-### 1c. Update seed data with real Digikala CDN image URLs
-- Replace `https://example.com/product1.jpg` style URLs with actual working Digikala product image URLs (e.g., `https://dkstatics-public.digikala.com/digikala-products/...`).
-- Some seeded products already have Digikala URLs -- keep those, fix the rest.
+Build a new edge function `process-csv-products` that:
+- Accepts CSV text content + category metadata as POST body
+- Parses CSV, skipping empty rows
+- Normalizes the different column schemas into a unified format
+- Converts Persian numerals to integers for prices
+- Extracts image URLs from multi-line image cells
+- Filters out "ناموجود" (out of stock) products with no price
+- Returns cleaned JSON array of products
 
-### 1d. Update `Product` interface in `gptCommerceData.ts`
-- Add optional `imageUrls?: string[]` field.
+### Step 2: AI-Powered Data Enrichment
 
-### 1e. Update `mapDbProduct` in `GPTCommerce.tsx`
-- Map `image_urls` from DB to `imageUrls` on the Product interface.
-- Use `image_url` as the primary `image` field (no fallback to Unsplash placeholder if URL exists).
+For each batch of cleaned products, call the Lovable AI (Gemini Flash) to:
+- Generate clean, concise Persian product descriptions from truncated or missing descriptions
+- Parse raw spec strings into structured `[{label, value}]` arrays
+- Generate a brief review summary from comment count and rating data
+- Standardize category/subcategory values to match our existing taxonomy
+- Clean and standardize product names (remove redundant model numbers, fix spacing)
 
-### 1f. Update `PDPProductComponent.tsx`
-- Replace `getProductImages()` mock function: use `product.imageUrls` if available, otherwise fall back to `[product.image]`.
-- The image slider already works -- just needs real data piped in.
+### Step 3: Insert into Database
 
-### 1g. Update `ChatProductCard.tsx`
-- Currently uses `getChatProductImage()` from HomepageSettings context. For DB products, the `product.image` field already contains the URL. Ensure it falls through correctly (it should, since `getChatProductImage` returns the passed image if no override exists).
+- Clear existing 17 seed products from the database
+- Insert all cleaned + enriched products in batches
+- Assign merchant_id round-robin across m1-m5
+- Preserve all Digikala CDN image URLs (these are real, working URLs)
+- Set `source_url` from the `item_page_link` column
 
----
+### Step 4: Update Agent Categories
 
-## Fix 2: Product Descriptions, Specs, and Reviews
-
-### 2a. Update DB schema -- add `specs` and `reviews_summary` columns
-- Add migration:
-  - `ALTER TABLE products ADD COLUMN specs jsonb DEFAULT '[]'::jsonb;`
-  - `ALTER TABLE products ADD COLUMN reviews_summary text DEFAULT '';`
-
-### 2b. Update scraper (`scrape-digikala`)
-- Add to Firecrawl extraction schema:
-  - `description`: "Full product description in Persian from the product page"
-  - `specs`: "Array of {label, value} objects for technical specifications"
-  - `reviews_summary`: "Summary of user reviews in Persian"
-
-### 2c. Update `PDPProductComponent.tsx`
-- Accept `description`, `specs`, and `reviewsSummary` from the product data instead of using mock functions.
-- For the "توضیحات محصول" tab: show `product.description` or "توضیحی برای این محصول ارائه نشده است."
-- For the "مشخصات فنی" tab: show `product.specs` array or "مشخصات فنی برای این محصول ارائه نشده."
-- For the "نظرات محصول" tab: show `product.reviewsSummary` or "نظری برای این محصول ارائه نشده."
-
-### 2d. Update `Product` interface
-- Add optional fields: `description?: string`, `specs?: Array<{label: string, value: string}>`, `reviewsSummary?: string`.
-
-### 2e. Update `mapDbProduct` in `GPTCommerce.tsx`
-- Map `description`, `specs`, `reviews_summary` from DB to the Product interface.
+Update the `gpt-commerce-agent` system prompt with the new category taxonomy that matches the imported data:
+- الکترونیک > هدفون، هدست و هندزفری
+- الکترونیک > دوربین دیجیتال
+- الکترونیک > ساعت هوشمند
+- الکترونیک > هارد اکسترنال
+- کالای دیجیتال > لوازم جانبی گوشی موبایل
 
 ---
 
-## Fix 3: Other Sellers Pricing
+## Technical Details
 
-### Update `getOtherSuppliers` in `PDPProductComponent.tsx`
-- Change from hardcoded static prices to dynamically generated prices based on the product's actual price.
-- Each supplier price = `product.price * (1 + random(-0.10, +0.10))`, rounded to nearest 10,000 Toman.
-- Pass `product.price` into the function instead of just `productId`.
+### Column Mapping Per File
 
----
-
-## Fix 4: Markdown Rendering in Chat
-
-### 4a. The chat message bubble (line 489 in `ChatInterface.tsx`) currently renders:
+**File 1 (Headphones):**
+```text
+title -> name
+Price -> price (parse Persian)
+Product Title -> name (fallback)
+RATE -> rating
+Seller_Name -> (for metadata)
+Product_Description -> description
+image_1 -> image_urls (newline-split)
+Specs 1, Specs 2 -> specs (AI-parsed)
+COMMENT COUNT -> review_count
+Category, Sub Category -> category, subcategory
 ```
-<p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-  {msg.content}
-</p>
+
+**File 2 (Cameras):**
+```text
+product title -> name
+final price -> price
+original price -> original_price
+discount -> (derive discount rate)
+Rate -> rating
+Product_Description -> description
+image_1, image_3 -> image_urls
+Spec -> specs (AI-parsed)
+comment count -> review_count
+rezayat -> (satisfaction percentage)
 ```
-This shows raw markdown (bold, lists, etc.) as plain text.
 
-### 4b. Create a simple `MarkdownContent` component
-- Parse basic markdown inline: `**bold**`, `*italic*`, line breaks, bullet lists.
-- Use a lightweight approach with regex replacements and `dangerouslySetInnerHTML` or a small component tree, avoiding heavy dependencies.
-- Alternatively, strip markdown formatting on the edge function side before returning content by adding instructions to the AI system prompt to not use markdown.
+**File 4 (Wearables):**
+```text
+title_1 -> name
+final price -> price
+rate -> rating
+Number_of_Comments -> review_count
+descriptiom -> description
+image_3, image_7 -> image_urls
+specs1, specs 2 -> specs (AI-parsed)
+bramd -> brand
+variants -> (color/size info)
+```
 
-### 4c. Recommended approach: Add to the AI system prompt
-- Add instruction: "پاسخ‌ها رو بدون فرمت مارک‌داون بنویس. از ستاره، هشتگ، و علائم مارک‌داون استفاده نکن."
-- This is the simplest fix -- no frontend changes needed.
-- Additionally, clean the response on the frontend as a safety net: strip `**`, `*`, `#`, `- ` patterns from `msg.content` before rendering.
+**File 5 (External HDD):**
+```text
+product title -> name
+final price -> price
+original price -> original_price
+rate -> rating
+Product_Description -> description
+image_1, image_3 -> image_urls
+specs1, specs 2 -> specs (AI-parsed)
+variant -> (color/capacity info)
+```
 
----
+**File 6 (Mobile Accessories):**
+```text
+product title -> name
+final price -> price
+org price -> original_price
+disc rate -> discount percentage
+rate -> rating
+Product_Description -> description
+image_1, image_3 -> image_urls
+specs 1, specs 2 -> specs (AI-parsed)
+comment count -> review_count
+brand -> brand
+main cat, cat, sub cat, sub cat 2 -> category hierarchy
+```
 
-## Technical Details: Implementation Order
+### Persian Number Parser
+```text
+Input: "۱,۸۶۹,۰۰۰"
+Step 1: Replace ۰-۹ with 0-9
+Step 2: Remove commas
+Step 3: parseInt -> 1869000
+```
 
-1. Database migration (add `image_urls`, `specs`, `reviews_summary` columns)
-2. Update `Product` interface in `gptCommerceData.ts`
-3. Update `mapDbProduct` in `GPTCommerce.tsx`
-4. Update `PDPProductComponent.tsx` (use real data + dynamic supplier pricing)
-5. Update `ChatInterface.tsx` (markdown stripping/rendering)
-6. Update `gpt-commerce-agent` system prompt (no markdown output)
-7. Update `scrape-digikala` edge function (extract images, description, specs, reviews)
-8. Update seed data with real image URLs (SQL UPDATE)
-9. Deploy edge functions
+### Spec Parser (AI prompt)
+The raw specs look like: "نوع گوشیدو گوشیدو گوشینوع اتصالبلوتوثبلوتوث..."
+AI will parse these into: `[{"label": "نوع گوشی", "value": "دو گوشی"}, {"label": "نوع اتصال", "value": "بلوتوث"}]`
 
----
+### Data Quality Filtering
+Products will be excluded if:
+- No name or name is empty
+- No price or price is 0
+- Marked as "ناموجود" (out of stock) with no price
+- No image URLs at all
 
-## Files Modified
+### Estimated Final Product Count
+After filtering empty rows and out-of-stock items: approximately **200-300 products** across 5 categories.
 
-| File | Change |
+### Files to Create/Modify
+
+| File | Action |
 |------|--------|
-| `supabase/migrations/new_migration.sql` | Add `image_urls`, `specs`, `reviews_summary` columns |
-| `src/data/gptCommerceData.ts` | Add optional fields to `Product` interface |
-| `src/pages/GPTCommerce.tsx` | Update `mapDbProduct` to include new fields |
-| `src/components/gpt-commerce/PDPProductComponent.tsx` | Use real product data for description/specs/reviews; dynamic supplier pricing |
-| `src/components/gpt-commerce/ChatInterface.tsx` | Add markdown stripping to message content rendering |
-| `supabase/functions/gpt-commerce-agent/index.ts` | Update system prompt to avoid markdown |
-| `supabase/functions/scrape-digikala/index.ts` | Add image_urls, description, specs, reviews to extraction |
-| SQL data update | Replace placeholder image URLs with real ones |
+| `supabase/functions/process-csv-products/index.ts` | NEW - CSV parser + AI enrichment edge function |
+| `supabase/functions/gpt-commerce-agent/index.ts` | UPDATE - Adjust category list in system prompt |
+| Database `products` table | CLEAR + INSERT - Replace seed data with real products |
+
+### Execution Flow
+1. Create the `process-csv-products` edge function
+2. Deploy the function
+3. For each CSV file, call the function with the file content and category metadata
+4. The function parses, cleans, enriches via AI, and inserts into the database
+5. Update the agent's category definitions
+6. Test the GPT Commerce chat with the new product catalog
 

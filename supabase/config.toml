@@ -1,1 +1,4 @@
 project_id = "duzgvkljbwtocgydbbln"
+
+[functions.process-csv-products]
+verify_jwt = false

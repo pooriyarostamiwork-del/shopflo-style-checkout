@@ -56,7 +56,21 @@ const getStatusStyle = (status: OrderStatus) => {
 };
 
 // ===== ORDER DETAIL VIEW =====
-const OrderDetailView = ({ order, onBack }: { order: Order; onBack: () => void }) => {
+const OrderDetailView = ({ order: rawOrder, onBack }: { order: any; onBack: () => void }) => {
+  // Normalize DB (snake_case) and mock (camelCase) order formats
+  const order = {
+    id: rawOrder.order_number || rawOrder.id,
+    status: rawOrder.status || 'processing',
+    date: rawOrder.date || (rawOrder.created_at ? new Date(rawOrder.created_at) : new Date()),
+    items: Array.isArray(rawOrder.items) ? rawOrder.items : [],
+    merchantGroups: rawOrder.merchantGroups || rawOrder.merchant_groups || [],
+    deliveryAddress: rawOrder.deliveryAddress || rawOrder.delivery_address || {},
+    paymentMethod: rawOrder.paymentMethod || rawOrder.payment_method || '',
+    subtotal: rawOrder.subtotal || 0,
+    totalShipping: rawOrder.totalShipping ?? rawOrder.total_shipping ?? 0,
+    totalDiscount: rawOrder.totalDiscount ?? rawOrder.total_discount ?? 0,
+    total: rawOrder.total || 0,
+  };
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Back + Header */}
@@ -507,7 +521,15 @@ export const AccountPanel = ({
                 <>
                   <h3 className="text-sm font-semibold text-foreground">سفارش‌های من</h3>
                   {displayOrders.length > 0 ? (
-                    displayOrders.map((order: any) => (
+                    displayOrders.map((order: any) => {
+                      const orderId = order.order_number || order.id;
+                      const orderItems = Array.isArray(order.items) ? order.items : [];
+                      const orderDate = order.date || (order.created_at ? new Date(order.created_at) : new Date());
+                      const orderTotal = order.total || 0;
+                      const orderStatus = order.status || 'processing';
+                      const totalQuantity = orderItems.reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+
+                      return (
                       <button
                         key={order.id}
                         onClick={() => setSelectedOrderId(order.id)}
@@ -517,36 +539,36 @@ export const AccountPanel = ({
                         {/* Header Row */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground">{order.id}</span>
+                            <span className="text-sm font-medium text-foreground">{orderId}</span>
                             <span className="text-[10px] text-muted-foreground">
-                              · {toPersianNumber(order.items.reduce((s, i) => s + i.quantity, 0))} کالا
+                              · {toPersianNumber(totalQuantity)} کالا
                             </span>
                           </div>
-                          <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium ${getStatusStyle(order.status)}`}>
-                            {getStatusLabel(order.status)}
+                          <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium ${getStatusStyle(orderStatus)}`}>
+                            {getStatusLabel(orderStatus)}
                           </span>
                         </div>
 
                         {/* Product Thumbnails */}
                         <div className="flex items-center gap-2">
                           <div className="flex -space-x-2 space-x-reverse">
-                            {order.items.slice(0, 3).map((item, idx) => (
+                            {orderItems.slice(0, 3).map((item: any, idx: number) => (
                               <img
-                                key={item.id + idx}
+                                key={(item.id || idx) + '' + idx}
                                 src={item.image}
                                 alt={item.name}
                                 className="w-9 h-9 rounded-lg object-cover border-2 border-background"
                               />
                             ))}
-                            {order.items.length > 3 && (
+                            {orderItems.length > 3 && (
                               <div className="w-9 h-9 rounded-lg bg-muted/50 border-2 border-background flex items-center justify-center">
-                                <span className="text-[10px] text-muted-foreground">+{toPersianNumber(order.items.length - 3)}</span>
+                                <span className="text-[10px] text-muted-foreground">+{toPersianNumber(orderItems.length - 3)}</span>
                               </div>
                             )}
                           </div>
                           <div className="flex-1 min-w-0 mr-2">
                             <p className="text-xs text-muted-foreground truncate">
-                              {order.items.map(i => i.name).join('، ')}
+                              {orderItems.map((i: any) => i.name).join('، ')}
                             </p>
                           </div>
                         </div>
@@ -554,15 +576,16 @@ export const AccountPanel = ({
                         {/* Footer */}
                         <div className="flex items-center justify-between pt-1" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
                           <span className="text-xs text-muted-foreground">
-                            {new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' }).format(order.date)}
+                            {new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' }).format(orderDate)}
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground">{formatPersianPrice(order.total)}</span>
+                            <span className="text-sm font-medium text-foreground">{formatPersianPrice(orderTotal)}</span>
                             <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground" />
                           </div>
                         </div>
                       </button>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="text-center py-16">
                       <div

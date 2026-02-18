@@ -37,7 +37,7 @@ function extractImageUrls(cell: string | undefined | null): string[] {
   return cell
     .split(/\n|\r\n?/)
     .map((u) => u.trim())
-    .filter((u) => u.startsWith("http") && u.includes("digikala"));
+    .filter((u) => u.startsWith("http"));
 }
 
 // Parse comment count like "۱۴ دیدگاه" or "۲۶۸۳ دیدگاه"
@@ -53,63 +53,48 @@ function parseCSV(text: string): Record<string, string>[] {
   // Strip BOM
   let cleanText = text;
   if (cleanText.charCodeAt(0) === 0xFEFF) cleanText = cleanText.slice(1);
-  
-  const lines: string[] = [];
-  let current = "";
-  let inQuotes = false;
 
-  for (let i = 0; i < cleanText.length; i++) {
-    const ch = cleanText[i];
+  // Single-pass parser: split into rows and fields simultaneously
+  const rows: Record<string, string>[] = [];
+  const headers: string[] = [];
+  let currentField = "";
+  let fields: string[] = [];
+  let inQuotes = false;
+  let headersParsed = false;
+
+  for (let i = 0; i <= cleanText.length; i++) {
+    const ch = i < cleanText.length ? cleanText[i] : "\n"; // force flush at end
+
     if (ch === '"') {
-      if (inQuotes && cleanText[i + 1] === '"') {
-        current += '"';
+      if (inQuotes && i + 1 < cleanText.length && cleanText[i + 1] === '"') {
+        currentField += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
+    } else if (ch === "," && !inQuotes) {
+      fields.push(currentField);
+      currentField = "";
     } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
-      if (ch === "\r" && cleanText[i + 1] === "\n") i++;
-      lines.push(current);
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  if (current) lines.push(current);
+      if (ch === "\r" && i + 1 < cleanText.length && cleanText[i + 1] === "\n") i++;
+      fields.push(currentField);
+      currentField = "";
 
-  if (lines.length < 2) return [];
-
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").replace(/^\uFEFF/, ""));
-  console.log("CSV headers:", JSON.stringify(headers));
-  const rows: Record<string, string>[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const vals: string[] = [];
-    let val = "";
-    let inQ = false;
-    for (let j = 0; j < lines[i].length; j++) {
-      const c = lines[i][j];
-      if (c === '"') {
-        if (inQ && lines[i][j + 1] === '"') {
-          val += '"';
-          j++;
-        } else {
-          inQ = !inQ;
-        }
-      } else if (c === "," && !inQ) {
-        vals.push(val);
-        val = "";
+      if (!headersParsed) {
+        for (const f of fields) headers.push(f.trim().replace(/^\uFEFF/, ""));
+        headersParsed = true;
+        console.log("CSV headers:", JSON.stringify(headers));
       } else {
-        val += c;
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          row[h] = (fields[idx] || "").trim();
+        });
+        rows.push(row);
       }
+      fields = [];
+    } else {
+      currentField += ch;
     }
-    vals.push(val);
-
-    const row: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      row[h] = (vals[idx] || "").trim();
-    });
-    rows.push(row);
   }
 
   return rows;
@@ -381,66 +366,33 @@ serve(async (req) => {
       else console.log("Cleared existing products");
     }
 
-    // Step 4: Enrich via AI in batches of 10
-    const BATCH_SIZE = 10;
-    const allInserts: any[] = [];
+    // Step 4: Build inserts (skip AI enrichment to avoid timeout, enrich later)
     const merchants = ["m1", "m2", "m3", "m4", "m5"];
-    let merchantIdx = 0;
-
-    for (let i = 0; i < products.length; i += BATCH_SIZE) {
-      const batch = products.slice(i, i + BATCH_SIZE);
-      console.log(`Enriching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(products.length / BATCH_SIZE)}`);
-
-      let enriched: any[];
-      try {
-        enriched = await enrichProducts(batch, LOVABLE_API_KEY);
-      } catch (e) {
-        console.error("Enrichment failed for batch, using defaults");
-        enriched = batch.map((p) => ({
-          description: p.description,
-          specs: [],
-          reviews_summary: "",
-          tags: [],
-        }));
-      }
-
-      for (let j = 0; j < batch.length; j++) {
-        const p = batch[j];
-        const e = enriched.find((x: any) => x.index === j) || enriched[j] || {};
-
-        allInserts.push({
-          name: p.name,
-          price: p.price,
-          original_price: p.original_price,
-          rating: p.rating,
-          review_count: p.review_count,
-          description: e.description || p.description || "",
-          image_url: p.image_urls[0],
-          image_urls: p.image_urls,
-          specs: e.specs || [],
-          reviews_summary: e.reviews_summary || "",
-          tags: e.tags || [],
-          brand: p.brand || null,
-          category: p.category,
-          subcategory: p.subcategory,
-          source_url: p.source_url || null,
-          merchant_id: merchants[merchantIdx % merchants.length],
-          in_stock: true,
-          fast_delivery: Math.random() > 0.5,
-          return_guarantee: true,
-        });
-        merchantIdx++;
-      }
-
-      // Small delay to avoid rate limiting
-      if (i + BATCH_SIZE < products.length) {
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-    }
+    const allInserts = products.map((p, idx) => ({
+      name: p.name,
+      price: p.price,
+      original_price: p.original_price,
+      rating: p.rating,
+      review_count: p.review_count,
+      description: p.description || "",
+      image_url: p.image_urls[0],
+      image_urls: p.image_urls,
+      specs: [],
+      reviews_summary: "",
+      tags: [],
+      brand: p.brand || null,
+      category: p.category,
+      subcategory: p.subcategory,
+      source_url: p.source_url || null,
+      merchant_id: merchants[idx % merchants.length],
+      in_stock: true,
+      fast_delivery: Math.random() > 0.5,
+      return_guarantee: true,
+    }));
 
     // Step 5: Insert in batches
     let inserted = 0;
-    const INSERT_BATCH = 20;
+    const INSERT_BATCH = 50;
     const errors: string[] = [];
 
     for (let i = 0; i < allInserts.length; i += INSERT_BATCH) {

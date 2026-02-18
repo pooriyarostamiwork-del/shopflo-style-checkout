@@ -47,7 +47,11 @@ const TOOLS = [
           },
           category: {
             type: "string",
-            description: "Optional category filter. Options: الکترونیک, خانه و آشپزخانه, زیبایی و بهداشت, مد و پوشاک, ورزش و سلامت, کودک و نوزاد, کتاب و لوازم‌تحریر, خوراکی و نوشیدنی, گیمینگ, ابزار و باغبانی",
+            description: "Optional category filter. Options: الکترونیک, کالای دیجیتال",
+          },
+          subcategory: {
+            type: "string",
+            description: "Optional subcategory filter. Options: هدفون، هدست و هندزفری, دوربین دیجیتال, ساعت و مچ‌بند هوشمند, هارد اکسترنال, لوازم جانبی گوشی موبایل",
           },
           max_price: {
             type: "number",
@@ -90,7 +94,7 @@ async function executeTool(
   args: any
 ): Promise<any> {
   if (toolName === "search_products") {
-    const { query, category, max_price, min_rating } = args;
+    const { query, category, subcategory, max_price, min_rating } = args;
     
     // Split query into individual words for broader matching
     const queryWords = query.split(/\s+/).filter((w: string) => w.length > 1);
@@ -107,6 +111,7 @@ async function executeTool(
       .limit(6);
 
     if (category) dbQuery = dbQuery.eq("category", category);
+    if (subcategory) dbQuery = dbQuery.eq("subcategory", subcategory);
     if (max_price) dbQuery = dbQuery.lte("price", max_price);
     if (min_rating) dbQuery = dbQuery.gte("rating", min_rating);
 

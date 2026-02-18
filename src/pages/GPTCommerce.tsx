@@ -139,7 +139,7 @@ const getInitialGlobalAddresses = (): DeliveryAddress[] => {
 };
 
 const GPTCommerceContent = () => {
-  const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut } = useAuth();
+  const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
   
   // === BASKET MANAGEMENT ===
   const [baskets, setBaskets] = useState<Basket[]>(() => getInitialBaskets());
@@ -1175,6 +1175,13 @@ const GPTCommerceContent = () => {
           onStartNewChat={() => {
             handleCreateBasket();
             setActiveSection('active-cart');
+          }}
+          orders={dbOrders}
+          userProfile={profile ? { name: profile.full_name || '', phone: profile.phone, email: '' } : undefined}
+          isAuthenticated={isAuthenticated}
+          onSignOut={signOut}
+          onUpdateProfileName={async (name: string) => {
+            const { updateProfileName } = await import("@/contexts/AuthContext").then(m => ({ updateProfileName: m.useAuth }));
           }}
         />
 

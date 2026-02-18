@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight } from "lucide-react";
+import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut } from "lucide-react";
 import { DeliveryAddress, toPersianNumber, formatPersianPrice, mockOrders, Order, OrderStatus } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type AccountTab = 'profile' | 'addresses' | 'orders' | 'saved';
+
+interface UserProfileData {
+  name: string;
+  phone: string;
+  email: string;
+}
 
 interface AccountPanelProps {
   onBack: () => void;
@@ -15,9 +21,15 @@ interface AccountPanelProps {
   activeAddressIds?: string[];
   initialTab?: AccountTab;
   onStartNewChat?: () => void;
+  // Auth-aware props
+  orders?: any[];
+  userProfile?: UserProfileData;
+  isAuthenticated?: boolean;
+  onSignOut?: () => Promise<void>;
+  onUpdateProfileName?: (name: string) => Promise<void>;
 }
 
-const userProfile = {
+const defaultUserProfile: UserProfileData = {
   name: 'ایمان صادق‌زاده',
   phone: '۰۹۱۲۲۷۵۲۵۴۰',
   email: 'iman@example.com',
@@ -248,11 +260,17 @@ export const AccountPanel = ({
   activeAddressIds = [],
   initialTab = 'profile',
   onStartNewChat,
+  orders,
+  userProfile: userProfileProp,
+  isAuthenticated,
+  onSignOut,
+  onUpdateProfileName,
 }: AccountPanelProps) => {
+  const resolvedProfile = userProfileProp || defaultUserProfile;
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileData, setProfileData] = useState(userProfile);
-  const [pendingProfileData, setPendingProfileData] = useState(userProfile);
+  const [profileData, setProfileData] = useState(resolvedProfile);
+  const [pendingProfileData, setPendingProfileData] = useState(resolvedProfile);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [deleteWarningId, setDeleteWarningId] = useState<string | null>(null);
   const [newAddress, setNewAddress] = useState({ title: '', fullAddress: '', recipientName: '', phone: '' });
@@ -265,9 +283,12 @@ export const AccountPanel = ({
     { id: 'saved', label: 'علاقه‌مندی‌ها', icon: <Heart className="w-4 h-4" /> },
   ];
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     setProfileData(pendingProfileData);
     setEditingProfile(false);
+    if (onUpdateProfileName && pendingProfileData.name !== resolvedProfile.name) {
+      await onUpdateProfileName(pendingProfileData.name);
+    }
   };
 
   const handleAddAddress = () => {
@@ -295,7 +316,8 @@ export const AccountPanel = ({
     setDeleteWarningId(null);
   };
 
-  const selectedOrder = selectedOrderId ? mockOrders.find(o => o.id === selectedOrderId) : null;
+  const displayOrders = orders || mockOrders;
+  const selectedOrder = selectedOrderId ? displayOrders.find((o: any) => o.id === selectedOrderId) : null;
 
   return (
     <div className="flex-1 flex flex-col h-screen bg-background" dir="rtl">
@@ -391,6 +413,17 @@ export const AccountPanel = ({
                   </div>
                 )}
               </div>
+              {/* Sign Out Button */}
+              {isAuthenticated && onSignOut && (
+                <Button
+                  onClick={onSignOut}
+                  variant="outline"
+                  className="w-full gap-2 text-destructive hover:text-destructive"
+                >
+                  <LogOut className="w-4 h-4" />
+                  خروج از حساب
+                </Button>
+              )}
             </div>
           )}
 
@@ -473,8 +506,8 @@ export const AccountPanel = ({
               ) : (
                 <>
                   <h3 className="text-sm font-semibold text-foreground">سفارش‌های من</h3>
-                  {mockOrders.length > 0 ? (
-                    mockOrders.map((order) => (
+                  {displayOrders.length > 0 ? (
+                    displayOrders.map((order: any) => (
                       <button
                         key={order.id}
                         onClick={() => setSelectedOrderId(order.id)}

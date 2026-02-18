@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPersianNumber } from "@/data/gptCommerceData";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Persian digits
 const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
@@ -37,6 +39,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState('');
+  const { setSessionFromOTP, setIsNewUser } = useAuth();
   
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -59,7 +62,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
     }
   }, [isOpen]);
 
-  const handlePhoneSubmit = () => {
+  const handlePhoneSubmit = async () => {
     if (phone.length < 10) {
       setError('شماره موبایل معتبر نیست');
       return;
@@ -68,14 +71,27 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
     setIsLoading(true);
     setError('');
     
-    // Simulate OTP send
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('send-otp', {
+        body: { phone },
+      });
+      
+      if (fnError) throw fnError;
+      if (data?.error) {
+        setError(data.error);
+        setIsLoading(false);
+        return;
+      }
+      
       setStep('otp');
       setCountdown(60);
-      // Focus first OTP input
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    }, 1000);
+    } catch (err) {
+      console.error('Send OTP error:', err);
+      setError('خطا در ارسال کد. لطفاً دوباره تلاش کنید.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -103,7 +119,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
     }
   };
 
-  const handleOtpVerify = (otpDigits: string[] = otp) => {
+  const handleOtpVerify = async (otpDigits: string[] = otp) => {
     const otpCode = otpDigits.join('');
     if (otpCode.length !== 6) {
       setError('کد تأیید باید ۶ رقم باشد');
@@ -113,25 +129,51 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
     setIsLoading(true);
     setError('');
     
-    // Simulate OTP verification
-    setTimeout(() => {
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('verify-otp', {
+        body: { phone, code: otpCode },
+      });
+      
+      if (fnError) throw fnError;
+      if (data?.error) {
+        setError(data.error);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Set session in Supabase client
+      if (data?.session) {
+        await setSessionFromOTP(data.session);
+      }
+      
+      const newUser = data?.isNewUser ?? false;
+      setIsNewUser(newUser);
+      onVerified(newUser);
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      setError('خطا در تأیید کد. لطفاً دوباره تلاش کنید.');
+    } finally {
       setIsLoading(false);
-      // Mock: determine if user is new or existing (50/50 for demo)
-      const isNewUser = Math.random() > 0.5;
-      onVerified(isNewUser);
-    }, 1500);
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (countdown > 0) return;
     
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await supabase.functions.invoke('send-otp', {
+        body: { phone },
+      });
       setCountdown(60);
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
-    }, 1000);
+    } catch (err) {
+      console.error('Resend OTP error:', err);
+      setError('خطا در ارسال مجدد کد');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;

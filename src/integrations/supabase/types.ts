@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      baskets: {
+        Row: {
+          agentic_state: Json | null
+          cart_items: Json
+          created_at: string
+          id: string
+          last_activity: string
+          messages: Json
+          selected_address_id: string | null
+          shipping_selections: Json | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          agentic_state?: Json | null
+          cart_items?: Json
+          created_at?: string
+          id?: string
+          last_activity?: string
+          messages?: Json
+          selected_address_id?: string | null
+          shipping_selections?: Json | null
+          status?: string
+          title?: string
+          user_id: string
+        }
+        Update: {
+          agentic_state?: Json | null
+          cart_items?: Json
+          created_at?: string
+          id?: string
+          last_activity?: string
+          messages?: Json
+          selected_address_id?: string | null
+          shipping_selections?: Json | null
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string
+          delivery_address: Json | null
+          id: string
+          items: Json
+          merchant_groups: Json | null
+          order_number: string
+          payment_method: string | null
+          status: string
+          subtotal: number
+          total: number
+          total_discount: number
+          total_shipping: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_address?: Json | null
+          id?: string
+          items?: Json
+          merchant_groups?: Json | null
+          order_number: string
+          payment_method?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          total_discount?: number
+          total_shipping?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivery_address?: Json | null
+          id?: string
+          items?: Json
+          merchant_groups?: Json | null
+          order_number?: string
+          payment_method?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          total_discount?: number
+          total_shipping?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      otp_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          phone: string
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          phone: string
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand: string | null
@@ -86,6 +203,63 @@ export type Database = {
           specs?: Json | null
           subcategory?: string | null
           tags?: string[] | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_addresses: {
+        Row: {
+          created_at: string
+          full_address: string
+          id: string
+          is_default: boolean
+          phone: string
+          recipient_name: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_address?: string
+          id?: string
+          is_default?: boolean
+          phone?: string
+          recipient_name?: string
+          title?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_address?: string
+          id?: string
+          is_default?: boolean
+          phone?: string
+          recipient_name?: string
+          title?: string
+          user_id?: string
         }
         Relationships: []
       }

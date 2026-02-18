@@ -8,10 +8,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Admin client for database access
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
 const JWT_SECRET = Deno.env.get("SUPABASE_JWT_SECRET")!;
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -19,20 +25,18 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return json({ error: "Method not allowed" }, 405);
   }
 
   try {
     const { phone, code } = await req.json();
+
     if (!phone || !code) {
-      return new Response(JSON.stringify({ error: "شماره موبایل و کد الزامی است" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Phone and code are required" }, 400);
     }
 
-    // 1️⃣ Verify OTP
-    const { data: otpRecord } = await supabase
+    // 1) Verify OTP
+    const { data: otpRecord, error: otpError } = await supabase
       .from("otp_codes")
       .select("*")
       .eq("phone", phone)
@@ -43,76 +47,79 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    if (otpError) {
+      console.error("OTP lookup error:", otpError);
+      return json({ error: "Server error" }, 500);
+    }
+
     if (!otpRecord) {
-      return new Response(JSON.stringify({ error: "کد تأیید نامعتبر یا منقضی شده" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Invalid or expired code" }, 400);
     }
 
     // Mark OTP as used
-    await supabase.from("otp_codes").update({ used: true }).eq("id", otpRecord.id);
+    const { error: markUsedError } = await supabase.from("otp_codes").update({ used: true }).eq("id", otpRecord.id);
 
-    // 2️⃣ Get or create profile
-    let { data: profile } = await supabase
+    if (markUsedError) {
+      console.error("OTP mark used error:", markUsedError);
+      return json({ error: "Server error" }, 500);
+    }
+
+    // 2) Get or create profile
+    let { data: profile, error: profileFetchError } = await supabase
       .from("profiles")
       .select("id, phone, full_name")
       .eq("phone", phone)
       .maybeSingle();
 
+    if (profileFetchError) {
+      console.error("Profile fetch error:", profileFetchError);
+      return json({ error: "Server error" }, 500);
+    }
+
     let isNewUser = false;
-    let userId: string;
 
     if (!profile) {
       isNewUser = true;
-      const { data: newProfile, error: profileError } = await supabase
+
+      const { data: newProfile, error: profileCreateError } = await supabase
         .from("profiles")
         .insert({ phone })
         .select("id, phone, full_name")
         .maybeSingle();
 
-      if (profileError || !newProfile) {
-        console.error("Profile create error:", profileError);
-        return new Response(JSON.stringify({ error: "خطا در ایجاد حساب" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (profileCreateError || !newProfile) {
+        console.error("Profile create error:", profileCreateError);
+        return json({ error: "Failed to create account" }, 500);
       }
 
       profile = newProfile;
     }
 
-    userId = profile.id;
+    const userId = profile.id;
 
-    // 3️⃣ Generate JWT
+    // 3) Generate JWT
     const payload = {
-      sub: userId, // must match profile.id
-      role: "authenticated", // required
+      sub: userId,
+      role: "authenticated",
       aud: "authenticated",
-      exp: getNumericDate(60 * 60), // 1 hour expiry
+      exp: getNumericDate(60 * 60), // 1 hour
     };
 
     const access_token = await create({ alg: "HS256", typ: "JWT" }, payload, JWT_SECRET);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        isNewUser,
-        session: {
-          access_token,
-          token_type: "bearer",
-          expires_in: 3600,
-          refresh_token: null,
-        },
-        profile,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({
+      success: true,
+      isNewUser,
+      session: {
+        access_token,
+        token_type: "bearer",
+        expires_in: 3600,
+        refresh_token: null,
+      },
+      profile,
+    });
   } catch (err) {
     console.error("verify-otp error:", err);
-    return new Response(JSON.stringify({ error: "خطای سرور" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: "Server error" }, 500);
   }
 });

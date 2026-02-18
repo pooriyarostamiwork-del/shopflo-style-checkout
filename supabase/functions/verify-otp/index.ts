@@ -1,14 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { create, getNumericDate } from "https://deno.land/x/djwt/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Service-role client for database access
+const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+const JWT_SECRET = Deno.env.get("SUPABASE_JWT_SECRET")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
   }
 
   try {
@@ -21,10 +32,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    // Find valid OTP
-    const { data: otpRecord, error: otpError } = await supabase
+    // 1️⃣ Verify OTP
+    const { data: otpRecord } = await supabase
       .from("otp_codes")
       .select("*")
       .eq("phone", phone)
@@ -35,7 +44,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (otpError || !otpRecord) {
+    if (!otpRecord) {
       return new Response(JSON.stringify({ error: "کد تأیید نامعتبر یا منقضی شده" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -45,122 +54,62 @@ Deno.serve(async (req) => {
     // Mark OTP as used
     await supabase.from("otp_codes").update({ used: true }).eq("id", otpRecord.id);
 
-    // Check if user exists by phone in profiles
-    const { data: existingProfile } = await supabase
+    // 2️⃣ Get or create profile
+    let { data: profile } = await supabase
       .from("profiles")
       .select("id, phone, full_name")
       .eq("phone", phone)
       .maybeSingle();
 
-    let isNewUser = false;
     let userId: string;
-    let session: any = null;
+    let isNewUser = false;
 
-    if (existingProfile) {
-      // Existing user - sign in
-      userId = existingProfile.id;
-
-      // Generate a magic link / sign in via admin
-      // We use signInWithPassword with a dummy password approach won't work.
-      // Instead, use admin.generateLink for magiclink, then exchange.
-      // Simplest: use admin.updateUser to set a temp password, then signIn.
-      // Better approach: use admin API to create a session directly.
-
-      // Get user email (we use phone as email placeholder)
-      const fakeEmail = `${phone}@flowcart.local`;
-
-      // Set a deterministic password based on the verified OTP
-      const tempPassword = `otp_${otpRecord.id}_${code}`;
-
-      // Update the user's password
-      const { error: updateError } = await supabase.auth.admin.updateUser(userId, {
-        password: tempPassword,
-      });
-
-      if (updateError) {
-        console.error("Update user error:", updateError);
-        return new Response(JSON.stringify({ error: "خطا در ورود" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Sign in with the temp password
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: fakeEmail,
-        password: tempPassword,
-      });
-
-      if (signInError) {
-        console.error("Sign in error:", signInError);
-        return new Response(JSON.stringify({ error: "خطا در ورود" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      session = signInData.session;
-    } else {
-      // New user - create account
+    if (!profile) {
       isNewUser = true;
-      const fakeEmail = `${phone}@flowcart.local`;
-      const tempPassword = `otp_${otpRecord.id}_${code}`;
 
-      const { data: signUpData, error: signUpError } = await supabase.auth.admin.createUser({
-        email: fakeEmail,
-        password: tempPassword,
-        email_confirm: true, // Auto-confirm since we verified via OTP
-        user_metadata: { phone },
-      });
+      // Generate a deterministic UUID for the user (optional) or let Supabase autogenerate
+      const { data: newProfile, error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          phone,
+        })
+        .select("id, phone, full_name")
+        .maybeSingle();
 
-      if (signUpError) {
-        console.error("Sign up error:", signUpError);
+      if (profileError || !newProfile) {
+        console.error("Profile create error:", profileError);
         return new Response(JSON.stringify({ error: "خطا در ایجاد حساب" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      userId = signUpData.user.id;
-
-      // Create profile
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        phone,
-      });
-
-      if (profileError) {
-        console.error("Profile create error:", profileError);
-      }
-
-      // Sign in to get session
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: fakeEmail,
-        password: tempPassword,
-      });
-
-      if (signInError) {
-        console.error("New user sign in error:", signInError);
-        return new Response(JSON.stringify({ error: "خطا در ورود" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      session = signInData.session;
+      profile = newProfile;
     }
+
+    userId = profile.id;
+
+    // 3️⃣ Generate JWT
+    const payload = {
+      sub: userId,
+      role: "authenticated",
+      aud: "authenticated",
+      exp: getNumericDate(60 * 60), // 1 hour expiry
+    };
+
+    const access_token = await create({ alg: "HS256", typ: "JWT" }, payload, JWT_SECRET);
 
     return new Response(
       JSON.stringify({
         success: true,
         isNewUser,
         session: {
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_in: session.expires_in,
-          token_type: session.token_type,
+          access_token,
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: null, // optional
         },
-        profile: existingProfile || { id: userId!, phone, full_name: null },
+        profile,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

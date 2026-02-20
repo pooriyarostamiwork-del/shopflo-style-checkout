@@ -12,7 +12,7 @@ import { CouponSelectorLocalized } from "./CouponSelectorLocalized";
 import { EnhancedUpsellCarouselLocalized } from "./EnhancedUpsellCarouselLocalized";
 import { AutoReorderOptionsLocalized } from "./AutoReorderOptionsLocalized";
 import { CheckoutMode, UpsellProduct, CouponTier } from "@/types/checkout";
-import { CartProduct } from "./CartItem";
+import { CartProduct } from "./CartItemLocalized";
 import { useLanguage, formatCurrency, toPersianNumber } from "@/i18n";
 
 interface CheckoutModalLocalizedProps {

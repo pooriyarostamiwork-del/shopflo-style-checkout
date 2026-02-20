@@ -220,8 +220,8 @@ export const useCheckoutFlow = ({
   }, [selectedShippingByMerchant, getMerchantShipping, updateCurrentBasket]);
 
   const handleAddNewAddress = useCallback(async (addr: Omit<DeliveryAddress, "id">) => {
-    const id = `addr-${Date.now()}`;
-    const created: DeliveryAddress = { id, ...addr, recipientName: addr.recipientName || '', phone: addr.phone || '' };
+    // Start with a temp id; always replace with the real DB id before updating basket state
+    let created: DeliveryAddress = { id: `addr-${Date.now()}`, ...addr, recipientName: addr.recipientName || '', phone: addr.phone || '' };
 
     if (isAuthenticated) {
       const userId = (await supabase.auth.getUser()).data.user?.id;
@@ -234,7 +234,8 @@ export const useCheckoutFlow = ({
         phone: addr.phone || '',
         is_default: false,
       }).select().single();
-      if (data) created.id = data.id;
+      // Use real DB UUID so selectedAddressId is always consistent with user_addresses table
+      if (data) created = { ...created, id: data.id };
     }
 
     updateCurrentBasket(s => {
@@ -285,7 +286,29 @@ export const useCheckoutFlow = ({
       if (isAuthenticated) {
         const currentBasketState = basketStates[activeBasketId] || createDefaultBasketState();
         const orderSummary = calculateOrderSummary(currentBasketState.cartItems);
-        const selectedAddr = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId);
+
+        // Re-fetch address from DB to avoid stale closure and temp-ID issues
+        let selectedAddr: { title: string; fullAddress: string; recipientName: string; phone: string } | null = null;
+        if (currentBasketState.selectedAddressId) {
+          const { data: addrData } = await supabase
+            .from('user_addresses')
+            .select('*')
+            .eq('id', currentBasketState.selectedAddressId)
+            .single();
+          if (addrData) {
+            selectedAddr = {
+              title: addrData.title,
+              fullAddress: addrData.full_address,
+              recipientName: addrData.recipient_name,
+              phone: addrData.phone,
+            };
+          }
+        }
+        // Fallback to closure if DB fetch failed (e.g. temp address for guest)
+        if (!selectedAddr) {
+          const fallback = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId);
+          if (fallback) selectedAddr = { title: fallback.title, fullAddress: fallback.fullAddress, recipientName: fallback.recipientName || '', phone: fallback.phone || '' };
+        }
 
         const userId = (await supabase.auth.getUser()).data.user?.id;
         if (userId) {

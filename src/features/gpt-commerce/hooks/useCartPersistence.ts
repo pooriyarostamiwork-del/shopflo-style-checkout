@@ -140,7 +140,9 @@ export const useCartPersistence = ({
         if (!user) return;
 
         const basket = baskets.find(b => b.id === activeBasketId);
-        const messagesForDb = currentState.messages.map(m => ({
+        const messagesForDb = currentState.messages
+          .filter((m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation)
+          .map(m => ({
           ...m,
           timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
         }));

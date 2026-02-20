@@ -94,8 +94,8 @@ export const useCartPersistence = ({
           ...dbBasketStates,
         }));
 
-        // Switch to most recent DB basket if it has activity
-        if (data[0] && (Array.isArray(data[0].cart_items) && (data[0].cart_items as any[]).length > 0)) {
+        // Always switch to most recent DB basket (even if cart is empty — messages count)
+        if (data[0]) {
           setActiveBasketId(data[0].id);
         }
 
@@ -121,19 +121,20 @@ export const useCartPersistence = ({
     }
   }, [isAuthenticated]);
 
-  // Debounced sync: save current basket to DB when cart changes
+  // Debounced sync: save current basket to DB when cart OR messages change
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const cartKey = JSON.stringify(currentState.cartItems);
-    if (cartKey === lastSyncedCartRef.current) return;
+    // Sync on any meaningful change — not just cart items
+    const syncKey = JSON.stringify({ cart: currentState.cartItems, msgCount: currentState.messages.length });
+    if (syncKey === lastSyncedCartRef.current) return;
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
     debounceTimerRef.current = setTimeout(async () => {
-      lastSyncedCartRef.current = cartKey;
+      lastSyncedCartRef.current = syncKey;
 
       try {
         const { data: { user } } = await supabase.auth.getUser();

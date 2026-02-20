@@ -56,7 +56,7 @@ export const BASKET_STATES_KEY = 'flowcart-basket-states';
 
 // Storage version migration guard (module-level, runs once)
 const STORAGE_VERSION_KEY = 'flowcart-storage-version';
-const CURRENT_VERSION = '5';
+const CURRENT_VERSION = '6';
 if (typeof window !== 'undefined') {
   const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
   if (storedVersion !== CURRENT_VERSION) {
@@ -67,20 +67,25 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const getInitialBaskets = (): Basket[] => {
+const getInitialState = (): { baskets: Basket[]; activeBasketId: string } => {
+  let baskets: Basket[] | null = null;
   try {
     const stored = localStorage.getItem(BASKETS_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) baskets = JSON.parse(stored);
   } catch (e) { console.error('Failed to load baskets:', e); }
-  return [{ id: 'basket-1', title: 'هدفون‌های بی‌سیم', itemCount: 0, lastActivity: 'الان', savedItems: [] }];
-};
 
-const getInitialActiveBasketId = (): string => {
+  if (!baskets || baskets.length === 0) {
+    const id = crypto.randomUUID();
+    baskets = [{ id, title: 'سبد جدید', itemCount: 0, lastActivity: 'الان', savedItems: [] }];
+  }
+
+  let activeBasketId = baskets[0].id;
   try {
     const stored = localStorage.getItem(ACTIVE_BASKET_KEY);
-    if (stored) return stored;
+    if (stored && baskets.find(b => b.id === stored)) activeBasketId = stored;
   } catch (e) { console.error('Failed to load active basket:', e); }
-  return 'basket-1';
+
+  return { baskets, activeBasketId };
 };
 
 const getInitialBasketStates = (): Record<string, BasketState> => {
@@ -109,8 +114,9 @@ const getInitialBasketStates = (): Record<string, BasketState> => {
 };
 
 export const useBasketState = () => {
-  const [baskets, setBaskets] = useState<Basket[]>(() => getInitialBaskets());
-  const [activeBasketId, setActiveBasketId] = useState<string>(() => getInitialActiveBasketId());
+  const [{ baskets: initBaskets, activeBasketId: initActiveId }] = useState(() => getInitialState());
+  const [baskets, setBaskets] = useState<Basket[]>(initBaskets);
+  const [activeBasketId, setActiveBasketId] = useState<string>(initActiveId);
   const [basketStates, setBasketStates] = useState<Record<string, BasketState>>(() => getInitialBasketStates());
 
   // Persist to localStorage

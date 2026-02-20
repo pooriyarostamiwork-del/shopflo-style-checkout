@@ -138,7 +138,7 @@ export const GPTCommerceShell = () => {
       newTitle = `سبد جدید ${toPersianNumber(existingNewBaskets.length + 1)}`;
     }
     const newBasket: Basket = {
-      id: `basket-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: newTitle,
       itemCount: 0,
       lastActivity: 'الان',
@@ -167,7 +167,7 @@ export const GPTCommerceShell = () => {
         setActiveBasketId(remaining[0].id);
       } else {
         const newBasket: Basket = {
-          id: `basket-${Date.now()}`,
+          id: crypto.randomUUID(),
           title: 'سبد جدید',
           itemCount: 0,
           lastActivity: 'الان',
@@ -222,7 +222,7 @@ export const GPTCommerceShell = () => {
       setActiveBasketId(remaining[0].id);
     } else {
       const newBasket: Basket = {
-        id: `basket-${Date.now()}`,
+        id: crypto.randomUUID(),
         title: 'سبد جدید',
         itemCount: 0,
         lastActivity: 'الان',

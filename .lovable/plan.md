@@ -1,65 +1,92 @@
 
-# Root Cause: Two-Pronged Fix Needed
+# Root Cause: Nothing Is Being Saved to the Database
 
-## The Actual Bug (Still Surviving Our Previous Fix)
+## Confirmed by Database Logs
 
-The previous fix correctly filters `addressShipping` messages **when reading** from localStorage and DB. But there are two remaining gaps:
+The database error logs show the exact failure, repeated every time:
 
-### Gap 1: The DB upsert saves messages WITHOUT filtering
-
-`useCartPersistence.ts` lines 143-146 saves `currentState.messages` raw to the database:
-
-```ts
-const messagesForDb = currentState.messages.map(m => ({
-  ...m,
-  timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
-}));
+```
+invalid input syntax for type uuid: "basket-1"
+invalid input syntax for type uuid: "basket-1"
+invalid input syntax for type uuid: "basket-1"
 ```
 
-No filter is applied. So `addressShipping` messages are persisted in the DB. On the next load:
-- DB restore: stripped ✅ (our previous fix)
-- But the DB debounce timer **fires again** because `currentState.messages` changed after the DB restore overwrites state → it re-saves the now-clean messages. But between the DB load and the debounce timer (1 second), the old stale DB row still exists.
+The `baskets` table has a `uuid` column for `id`. Every upsert attempt silently fails with this error. The database has **zero rows** — all chat history and cart data has only ever lived in `localStorage`, which gets wiped on sign-out.
 
-### Gap 2: The storage version key was not bumped after our fix
+## Three Bugs to Fix
 
-`CURRENT_VERSION = '4'` in `useBasketState.ts`. Any user who had this data cached BEFORE our filtering fix was deployed still has the old unfiltered localStorage. Since the version hasn't changed, the migration guard does NOT clear and re-initialize their storage. Their old `addressShipping` message survives in localStorage because the version check thinks the storage is already "current".
+### Bug 1 — Default basket ID `'basket-1'` is not a valid UUID (CRITICAL)
 
-## Two Fixes
-
-### Fix 1 — Bump storage version to `'5'` (`useBasketState.ts`)
-
-Change `const CURRENT_VERSION = '4'` to `'5'`. This forces a one-time clear of all existing localStorage basket data for every user on next load. Since our filtering is now correct, new data written to localStorage will never contain `addressShipping` messages again.
-
+In `useBasketState.ts` line 75:
 ```ts
-const CURRENT_VERSION = '5';
+return [{ id: 'basket-1', title: '...', ... }];
+```
+And line 83:
+```ts
+return 'basket-1';
 ```
 
-This is the most important fix. It ensures all users get a clean slate.
+These hardcoded strings are not UUIDs. Every database upsert with this ID fails.
 
-### Fix 2 — Filter `addressShipping` messages before saving to DB (`useCartPersistence.ts`)
+**Fix:** Generate the default basket ID using `crypto.randomUUID()` and share it between both initializer functions so they stay in sync.
 
-Add a filter in the debounced DB upsert so that `addressShipping`, `paymentOptions`, `addressSelector`, and `addressConfirmation` messages are never written to the database column in the first place. This prevents future re-introduction of the problem:
+### Bug 2 — New baskets created with `basket-${Date.now()}` — also not a UUID
 
+In `GPTCommerceShell.tsx` lines 141 and 170, 175:
 ```ts
-const messagesForDb = currentState.messages
-  .filter(m => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation)
-  .map(m => ({
-    ...m,
-    timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
-  }));
+id: `basket-${Date.now()}`,
 ```
+
+And in `handleDeleteBasket`, `handleSaveBasket` — all new baskets use the same broken pattern.
+
+**Fix:** Replace every `basket-${Date.now()}` with `crypto.randomUUID()`.
+
+### Bug 3 — DB sync only fires when `cartItems` change, not messages
+
+In `useCartPersistence.ts` lines 128-129:
+```ts
+const cartKey = JSON.stringify(currentState.cartItems);
+if (cartKey === lastSyncedCartRef.current) return;
+```
+
+This early-exit guard means: if a user only chats (no products added to cart), the messages are **never saved to the database**. After sign-out/sign-in, those conversations are gone.
+
+**Fix:** Remove the early-exit guard and instead track a combined key of both messages count and cart items. The debounce (1 second) already throttles the saves.
+
+### Bug 4 — Active basket is not restored from DB after sign-in
+
+In `useCartPersistence.ts` lines 98-100:
+```ts
+if (data[0] && (Array.isArray(data[0].cart_items) && (data[0].cart_items as any[]).length > 0)) {
+  setActiveBasketId(data[0].id);
+}
+```
+
+The most recent basket is only activated if it has cart items. Baskets with only message history are ignored. The user ends up on a blank fresh basket instead of their most recent conversation.
+
+**Fix:** Always activate the most recent DB basket if any data exists.
 
 ## Files to Change
 
-| File | Change |
+| File | Changes |
 |---|---|
-| `src/features/gpt-commerce/hooks/useBasketState.ts` | Bump `CURRENT_VERSION` from `'4'` to `'5'` |
-| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Filter checkout messages before DB upsert |
+| `src/features/gpt-commerce/hooks/useBasketState.ts` | Use `crypto.randomUUID()` for default basket; bump version to `'6'` |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Replace all `basket-${Date.now()}` with `crypto.randomUUID()` |
+| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Remove cart-only sync guard; always activate most recent DB basket |
 
-**Total: 2 tiny edits. No database or UI changes.**
+## How the Fix Works End-to-End
 
-## Why This Works
+After these changes:
 
-- Version bump `'5'` → forces localStorage wipe for all users → no stale data survives
-- DB filter → `addressShipping` messages never written to DB → DB restore has nothing to strip
-- Both read and write paths are now consistently clean
+1. User opens app → default basket gets a proper UUID (e.g. `a3f7c2d1-...`)
+2. User chats → messages are saved to DB within 1 second (debounced), keyed to the UUID
+3. User creates new baskets → each gets a UUID via `crypto.randomUUID()`
+4. User signs out → `localStorage` is cleared (already working)
+5. User signs back in → DB load finds all their baskets by `user_id`, restores all messages and cart items, and activates the most recent basket
+6. All conversations and carts are fully restored
+
+The version bump to `'6'` wipes any stale `localStorage` data (which previously had `'basket-1'` IDs that can never be restored from DB anyway).
+
+## No Database Schema Changes Needed
+
+The `baskets` table already has `id uuid DEFAULT gen_random_uuid()` — the schema is correct. Only the client-side ID generation was broken.

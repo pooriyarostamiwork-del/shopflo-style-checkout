@@ -1,281 +1,109 @@
 
-# GPTCommerce UX & Architecture Fix Plan
+# Diagnosis & Fix Plan: 4 Critical Bugs
 
-## Issues Being Fixed (6 items)
+## Root Cause Analysis
 
----
+### Bug 1: Two Accounts Share the Same Chat/Cart Data
 
-## Issue 1 — OTP Modal: Dynamic Name Step for New Users
+**Root cause: `localStorage` is never cleared on sign-out or user switch.**
 
-**Root cause:** `OTPModal` currently has only two steps: `phone` and `otp`. After OTP verification, it calls `onVerified(isNewUser)` and closes. There is no `name` step at all.
+`useBasketState` reads from `localStorage` keys (`flowcart-baskets`, `flowcart-basket-states`, `flowcart-active-basket`) on mount. These are **shared across all users on the same browser**. When User A signs out and User B signs in:
+- `useCartPersistence` loads User B's DB baskets correctly
+- BUT: the `hasLoadedFromDb` ref starts as `false` on first mount then stays `true` — meaning if User B signs in without a full page reload, the DB load won't re-run
+- More critically: `useBasketState` still initializes from `localStorage` which contains User A's basket data. Even if DB load runs, it merges on top (line 82-86 in `useCartPersistence`), preserving User A's local-only baskets
 
-**Fix:** Add a third step `'name'` to `OTPModal`. The flow becomes:
-
-```
-phone → otp → [if isNewUser] name → onVerified(isNewUser)
-              [if existing]  skip  → onVerified(false)
-```
-
-**Changes to `src/components/gpt-commerce/OTPModal.tsx`:**
-- Add `'name'` to the `Step` type: `type Step = 'phone' | 'otp' | 'name'`
-- Add `fullName` state: `const [fullName, setFullName] = useState('')`
-- In `handleOtpVerify`: after successful verification, if `data.isNewUser === true`, set step to `'name'` instead of calling `onVerified()` immediately. Keep the session established.
-- Add the `name` step UI: a warm welcome heading (e.g. "خوش اومدی! 🎉"), a subtitle ("اسمت رو وارد کن تا بهتر بشناسمت"), a text input for full name, and a submit button.
-- On name submit: call `updateProfileName(fullName)` (already available from `AuthContext`), then call `onVerified(true)`. If name is blank, allow skip with a "بعداً تکمیل می‌کنم" link.
-- The `useAuth()` import already exposes `updateProfileName`. Call it directly inside the modal rather than threading it through props.
-
-**No changes needed to `OTPModal` props** — the `onVerified` contract stays the same.
+**Fix locations:**
+1. `AuthContext.tsx` `signOut()`: after `supabase.auth.signOut()`, clear all `flowcart-*` localStorage keys and force a redirect to `/gptcommerce` (full page reload)
+2. `useCartPersistence.ts`: when `isAuthenticated` transitions from `true` to `false`, clear basket localStorage
+3. `useCartPersistence.ts`: reset `hasLoadedFromDb.current = false` AND clear localStorage when `isAuthenticated` goes false (already partially done on line 110-114, but localStorage is not cleared)
 
 ---
 
-## Issue 2 — Landing Header Button: Auth-Aware Greeting
+### Bug 2: New User Sees Mock Addresses
 
-**Root cause:** The "ورود / ثبت‌نام" button in `ChatLanding.tsx` is static — it never knows if the user is authenticated.
+**Root cause: `mockAddresses` still hardcoded in `CheckoutModalLocalized.tsx` and `gptCommerceData.ts` still exports them.**
 
-**Current state (line 178 of `ChatLanding.tsx`):**
-```tsx
-<button onClick={onSignIn} ...>
-  <User className="w-4 h-4" />
-  <span>ورود / ثبت‌نام</span>
-</button>
-```
+Two separate places:
+1. **`src/components/CheckoutModalLocalized.tsx` lines 124-134**: The `addresses` state is initialized with a hardcoded mock address object containing `"ایمان صادق‌زاده"`. This is the `/farsi` checkout modal. It NEVER reads from the database — it's purely local state.
+2. **`src/data/gptCommerceData.ts` lines 438-492**: `mockAddresses` is still exported. While `useUserData.ts` no longer uses it, it remains available for accidental re-import.
 
-**Fix:** `ChatLanding` needs to receive auth state as props:
-- Add `isAuthenticated: boolean` and `userFirstName?: string` to `ChatLandingProps`
-- When `isAuthenticated === true`, render: `😊 {firstName} جان خوش اومدی، ورود به فضای خرید`
-- When `isAuthenticated === false`, render: existing `ورود / ثبت‌نام`
-
-**Where to wire it:** In `GPTCommerceShell.tsx`, `handleSignInClick` is already passed as `onSignIn`. Pass `isAuthenticated` and `profile?.full_name?.split(' ')[0]` as new props to `ChatInterface` → `ChatLanding`.
-
-**Chain of prop additions:**
-1. `GPTCommerceShell` → `ChatInterface`: add `isAuthenticated` and `userFirstName`
-2. `ChatInterface.tsx` → `ChatLanding`: pass them through
-3. `ChatLanding`: use them in the button render
-
----
-
-## Issue 3 — "Enter Chat Mode" CTA Should Open Chat, Not Account
-
-**Root cause:** In `GPTCommerceShell.tsx` line 297–304, `handleSignInClick` does this:
-```ts
-if (isAuthenticated) {
-  handleSectionChange('account'); // ← WRONG: navigates to account panel
-  if (!hasStartedChat) updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
-}
-```
-
-The intent was probably to redirect authenticated users to their account, but the actual desired behavior is: clicking the button should always open/continue the chat.
-
-**Fix in `GPTCommerceShell.tsx`:**
-```ts
-const handleSignInClick = useCallback(() => {
-  if (isAuthenticated) {
-    // Just start chat — don't navigate to account
-    updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
-  } else {
-    setShowOTPModal(true);
-  }
-}, [isAuthenticated, updateCurrentBasket]);
-```
-
-The basket is created lazily on first message send (already works via `handleSendMessage`). The user enters chat mode, and if they send a message a basket is created. This is exactly the right behavior.
-
----
-
-## Issue 4 — Right Sidebar Default State Per Context
-
-**Root cause:** In `GPTCommerceShell.tsx`:
-- `isCartOpen` starts as `false` (line 41)
-- `useEffect` sets it to `true` when `hasStartedChat` becomes true (line 116–118)
-- But `handleSectionChange` sets it to `false` for account/orders/flowclub (line 241–245)
-
-The problem: it starts closed on landing. It should start open in chat mode and closed in non-chat sections. The current behavior is the reverse.
+The new user at `09024512785` — when they go through `/farsi` checkout, they see the hardcoded address in `CheckoutModalLocalized.tsx`. This is **not** connected to real addresses at all; it's pure hardcoded UI state.
 
 **Fix:**
-- The cart sidebar open/close logic in `GPTCommerceShell.tsx` needs to be inverted for landing:
-  - In chat mode (`hasStartedChat === true`): default `isCartOpen` to `true`
-  - In non-chat sections (account, orders): keep it closed
-
-The existing `useEffect` on line 116–118 already handles the chat→open transition. The gap is the initial default. Change `useState(false)` to:
-```ts
-const [isCartOpen, setIsCartOpen] = useState(false); // stays false until hasStartedChat
-```
-This is already correct. The missing piece is: when the user switches FROM account/orders BACK to chat (via `handleSectionChange('active-cart')`), the cart should re-open. Fix `handleSectionChange`:
-
-```ts
-const handleSectionChange = useCallback((section: string) => {
-  setActiveSection(section);
-  if (section === 'account' || section === 'orders' || section === 'flowclub') {
-    setIsCartOpen(false);
-  } else if (section === 'active-cart' && hasStartedChat) {
-    setIsCartOpen(true); // restore cart when returning to chat
-  }
-}, [hasStartedChat]);
-```
+- `CheckoutModalLocalized.tsx`: Change the `addresses` initial state from a hardcoded mock to `[]` (empty array), and `selectedAddress` to `null`. The empty state UI already exists — it will show the "add address" flow instead.
+- `gptCommerceData.ts`: Remove the `mockAddresses` export entirely (along with `mockOrders`) to prevent future accidental use.
 
 ---
 
-## Issue 5.1 — Remove All Mock Data (Addresses, Names, Orders)
+### Bug 3: Account Name ≠ Order Name
 
-This is the biggest data consistency fix. The mock data permeates multiple files.
+**Root cause: `AccountPanel.tsx` initializes `profileData` from `resolvedProfile` (a prop), but this prop value is captured once at render time and not updated reactively. Also `CheckoutModalLocalized.tsx` still hardcodes `"ایمان"` as the `userName`.**
 
-### 5.1a — `mockAddresses` in `useUserData.ts` (line 15)
-
-**Current:**
-```ts
-return [...mockAddresses]; // ← fallback to mock if nothing in localStorage
-```
-
-**Fix:** For unauthenticated users, start with an **empty array**, not mock addresses:
-```ts
-return []; // fresh start — user must add their own addresses
-```
-
-Remove the `mockAddresses` import from `useUserData.ts`.
-
-### 5.1b — `checkoutAddresses: [...mockAddresses]` in `useBasketState.ts` (line 48)
-
-The `BasketState.checkoutAddresses` field is populated with `mockAddresses`. This field appears to be a legacy field (not actively used — `globalAddresses` from `useUserData` is the real source). Replace with an empty array:
-```ts
-checkoutAddresses: [], // was: [...mockAddresses]
-```
-
-Remove the `mockAddresses` import from `useBasketState.ts`.
-
-### 5.1c — `defaultUserProfile` in `AccountPanel.tsx` (lines 32–36)
-
-**Current:**
-```ts
-const defaultUserProfile: UserProfileData = {
-  name: 'ایمان صادق‌زاده',
-  phone: '۰۹۱۲۲۷۵۲۵۴۰',
-  email: 'iman@example.com',
-};
-```
-
-**Fix:** Replace with truly empty defaults:
-```ts
-const defaultUserProfile: UserProfileData = {
-  name: '',
-  phone: '',
-  email: '',
-};
-```
-
-The `AccountPanel` already handles the case where `userProfile` prop is passed (from real auth data in `GPTCommerceShell`). The `defaultUserProfile` is only the fallback when not authenticated — making it empty is correct.
-
-### 5.1d — `mockOrders` fallback in `AccountPanel.tsx` (line 333)
-
-**Current:**
-```ts
-const displayOrders = orders || mockOrders; // ← falls back to fake orders
-```
+Two sub-issues:
+1. **`AccountPanel.tsx` line 283-286**: `const resolvedProfile = userProfileProp || defaultUserProfile` + `useState(resolvedProfile)` — the `profileData` state is initialized from the prop **once** at mount. If the profile loads asynchronously (which it does — `fetchProfile` runs after auth state resolves), the initial render uses stale/empty data. The `useState` never re-syncs with the prop after mount.
+2. **`CheckoutModalLocalized.tsx` line 108**: `const [userName] = useState(isRTL ? "ایمان" : "Alex")` — hardcoded name displayed in the checkout greeting, never connected to the real user's name.
 
 **Fix:**
-```ts
-const displayOrders = orders || []; // show empty state for unauthenticated users
-```
-
-Remove the `mockOrders` import from `AccountPanel.tsx`.
-
-### 5.1e — `handleTransferToCart` uses `mockProducts` in `GPTCommerceShell.tsx` (line 257)
-
-```ts
-const product = mockProducts.find(p => p.id === item.productId);
-```
-
-This is only relevant for saved items from the sidebar. Since products from DB have UUID-style IDs and `mockProducts` have `p1`, `p2` IDs, this lookup will simply return `undefined` for real DB products. The fix: remove `mockProducts.find()` and instead look up the product info from the saved item itself (the `SavedItem` already stores `name`, `price`, `image`):
-
-```ts
-// Build a minimal product from the saved item data
-const product: Product = {
-  id: item.productId,
-  name: item.name,
-  price: item.price,
-  image: item.image,
-  // fill minimal required fields
-  merchant: merchants[0],
-  rating: 4.0,
-  fastDelivery: false,
-  returnGuarantee: false,
-  inStock: true,
-};
-```
-
-Remove the `mockProducts` import from `GPTCommerceShell.tsx`.
-
-### 5.1f — Storage version bump
-
-After removing `mockAddresses` as the default, bump `CURRENT_VERSION` from `'3'` to `'4'` in `useBasketState.ts` to clear stale localStorage data (which may still have mock addresses embedded in basket states).
-
----
-
-## Issue 5.2 — Consistency: Name in Orders Matches Real Profile
-
-**Root cause:** The order `deliveryAddress.recipientName` is populated from `globalAddresses[0]?.fullAddress` in the checkout flow, which previously defaulted to mock data (`'ایمان صادق‌زاده'`). Once mock data is removed (5.1), this will automatically use the real authenticated user's data.
-
-Additionally, in `useCheckoutFlow.ts` the `handlePaymentSelect` function saves the order with `delivery_address` from `currentBasketState.selectedAddressId`. This address now comes exclusively from `user_addresses` DB table for authenticated users, which always has the correct `recipient_name`. So fixing 5.1 directly resolves 5.2.
-
-One remaining inconsistency: `handleAddNewAddress` in `useCheckoutFlow.ts` creates a `DeliveryAddress` with `recipientName: addr.recipientName || ''` which is correct — it never hardcodes names.
-
----
-
-## Issue 6 — `useCartPersistence` Hook: DB Sync for Authenticated Users
-
-This is a new hook: `src/features/gpt-commerce/hooks/useCartPersistence.ts`
-
-**Behavior:**
-- For **authenticated users**: sync the active basket's cart items to the `baskets` table in the database on every cart change (debounced). On mount, load baskets from DB.
-- For **guest users**: rely on existing `localStorage` already handled by `useBasketState`.
-
-**The `baskets` table already exists** in the database with the correct schema: `id`, `user_id`, `cart_items` (jsonb), `messages` (jsonb), `agentic_state` (jsonb), `selected_address_id`, `shipping_selections`, `status`, `title`, `last_activity`.
-
-**Hook design:**
-```typescript
-// src/features/gpt-commerce/hooks/useCartPersistence.ts
-
-export const useCartPersistence = ({
-  isAuthenticated,
-  activeBasketId,
-  currentState,
-  updateCurrentBasket,
-  baskets,
-  basketStates,
-  setBaskets,
-  setActiveBasketId,
-  setBasketStates,
-}: UseCartPersistenceProps) => {
-  // 1. On auth change: load baskets from DB for this user
-  // 2. On cart change (debounced 1s): upsert to DB
-  // 3. Return: isSyncing state for UI feedback if needed
-}
-```
-
-**DB operations:**
-- **Load:** On `isAuthenticated` becoming `true`, query `baskets` table for this user's active baskets, merge with local state
-- **Save:** On `cartItems` change (debounced), `upsert` into `baskets` table:
-  ```sql
-  INSERT INTO baskets (id, user_id, cart_items, messages, agentic_state, ...)
-  ON CONFLICT (id) DO UPDATE SET cart_items = EXCLUDED.cart_items, ...
+- `AccountPanel.tsx`: Add a `useEffect` to sync `profileData` when `userProfileProp` changes:
+  ```ts
+  useEffect(() => {
+    if (userProfileProp) {
+      setProfileData(userProfileProp);
+      setPendingProfileData(userProfileProp);
+    }
+  }, [userProfileProp?.name, userProfileProp?.phone]);
   ```
+- `CheckoutModalLocalized.tsx` line 108: Remove the hardcoded `userName` state entirely — this field is used for the animated greeting. Replace with an empty string or remove the greeting animation referencing it.
 
-**Integration:** Call `useCartPersistence` inside `GPTCommerceShell.tsx` after `useBasketState` and `useUserData`.
+---
 
-**No database schema changes needed** — the `baskets` table already has everything required and RLS policies are already set for `user_id = auth.uid()`.
+### Bug 4: Sign Out Stays on Page with Stale Data
+
+**Root cause: `signOut()` in `AuthContext.tsx` only calls `supabase.auth.signOut()` and clears React state, but:**
+1. Does NOT clear `localStorage` basket data
+2. Does NOT navigate away from the current page
+3. The shell stays mounted with the previous basket state in React memory
+
+**Fix — `AuthContext.tsx` `signOut()`:**
+```ts
+const signOut = useCallback(async () => {
+  await supabase.auth.signOut();
+  // Clear all basket localStorage to prevent data leaking to next user
+  localStorage.removeItem('flowcart-baskets');
+  localStorage.removeItem('flowcart-active-basket');
+  localStorage.removeItem('flowcart-basket-states');
+  localStorage.removeItem('flowcart-global-addresses');
+  localStorage.removeItem('flowcart-storage-version');
+  setUser(null);
+  setProfile(null);
+  setIsNewUser(false);
+  // Hard redirect to force full React tree remount and clear all in-memory state
+  window.location.href = '/gptcommerce';
+}, []);
+```
+
+The `window.location.href` redirect (not `useNavigate`) forces a full page reload, which clears all React in-memory state from the previous session. This is the correct pattern for multi-user scenarios on shared browsers.
 
 ---
 
 ## Complete File Change List
 
-| File | Change Type | Issue(s) |
+| File | Change | Bug |
 |---|---|---|
-| `src/components/gpt-commerce/OTPModal.tsx` | Edit | #1 |
-| `src/components/gpt-commerce/ChatLanding.tsx` | Edit | #2 |
-| `src/components/gpt-commerce/ChatInterface.tsx` | Edit | #2 (prop passthrough) |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Edit | #2, #3, #4, #5.1e |
-| `src/features/gpt-commerce/hooks/useUserData.ts` | Edit | #5.1a |
-| `src/features/gpt-commerce/hooks/useBasketState.ts` | Edit | #5.1b, #5.1f |
-| `src/components/gpt-commerce/AccountPanel.tsx` | Edit | #5.1c, #5.1d |
-| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | **New** | #6 |
+| `src/contexts/AuthContext.tsx` | Clear localStorage + redirect in `signOut()` | #1, #4 |
+| `src/components/CheckoutModalLocalized.tsx` | Remove hardcoded address (lines 124-134), remove hardcoded `userName` (line 108) | #2, #3 |
+| `src/components/gpt-commerce/AccountPanel.tsx` | Add `useEffect` to sync `profileData` state when prop changes | #3 |
+| `src/data/gptCommerceData.ts` | Remove `mockAddresses` export and `mockOrders` export | #2 |
+| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Clear localStorage on sign-out (when `isAuthenticated` goes false) | #1 |
 
-**Total: 7 edits + 1 new file. No database schema changes needed.**
+**Total: 5 file edits. No database schema changes needed.**
+
+---
+
+## What Does NOT Change
+
+- No UI changes to any component visual design
+- No routing structure changes
+- No database schema changes
+- No edge function changes
+- The `/farsi` product is unaffected except for the hardcoded address removal in `CheckoutModalLocalized`

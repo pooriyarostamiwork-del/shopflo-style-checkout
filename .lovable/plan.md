@@ -1,112 +1,96 @@
 
-# Fix: Message Sent to Wrong Basket After "New Chat"
+# Fix: Shipping Component Appearing Without User Prompting
 
-## Root Cause
+## What Was Already Fixed (Previous Sessions)
+- `ChatInterface.tsx`: Welcome message shows correctly in pending state
+- `GPTCommerceShell.tsx`: `handleSendMessageWithPending` correctly uses `sendMessageToBasket(newId, message)`
+- `useAgentMessages.ts`: `sendMessageToBasket` exists and targets baskets explicitly
 
-In `handleSendMessageWithPending`, a new basket ID is generated and set via `setActiveBasketId(newId)`, but then the message is sent using `setTimeout(() => handleSendMessage(message), 0)`.
+## What Was NOT Applied (Previous Plan Was Approved But Not Implemented)
+All three fixes from the last approved plan are missing from the actual files. Here is their current broken state and the fix for each.
 
-The problem: `handleSendMessage` is a `useCallback` that closed over the **old** `activeBasketId` at the time it was created. React's `setState` is asynchronous — `setActiveBasketId(newId)` hasn't re-rendered yet when the timeout fires. So `handleSendMessage` still uses the previous basket's ID.
+---
 
-This is a classic stale closure problem. `setTimeout` does not help here.
+## Bug 1: `useCheckoutFlow.ts` — Effect Re-fires on Every Cart Change
 
-## The Fix
+**Current broken code (line 97):**
+```ts
+}, [agenticState.step, getMerchantShipping, selectedShippingByMerchant, updateCurrentBasket]);
+```
 
-Pass the new basket ID **directly** into `handleSendMessage` as an optional parameter, bypassing the stale closure entirely. Instead of relying on `activeBasketId` from state, `handleSendMessage` can accept an explicit `basketId` override to use for that specific call.
+`getMerchantShipping` is a `useCallback` that depends on `cartItems`. Every time `cartItems` changes — including when switching baskets — it gets a new reference, causing the effect to re-fire. If `agenticState.step` happens to be `'address-confirmation'` at that moment (from a previous basket this session), the shipping UI gets injected into the wrong basket.
 
-### Changes Required
-
-#### 1. `src/features/gpt-commerce/hooks/useAgentMessages.ts`
-
-Add an optional `overrideBasketId` parameter to `handleSendMessage`. When provided, use it directly for `updateCurrentBasket` calls instead of relying on the closed-over `activeBasketId`.
-
-The `updateCurrentBasket` function in `useBasketState` already reads from `activeBasketId` internally — so the fix is to also accept an optional direct state key. Looking at how `updateCurrentBasket` works, it uses `setBasketStates` with `activeBasketId`. We need a way to target a specific basket.
-
-The cleanest approach: add an `overrideBasketId` to `useAgentMessages` props and expose a `handleSendMessageToBasket(message, basketId)` variant, OR pass `setBasketStates` and `activeBasketId` into a separate function that can be called with a specific ID.
-
-Actually the simplest fix: expose `handleSendMessage` so it can be called with a target basket ID, and inside the function, use that ID directly to call `setBasketStates` instead of going through `updateCurrentBasket` (which uses a closed-over active ID).
-
-#### Concrete Implementation
-
-**In `useAgentMessages.ts`**, change `handleSendMessage` signature:
+**Fix:** Use a `useRef` to hold `getMerchantShipping` so the effect only fires when `agenticState.step` actually changes to `'address-confirmation'`:
 
 ```ts
-const handleSendMessage = useCallback(async (content: string, targetBasketId?: string) => {
-  const basketId = targetBasketId ?? activeBasketId;
-  
-  // Use basketId instead of activeBasketId everywhere:
-  // Instead of updateCurrentBasket(s => ...) — use setBasketStates directly:
+const getMerchantShippingRef = useRef(getMerchantShipping);
+getMerchantShippingRef.current = getMerchantShipping;
+
+useEffect(() => {
+  if (agenticState.step !== 'address-confirmation') return;
+  const merchantShipping = getMerchantShippingRef.current();
+  // ... rest of logic
+}, [agenticState.step]); // Only step — no more spurious re-fires
+```
+
+---
+
+## Bug 2: `useCartPersistence.ts` — Saves Live Checkout Step to Database
+
+**Current broken code (line 157):**
+```ts
+agentic_state: currentState.agenticState as any,
+```
+
+If the debounce fires while the user is mid-checkout (step = `'address-confirmation'`), that step gets written to the database. On the next page load or basket restore, that step could cause the address component to appear.
+
+**Fix:** Always reset `step` to `'idle'` before writing to DB:
+```ts
+agentic_state: { ...currentState.agenticState, step: 'idle' } as any,
+```
+
+---
+
+## Bug 3: `GPTCommerceShell.tsx` — Switching Baskets Doesn't Clear Checkout State
+
+**Current broken code (lines 260–269):**
+```ts
+const handleBasketSelect = useCallback((basketId: string) => {
+  setPendingNewChat(false);
+  setActiveBasketId(basketId);
+  setActiveSection('active-cart');
   setBasketStates(prev => {
-    const current = prev[basketId] || createDefaultBasketState();
-    return {
-      ...prev,
-      [basketId]: {
-        ...current,
-        messages: [...current.messages, userMessage],
-        isProcessing: true,
-      }
-    };
+    const bs = prev[basketId];
+    if (bs) return { ...prev, [basketId]: { ...bs, hasStartedChat: true } };
+    return prev;
   });
-  // ... and same pattern for all subsequent updateCurrentBasket calls inside this function
-}, [...]);
+}, [setActiveBasketId, setBasketStates]);
 ```
 
-But this is a big refactor of `handleSendMessage`. A simpler, less invasive path:
+When switching to a basket that had an in-progress checkout this session, the `agenticState.step` is still `'address-confirmation'` in memory. Switching to it keeps that step active, causing the shipping component to be visible immediately.
 
-**Alternative (minimal change):** Pass `setBasketStates` and `createDefaultBasketState` into `useAgentMessages`, and add a `sendMessageToBasket(basketId, message)` function that does a targeted update without relying on `activeBasketId` from closure.
-
-#### Simplest Safe Fix
-
-In `GPTCommerceShell.tsx`, instead of `setTimeout(() => handleSendMessage(message), 0)`, directly construct the basket state update AND the initial user message in one go inside `handleSendMessageWithPending`, then let the AI response go through a new `sendMessageToBasket(id, message)` exported from `useAgentMessages`.
-
-**Step 1** — Add `sendMessageToBasket` to `useAgentMessages.ts`:
-
+**Fix:** Reset `agenticState.step` to `'idle'` and clear shipping/address on basket switch:
 ```ts
-// Takes an explicit basketId instead of using the closed-over activeBasketId
-const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {
-  // Exact same logic as handleSendMessage but all setBasketStates calls
-  // use targetBasketId explicitly
-}, [/* deps without activeBasketId */]);
-```
-
-**Step 2** — In `GPTCommerceShell.tsx`, replace the `setTimeout` call:
-
-```ts
-// BEFORE (broken):
-setTimeout(() => handleSendMessage(message), 0);
-
-// AFTER (correct):
-sendMessageToBasket(newId, message);  // newId is the fresh UUID we just created
-```
-
-This completely avoids the stale closure because `newId` is a local variable passed directly.
-
-#### Also: Welcome Message When Pending Chat Is Shown
-
-The user also reported a blank page with no welcome message. Currently `ChatThread` with `messages={[]}` and `isProcessing={false}` shows nothing. The fix: when `isPendingNewChat` is true, `ChatInterface` should render `ChatThread` with an initial welcome message injected as the first message.
-
-```tsx
-// In ChatInterface.tsx, when isPendingNewChat:
-const welcomeMessage: ChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content: 'سلام! 👋 من دستیار خرید هوشمند فلوکارت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
-  timestamp: new Date(),
+if (bs) return {
+  ...prev,
+  [basketId]: {
+    ...bs,
+    hasStartedChat: true,
+    agenticState: { ...bs.agenticState, step: 'idle' },
+    selectedShippingByMerchant: {},
+    selectedAddressId: null,
+  }
 };
-
-return (
-  <ChatThread
-    messages={[welcomeMessage]}  // Show the greeting immediately
-    ...
-  />
-);
 ```
 
-## Summary of Changes
+---
+
+## Files to Modify
 
 | File | Change |
 |---|---|
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Add `sendMessageToBasket(basketId, content)` that uses explicit basket ID, avoiding stale closure |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Call `sendMessageToBasket(newId, message)` instead of `setTimeout(() => handleSendMessage(message), 0)` |
-| `src/components/gpt-commerce/ChatInterface.tsx` | Inject a static welcome message when `isPendingNewChat` is true so the thread is not blank |
+| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Use `useRef` for `getMerchantShipping`; only depend on `agenticState.step` in the effect |
+| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Save `step: 'idle'` to DB instead of live step |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Reset `agenticState.step`, `selectedShippingByMerchant`, `selectedAddressId` in `handleBasketSelect` |
 
-Three focused changes. No hooks restructuring, no state logic overhaul.
+Three precise, surgical changes. No state restructuring.

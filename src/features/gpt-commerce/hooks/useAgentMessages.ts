@@ -9,10 +9,11 @@ import {
   merchants,
 } from "@/data/gptCommerceData";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
-import { BasketState } from "./useBasketState";
+import { BasketState, createDefaultBasketState } from "./useBasketState";
 
 interface UseAgentMessagesProps {
   updateCurrentBasket: (updater: (prev: BasketState) => BasketState) => void;
+  setBasketStates: React.Dispatch<React.SetStateAction<Record<string, BasketState>>>;
   setBaskets: React.Dispatch<React.SetStateAction<Basket[]>>;
   activeBasketId: string;
   globalAddresses: DeliveryAddress[];
@@ -72,6 +73,7 @@ const parseProductSelection = (content: string): number | null => {
 
 export const useAgentMessages = ({
   updateCurrentBasket,
+  setBasketStates,
   setBaskets,
   activeBasketId,
   globalAddresses,
@@ -338,8 +340,62 @@ export const useAgentMessages = ({
     globalAddresses, isOTPVerified, setShowOTPModal,
   ]);
 
+  // ── sendMessageToBasket: targets an explicit basket ID, avoiding stale closure ──
+  const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {
+    const updateTarget = (updater: (prev: BasketState) => BasketState) => {
+      setBasketStates(prev => {
+        const current = prev[targetBasketId] || createDefaultBasketState();
+        return { ...prev, [targetBasketId]: updater(current) };
+      });
+    };
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content,
+      timestamp: new Date(),
+    };
+    updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', {
+        body: { messages: [{ role: 'user', content }] },
+      });
+
+      if (error) throw new Error(error.message);
+
+      const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
+      const dbProducts = data?.products || [];
+      const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
+
+      if (mappedProducts.length > 0) {
+        updateTarget(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
+      }
+
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: responseContent + (mappedProducts.length > 0 ? '\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»' : ''),
+        products: mappedProducts.length > 0 ? mappedProducts : undefined,
+        productIndexStart: mappedProducts.length > 0 ? 1 : undefined,
+        timestamp: new Date(),
+      };
+      updateTarget(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
+    } catch (err) {
+      console.error('Failed to call agent:', err);
+      const fallbackMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: 'متأسفانه در حال حاضر سرویس جستجو در دسترس نیست. لطفاً دوباره تلاش کنید. 🙏',
+        timestamp: new Date(),
+      };
+      updateTarget(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
+    }
+  }, [setBasketStates]);
+
   return {
     handleSendMessage,
+    sendMessageToBasket,
     handleAddToCart,
     handleUpdateQuantity,
     handleRemoveItem,

@@ -3,6 +3,13 @@ import { MerchantShipping } from "./AddressShippingSelector";
 import { ChatLanding } from "./ChatLanding";
 import { ChatThread } from "./ChatThread";
 
+const WELCOME_MESSAGE: ChatMessage = {
+  id: 'welcome-pending',
+  role: 'assistant',
+  content: 'سلام! 👋 من دستیار خرید هوشمند فلوکارت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
+  timestamp: new Date(),
+};
+
 interface ChatInterfaceProps {
   isPendingNewChat?: boolean;
   messages: ChatMessage[];
@@ -40,7 +47,7 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
   if (props.isPendingNewChat) {
     return (
       <ChatThread
-        messages={[]}
+        messages={[WELCOME_MESSAGE]}
         onSendMessage={props.onSendMessage}
         onAddToCart={props.onAddToCart}
         onCompare={props.onCompare}

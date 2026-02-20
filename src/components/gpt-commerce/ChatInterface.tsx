@@ -4,6 +4,7 @@ import { ChatLanding } from "./ChatLanding";
 import { ChatThread } from "./ChatThread";
 
 interface ChatInterfaceProps {
+  isPendingNewChat?: boolean;
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   onAddToCart: (product: Product) => void;
@@ -36,6 +37,37 @@ interface ChatInterfaceProps {
 }
 
 export const ChatInterface = (props: ChatInterfaceProps) => {
+  if (props.isPendingNewChat) {
+    return (
+      <ChatThread
+        messages={[]}
+        onSendMessage={props.onSendMessage}
+        onAddToCart={props.onAddToCart}
+        onCompare={props.onCompare}
+        onSaveProduct={props.onSaveProduct}
+        cartItems={props.cartItems}
+        isProcessing={props.isProcessing}
+        isCartOpen={props.isCartOpen}
+        onSignIn={props.onSignIn}
+        inputRef={props.inputRef}
+        setInputValue={props.setInputValue}
+        savedProductIds={props.savedProductIds}
+        onInlineProductDetails={props.onInlineProductDetails}
+        onQuickReply={props.onQuickReply}
+        onFinalizePurchase={props.onFinalizePurchase}
+        onAddressConfirm={props.onAddressConfirm}
+        onAddressSelect={props.onAddressSelect}
+        selectedAddressId={props.selectedAddressId}
+        merchantShipping={props.merchantShipping}
+        selectedShippingByMerchant={props.selectedShippingByMerchant}
+        onSelectShipping={props.onSelectShipping}
+        onAddNewAddress={props.onAddNewAddress}
+        onPaymentSelect={props.onPaymentSelect}
+        agenticState={props.agenticState}
+      />
+    );
+  }
+
   if (!props.hasStartedChat) {
     return (
       <ChatLanding

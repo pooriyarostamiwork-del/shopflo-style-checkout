@@ -63,17 +63,21 @@ export const useCartPersistence = ({
         data.forEach(b => {
           const defaultState = createDefaultBasketState();
           const cartItems = Array.isArray(b.cart_items) ? b.cart_items as unknown as CartItem[] : [];
-          const messages = Array.isArray(b.messages) ? (b.messages as unknown as any[]).map((m: any) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-          })) : defaultState.messages;
+          // Filter out stale interactive checkout messages — they lose meaning across sessions
+          const messages = Array.isArray(b.messages)
+            ? (b.messages as unknown as any[])
+                .map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+                .filter((m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation)
+            : defaultState.messages;
 
           dbBasketStates[b.id] = {
             ...defaultState,
             cartItems,
             messages,
-            selectedAddressId: b.selected_address_id || null,
-            selectedShippingByMerchant: (b.shipping_selections as Record<string, string>) || {},
+            // Always reset checkout-in-progress state so abandoned sessions resume cleanly
+            selectedAddressId: null,
+            selectedShippingByMerchant: {},
+            agenticState: { ...defaultState.agenticState, step: 'idle' },
             hasStartedChat: cartItems.length > 0 || messages.length > 1,
           };
         });

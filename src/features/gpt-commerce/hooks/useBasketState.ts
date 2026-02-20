@@ -56,7 +56,7 @@ export const BASKET_STATES_KEY = 'flowcart-basket-states';
 
 // Storage version migration guard (module-level, runs once)
 const STORAGE_VERSION_KEY = 'flowcart-storage-version';
-const CURRENT_VERSION = '4';
+const CURRENT_VERSION = '5';
 if (typeof window !== 'undefined') {
   const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
   if (storedVersion !== CURRENT_VERSION) {

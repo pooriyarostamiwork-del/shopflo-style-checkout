@@ -99,6 +99,7 @@ export const GPTCommerceShell = () => {
 
   const {
     handleSendMessage,
+    sendMessageToBasket,
     handleAddToCart,
     handleUpdateQuantity,
     handleRemoveItem,
@@ -107,6 +108,7 @@ export const GPTCommerceShell = () => {
     handleSaveProduct,
   } = useAgentMessages({
     updateCurrentBasket,
+    setBasketStates,
     setBaskets,
     activeBasketId,
     globalAddresses,
@@ -162,12 +164,12 @@ export const GPTCommerceShell = () => {
         [newId]: { ...createDefaultBasketState(), hasStartedChat: true },
       }));
       setPendingNewChat(false);
-      // Defer sending so the new basket state is active
-      setTimeout(() => handleSendMessage(message), 0);
+      // Use sendMessageToBasket with the explicit newId to avoid stale closure on activeBasketId
+      sendMessageToBasket(newId, message);
       return;
     }
     handleSendMessage(message);
-  }, [pendingNewChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage]);
+  }, [pendingNewChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
 
   const handleDeleteBasket = useCallback((basketId: string) => {
     setBaskets(prev => prev.filter(b => b.id !== basketId));

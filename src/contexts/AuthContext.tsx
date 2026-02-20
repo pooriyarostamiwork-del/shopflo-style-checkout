@@ -16,7 +16,7 @@ interface AuthContextType {
   setIsNewUser: (v: boolean) => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  setSessionFromOTP: (session: { access_token: string; refresh_token: string }) => Promise<void>;
+  setSessionFromOTP: (session: { access_token: string; refresh_token: string | null }) => Promise<void>;
   updateProfileName: (fullName: string) => Promise<void>;
 }
 
@@ -60,10 +60,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsNewUser(false);
   }, []);
 
-  const setSessionFromOTP = useCallback(async (session: { access_token: string; refresh_token: string }) => {
+  const setSessionFromOTP = useCallback(async (session: { access_token: string; refresh_token: string | null }) => {
     const { data, error } = await supabase.auth.setSession({
       access_token: session.access_token,
-      refresh_token: session.refresh_token,
+      refresh_token: session.refresh_token ?? "",
     });
     if (error) {
       console.error("Set session error:", error);

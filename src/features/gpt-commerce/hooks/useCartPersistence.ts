@@ -106,10 +106,14 @@ export const useCartPersistence = ({
     loadFromDb();
   }, [isAuthenticated, setBaskets, setBasketStates, setActiveBasketId]);
 
-  // Reset load flag on sign-out
+  // Reset load flag and clear localStorage on sign-out
   useEffect(() => {
     if (!isAuthenticated) {
       hasLoadedFromDb.current = false;
+      localStorage.removeItem('flowcart-baskets');
+      localStorage.removeItem('flowcart-active-basket');
+      localStorage.removeItem('flowcart-basket-states');
+      localStorage.removeItem('flowcart-global-addresses');
     }
   }, [isAuthenticated]);
 

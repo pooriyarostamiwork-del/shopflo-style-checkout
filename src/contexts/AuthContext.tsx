@@ -55,9 +55,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    // Clear all basket localStorage to prevent data leaking to next user
+    localStorage.removeItem('flowcart-baskets');
+    localStorage.removeItem('flowcart-active-basket');
+    localStorage.removeItem('flowcart-basket-states');
+    localStorage.removeItem('flowcart-global-addresses');
+    localStorage.removeItem('flowcart-storage-version');
     setUser(null);
     setProfile(null);
     setIsNewUser(false);
+    // Hard redirect to force full React tree remount and clear all in-memory state
+    window.location.href = '/gptcommerce';
   }, []);
 
   const setSessionFromOTP = useCallback(async (session: { access_token: string; refresh_token: string | null }) => {

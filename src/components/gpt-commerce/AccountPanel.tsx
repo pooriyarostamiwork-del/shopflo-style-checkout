@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut } from "lucide-react";
 import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
@@ -289,6 +289,14 @@ export const AccountPanel = ({
   const [deleteWarningId, setDeleteWarningId] = useState<string | null>(null);
   const [newAddress, setNewAddress] = useState({ title: '', fullAddress: '', recipientName: '', phone: '' });
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  // Sync profileData when userProfileProp loads asynchronously after mount
+  useEffect(() => {
+    if (userProfileProp) {
+      setProfileData(userProfileProp);
+      setPendingProfileData(userProfileProp);
+    }
+  }, [userProfileProp?.name, userProfileProp?.phone]);
 
   const tabs: { id: AccountTab; label: string; icon: React.ReactNode }[] = [
     { id: 'profile', label: 'پروفایل', icon: <User className="w-4 h-4" /> },

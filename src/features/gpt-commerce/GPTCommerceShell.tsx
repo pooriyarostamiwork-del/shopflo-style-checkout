@@ -7,12 +7,13 @@ import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/gpt-commerce/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockProducts, toPersianNumber } from "@/data/gptCommerceData";
+import { toPersianNumber, merchants } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useBasketState, createDefaultBasketState } from "./hooks/useBasketState";
 import { useUserData } from "./hooks/useUserData";
 import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
 import { useAgentMessages } from "./hooks/useAgentMessages";
+import { useCartPersistence } from "./hooks/useCartPersistence";
 
 export const GPTCommerceShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
@@ -33,7 +34,19 @@ export const GPTCommerceShell = () => {
     handleAccountUpdateAddress,
   } = useUserData({ isAuthenticated });
 
-  // ── UI-only state ───────────────────────────────────────────────────────
+  // ── Cart persistence (DB sync for authenticated users) ─────────────────
+  const { isSyncing } = useCartPersistence({
+    isAuthenticated,
+    activeBasketId,
+    currentState,
+    basketStates,
+    baskets,
+    setBaskets,
+    setActiveBasketId,
+    setBasketStates,
+  });
+
+  // ── UI-only state ─────────────────────────────────────────────────────
   const [showCheckout, setShowCheckout] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [activeSection, setActiveSection] = useState('active-cart');
@@ -241,8 +254,10 @@ export const GPTCommerceShell = () => {
     setActiveSection(section);
     if (section === 'account' || section === 'orders' || section === 'flowclub') {
       setIsCartOpen(false);
+    } else if (section === 'active-cart' && hasStartedChat) {
+      setIsCartOpen(true);
     }
-  }, []);
+  }, [hasStartedChat]);
 
   const handleRemoveSavedItem = useCallback((basketId: string, itemId: string) => {
     setBaskets(prev => prev.map(b =>
@@ -254,18 +269,29 @@ export const GPTCommerceShell = () => {
     const basket = baskets.find(b => b.id === basketId);
     const item = basket?.savedItems.find(i => i.id === itemId);
     if (!item) return;
-    const product = mockProducts.find(p => p.id === item.productId);
-    if (product) {
-      updateCurrentBasket(s => {
-        const existing = s.cartItems.find(i => i.id === product.id);
-        return {
-          ...s,
-          cartItems: existing
-            ? s.cartItems.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-            : [...s.cartItems, { ...product, quantity: 1 }],
-        };
-      });
-    }
+    // Build a minimal CartItem from the saved item data (no mockProducts dependency)
+    const cartItem = {
+      id: item.productId,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      originalPrice: undefined,
+      merchant: merchants[0],
+      rating: 4.0,
+      fastDelivery: false,
+      returnGuarantee: false,
+      inStock: true,
+      quantity: 1,
+    };
+    updateCurrentBasket(s => {
+      const existing = s.cartItems.find(i => i.id === cartItem.id);
+      return {
+        ...s,
+        cartItems: existing
+          ? s.cartItems.map(i => i.id === cartItem.id ? { ...i, quantity: i.quantity + 1 } : i)
+          : [...s.cartItems, cartItem],
+      };
+    });
     handleRemoveSavedItem(basketId, itemId);
   }, [baskets, handleRemoveSavedItem, updateCurrentBasket]);
 
@@ -296,12 +322,12 @@ export const GPTCommerceShell = () => {
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {
-      handleSectionChange('account');
-      if (!hasStartedChat) updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
+      // Enter chat mode directly — don't redirect to account
+      updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
     } else {
       setShowOTPModal(true);
     }
-  }, [isAuthenticated, hasStartedChat, handleSectionChange, updateCurrentBasket]);
+  }, [isAuthenticated, updateCurrentBasket]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
@@ -368,6 +394,8 @@ export const GPTCommerceShell = () => {
           onAddNewAddress={handleAddNewAddress}
           onPaymentSelect={handlePaymentSelect}
           agenticState={agenticState}
+          isAuthenticated={isAuthenticated}
+          userFirstName={profile?.full_name?.split(' ')[0]}
         />
       )}
 

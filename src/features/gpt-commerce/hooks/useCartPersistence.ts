@@ -1,0 +1,163 @@
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { BasketState, createDefaultBasketState } from "./useBasketState";
+import { Basket } from "@/components/gpt-commerce/Sidebar";
+import { ChatMessage, CartItem } from "@/data/gptCommerceData";
+
+interface UseCartPersistenceProps {
+  isAuthenticated: boolean;
+  activeBasketId: string;
+  currentState: BasketState;
+  basketStates: Record<string, BasketState>;
+  baskets: Basket[];
+  setBaskets: React.Dispatch<React.SetStateAction<Basket[]>>;
+  setActiveBasketId: React.Dispatch<React.SetStateAction<string>>;
+  setBasketStates: React.Dispatch<React.SetStateAction<Record<string, BasketState>>>;
+}
+
+export const useCartPersistence = ({
+  isAuthenticated,
+  activeBasketId,
+  currentState,
+  basketStates,
+  baskets,
+  setBaskets,
+  setActiveBasketId,
+  setBasketStates,
+}: UseCartPersistenceProps) => {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasLoadedFromDb = useRef(false);
+  const lastSyncedCartRef = useRef<string>('');
+
+  // Load baskets from DB when user authenticates
+  useEffect(() => {
+    if (!isAuthenticated || hasLoadedFromDb.current) return;
+
+    const loadFromDb = async () => {
+      setIsSyncing(true);
+      try {
+        const { data, error } = await supabase
+          .from('baskets')
+          .select('*')
+          .eq('status', 'active')
+          .order('last_activity', { ascending: false });
+
+        if (error) {
+          console.error('Failed to load baskets from DB:', error);
+          return;
+        }
+
+        if (!data || data.length === 0) return;
+
+        // Merge DB baskets into local state
+        const dbBaskets: Basket[] = data.map(b => ({
+          id: b.id,
+          title: b.title,
+          itemCount: Array.isArray(b.cart_items) ? (b.cart_items as unknown as CartItem[]).length : 0,
+          lastActivity: 'قبلاً',
+          savedItems: [],
+        }));
+
+        const dbBasketStates: Record<string, BasketState> = {};
+        data.forEach(b => {
+          const defaultState = createDefaultBasketState();
+          const cartItems = Array.isArray(b.cart_items) ? b.cart_items as unknown as CartItem[] : [];
+          const messages = Array.isArray(b.messages) ? (b.messages as unknown as any[]).map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })) : defaultState.messages;
+
+          dbBasketStates[b.id] = {
+            ...defaultState,
+            cartItems,
+            messages,
+            selectedAddressId: b.selected_address_id || null,
+            selectedShippingByMerchant: (b.shipping_selections as Record<string, string>) || {},
+            hasStartedChat: cartItems.length > 0 || messages.length > 1,
+          };
+        });
+
+        // Merge: prefer DB data, keep local baskets that aren't in DB
+        setBaskets(prev => {
+          const dbIds = new Set(dbBaskets.map(b => b.id));
+          const localOnlyBaskets = prev.filter(b => !dbIds.has(b.id));
+          return [...dbBaskets, ...localOnlyBaskets];
+        });
+
+        setBasketStates(prev => ({
+          ...prev,
+          ...dbBasketStates,
+        }));
+
+        // Switch to most recent DB basket if it has activity
+        if (data[0] && (Array.isArray(data[0].cart_items) && (data[0].cart_items as any[]).length > 0)) {
+          setActiveBasketId(data[0].id);
+        }
+
+        hasLoadedFromDb.current = true;
+      } catch (err) {
+        console.error('Error loading baskets from DB:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    loadFromDb();
+  }, [isAuthenticated, setBaskets, setBasketStates, setActiveBasketId]);
+
+  // Reset load flag on sign-out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasLoadedFromDb.current = false;
+    }
+  }, [isAuthenticated]);
+
+  // Debounced sync: save current basket to DB when cart changes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const cartKey = JSON.stringify(currentState.cartItems);
+    if (cartKey === lastSyncedCartRef.current) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(async () => {
+      lastSyncedCartRef.current = cartKey;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const basket = baskets.find(b => b.id === activeBasketId);
+        const messagesForDb = currentState.messages.map(m => ({
+          ...m,
+          timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+        }));
+
+        await supabase.from('baskets').upsert({
+          id: activeBasketId,
+          user_id: user.id,
+          title: basket?.title || 'سبد خرید',
+          cart_items: currentState.cartItems as any,
+          messages: messagesForDb as any,
+          agentic_state: currentState.agenticState as any,
+          selected_address_id: currentState.selectedAddressId || null,
+          shipping_selections: currentState.selectedShippingByMerchant as any,
+          last_activity: new Date().toISOString(),
+          status: 'active',
+        }, { onConflict: 'id' });
+      } catch (err) {
+        console.error('Error syncing basket to DB:', err);
+      }
+    }, 1000);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [isAuthenticated, activeBasketId, currentState.cartItems, currentState.messages, currentState.agenticState, currentState.selectedAddressId, currentState.selectedShippingByMerchant, baskets]);
+
+  return { isSyncing };
+};

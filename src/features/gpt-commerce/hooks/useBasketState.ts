@@ -5,7 +5,6 @@ import {
   Product,
   AgenticState,
   DeliveryAddress,
-  mockAddresses,
 } from "@/data/gptCommerceData";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 
@@ -45,7 +44,7 @@ export const createDefaultBasketState = (): BasketState => ({
   lastRecommendedProducts: [],
   isProcessing: false,
   hasStartedChat: false,
-  checkoutAddresses: [...mockAddresses],
+  checkoutAddresses: [],
   isOTPVerified: false,
   isNewUser: false,
 });
@@ -57,7 +56,7 @@ export const BASKET_STATES_KEY = 'flowcart-basket-states';
 
 // Storage version migration guard (module-level, runs once)
 const STORAGE_VERSION_KEY = 'flowcart-storage-version';
-const CURRENT_VERSION = '3';
+const CURRENT_VERSION = '4';
 if (typeof window !== 'undefined') {
   const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
   if (storedVersion !== CURRENT_VERSION) {

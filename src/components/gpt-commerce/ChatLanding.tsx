@@ -76,6 +76,8 @@ interface ChatLandingProps {
   isProcessing: boolean;
   setInputValue?: (value: string) => void;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
+  isAuthenticated?: boolean;
+  userFirstName?: string;
 }
 
 export const ChatLanding = ({
@@ -89,6 +91,8 @@ export const ChatLanding = ({
   isProcessing,
   setInputValue: externalSetInputValue,
   inputRef: externalInputRef,
+  isAuthenticated = false,
+  userFirstName,
 }: ChatLandingProps) => {
   const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -176,7 +180,11 @@ export const ChatLanding = ({
             style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
           >
             <User className="w-4 h-4" />
-            <span>ورود / ثبت‌نام</span>
+            {isAuthenticated && userFirstName ? (
+              <span>😊 {userFirstName} جان خوش اومدی، ورود به فضای خرید</span>
+            ) : (
+              <span>ورود / ثبت‌نام</span>
+            )}
           </button>
         </div>
       </div>

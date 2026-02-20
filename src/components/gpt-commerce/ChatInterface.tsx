@@ -31,6 +31,8 @@ interface ChatInterfaceProps {
   onAddNewAddress?: (address: Omit<DeliveryAddress, "id">) => void;
   onPaymentSelect?: (paymentId: string) => void;
   agenticState?: AgenticState;
+  isAuthenticated?: boolean;
+  userFirstName?: string;
 }
 
 export const ChatInterface = (props: ChatInterfaceProps) => {
@@ -47,6 +49,8 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
         isProcessing={props.isProcessing}
         setInputValue={props.setInputValue}
         inputRef={props.inputRef}
+        isAuthenticated={props.isAuthenticated}
+        userFirstName={props.userFirstName}
       />
     );
   }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DeliveryAddress, mockAddresses } from "@/data/gptCommerceData";
+import { DeliveryAddress } from "@/data/gptCommerceData";
 
 const GLOBAL_ADDRESSES_KEY = 'flowcart-global-addresses';
 
@@ -12,7 +12,7 @@ const getInitialGlobalAddresses = (): DeliveryAddress[] => {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) { console.error('Failed to load global addresses:', e); }
-  return [...mockAddresses];
+  return [];
 };
 
 interface UseUserDataProps {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut } from "lucide-react";
-import { DeliveryAddress, toPersianNumber, formatPersianPrice, mockOrders, Order, OrderStatus } from "@/data/gptCommerceData";
+import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -30,9 +30,9 @@ interface AccountPanelProps {
 }
 
 const defaultUserProfile: UserProfileData = {
-  name: 'ایمان صادق‌زاده',
-  phone: '۰۹۱۲۲۷۵۲۵۴۰',
-  email: 'iman@example.com',
+  name: '',
+  phone: '',
+  email: '',
 };
 
 const getStatusLabel = (status: OrderStatus) => {
@@ -330,7 +330,7 @@ export const AccountPanel = ({
     setDeleteWarningId(null);
   };
 
-  const displayOrders = orders || mockOrders;
+  const displayOrders = orders || [];
   const selectedOrder = selectedOrderId ? displayOrders.find((o: any) => o.id === selectedOrderId) : null;
 
   return (

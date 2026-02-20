@@ -30,16 +30,18 @@ interface OTPModalProps {
   onVerified: (isNewUser: boolean) => void;
 }
 
-type Step = 'phone' | 'otp';
+type Step = 'phone' | 'otp' | 'name';
 
 export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState('');
-  const { setSessionFromOTP, setIsNewUser } = useAuth();
+  const [pendingIsNewUser, setPendingIsNewUser] = useState(false);
+  const { setSessionFromOTP, setIsNewUser, updateProfileName } = useAuth();
   
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -57,8 +59,10 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
       setStep('phone');
       setPhone('');
       setOtp(['', '', '', '', '', '']);
+      setFullName('');
       setError('');
       setCountdown(0);
+      setPendingIsNewUser(false);
     }
   }, [isOpen]);
 
@@ -148,10 +152,33 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
       
       const newUser = data?.isNewUser ?? false;
       setIsNewUser(newUser);
-      onVerified(newUser);
+      
+      // If new user, show name step; otherwise complete immediately
+      if (newUser) {
+        setPendingIsNewUser(true);
+        setStep('name');
+      } else {
+        onVerified(false);
+      }
     } catch (err) {
       console.error('Verify OTP error:', err);
       setError('خطا در تأیید کد. لطفاً دوباره تلاش کنید.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNameSubmit = async (skipName = false) => {
+    setIsLoading(true);
+    try {
+      if (!skipName && fullName.trim()) {
+        await updateProfileName(fullName.trim());
+      }
+      onVerified(pendingIsNewUser);
+    } catch (err) {
+      console.error('Update name error:', err);
+      // Still complete the flow even if name update fails
+      onVerified(pendingIsNewUser);
     } finally {
       setIsLoading(false);
     }
@@ -201,7 +228,9 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
           style={{ borderBottom: '1px solid hsl(0 0% 0% / 0.06)' }}
         >
           <h2 className="text-lg font-semibold text-foreground">
-            تأیید شماره موبایل
+            {step === 'phone' && 'تأیید شماره موبایل'}
+            {step === 'otp' && 'کد تأیید'}
+            {step === 'name' && 'خوش اومدی! 🎉'}
           </h2>
           <button
             onClick={onClose}
@@ -213,6 +242,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
 
         {/* Content */}
         <div className="p-6">
+          {/* ── Step: Phone ─────────────────────────────── */}
           {step === 'phone' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
@@ -220,14 +250,12 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
               </p>
               
               <div className="space-y-2">
-                {/* Phone input with Persian digit display */}
                 <div className="relative">
                   <input
                     type="text"
                     inputMode="numeric"
                     value={phone}
                     onChange={(e) => {
-                      // Normalize to Latin digits for internal storage
                       const normalized = toLatinDigits(e.target.value).replace(/\D/g, '');
                       if (normalized.length <= 11) {
                         setPhone(normalized);
@@ -242,7 +270,6 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                     maxLength={11}
                     placeholder=""
                   />
-                  {/* Display layer with Persian digits */}
                   <span className="absolute inset-0 flex items-center justify-center text-lg tracking-wider pointer-events-none">
                     {phone ? toPersianPhone(phone) : <span className="text-muted-foreground/50">۰۹۱۲۳۴۵۶۷۸۹</span>}
                   </span>
@@ -269,13 +296,13 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
             </div>
           )}
 
+          {/* ── Step: OTP ───────────────────────────────── */}
           {step === 'otp' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
                 کد ۶ رقمی ارسال شده به {toPersianPhone(phone)} را وارد کنید
               </p>
               
-              {/* OTP Inputs - Display Persian digits */}
               <div className="flex justify-center gap-2" dir="ltr">
                 {otp.map((digit, index) => (
                   <div key={index} className="relative">
@@ -285,7 +312,6 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                       inputMode="numeric"
                       value={digit}
                       onChange={(e) => {
-                        // Accept both Persian and Latin digits
                         const val = e.target.value;
                         const normalized = toLatinDigits(val).replace(/\D/g, '');
                         handleOtpChange(index, normalized);
@@ -297,7 +323,6 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                       }}
                       maxLength={1}
                     />
-                    {/* Display layer with Persian digit */}
                     <span className="absolute inset-0 flex items-center justify-center text-xl font-semibold pointer-events-none">
                       {digit ? toPersianNumber(parseInt(digit)) : ''}
                     </span>
@@ -309,7 +334,6 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                 <p className="text-xs text-destructive text-center">{error}</p>
               )}
               
-              {/* Resend */}
               <div className="text-center">
                 {countdown > 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -341,12 +365,61 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                 )}
               </Button>
               
-              {/* Back button */}
               <button
                 onClick={() => setStep('phone')}
                 className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 تغییر شماره موبایل
+              </button>
+            </div>
+          )}
+
+          {/* ── Step: Name (new users only) ─────────────── */}
+          {step === 'name' && (
+            <div className="space-y-5">
+              <div className="text-center space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  اسمت رو وارد کن تا بهتر بشناسمت
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && fullName.trim()) handleNameSubmit();
+                  }}
+                  className="w-full h-12 bg-transparent border rounded-md text-center text-base"
+                  style={{ borderColor: 'hsl(0 0% 0% / 0.12)' }}
+                  placeholder="مثلاً: پوریا رضایی"
+                  autoFocus
+                  dir="rtl"
+                />
+              </div>
+              
+              <Button
+                onClick={() => handleNameSubmit(false)}
+                disabled={isLoading || !fullName.trim()}
+                className="w-full h-12 rounded-xl font-medium"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                }}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'ذخیره و ورود به فلوکارت'
+                )}
+              </Button>
+              
+              <button
+                onClick={() => handleNameSubmit(true)}
+                disabled={isLoading}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                بعداً تکمیل می‌کنم
               </button>
             </div>
           )}

@@ -126,15 +126,36 @@ Deno.serve(async (req) => {
       return json({ error: "Failed to generate session" }, 500);
     }
 
-    // Extract tokens from the properties object returned by generateLink
-    const props = linkData.properties;
-    const access_token = props?.access_token;
-    const refresh_token = props?.refresh_token;
-
-    if (!access_token || !refresh_token) {
-      console.error("No tokens in generateLink response:", JSON.stringify(linkData));
-      return json({ error: "Failed to extract session tokens" }, 500);
+    // Extract hashed_token and exchange it for a real session
+    const hashedToken = linkData.properties?.hashed_token;
+    if (!hashedToken) {
+      console.error("No hashed_token in generateLink response:", JSON.stringify(linkData));
+      return json({ error: "Failed to generate session link" }, 500);
     }
+
+    // Exchange the hashed token for a real session by POSTing to the verify endpoint
+    // (equivalent to "clicking the magic link" server-side)
+    const verifyResp = await fetch(
+      `${Deno.env.get("SUPABASE_URL")}/auth/v1/verify`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
+        },
+        body: JSON.stringify({ token_hash: hashedToken, type: "magiclink" }),
+      }
+    );
+
+    const sessionData = await verifyResp.json();
+
+    if (!verifyResp.ok || !sessionData.access_token) {
+      console.error("Token exchange failed:", JSON.stringify(sessionData));
+      return json({ error: "Failed to create session" }, 500);
+    }
+
+    const access_token = sessionData.access_token;
+    const refresh_token = sessionData.refresh_token;
 
     // 5) Upsert profile with the real auth UUID
     const { error: profileError } = await supabase

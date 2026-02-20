@@ -266,12 +266,15 @@ export const GPTCommerceShell = () => {
       if (bs) return {
         ...prev,
         [basketId]: {
-          ...bs,
-          hasStartedChat: true,
-          agenticState: { ...bs.agenticState, step: 'idle' },
-          selectedShippingByMerchant: {},
-          selectedAddressId: null,
-        }
+        ...bs,
+        hasStartedChat: true,
+        agenticState: { ...bs.agenticState, step: 'idle' },
+        selectedShippingByMerchant: {},
+        selectedAddressId: null,
+        messages: bs.messages.filter(
+          (m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation
+        ),
+      }
       };
       return prev;
     });

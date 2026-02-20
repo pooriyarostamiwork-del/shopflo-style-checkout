@@ -1,127 +1,85 @@
 
-# Fix: "New Chat" Should Only Create a Basket After First Message
+# Fix: "New Chat" Should Show Empty Chat Thread, Not the Landing Page
 
 ## The Problem
 
-When the user clicks "ایجاد سبد جدید" (New Basket), `handleCreateBasket` runs immediately and does two things that it shouldn't do yet:
+When the user clicks "New Chat" and `pendingNewChat` is set to `true`, the code passes:
 
-1. Creates a basket entry in local state with `hasStartedChat: true`
-2. This triggers the debounced DB sync (within 1 second), creating an empty row in the database
+```tsx
+hasStartedChat={pendingNewChat ? false : hasStartedChat}
+```
 
-The result: clicking "New Chat" 5 times with no messages creates 5 empty baskets in the DB. After sign-out/sign-in, all 5 empty baskets are restored — clutter with no content.
+This forces `hasStartedChat=false`, which causes `ChatInterface` to render `ChatLanding` — the full homepage with the logo, hero section, product carousels, quick actions, and footer. That is the wrong view.
 
-This is the same behavior as if ChatGPT created a new conversation thread every time you clicked "New Chat" instead of waiting for your first message.
+The user expects: an **empty chat thread** — the same UI as an ongoing conversation, but with no messages yet, just the input box ready to type. This is exactly how ChatGPT handles "New Chat".
 
-## The Correct Behavior
+## The Fix
 
-- User clicks "New Chat" → UI switches to a clean landing view (no basket committed yet)
-- User types and sends a message → basket is created and committed to DB
-- User clicks "New Chat" again without messaging → the first pending chat is reused, not duplicated
+In `ChatInterface.tsx`, add a third rendering path: if `isPendingNewChat` is true, skip the landing page entirely and render `ChatThread` directly with an empty messages array and all props wired through.
 
-## Implementation Plan
-
-### Approach: Pending Chat State
-
-Introduce a lightweight "pending" mode in `GPTCommerceShell.tsx`. When "New Chat" is clicked:
-
-1. Set a `pendingNewChat: true` flag in local component state
-2. Show the `ChatLanding` view (the hero/chatbox screen) without creating any basket entry
-3. When the user sends their first message from this pending state, **then** call `handleCreateBasket` to officially create the basket and send the message
-
-This means:
-- No basket is created in memory or DB until a message is sent
-- Clicking "New Chat" multiple times without messaging does nothing new — stays in pending state
-- All existing basket switching logic remains intact
+In `GPTCommerceShell.tsx`, pass a new `isPendingNewChat` prop to `ChatInterface` when in pending mode.
 
 ### Changes Required
 
-#### `src/features/gpt-commerce/GPTCommerceShell.tsx`
+#### 1. `src/components/gpt-commerce/ChatInterface.tsx`
 
-**1. Add `pendingNewChat` state:**
-```ts
-const [pendingNewChat, setPendingNewChat] = useState(false);
-```
-
-**2. Modify `handleCreateBasket` to set pending mode instead of creating immediately:**
-```ts
-const handleCreateBasket = useCallback(() => {
-  setPendingNewChat(true);
-  // Do NOT create a basket yet — wait for first message
-}, []);
-```
-
-**3. Handle the "first message sent" from pending state:**
-
-The `handleSendMessage` function already exists. Wrap it so that if `pendingNewChat` is true when a message is sent, it first creates the basket then sends the message:
-
-```ts
-const handleSendMessage = useCallback((message: string) => {
-  if (pendingNewChat) {
-    // Now officially create the basket
-    const newId = crypto.randomUUID();
-    const newBasket: Basket = {
-      id: newId,
-      title: 'سبد جدید',
-      itemCount: 0,
-      lastActivity: 'الان',
-      savedItems: [],
-      isSaved: false,
-    };
-    setBaskets(prev => [newBasket, ...prev]);
-    setActiveBasketId(newId);
-    setBasketStates(prev => ({
-      ...prev,
-      [newId]: { ...createDefaultBasketState(), hasStartedChat: true },
-    }));
-    setPendingNewChat(false);
-    // Then send the message into the new basket (via the agent hook)
-    sendMessageToBasket(newId, message);
-    return;
-  }
-  // Normal message send flow
-  sendMessage(message);
-}, [pendingNewChat, ...]);
-```
-
-**4. When `pendingNewChat` is true, pass appropriate props to `ChatInterface`:**
+Add a `isPendingNewChat?: boolean` prop. When it is `true`, render `ChatThread` with empty messages instead of `ChatLanding`:
 
 ```tsx
-// In the JSX render:
+interface ChatInterfaceProps {
+  // ... existing props
+  isPendingNewChat?: boolean;
+}
+
+export const ChatInterface = (props: ChatInterfaceProps) => {
+  // NEW: pending new chat → show empty thread, not landing page
+  if (props.isPendingNewChat) {
+    return (
+      <ChatThread
+        messages={[]}         // empty — no messages yet
+        onSendMessage={props.onSendMessage}
+        // ... all other ChatThread props
+      />
+    );
+  }
+
+  if (!props.hasStartedChat) {
+    return <ChatLanding ... />;
+  }
+
+  return <ChatThread ... />;
+};
+```
+
+#### 2. `src/features/gpt-commerce/GPTCommerceShell.tsx`
+
+- Remove the `hasStartedChat={pendingNewChat ? false : hasStartedChat}` override
+- Pass `isPendingNewChat={pendingNewChat}` instead
+- Restore `hasStartedChat={hasStartedChat}` to its normal value
+
+```tsx
 <ChatInterface
-  hasStartedChat={pendingNewChat ? false : currentState.hasStartedChat}
+  hasStartedChat={hasStartedChat}           // restored to normal
+  isPendingNewChat={pendingNewChat}          // new prop controls pending state
   onSendMessage={handleSendMessageWithPending}
-  onStartChat={() => {
-    if (!pendingNewChat) updateCurrentBasket(...)
-  }}
-  // ... rest of props
+  // ... rest unchanged
 />
 ```
 
-**5. When user switches to another basket while in pending mode, clear `pendingNewChat`:**
-```ts
-const handleBasketSelect = useCallback((id: string) => {
-  setPendingNewChat(false);
-  setActiveBasketId(id);
-}, [...]);
-```
+## End Result
 
-### What Does NOT Change
-
-- All existing basket persistence logic stays the same
-- The DB sync logic stays the same — it just won't fire for empty pending chats because no basket state is written until the first message
-- The sidebar still shows all existing baskets; the pending new chat is invisible in the list until confirmed
-- Delete, merge, save basket behaviors are unchanged
+| State | What Renders |
+|---|---|
+| First visit, no chat | `ChatLanding` (homepage with carousels) |
+| Click "New Chat" | `ChatThread` with empty messages (input box only) |
+| Send first message | Basket created, message sent, thread fills with AI reply |
+| Existing basket selected | `ChatThread` with full message history |
 
 ## Files to Modify
 
 | File | Change |
 |---|---|
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Add `pendingNewChat` state; modify `handleCreateBasket` and `handleSendMessage`; thread `pendingNewChat` through to `ChatInterface` props |
+| `src/components/gpt-commerce/ChatInterface.tsx` | Add `isPendingNewChat` prop; render empty `ChatThread` when true |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Pass `isPendingNewChat={pendingNewChat}`; restore normal `hasStartedChat` prop |
 
-**Single file change. No database, no hooks, no sidebar changes needed.**
-
-## End Result
-
-- Click "New Chat" 10 times → no baskets created, just shows the landing view
-- Type a message and send → 1 basket created, 1 row written to DB
-- Sign out, sign in → only baskets that had actual messages are restored
+**Two small file changes. No hooks, no database, no state logic changes.**

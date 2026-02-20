@@ -52,6 +52,7 @@ export const GPTCommerceShell = () => {
   const [activeSection, setActiveSection] = useState('active-cart');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otpContext, setOtpContext] = useState<'checkout' | 'login'>('login');
   const [pendingNewChat, setPendingNewChat] = useState(false);
 
   // Derived from current basket state
@@ -93,6 +94,7 @@ export const GPTCommerceShell = () => {
     basketStates,
     activeBasketId,
     setShowOTPModal,
+    setOtpContext,
     setShowCheckout,
     setShowSuccess,
   });
@@ -116,6 +118,7 @@ export const GPTCommerceShell = () => {
     handleFinalizePurchase,
     setIsCartOpen,
     setShowOTPModal,
+    setOtpContext,
     cartItems,
     messages,
     lastRecommendedProducts,
@@ -355,6 +358,7 @@ export const GPTCommerceShell = () => {
       // Enter chat mode directly — don't redirect to account
       updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
     } else {
+      setOtpContext('login');
       setShowOTPModal(true);
     }
   }, [isAuthenticated, updateCurrentBasket]);
@@ -463,7 +467,14 @@ export const GPTCommerceShell = () => {
       <OTPModal
         isOpen={showOTPModal}
         onClose={() => setShowOTPModal(false)}
-        onVerified={handleOTPVerified}
+        onVerified={(isNewUser) => {
+          if (otpContext === 'checkout') {
+            handleOTPVerified(isNewUser);
+          } else {
+            // Plain login — just close, no checkout injection
+            setShowOTPModal(false);
+          }
+        }}
       />
     </div>
   );

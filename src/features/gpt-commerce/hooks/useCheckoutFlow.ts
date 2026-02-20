@@ -40,6 +40,7 @@ interface UseCheckoutFlowProps {
   basketStates: Record<string, BasketState>;
   activeBasketId: string;
   setShowOTPModal: (v: boolean) => void;
+  setOtpContext: (ctx: 'checkout' | 'login') => void;
   setShowCheckout: (v: boolean) => void;
   setShowSuccess: (v: boolean) => void;
 }
@@ -58,6 +59,7 @@ export const useCheckoutFlow = ({
   basketStates,
   activeBasketId,
   setShowOTPModal,
+  setOtpContext,
   setShowCheckout,
   setShowSuccess,
 }: UseCheckoutFlowProps) => {
@@ -105,6 +107,7 @@ export const useCheckoutFlow = ({
   const handleQuickReply = useCallback((reply: QuickReply) => {
     if (reply.type === 'confirm-cart') {
       if (!isOTPVerified) {
+        setOtpContext('checkout');
         setShowOTPModal(true);
         return;
       }
@@ -156,7 +159,7 @@ export const useCheckoutFlow = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, trackMessage] }));
     }
-  }, [globalAddresses, isNewUser, isOTPVerified, updateCurrentBasket, setShowOTPModal]);
+  }, [globalAddresses, isNewUser, isOTPVerified, updateCurrentBasket, setShowOTPModal, setOtpContext]);
 
   const handleOTPVerified = useCallback((newUser: boolean) => {
     setShowOTPModal(false);

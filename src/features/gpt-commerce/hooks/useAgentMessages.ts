@@ -21,6 +21,7 @@ interface UseAgentMessagesProps {
   handleFinalizePurchase: () => void;
   setIsCartOpen: (v: boolean) => void;
   setShowOTPModal: (v: boolean) => void;
+  setOtpContext: (ctx: 'checkout' | 'login') => void;
   // Current basket derived state
   cartItems: CartItem[];
   messages: ChatMessage[];
@@ -81,6 +82,7 @@ export const useAgentMessages = ({
   handleFinalizePurchase,
   setIsCartOpen,
   setShowOTPModal,
+  setOtpContext,
   cartItems,
   messages,
   lastRecommendedProducts,
@@ -214,6 +216,7 @@ export const useAgentMessages = ({
 
       if (isDirectPayment) {
         if (!isOTPVerified) {
+          setOtpContext('checkout');
           setShowOTPModal(true);
           updateCurrentBasket(s => ({ ...s, isProcessing: false }));
           return;
@@ -247,6 +250,7 @@ export const useAgentMessages = ({
 
       if (isBuyAndSend) {
         if (!isOTPVerified) {
+          setOtpContext('checkout');
           setShowOTPModal(true);
           updateCurrentBasket(s => ({ ...s, isProcessing: false }));
           return;
@@ -337,7 +341,7 @@ export const useAgentMessages = ({
   }, [
     cartItems.length, lastRecommendedProducts, messages,
     handleFinalizePurchase, updateCurrentBasket,
-    globalAddresses, isOTPVerified, setShowOTPModal,
+    globalAddresses, isOTPVerified, setShowOTPModal, setOtpContext,
   ]);
 
   // ── sendMessageToBasket: targets an explicit basket ID, avoiding stale closure ──

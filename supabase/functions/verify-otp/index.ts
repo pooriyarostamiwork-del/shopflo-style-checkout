@@ -174,11 +174,14 @@ Deno.serve(async (req) => {
       .eq("id", authUserId)
       .maybeSingle();
 
-    console.log("verify-otp success for user:", authUserId, "isNewUser:", isNewUser);
+    const needsName = !profile?.full_name || profile.full_name.trim() === '';
+
+    console.log("verify-otp success for user:", authUserId, "isNewUser:", isNewUser, "needsName:", needsName);
 
     return json({
       success: true,
-      isNewUser,
+      isNewUser: isNewUser || needsName,
+      needsName,
       session: {
         access_token,
         refresh_token,

@@ -151,11 +151,14 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
       }
       
       const newUser = data?.isNewUser ?? false;
+      const needsName = data?.needsName ?? false;
       setIsNewUser(newUser);
       
-      // If new user, show name step; otherwise complete immediately
-      if (newUser) {
-        setPendingIsNewUser(true);
+      // Show name step if truly new user OR if existing user has no name set
+      if (newUser || needsName) {
+        // pendingIsNewUser tracks whether this is a *truly* new auth account
+        // (used later to decide address form mode)
+        setPendingIsNewUser(!needsName || newUser);
         setStep('name');
       } else {
         onVerified(false);

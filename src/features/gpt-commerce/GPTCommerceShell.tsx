@@ -393,8 +393,9 @@ export const GPTCommerceShell = () => {
           cartItems={cartItems}
           isProcessing={isProcessing}
           onCheckout={handleCheckout}
-          hasStartedChat={pendingNewChat ? false : hasStartedChat}
-          onStartChat={pendingNewChat ? () => {} : handleStartChat}
+          hasStartedChat={hasStartedChat}
+          isPendingNewChat={pendingNewChat}
+          onStartChat={handleStartChat}
           isCartOpen={isCartOpen}
           onSignIn={handleSignInClick}
           savedProductIds={savedProductIds}

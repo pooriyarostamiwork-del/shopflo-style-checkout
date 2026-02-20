@@ -91,9 +91,16 @@ const getInitialBasketStates = (): Record<string, BasketState> => {
       for (const key of Object.keys(parsed)) {
         const bs = parsed[key];
         bs.hasStartedChat = false;
+        // Filter out stale interactive checkout messages — same logic as DB restore
         if (bs.messages) {
-          bs.messages = bs.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
+          bs.messages = bs.messages
+            .map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+            .filter((m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation);
         }
+        // Reset abandoned checkout state so session resumes cleanly
+        bs.agenticState = { ...(bs.agenticState || {}), step: 'idle' };
+        bs.selectedAddressId = null;
+        bs.selectedShippingByMerchant = {};
       }
       return parsed;
     }

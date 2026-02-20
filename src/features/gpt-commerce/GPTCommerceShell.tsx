@@ -263,7 +263,16 @@ export const GPTCommerceShell = () => {
     setActiveSection('active-cart');
     setBasketStates(prev => {
       const bs = prev[basketId];
-      if (bs) return { ...prev, [basketId]: { ...bs, hasStartedChat: true } };
+      if (bs) return {
+        ...prev,
+        [basketId]: {
+          ...bs,
+          hasStartedChat: true,
+          agenticState: { ...bs.agenticState, step: 'idle' },
+          selectedShippingByMerchant: {},
+          selectedAddressId: null,
+        }
+      };
       return prev;
     });
   }, [setActiveBasketId, setBasketStates]);

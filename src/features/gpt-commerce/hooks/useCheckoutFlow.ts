@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ChatMessage,
@@ -77,14 +77,20 @@ export const useCheckoutFlow = ({
     });
   }, [cartItems]);
 
-  // Pre-populate shipping defaults on address step entry
+  // Keep refs always up-to-date so the effect below can call them without them being in the dep array
+  const getMerchantShippingRef = useRef(getMerchantShipping);
+  getMerchantShippingRef.current = getMerchantShipping;
+  const updateCurrentBasketRef = useRef(updateCurrentBasket);
+  updateCurrentBasketRef.current = updateCurrentBasket;
+
+  // Pre-populate shipping defaults — only when step transitions TO 'address-confirmation'
+  // Deps are limited to agenticState.step so cart/basket switches don't spuriously re-fire this
   useEffect(() => {
     if (agenticState.step !== 'address-confirmation') return;
-    const merchantShipping = getMerchantShipping();
-    const needsUpdate = merchantShipping.some(ms => !selectedShippingByMerchant[ms.merchant.id]);
-    if (!needsUpdate) return;
-
-    updateCurrentBasket(s => {
+    const merchantShipping = getMerchantShippingRef.current();
+    updateCurrentBasketRef.current(s => {
+      const needsUpdate = merchantShipping.some(ms => !s.selectedShippingByMerchant[ms.merchant.id]);
+      if (!needsUpdate) return s;
       const next = { ...s.selectedShippingByMerchant };
       merchantShipping.forEach(ms => {
         if (!next[ms.merchant.id]) {
@@ -94,7 +100,7 @@ export const useCheckoutFlow = ({
       });
       return { ...s, selectedShippingByMerchant: next };
     });
-  }, [agenticState.step, getMerchantShipping, selectedShippingByMerchant, updateCurrentBasket]);
+  }, [agenticState.step]); // Only step — no spurious re-fires from cart/basket changes
 
   const handleQuickReply = useCallback((reply: QuickReply) => {
     if (reply.type === 'confirm-cart') {

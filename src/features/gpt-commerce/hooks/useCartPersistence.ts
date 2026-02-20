@@ -154,7 +154,7 @@ export const useCartPersistence = ({
           title: basket?.title || 'سبد خرید',
           cart_items: currentState.cartItems as any,
           messages: messagesForDb as any,
-          agentic_state: currentState.agenticState as any,
+          agentic_state: { ...currentState.agenticState, step: 'idle' } as any,
           selected_address_id: currentState.selectedAddressId || null,
           shipping_selections: currentState.selectedShippingByMerchant as any,
           last_activity: new Date().toISOString(),

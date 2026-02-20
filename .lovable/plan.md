@@ -1,149 +1,80 @@
 
-# Fix Plan: 2 Bugs
+## Root Cause: localStorage Restore Has No Message Filtering
+
+The `useCartPersistence.ts` DB restore path correctly filters out stale checkout messages (`addressShipping`, `paymentOptions`, etc.) and resets `agenticState.step` to `'idle'`. **But the localStorage restore path in `useBasketState.ts` does not.**
+
+Here is what happens for `basket-1` specifically:
+
+1. User starts checkout on their first session → `basket-1` state gets `addressShipping` messages appended
+2. The `useEffect` on line 118-120 of `useBasketState.ts` immediately persists the full `basketStates` to localStorage — including the `addressShipping` message
+3. User refreshes or returns next session
+4. `getInitialBasketStates()` (lines 86-102 of `useBasketState.ts`) restores from localStorage — it only parses timestamps and resets `hasStartedChat`. It does **not** filter checkout messages
+5. The stale `addressShipping` message is now in memory for `basket-1`
+6. `useCartPersistence` DB load runs async and may or may not overwrite it depending on timing
+
+**Why only basket-1?** The default basket ID is always `'basket-1'` (hardcoded in `getInitialActiveBasketId()`). When a user creates a new basket, it gets a `basket-${Date.now()}` ID and always starts from `createDefaultBasketState()` which is always clean. Only `basket-1` accumulates stale checkout state across refreshes via localStorage.
 
 ---
 
-## Bug 1 — Hardcoded Address/Shipping After Welcome Message
+## Fix: One File, One Function
 
-### Root Cause
+Add the exact same filtering logic to `getInitialBasketStates()` in `src/features/gpt-commerce/hooks/useBasketState.ts` that already exists in the DB restore path of `useCartPersistence.ts`:
 
-This is **not a hardcoded address** — it is a **stale persisted checkout message being restored from the database**.
-
-Here is what happens:
-
-1. User starts checkout → chat gets a `addressShipping` message appended to `messages[]`
-2. `useCartPersistence` debounces and syncs the full `messages[]` array to the DB `baskets.messages` column
-3. User closes the tab mid-checkout
-4. Next session: `useCartPersistence` restores `messages` from DB, including the old address/shipping selector card — it appears right after the welcome message because that is where it was in the saved conversation
-
-The welcome message is correct. The problem is the stale checkout-step messages from a prior session being displayed without context.
-
-### Fix
-
-**Two complementary changes:**
-
-**1a — Filter stale agentic messages on DB restore (`useCartPersistence.ts`)**
-
-When restoring messages from DB, strip out any messages that contain `addressShipping`, `paymentOptions`, `addressSelector`, or `addressConfirmation` fields. These are live-interactive UI elements that lose their meaning across sessions. Only content messages, product cards, order summaries, and quick replies that are already "done" (i.e., not awaiting user input) should be restored.
-
+**Current code (lines 86-102):**
 ```ts
-// In the DB load section of useCartPersistence.ts
-const messages = rawMessages.map(...).filter(m =>
-  !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation
-);
-```
-
-**1b — Also reset `agenticState.step` to `'idle'` on restore**
-
-If a session was abandoned mid-checkout (step = `'address-confirmation'` or `'payment-selection'`), restoring the `agenticState` would also re-trigger the `useEffect` in `useCheckoutFlow` that pre-populates shipping defaults, potentially generating new checkout messages. Reset the step to `'idle'` on DB restore:
-
-```ts
-dbBasketStates[b.id] = {
-  ...defaultState,
-  cartItems,
-  messages, // filtered
-  selectedAddressId: null, // reset: address may no longer exist
-  selectedShippingByMerchant: {}, // reset
-  agenticState: { ...defaultState.agenticState, step: 'idle' }, // always reset
-  hasStartedChat: cartItems.length > 0 || messages.length > 1,
+const getInitialBasketStates = (): Record<string, BasketState> => {
+  try {
+    const stored = localStorage.getItem(BASKET_STATES_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      for (const key of Object.keys(parsed)) {
+        const bs = parsed[key];
+        bs.hasStartedChat = false;
+        if (bs.messages) {
+          bs.messages = bs.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
+        }
+      }
+      return parsed;
+    }
+  } catch (e) { console.error('Failed to load basket states:', e); }
+  return {};
 };
 ```
 
-This makes restored sessions resume as a clean chat (with history) rather than dropping the user back into an abandoned checkout modal.
-
----
-
-## Bug 2 — Empty Delivery Address in Order History
-
-### Root Cause
-
-In `useCheckoutFlow.ts`, `handlePaymentSelect` runs inside a `setTimeout(async () => { ... }, 2000)`. Inside this async closure:
-
+**Fixed code:**
 ```ts
-const selectedAddr = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId);
-```
-
-**`globalAddresses` is stale.** When an address was just added via `handleAddNewAddress`, it is:
-1. Saved to the DB (`user_addresses` table) → gets a real UUID back
-2. Added to `globalAddresses` state in `useUserData`
-
-But `handlePaymentSelect` captures the `globalAddresses` array in its closure **at the time it was last created** (via `useCallback`). If the user added a new address *after* the last render that created `handlePaymentSelect`, that new address is **not in the captured closure**.
-
-Additionally, the `selectedAddressId` stored in `basketStates[activeBasketId]` may point to the **old temp ID** (`addr-${Date.now()}`) before the DB returned the real UUID. Look at `handleAddNewAddress`: it first sets `created.id = addr-${Date.now()}`, calls `updateCurrentBasket` with that ID, then *after* the DB insert replaces `created.id = data.id` — but `updateCurrentBasket` was already called with the temp ID.
-
-### Fix
-
-**2a — Re-fetch the selected address from DB at payment time (`useCheckoutFlow.ts`)**
-
-Inside the `setTimeout` in `handlePaymentSelect`, instead of looking up `selectedAddr` from the stale `globalAddresses` closure, directly read the address from the `user_addresses` table using the `selectedAddressId`:
-
-```ts
-// Inside setTimeout in handlePaymentSelect
-const currentBasketState = basketStates[activeBasketId] || createDefaultBasketState();
-let selectedAddr = null;
-
-if (currentBasketState.selectedAddressId && isAuthenticated) {
-  // Re-fetch from DB to guarantee freshness
-  const { data: addrData } = await supabase
-    .from('user_addresses')
-    .select('*')
-    .eq('id', currentBasketState.selectedAddressId)
-    .single();
-  if (addrData) {
-    selectedAddr = {
-      title: addrData.title,
-      fullAddress: addrData.full_address,
-      recipientName: addrData.recipient_name,
-      phone: addrData.phone,
-    };
-  }
-} else {
-  // Fallback: use the closure for unauthenticated users
-  selectedAddr = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId) || null;
-}
-```
-
-This guarantees the address saved in the order is always the real, persisted data from the DB.
-
-**2b — Fix the temp-ID race in `handleAddNewAddress` (`useCheckoutFlow.ts`)**
-
-Currently, `handleAddNewAddress` calls `updateCurrentBasket` with the temp ID *before* the DB returns the real UUID:
-
-```ts
-const id = `addr-${Date.now()}`;
-const created: DeliveryAddress = { id, ...addr };
-// ... DB insert happens here, then created.id = data.id
-// BUT updateCurrentBasket was already called before this!
-```
-
-Fix: move `updateCurrentBasket` to *after* the DB insert resolves:
-
-```ts
-const handleAddNewAddress = useCallback(async (addr) => {
-  let created: DeliveryAddress = { id: `addr-${Date.now()}`, ...addr };
-
-  if (isAuthenticated) {
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) return;
-    const { data } = await supabase.from('user_addresses').insert({...}).select().single();
-    if (data) created = { ...created, id: data.id }; // use real DB ID before updating basket
-  }
-
-  updateCurrentBasket(s => {
-    // update addressShipping message with new address
-    // set selectedAddressId: created.id  ← now always the real UUID
-    ...
-  });
-}, [isAuthenticated, updateCurrentBasket]);
+const getInitialBasketStates = (): Record<string, BasketState> => {
+  try {
+    const stored = localStorage.getItem(BASKET_STATES_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      for (const key of Object.keys(parsed)) {
+        const bs = parsed[key];
+        bs.hasStartedChat = false;
+        // Filter out stale interactive checkout messages — same logic as DB restore
+        if (bs.messages) {
+          bs.messages = bs.messages
+            .map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+            .filter((m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation);
+        }
+        // Reset abandoned checkout state so session resumes cleanly
+        bs.agenticState = { ...(bs.agenticState || {}), step: 'idle' };
+        bs.selectedAddressId = null;
+        bs.selectedShippingByMerchant = {};
+      }
+      return parsed;
+    }
+  } catch (e) { console.error('Failed to load basket states:', e); }
+  return {};
+};
 ```
 
 ---
 
-## Files to Change
+## What This Fixes
 
-| File | Change | Bug |
-|---|---|---|
-| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Filter stale agentic messages (addressShipping, paymentOptions) and reset agenticState.step on DB restore | #1 |
-| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Re-fetch address from DB inside `handlePaymentSelect` setTimeout; fix race in `handleAddNewAddress` | #2 |
+- Stale `addressShipping` / `paymentOptions` messages are stripped from ALL baskets on localStorage restore, not just DB restore
+- `agenticState.step` is reset to `'idle'` on localStorage restore, preventing the `useEffect` in `useCheckoutFlow` from re-triggering address population
+- `selectedAddressId` and `selectedShippingByMerchant` are reset, giving a clean slate
 
-**Total: 2 file edits. No database schema changes.**
+**Total: 1 file edit, ~5 lines changed. No database changes needed.**

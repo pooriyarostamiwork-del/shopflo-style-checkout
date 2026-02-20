@@ -1,96 +1,78 @@
 
-# Fix: Shipping Component Appearing Without User Prompting
+# Root Cause: Name Entry Step Never Appears
 
-## What Was Already Fixed (Previous Sessions)
-- `ChatInterface.tsx`: Welcome message shows correctly in pending state
-- `GPTCommerceShell.tsx`: `handleSendMessageWithPending` correctly uses `sendMessageToBasket(newId, message)`
-- `useAgentMessages.ts`: `sendMessageToBasket` exists and targets baskets explicitly
+## The Actual Problem
 
-## What Was NOT Applied (Previous Plan Was Approved But Not Implemented)
-All three fixes from the last approved plan are missing from the actual files. Here is their current broken state and the fix for each.
+The name entry step in `OTPModal.tsx` exists and is correctly coded. It only shows when `data?.isNewUser === true` is returned from the `verify-otp` edge function. The edge function sets `isNewUser = true` **only** when `supabase.auth.admin.createUser()` succeeds (i.e., the user is brand new — never registered before).
 
----
+The problem is: **once a phone number has been registered once (even in testing), `createUser` always returns a 422 "already registered" error, so `isNewUser` is always `false` and the name step is skipped forever for that phone number.**
 
-## Bug 1: `useCheckoutFlow.ts` — Effect Re-fires on Every Cart Change
+This means:
+- First time you sign up with a brand-new phone → name step shows ✅
+- Every subsequent login (including test logins on the same phone) → name step never shows ❌
+- Even if the user never entered their name → name step is skipped ❌
 
-**Current broken code (line 97):**
+## Why It's Hard to Notice
+
+If you're testing with the same phone number repeatedly, you never see the name step because you're no longer a "new user" from the server's perspective.
+
+## The Correct Fix
+
+The name step should appear not just for new auth users, but for **any user who hasn't set a name yet** (i.e., `profile.full_name` is null or empty). The `verify-otp` function already fetches the profile and returns it. We just need to use `profile.full_name` to decide whether to show the name step.
+
+### Change 1: `supabase/functions/verify-otp/index.ts`
+
+Return `isNewUser: true` if the user has no `full_name` set, regardless of whether the auth account is new:
+
 ```ts
-}, [agenticState.step, getMerchantShipping, selectedShippingByMerchant, updateCurrentBasket]);
+// BEFORE:
+return json({
+  success: true,
+  isNewUser,
+  ...
+});
+
+// AFTER:
+const needsName = !profile?.full_name || profile.full_name.trim() === '';
+return json({
+  success: true,
+  isNewUser: isNewUser || needsName,  // Show name step if no name set
+  needsName,
+  ...
+});
 ```
 
-`getMerchantShipping` is a `useCallback` that depends on `cartItems`. Every time `cartItems` changes — including when switching baskets — it gets a new reference, causing the effect to re-fire. If `agenticState.step` happens to be `'address-confirmation'` at that moment (from a previous basket this session), the shipping UI gets injected into the wrong basket.
+### Change 2: `src/components/gpt-commerce/OTPModal.tsx`
 
-**Fix:** Use a `useRef` to hold `getMerchantShipping` so the effect only fires when `agenticState.step` actually changes to `'address-confirmation'`:
+No change needed to the modal itself — it already correctly shows the name step when `data?.isNewUser` is `true`.
+
+### Change 3: `src/features/gpt-commerce/hooks/useCheckoutFlow.ts`
+
+The `handleOTPVerified(newUser: boolean)` function currently treats `newUser === true` as meaning "show empty address form (mode: 'new')". We need to separate this: a user who has an account but no name should still see their existing addresses.
+
+Pass `needsName` separately from `isNewUser`:
 
 ```ts
-const getMerchantShippingRef = useRef(getMerchantShipping);
-getMerchantShippingRef.current = getMerchantShipping;
+// In OTPModal.tsx handleOtpVerify:
+const newUser = data?.isNewUser ?? false;
+const needsName = data?.needsName ?? false;
+setIsNewUser(newUser);
 
-useEffect(() => {
-  if (agenticState.step !== 'address-confirmation') return;
-  const merchantShipping = getMerchantShippingRef.current();
-  // ... rest of logic
-}, [agenticState.step]); // Only step — no more spurious re-fires
+if (newUser || needsName) {  // Show name step if either flag is true
+  setPendingIsNewUser(newUser);  // Keep original isNewUser for address mode
+  setStep('name');
+} else {
+  onVerified(false);
+}
 ```
 
----
+And when calling `onVerified` from `handleNameSubmit`, pass the correct `pendingIsNewUser` (whether it's a truly new user for address mode purposes).
 
-## Bug 2: `useCartPersistence.ts` — Saves Live Checkout Step to Database
-
-**Current broken code (line 157):**
-```ts
-agentic_state: currentState.agenticState as any,
-```
-
-If the debounce fires while the user is mid-checkout (step = `'address-confirmation'`), that step gets written to the database. On the next page load or basket restore, that step could cause the address component to appear.
-
-**Fix:** Always reset `step` to `'idle'` before writing to DB:
-```ts
-agentic_state: { ...currentState.agenticState, step: 'idle' } as any,
-```
-
----
-
-## Bug 3: `GPTCommerceShell.tsx` — Switching Baskets Doesn't Clear Checkout State
-
-**Current broken code (lines 260–269):**
-```ts
-const handleBasketSelect = useCallback((basketId: string) => {
-  setPendingNewChat(false);
-  setActiveBasketId(basketId);
-  setActiveSection('active-cart');
-  setBasketStates(prev => {
-    const bs = prev[basketId];
-    if (bs) return { ...prev, [basketId]: { ...bs, hasStartedChat: true } };
-    return prev;
-  });
-}, [setActiveBasketId, setBasketStates]);
-```
-
-When switching to a basket that had an in-progress checkout this session, the `agenticState.step` is still `'address-confirmation'` in memory. Switching to it keeps that step active, causing the shipping component to be visible immediately.
-
-**Fix:** Reset `agenticState.step` to `'idle'` and clear shipping/address on basket switch:
-```ts
-if (bs) return {
-  ...prev,
-  [basketId]: {
-    ...bs,
-    hasStartedChat: true,
-    agenticState: { ...bs.agenticState, step: 'idle' },
-    selectedShippingByMerchant: {},
-    selectedAddressId: null,
-  }
-};
-```
-
----
-
-## Files to Modify
+## Summary of Changes
 
 | File | Change |
 |---|---|
-| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Use `useRef` for `getMerchantShipping`; only depend on `agenticState.step` in the effect |
-| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Save `step: 'idle'` to DB instead of live step |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Reset `agenticState.step`, `selectedShippingByMerchant`, `selectedAddressId` in `handleBasketSelect` |
+| `supabase/functions/verify-otp/index.ts` | Return `isNewUser: true` if `profile.full_name` is empty/null, regardless of whether auth account is new. Also add `needsName` flag. |
+| `src/components/gpt-commerce/OTPModal.tsx` | Use `needsName` flag to show name step for existing users without a name. Store a separate `pendingAddressMode` to pass correct mode to `onVerified`. |
 
-Three precise, surgical changes. No state restructuring.
+Two small, precise changes. The name step will now appear whenever a user (new or returning) hasn't entered their name yet.

@@ -123,7 +123,24 @@ export const useBasketState = () => {
   }, [activeBasketId]);
 
   useEffect(() => {
-    try { localStorage.setItem(BASKET_STATES_KEY, JSON.stringify(basketStates)); } catch (e) { console.error(e); }
+    try {
+      // Strip transient checkout UI messages and reset hasStartedChat before persisting
+      // so they never survive a page refresh
+      const sanitized: Record<string, BasketState> = {};
+      for (const [key, bs] of Object.entries(basketStates)) {
+        sanitized[key] = {
+          ...bs,
+          hasStartedChat: false,
+          messages: bs.messages.filter(
+            (m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation
+          ),
+          agenticState: { ...bs.agenticState, step: 'idle' },
+          selectedAddressId: null,
+          selectedShippingByMerchant: {},
+        };
+      }
+      localStorage.setItem(BASKET_STATES_KEY, JSON.stringify(sanitized));
+    } catch (e) { console.error(e); }
   }, [basketStates]);
 
   // Initialize missing basket states

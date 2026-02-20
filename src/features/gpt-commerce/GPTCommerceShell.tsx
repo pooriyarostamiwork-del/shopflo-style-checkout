@@ -52,6 +52,7 @@ export const GPTCommerceShell = () => {
   const [activeSection, setActiveSection] = useState('active-cart');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showOTPModal, setShowOTPModal] = useState(false);
+  const [pendingNewChat, setPendingNewChat] = useState(false);
 
   // Derived from current basket state
   const messages = currentState.messages;
@@ -132,27 +133,41 @@ export const GPTCommerceShell = () => {
 
   // ── Basket lifecycle handlers ───────────────────────────────────────────
   const handleCreateBasket = useCallback(() => {
-    const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید') && !b.isSaved);
-    let newTitle = 'سبد جدید';
-    if (existingNewBaskets.length > 0) {
-      newTitle = `سبد جدید ${toPersianNumber(existingNewBaskets.length + 1)}`;
-    }
-    const newBasket: Basket = {
-      id: crypto.randomUUID(),
-      title: newTitle,
-      itemCount: 0,
-      lastActivity: 'الان',
-      savedItems: [],
-      isSaved: false,
-    };
-    setBaskets(prev => [newBasket, ...prev]);
-    setActiveBasketId(newBasket.id);
+    // Just switch to pending mode — no basket created until first message
+    setPendingNewChat(true);
     setActiveSection('active-cart');
-    setBasketStates(prev => ({
-      ...prev,
-      [newBasket.id]: { ...createDefaultBasketState(), hasStartedChat: true },
-    }));
-  }, [baskets, setBaskets, setActiveBasketId, setBasketStates]);
+  }, []);
+
+  const handleSendMessageWithPending = useCallback(async (message: string) => {
+    if (pendingNewChat) {
+      // Officially create the basket now that there's a real message
+      const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید') && !b.isSaved);
+      let newTitle = 'سبد جدید';
+      if (existingNewBaskets.length > 0) {
+        newTitle = `سبد جدید ${toPersianNumber(existingNewBaskets.length + 1)}`;
+      }
+      const newId = crypto.randomUUID();
+      const newBasket: Basket = {
+        id: newId,
+        title: newTitle,
+        itemCount: 0,
+        lastActivity: 'الان',
+        savedItems: [],
+        isSaved: false,
+      };
+      setBaskets(prev => [newBasket, ...prev]);
+      setActiveBasketId(newId);
+      setBasketStates(prev => ({
+        ...prev,
+        [newId]: { ...createDefaultBasketState(), hasStartedChat: true },
+      }));
+      setPendingNewChat(false);
+      // Defer sending so the new basket state is active
+      setTimeout(() => handleSendMessage(message), 0);
+      return;
+    }
+    handleSendMessage(message);
+  }, [pendingNewChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage]);
 
   const handleDeleteBasket = useCallback((basketId: string) => {
     setBaskets(prev => prev.filter(b => b.id !== basketId));
@@ -241,6 +256,7 @@ export const GPTCommerceShell = () => {
   }, [setBaskets, setActiveBasketId]);
 
   const handleBasketSelect = useCallback((basketId: string) => {
+    setPendingNewChat(false);
     setActiveBasketId(basketId);
     setActiveSection('active-cart');
     setBasketStates(prev => {
@@ -332,7 +348,7 @@ export const GPTCommerceShell = () => {
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
-      {hasStartedChat && (
+      {(hasStartedChat || pendingNewChat) && (
         <Sidebar
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
@@ -370,15 +386,15 @@ export const GPTCommerceShell = () => {
       ) : (
         <ChatInterface
           messages={messages}
-          onSendMessage={handleSendMessage}
+          onSendMessage={handleSendMessageWithPending}
           onAddToCart={handleAddToCart}
           onCompare={handleCompare}
           onSaveProduct={handleSaveProduct}
           cartItems={cartItems}
           isProcessing={isProcessing}
           onCheckout={handleCheckout}
-          hasStartedChat={hasStartedChat}
-          onStartChat={handleStartChat}
+          hasStartedChat={pendingNewChat ? false : hasStartedChat}
+          onStartChat={pendingNewChat ? () => {} : handleStartChat}
           isCartOpen={isCartOpen}
           onSignIn={handleSignInClick}
           savedProductIds={savedProductIds}

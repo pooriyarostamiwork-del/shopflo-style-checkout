@@ -1,109 +1,149 @@
 
-# Diagnosis & Fix Plan: 4 Critical Bugs
-
-## Root Cause Analysis
-
-### Bug 1: Two Accounts Share the Same Chat/Cart Data
-
-**Root cause: `localStorage` is never cleared on sign-out or user switch.**
-
-`useBasketState` reads from `localStorage` keys (`flowcart-baskets`, `flowcart-basket-states`, `flowcart-active-basket`) on mount. These are **shared across all users on the same browser**. When User A signs out and User B signs in:
-- `useCartPersistence` loads User B's DB baskets correctly
-- BUT: the `hasLoadedFromDb` ref starts as `false` on first mount then stays `true` — meaning if User B signs in without a full page reload, the DB load won't re-run
-- More critically: `useBasketState` still initializes from `localStorage` which contains User A's basket data. Even if DB load runs, it merges on top (line 82-86 in `useCartPersistence`), preserving User A's local-only baskets
-
-**Fix locations:**
-1. `AuthContext.tsx` `signOut()`: after `supabase.auth.signOut()`, clear all `flowcart-*` localStorage keys and force a redirect to `/gptcommerce` (full page reload)
-2. `useCartPersistence.ts`: when `isAuthenticated` transitions from `true` to `false`, clear basket localStorage
-3. `useCartPersistence.ts`: reset `hasLoadedFromDb.current = false` AND clear localStorage when `isAuthenticated` goes false (already partially done on line 110-114, but localStorage is not cleared)
+# Fix Plan: 2 Bugs
 
 ---
 
-### Bug 2: New User Sees Mock Addresses
+## Bug 1 — Hardcoded Address/Shipping After Welcome Message
 
-**Root cause: `mockAddresses` still hardcoded in `CheckoutModalLocalized.tsx` and `gptCommerceData.ts` still exports them.**
+### Root Cause
 
-Two separate places:
-1. **`src/components/CheckoutModalLocalized.tsx` lines 124-134**: The `addresses` state is initialized with a hardcoded mock address object containing `"ایمان صادق‌زاده"`. This is the `/farsi` checkout modal. It NEVER reads from the database — it's purely local state.
-2. **`src/data/gptCommerceData.ts` lines 438-492**: `mockAddresses` is still exported. While `useUserData.ts` no longer uses it, it remains available for accidental re-import.
+This is **not a hardcoded address** — it is a **stale persisted checkout message being restored from the database**.
 
-The new user at `09024512785` — when they go through `/farsi` checkout, they see the hardcoded address in `CheckoutModalLocalized.tsx`. This is **not** connected to real addresses at all; it's pure hardcoded UI state.
+Here is what happens:
 
-**Fix:**
-- `CheckoutModalLocalized.tsx`: Change the `addresses` initial state from a hardcoded mock to `[]` (empty array), and `selectedAddress` to `null`. The empty state UI already exists — it will show the "add address" flow instead.
-- `gptCommerceData.ts`: Remove the `mockAddresses` export entirely (along with `mockOrders`) to prevent future accidental use.
+1. User starts checkout → chat gets a `addressShipping` message appended to `messages[]`
+2. `useCartPersistence` debounces and syncs the full `messages[]` array to the DB `baskets.messages` column
+3. User closes the tab mid-checkout
+4. Next session: `useCartPersistence` restores `messages` from DB, including the old address/shipping selector card — it appears right after the welcome message because that is where it was in the saved conversation
 
----
+The welcome message is correct. The problem is the stale checkout-step messages from a prior session being displayed without context.
 
-### Bug 3: Account Name ≠ Order Name
+### Fix
 
-**Root cause: `AccountPanel.tsx` initializes `profileData` from `resolvedProfile` (a prop), but this prop value is captured once at render time and not updated reactively. Also `CheckoutModalLocalized.tsx` still hardcodes `"ایمان"` as the `userName`.**
+**Two complementary changes:**
 
-Two sub-issues:
-1. **`AccountPanel.tsx` line 283-286**: `const resolvedProfile = userProfileProp || defaultUserProfile` + `useState(resolvedProfile)` — the `profileData` state is initialized from the prop **once** at mount. If the profile loads asynchronously (which it does — `fetchProfile` runs after auth state resolves), the initial render uses stale/empty data. The `useState` never re-syncs with the prop after mount.
-2. **`CheckoutModalLocalized.tsx` line 108**: `const [userName] = useState(isRTL ? "ایمان" : "Alex")` — hardcoded name displayed in the checkout greeting, never connected to the real user's name.
+**1a — Filter stale agentic messages on DB restore (`useCartPersistence.ts`)**
 
-**Fix:**
-- `AccountPanel.tsx`: Add a `useEffect` to sync `profileData` when `userProfileProp` changes:
-  ```ts
-  useEffect(() => {
-    if (userProfileProp) {
-      setProfileData(userProfileProp);
-      setPendingProfileData(userProfileProp);
-    }
-  }, [userProfileProp?.name, userProfileProp?.phone]);
-  ```
-- `CheckoutModalLocalized.tsx` line 108: Remove the hardcoded `userName` state entirely — this field is used for the animated greeting. Replace with an empty string or remove the greeting animation referencing it.
+When restoring messages from DB, strip out any messages that contain `addressShipping`, `paymentOptions`, `addressSelector`, or `addressConfirmation` fields. These are live-interactive UI elements that lose their meaning across sessions. Only content messages, product cards, order summaries, and quick replies that are already "done" (i.e., not awaiting user input) should be restored.
 
----
-
-### Bug 4: Sign Out Stays on Page with Stale Data
-
-**Root cause: `signOut()` in `AuthContext.tsx` only calls `supabase.auth.signOut()` and clears React state, but:**
-1. Does NOT clear `localStorage` basket data
-2. Does NOT navigate away from the current page
-3. The shell stays mounted with the previous basket state in React memory
-
-**Fix — `AuthContext.tsx` `signOut()`:**
 ```ts
-const signOut = useCallback(async () => {
-  await supabase.auth.signOut();
-  // Clear all basket localStorage to prevent data leaking to next user
-  localStorage.removeItem('flowcart-baskets');
-  localStorage.removeItem('flowcart-active-basket');
-  localStorage.removeItem('flowcart-basket-states');
-  localStorage.removeItem('flowcart-global-addresses');
-  localStorage.removeItem('flowcart-storage-version');
-  setUser(null);
-  setProfile(null);
-  setIsNewUser(false);
-  // Hard redirect to force full React tree remount and clear all in-memory state
-  window.location.href = '/gptcommerce';
-}, []);
+// In the DB load section of useCartPersistence.ts
+const messages = rawMessages.map(...).filter(m =>
+  !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation
+);
 ```
 
-The `window.location.href` redirect (not `useNavigate`) forces a full page reload, which clears all React in-memory state from the previous session. This is the correct pattern for multi-user scenarios on shared browsers.
+**1b — Also reset `agenticState.step` to `'idle'` on restore**
+
+If a session was abandoned mid-checkout (step = `'address-confirmation'` or `'payment-selection'`), restoring the `agenticState` would also re-trigger the `useEffect` in `useCheckoutFlow` that pre-populates shipping defaults, potentially generating new checkout messages. Reset the step to `'idle'` on DB restore:
+
+```ts
+dbBasketStates[b.id] = {
+  ...defaultState,
+  cartItems,
+  messages, // filtered
+  selectedAddressId: null, // reset: address may no longer exist
+  selectedShippingByMerchant: {}, // reset
+  agenticState: { ...defaultState.agenticState, step: 'idle' }, // always reset
+  hasStartedChat: cartItems.length > 0 || messages.length > 1,
+};
+```
+
+This makes restored sessions resume as a clean chat (with history) rather than dropping the user back into an abandoned checkout modal.
 
 ---
 
-## Complete File Change List
+## Bug 2 — Empty Delivery Address in Order History
+
+### Root Cause
+
+In `useCheckoutFlow.ts`, `handlePaymentSelect` runs inside a `setTimeout(async () => { ... }, 2000)`. Inside this async closure:
+
+```ts
+const selectedAddr = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId);
+```
+
+**`globalAddresses` is stale.** When an address was just added via `handleAddNewAddress`, it is:
+1. Saved to the DB (`user_addresses` table) → gets a real UUID back
+2. Added to `globalAddresses` state in `useUserData`
+
+But `handlePaymentSelect` captures the `globalAddresses` array in its closure **at the time it was last created** (via `useCallback`). If the user added a new address *after* the last render that created `handlePaymentSelect`, that new address is **not in the captured closure**.
+
+Additionally, the `selectedAddressId` stored in `basketStates[activeBasketId]` may point to the **old temp ID** (`addr-${Date.now()}`) before the DB returned the real UUID. Look at `handleAddNewAddress`: it first sets `created.id = addr-${Date.now()}`, calls `updateCurrentBasket` with that ID, then *after* the DB insert replaces `created.id = data.id` — but `updateCurrentBasket` was already called with the temp ID.
+
+### Fix
+
+**2a — Re-fetch the selected address from DB at payment time (`useCheckoutFlow.ts`)**
+
+Inside the `setTimeout` in `handlePaymentSelect`, instead of looking up `selectedAddr` from the stale `globalAddresses` closure, directly read the address from the `user_addresses` table using the `selectedAddressId`:
+
+```ts
+// Inside setTimeout in handlePaymentSelect
+const currentBasketState = basketStates[activeBasketId] || createDefaultBasketState();
+let selectedAddr = null;
+
+if (currentBasketState.selectedAddressId && isAuthenticated) {
+  // Re-fetch from DB to guarantee freshness
+  const { data: addrData } = await supabase
+    .from('user_addresses')
+    .select('*')
+    .eq('id', currentBasketState.selectedAddressId)
+    .single();
+  if (addrData) {
+    selectedAddr = {
+      title: addrData.title,
+      fullAddress: addrData.full_address,
+      recipientName: addrData.recipient_name,
+      phone: addrData.phone,
+    };
+  }
+} else {
+  // Fallback: use the closure for unauthenticated users
+  selectedAddr = globalAddresses.find(a => a.id === currentBasketState.selectedAddressId) || null;
+}
+```
+
+This guarantees the address saved in the order is always the real, persisted data from the DB.
+
+**2b — Fix the temp-ID race in `handleAddNewAddress` (`useCheckoutFlow.ts`)**
+
+Currently, `handleAddNewAddress` calls `updateCurrentBasket` with the temp ID *before* the DB returns the real UUID:
+
+```ts
+const id = `addr-${Date.now()}`;
+const created: DeliveryAddress = { id, ...addr };
+// ... DB insert happens here, then created.id = data.id
+// BUT updateCurrentBasket was already called before this!
+```
+
+Fix: move `updateCurrentBasket` to *after* the DB insert resolves:
+
+```ts
+const handleAddNewAddress = useCallback(async (addr) => {
+  let created: DeliveryAddress = { id: `addr-${Date.now()}`, ...addr };
+
+  if (isAuthenticated) {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return;
+    const { data } = await supabase.from('user_addresses').insert({...}).select().single();
+    if (data) created = { ...created, id: data.id }; // use real DB ID before updating basket
+  }
+
+  updateCurrentBasket(s => {
+    // update addressShipping message with new address
+    // set selectedAddressId: created.id  ← now always the real UUID
+    ...
+  });
+}, [isAuthenticated, updateCurrentBasket]);
+```
+
+---
+
+## Files to Change
 
 | File | Change | Bug |
 |---|---|---|
-| `src/contexts/AuthContext.tsx` | Clear localStorage + redirect in `signOut()` | #1, #4 |
-| `src/components/CheckoutModalLocalized.tsx` | Remove hardcoded address (lines 124-134), remove hardcoded `userName` (line 108) | #2, #3 |
-| `src/components/gpt-commerce/AccountPanel.tsx` | Add `useEffect` to sync `profileData` state when prop changes | #3 |
-| `src/data/gptCommerceData.ts` | Remove `mockAddresses` export and `mockOrders` export | #2 |
-| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Clear localStorage on sign-out (when `isAuthenticated` goes false) | #1 |
+| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Filter stale agentic messages (addressShipping, paymentOptions) and reset agenticState.step on DB restore | #1 |
+| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Re-fetch address from DB inside `handlePaymentSelect` setTimeout; fix race in `handleAddNewAddress` | #2 |
 
-**Total: 5 file edits. No database schema changes needed.**
-
----
-
-## What Does NOT Change
-
-- No UI changes to any component visual design
-- No routing structure changes
-- No database schema changes
-- No edge function changes
-- The `/farsi` product is unaffected except for the hardcoded address removal in `CheckoutModalLocalized`
+**Total: 2 file edits. No database schema changes.**

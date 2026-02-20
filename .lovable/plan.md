@@ -1,205 +1,305 @@
-# Codebase Restructuring Plan: Keep Only /farsi and /gptcommerce
 
-## Current State Summary
+# GPTCommerce Refactor: Layered Commerce Architecture
 
-The project currently has 9 pages and many components. After a thorough line-by-line review, here is exactly what belongs to each product and what is shared.
+## Current Problem: The Monolith
 
----
+`GPTCommerce.tsx` is **1,265 lines** and does everything at once:
+- All basket state management
+- All localStorage persistence
+- All database read/write (addresses, orders)
+- All agentic checkout flow orchestration (OTP, address, shipping, payment)
+- All product/cart handlers
+- All sidebar/section navigation logic
+- UI rendering of the full layout
 
-## Two Products to Keep
+`ChatInterface.tsx` is a further **724 lines** that also contains:
+- Landing page rendering
+- Chat rendering
+- Payment handler logic
+- Quick action handlers
+- Placeholder animation logic
+- Product modal state
 
-### Product 1: `/farsi` (Persian Checkout Store)
-
-Entry: `src/pages/IndexFarsi.tsx` — a self-contained Digikala-style storefront in Persian/RTL
-
-### Product 2: `/gptcommerce` (Conversational AI Shopping)
-
-Entry: `src/pages/GPTCommerce.tsx` — the full agentic chat commerce experience
-
----
-
-## Pages to Delete (6 pages)
-
-
-| Page File                         | Route               | Reason                                                                    |
-| --------------------------------- | ------------------- | ------------------------------------------------------------------------- |
-| `src/pages/Index.tsx`             | `/`                 | English demo version — not a real product                                 |
-| `src/pages/AgenticCheckout.tsx`   | `/agenticcheckout`  | Old English agentic demo — superseded by GPTCommerce                      |
-| `src/pages/MerchantDashboard.tsx` | `/merchant`         | Merchant analytics dashboard — removed per request                        |
-| `src/pages/UniversalVersion.tsx`  | `/universalversion` | Universal language-toggle demo — not a real product                       |
-| `src/pages/HomepagePanel.tsx`     | `/homepagepanel`    | Admin panel for GPTCommerce — kept as a tool only if GPTCommerce needs it |
-| `src/pages/PDPChat.tsx`           | `/pdp`              | PDP variant — absorbed into GPTCommerce                                   |
-
-
-Note on `HomepagePanel`: It drives the `HomepageSettingsContext` which is **actively used** by GPTCommerce components (`ChatInterface`, `ChatProductCard`, `ProductCard`, `ProductCarousels`, `RightPanel`, `PDPProductComponent`, `ProductQuickViewModal`, `Footer`). **HomepagePanel page is deleted but the context is kept.**
+The result is a component that cannot be tested in isolation, cannot be extended without touching the monolith, and cannot be understood without reading 2,000+ lines of mixed concerns.
 
 ---
 
-## Components to Delete (exclusively used by removed pages)
+## Target Architecture: 4 Layers
 
-### `src/components/merchant/` — entire folder (8 files)
-
-All used only by `MerchantDashboard.tsx`:
-
-- `AIAssistantBubble.tsx`
-- `CheckoutHeatPulse.tsx`
-- `CommerceNetworkInsights.tsx`
-- `ConversionAstrology.tsx`
-- `FutureModuleCard.tsx`
-- `KPICard.tsx`
-- `LiveCheckoutPresence.tsx`
-- `QuickActionsToolbar.tsx`
-
-### Root components used ONLY by removed pages
-
-These are only imported by `Index.tsx`, `AgenticCheckout.tsx`, and `UniversalVersion.tsx` — not by `/farsi` or `/gptcommerce`:
-
-- `src/components/Header.tsx` — only `Index.tsx`
-- `src/components/Footer.tsx` — only `Index.tsx`
-- `src/components/HeaderUniversal.tsx` — only `UniversalVersion.tsx`
-- `src/components/FooterUniversal.tsx` — only `UniversalVersion.tsx`
-- `src/components/CartItem.tsx` — only `Index.tsx` and `CheckoutModal.tsx`
-- `src/components/OrderSummary.tsx` — only `Index.tsx`
-- `src/components/CheckoutModal.tsx` — only `Index.tsx` and `AgenticCheckout.tsx`
-- `src/components/SuccessScreen.tsx` — only `Index.tsx` and `AgenticCheckout.tsx`
-- `src/components/RecommendedProducts.tsx` — only `Index.tsx` and `UniversalVersion.tsx`
-- `src/components/ModeSelector.tsx` — only `Index.tsx` and `UniversalVersion.tsx`
-- `src/components/AgenticChatInterface.tsx` — only `AgenticCheckout.tsx`
-- `src/components/FilterChips.tsx` — only `AgenticCheckout.tsx`
-- `src/components/ProductCard.tsx` (root) — only `AgenticCheckout.tsx`
-- `src/components/NavLink.tsx` — not used by any kept page (verify below)
-- `src/components/AutoReorderOptions.tsx` — only `CheckoutModal.tsx` (being deleted)
-
-### Data file to delete
-
-- `src/data/agenticData.ts` — only used by `AgenticCheckout.tsx` and `ProductCard.tsx` (root)
-- `src/data/merchantData.ts` — only used by `MerchantDashboard.tsx`
+```text
+┌─────────────────────────────────────────────┐
+│  LAYER 4: PAGES                             │
+│  src/pages/GPTCommerce.tsx                  │
+│  (orchestration only, ~80 lines)            │
+└──────────────────┬──────────────────────────┘
+                   │ uses
+┌──────────────────▼──────────────────────────┐
+│  LAYER 3: FEATURE CONTROLLERS               │
+│  src/features/gpt-commerce/                 │
+│  - BasketController.tsx  (basket mgmt)      │
+│  - CheckoutController.tsx (checkout flow)   │
+│  - AccountController.tsx  (user/addresses)  │
+└──────────────────┬──────────────────────────┘
+                   │ uses
+┌──────────────────▼──────────────────────────┐
+│  LAYER 2: HOOKS (business logic)            │
+│  src/features/gpt-commerce/hooks/           │
+│  - useBasketState.ts                        │
+│  - useCheckoutFlow.ts                       │
+│  - useAgentMessages.ts                      │
+│  - useUserData.ts                           │
+└──────────────────┬──────────────────────────┘
+                   │ uses
+┌──────────────────▼──────────────────────────┐
+│  LAYER 1: UI COMPONENTS (display only)      │
+│  src/components/gpt-commerce/               │
+│  (unchanged — already well-scoped)          │
+└─────────────────────────────────────────────┘
+```
 
 ---
 
-## Components and Files to KEEP (used by /farsi or /gptcommerce)
+## File-by-File Implementation Plan
 
-### Used by `/farsi` (IndexFarsi.tsx)
+### New Directory: `src/features/gpt-commerce/`
 
-- `src/components/CheckoutModalLocalized.tsx` ✓
-- `src/components/SuccessScreenLocalized.tsx` ✓
-- `src/components/CartItemLocalized.tsx` ✓
-- `src/components/OrderSummaryLocalized.tsx` ✓
-- `src/components/AutoReorderOptionsLocalized.tsx` ✓
-- `src/components/EnhancedUpsellCarouselLocalized.tsx` ✓
-- `src/components/CouponSelectorLocalized.tsx` ✓
-- `src/components/AddressSelectorLocalized.tsx` ✓
-- `src/data/checkoutModes.ts` ✓ (also used by GPTCommerce)
-- `src/types/checkout.ts` ✓
-- `src/i18n/` ✓
-
-### Used by `/gptcommerce` (GPTCommerce.tsx)
-
-- All of `src/components/gpt-commerce/` ✓
-- `src/components/CheckoutModalLocalized.tsx` ✓
-- `src/components/SuccessScreenLocalized.tsx` ✓
-- `src/contexts/HomepageSettingsContext.tsx` ✓ (used by 7 gpt-commerce components)
-- `src/contexts/AuthContext.tsx` ✓
-- `src/data/gptCommerceData.ts` ✓
-- `src/data/checkoutModes.ts` ✓
-
-### CartItem.tsx — Special Case
-
-`CheckoutModalLocalized.tsx` imports `CartProduct` type from `./CartItem`. This is a type-only import. When `CartItem.tsx` is deleted, this import line in `CheckoutModalLocalized.tsx` must be updated to import `CartProduct` from `./CartItemLocalized` instead (the type is identical).
+This is the new home for all business logic extracted from `GPTCommerce.tsx`.
 
 ---
 
-## App.tsx Changes
+### Hook 1: `src/features/gpt-commerce/hooks/useBasketState.ts`
 
-Remove all routes except `/farsi` and `/gptcommerce`, remove all deleted page imports, and remove `HomepageSettingsProvider` wrapper (it still needs to remain since GPTCommerce's child components use it — actually keep it).
+**Extracts from GPTCommerce.tsx lines 49–245:**
 
-Revised `App.tsx` routes:
+All basket persistence logic moves here:
+- `BasketState` interface definition
+- `createDefaultBasketState()`
+- `STORAGE_VERSION_KEY`, `CURRENT_VERSION` migration guard
+- `BASKETS_STORAGE_KEY`, `ACTIVE_BASKET_KEY`, `BASKET_STATES_KEY` constants
+- `getInitialBaskets()`, `getInitialActiveBasketId()`, `getInitialBasketStates()` initializers
+- `useState` for `baskets`, `activeBasketId`, `basketStates`
+- `useEffect` for persisting all three to localStorage
+- `getCurrentBasketState()` + `updateCurrentBasket()` helpers
+- `useEffect` to initialize missing basket states
 
-- `/` → redirect to `/farsi` (or `/gptcommerce`) — need to decide, or show a simple landing/picker
-- `/farsi` → `IndexFarsi` with `FarsiLayout`
-- `/gptcommerce` → `GPTCommerce`
-- `*` → `NotFound`
-
----
-
-## Complete File-by-File Deletion List
-
-### Pages (6 files)
-
-1. `src/pages/Index.tsx`
-2. `src/pages/AgenticCheckout.tsx`
-3. `src/pages/MerchantDashboard.tsx`
-4. `src/pages/UniversalVersion.tsx`
-5. `src/pages/HomepagePanel.tsx`
-6. `src/pages/PDPChat.tsx`
-
-### Components — Root Level (15 files)
-
-7. `src/components/Header.tsx`
-8. `src/components/Footer.tsx`
-9. `src/components/HeaderUniversal.tsx`
-10. `src/components/FooterUniversal.tsx`
-11. `src/components/CartItem.tsx`
-12. `src/components/OrderSummary.tsx`
-13. `src/components/CheckoutModal.tsx`
-14. `src/components/SuccessScreen.tsx`
-15. `src/components/RecommendedProducts.tsx`
-16. `src/components/ModeSelector.tsx`
-17. `src/components/AgenticChatInterface.tsx`
-18. `src/components/FilterChips.tsx`
-19. `src/components/ProductCard.tsx` (root-level only, NOT `gpt-commerce/ProductCard.tsx`)
-20. `src/components/NavLink.tsx`
-21. `src/components/AutoReorderOptions.tsx`
-
-### Components — Merchant Folder (8 files)
-
-22–29. All files in `src/components/merchant/`
-
-### Data Files (2 files)
-
-30. `src/data/agenticData.ts`
-31. `src/data/merchantData.ts`
-
-### Context (1 file)
-
-32. `src/contexts/HomepageSettingsContext.tsx` — **KEPT** (used by GPTCommerce)
+**Returns:**
+```typescript
+{
+  baskets, activeBasketId, basketStates,
+  setBaskets, setActiveBasketId, setBasketStates,
+  currentState, updateCurrentBasket,
+}
+```
 
 ---
 
-## Files Requiring Code Edits (not just deletion)
+### Hook 2: `src/features/gpt-commerce/hooks/useUserData.ts`
 
-### 1. `src/App.tsx`
+**Extracts from GPTCommerce.tsx lines 150–185, 1063–1102:**
 
-- Remove imports for deleted pages
-- Remove `HomepageSettingsProvider` import only if context is removed (keep it — GPTCommerce needs it)
-- Remove routes: `/`, `/agenticcheckout`, `/merchant`, `/universalversion`, `/homepagepanel`, `/pdp`, `/farsi/agenticcheckout`, `/farsi/merchant`
-- Add a root `/` route redirecting to `/farsi` or showing a simple picker
+All user data I/O with the database:
+- `globalAddresses` state + `GLOBAL_ADDRESSES_KEY` localStorage constant
+- `getInitialGlobalAddresses()` initializer
+- `useEffect` loading addresses from DB on auth change
+- `dbOrders` state + `useEffect` loading orders from DB
+- `handleAccountAddAddress`, `handleAccountDeleteAddress`, `handleAccountUpdateAddress`
+- Persisting globalAddresses to localStorage when not authenticated
 
-### 2. `src/components/CheckoutModalLocalized.tsx` (line 15)
-
-- Change `import { CartProduct } from "./CartItem"` → `import { CartProduct } from "./CartItemLocalized"` since `CartItem.tsx` is being deleted. The `CartProduct` type is defined identically in both files.
-
-### 3. `src/components/LanguageLayout.tsx`
-
-- Remove `EnglishLayout` export (only used by deleted English routes) or keep it if harmless — keeping it causes no issues since it's just a component
-
----
-
-## What the `/` Root Route Will Show
-
-Two options — I recommend Option A:
-
-- **Option A**: Redirect `/` to `/farsi` automatically (since it's the primary product)
-- **Option B**: Redirect `/` to `/gptcommerce`
-- **Option C**: Show a simple two-button landing page: "فلوکارت" and "GPT Commerce"
-
-The plan will implement **Option C**
+**Returns:**
+```typescript
+{
+  globalAddresses, setGlobalAddresses,
+  dbOrders, setDbOrders,
+  handleAccountAddAddress,
+  handleAccountDeleteAddress,
+  handleAccountUpdateAddress,
+}
+```
 
 ---
 
-## Summary of Changes
+### Hook 3: `src/features/gpt-commerce/hooks/useCheckoutFlow.ts`
 
-- **31 files deleted**
-- **3 files edited** (App.tsx, CheckoutModalLocalized.tsx, optionally LanguageLayout.tsx)
-- **0 database changes** needed
-- **0 shared logic broken** — all dependencies mapped and accounted for
+**Extracts from GPTCommerce.tsx lines 257–575, 577–608, 862–870:**
+
+All agentic checkout orchestration:
+- `getMerchantShipping()` — builds per-merchant shipping options from cart
+- `parseProductSelection()` — parses Persian number references like «محصول شماره ۲»
+- `handleQuickReply()` — routes confirm-cart / add-more / track-order
+- `handleOTPVerified()` — post-OTP flow into address step
+- `handleAddressSelect()` / `handleSelectShipping()` / `handleAddressConfirm()`
+- `handleAddNewAddress()` — creates address in DB or local, updates chat messages
+- `handlePaymentSelect()` — processes payment, saves order to DB, emits success message
+- `handleFinalizePurchase()` — initiates cart confirmation step
+- `handleCheckout()` / `handleCheckoutSuccess()` / `handleSuccessClose()`
+- The `useEffect` that pre-populates shipping defaults on address step entry
+
+**Dependencies injected via parameters:** `updateCurrentBasket`, `globalAddresses`, `isAuthenticated`, `isOTPVerified`, `isNewUser`, `setDbOrders`
+
+**Returns:**
+```typescript
+{
+  getMerchantShipping, handleQuickReply, handleOTPVerified,
+  handleAddressSelect, handleSelectShipping, handleAddressConfirm,
+  handleAddNewAddress, handlePaymentSelect, handleFinalizePurchase,
+  handleCheckout, handleCheckoutSuccess, handleSuccessClose,
+}
+```
+
+---
+
+### Hook 4: `src/features/gpt-commerce/hooks/useAgentMessages.ts`
+
+**Extracts from GPTCommerce.tsx lines 610–792, 794–861:**
+
+All agent-related message handling:
+- `mapDbProduct()` — maps raw DB product rows to the `Product` interface
+- `handleSendMessage()` — the main entry point: parses intent, routes to product-add / direct-payment / buy-and-send / AI-search / finalize flows, calls the `gpt-commerce-agent` edge function
+- `handleAddToCart()` — updates cart AND appends confirmation message
+- `handleUpdateQuantity()` / `handleRemoveItem()`
+- `handleCompare()` / `handleInlineProductDetails()` — inject comparison/details messages into chat
+- `handleSaveProduct()` — toggles product in basket's savedItems
+
+**Dependencies injected:** `updateCurrentBasket`, `setBaskets`, `activeBasketId`, `globalAddresses`, `isOTPVerified`, `handleFinalizePurchase`, `setIsCartOpen`
+
+**Returns:**
+```typescript
+{
+  mapDbProduct, handleSendMessage, handleAddToCart,
+  handleUpdateQuantity, handleRemoveItem,
+  handleCompare, handleInlineProductDetails, handleSaveProduct,
+}
+```
+
+---
+
+### Controller: `src/features/gpt-commerce/BasketController.tsx`
+
+**Extracts from GPTCommerce.tsx lines 876–1060:**
+
+All basket lifecycle management (these are complex enough to be their own concern):
+- `handleCreateBasket()` — creates new basket, adds to state, switches to it
+- `handleDeleteBasket()` — removes basket, auto-selects next one
+- `handleMergeBasket()` — merges two baskets' carts
+- `handleSaveBasket()` / `handleResumeBasket()` — archive/unarchive flows
+- `handleBasketSelect()` — switches active basket
+- `handleRemoveSavedItem()` / `handleTransferToCart()` — saved items management
+- The `useEffect` syncing basket item counts
+
+This is a **renderless controller** — it takes basket state and returns handlers. No JSX.
+
+---
+
+### New Entry Point: `src/features/gpt-commerce/GPTCommerceShell.tsx`
+
+**Replaces the 1,265-line `GPTCommerceContent` component:**
+
+This is the composition root — it imports all 4 hooks plus BasketController, wires them together, and renders:
+- `<Sidebar />`
+- `<AccountPanel />` or `<ChatInterface />`
+- `<RightPanel />`
+- `<CheckoutModalLocalized />`
+- `<SuccessScreenLocalized />`
+- `<OTPModal />`
+- Local UI state only: `showCheckout`, `showSuccess`, `activeSection`, `isCartOpen`, `showOTPModal`
+
+This file should be ~150 lines of clean wiring with no business logic.
+
+---
+
+### Updated: `src/pages/GPTCommerce.tsx` (~25 lines)
+
+Becomes a thin provider wrapper only:
+
+```typescript
+const GPTCommerce = () => (
+  <LanguageProvider defaultLanguage="fa">
+    <AuthProvider>
+      <HomepageSettingsProvider>
+        <GPTCommerceShell />
+      </HomepageSettingsProvider>
+    </AuthProvider>
+  </LanguageProvider>
+);
+```
+
+---
+
+### Updated: `src/components/gpt-commerce/ChatInterface.tsx`
+
+This file is split into two components:
+
+**`ChatLanding.tsx`** (new) — the pre-chat landing state (currently lines 230–428):
+- Logo, hero section, bento background cards
+- Centered chatbox with animated placeholder
+- Quick action chips
+- Product carousels
+- Footer
+- ProductDetailsModal
+- `BentoCard` sub-component
+
+**`ChatThread.tsx`** (renamed from ChatInterface) — the active chat state only (lines 430–724):
+- Message list rendering
+- Agentic message components (QuickReplies, CTAButton, CartSummary, etc.)
+- Sticky bottom input
+- Payment/address flow rendering
+
+`ChatInterface.tsx` becomes a thin router:
+```typescript
+if (!hasStartedChat) return <ChatLanding ... />;
+return <ChatThread ... />;
+```
+
+This reduces ChatInterface to a ~30-line coordinator, landing to ~200 lines, thread to ~300 lines.
+
+---
+
+## Complete List of Files Created/Modified
+
+### New files (6):
+1. `src/features/gpt-commerce/hooks/useBasketState.ts`
+2. `src/features/gpt-commerce/hooks/useUserData.ts`
+3. `src/features/gpt-commerce/hooks/useCheckoutFlow.ts`
+4. `src/features/gpt-commerce/hooks/useAgentMessages.ts`
+5. `src/features/gpt-commerce/GPTCommerceShell.tsx`
+6. `src/components/gpt-commerce/ChatLanding.tsx`
+
+### Modified files (2):
+7. `src/pages/GPTCommerce.tsx` — stripped to ~25 lines
+8. `src/components/gpt-commerce/ChatInterface.tsx` — stripped to ~30-line router that uses `ChatLanding` and `ChatThread`
+
+### Unchanged files (all components):
+All files in `src/components/gpt-commerce/` except `ChatInterface.tsx` remain **completely untouched**. This includes: `Sidebar`, `RightPanel`, `AccountPanel`, `OTPModal`, `ProductCarousels`, `ChatProductCard`, `AgenticMessageComponents`, `AddressShippingSelector`, `PDPProductComponent`, `ProductDetailsModal`, `ProductQuickViewModal`, `CouponChips`, `CategorySelector`, `Footer`, `ProductCard`.
+
+No component APIs change — all props interfaces remain identical.
+
+---
+
+## Size Comparison
+
+| File | Before | After |
+|---|---|---|
+| `GPTCommerce.tsx` | 1,265 lines | ~25 lines |
+| `ChatInterface.tsx` | 724 lines | ~30 lines |
+| `GPTCommerceShell.tsx` | (new) | ~150 lines |
+| `ChatLanding.tsx` | (new) | ~200 lines |
+| `ChatThread.tsx` | (new) | ~300 lines |
+| `useBasketState.ts` | (new) | ~120 lines |
+| `useUserData.ts` | (new) | ~90 lines |
+| `useCheckoutFlow.ts` | (new) | ~230 lines |
+| `useAgentMessages.ts` | (new) | ~200 lines |
+| `BasketController` (in Shell) | (extracted) | ~160 lines |
+
+**Total: same behavior, same UI, organized across focused files no longer than 300 lines each.**
+
+---
+
+## What Does NOT Change
+
+- No UI changes — users see the exact same interface
+- No database schema changes
+- No API changes to edge functions
+- No component props changes (Sidebar, RightPanel, AccountPanel, etc.)
+- No routing changes
+- All localStorage keys preserved — no session loss for existing users
+- The `HomepageSettingsContext`, `AuthContext`, `LanguageContext` providers stay in place

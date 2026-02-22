@@ -137,6 +137,7 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          embedding: string | null
           fast_delivery: boolean
           id: string
           image_url: string
@@ -161,6 +162,7 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          embedding?: string | null
           fast_delivery?: boolean
           id?: string
           image_url?: string
@@ -185,6 +187,7 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          embedding?: string | null
           fast_delivery?: boolean
           id?: string
           image_url?: string
@@ -268,7 +271,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      hybrid_product_search: {
+        Args: {
+          p_brand?: string
+          p_embedding?: string
+          p_in_stock?: boolean
+          p_max_price?: number
+          p_min_price?: number
+          p_min_rating?: number
+          p_query: string
+          p_subcategory?: string
+        }
+        Returns: {
+          brand: string
+          category: string
+          description: string
+          fast_delivery: boolean
+          final_score: number
+          id: string
+          image_url: string
+          image_urls: string[]
+          in_stock: boolean
+          merchant_id: string
+          name: string
+          original_price: number
+          price: number
+          rating: number
+          return_guarantee: boolean
+          review_count: number
+          reviews_summary: string
+          source_url: string
+          specs: Json
+          subcategory: string
+          tags: string[]
+        }[]
+      }
+      normalize_persian: { Args: { input: string }; Returns: string }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never

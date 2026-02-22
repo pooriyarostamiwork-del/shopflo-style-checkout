@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Persian normalization (mirrors DB function) ──
+function normalizePersian(text: string): string {
+  return text
+    .replace(/\u200C/g, " ")   // half-space → space
+    .replace(/ي/g, "ی")        // Arabic yeh → Persian yeh
+    .replace(/ك/g, "ک")        // Arabic kaf → Persian kaf
+    .replace(/\u0640/g, "")     // remove tatweel
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ── System prompt: Intent extraction mode ──
 const SYSTEM_PROMPT = `تو دستیار خرید هوشمند فلوکارت هستی. یک فروشگاه آنلاین فارسی‌زبان.
 
 وظایف تو:
@@ -14,55 +26,73 @@ const SYSTEM_PROMPT = `تو دستیار خرید هوشمند فلوکارت ه
 - پیشنهاد محصولات بر اساس نیاز کاربر
 - مقایسه محصولات مختلف
 
-قوانین:
+قوانین مهم:
 - همیشه فارسی صحبت کن
 - لحن صمیمی و دوستانه داشته باش
 - پاسخ‌ها رو بدون فرمت مارک‌داون بنویس. از ستاره، هشتگ، و علائم مارک‌داون استفاده نکن. متن ساده بنویس.
-- وقتی کاربر دنبال محصولی می‌گرده، حتماً از ابزار search_products استفاده کن
-- وقتی محصولاتی پیدا کردی، یک توضیح کوتاه و مفید درباره‌شون بده
-- اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی
-- برای هر درخواست محصول، حداکثر ۶ محصول نشون بده
 - قیمت‌ها به تومان هستن
 
-مثال‌های نوع درخواست:
-- "هدفون بی‌سیم می‌خوام" → search_products
-- "یه هدیه برای مادرم" → search_products با کلمات کلیدی مرتبط
-- "لپ‌تاپ زیر ۳۰ میلیون" → search_products با max_price
-- "بهترین گوشی‌ها" → search_products
-- "سلام" → پاسخ خوش‌آمدگویی بدون ابزار`;
+وقتی کاربر دنبال محصولی می‌گرده، حتماً از ابزار search_products استفاده کن.
 
-// Tool definitions for the AI
+نکات مهم برای استخراج نیت:
+- query_text باید حداکثر ۲-۳ کلمه اصلی فارسی باشه (نه جمله کامل)
+- نیازهای ضمنی کاربر رو به semantic_tags تبدیل کن
+- مثال: "گم نشه" → semantic_tags: ["hard_to_lose"]
+- مثال: "برای بچم" → semantic_tags: ["child_safe"]
+- مثال: "برای ورزش" → semantic_tags: ["sport_use", "sweat_resistant"]
+
+زیرمجموعه‌های موجود در فروشگاه:
+- هدفون، هدست و هندزفری
+- دوربین دیجیتال
+- ساعت و مچ‌بند هوشمند
+- هارد اکسترنال
+- لوازم جانبی گوشی موبایل
+
+اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی. از ابزار استفاده نکن.`;
+
+// ── Tool definition: structured intent extraction ──
 const TOOLS = [
   {
     type: "function",
     function: {
       name: "search_products",
-      description: "Search for products in the database. Use this whenever the user is looking for products, wants recommendations, or mentions any product category.",
+      description: "Search product catalog. Extract structured intent from user query. Do NOT generate keyword strings — extract structured filters and semantic tags.",
       parameters: {
         type: "object",
         properties: {
-          query: {
+          query_text: {
             type: "string",
-            description: "Search query in Persian/Farsi. Use keywords from the user's request.",
-          },
-          category: {
-            type: "string",
-            description: "Optional category filter. Options: الکترونیک, کالای دیجیتال",
+            description: "Cleaned search keywords for full-text search (max 2-3 core Persian words). Example: 'هدفون بی سیم' not 'یک هدفون بی سیم خوب برای ورزش'",
           },
           subcategory: {
             type: "string",
-            description: "Optional subcategory filter. Options: هدفون، هدست و هندزفری, دوربین دیجیتال, ساعت و مچ‌بند هوشمند, هارد اکسترنال, لوازم جانبی گوشی موبایل",
+            description: "Exact subcategory filter. Must be one of: هدفون، هدست و هندزفری | دوربین دیجیتال | ساعت و مچ‌بند هوشمند | هارد اکسترنال | لوازم جانبی گوشی موبایل",
           },
-          max_price: {
-            type: "number",
-            description: "Maximum price in Toman",
+          filters: {
+            type: "object",
+            properties: {
+              price_min: { type: "number", description: "Minimum price in Toman" },
+              price_max: { type: "number", description: "Maximum price in Toman" },
+              brand: { type: "string", description: "Brand name filter" },
+              features: {
+                type: "array",
+                items: { type: "string" },
+                description: "Functional requirements: wireless, noise_canceling, waterproof, fast_delivery, etc.",
+              },
+            },
           },
-          min_rating: {
-            type: "number",
-            description: "Minimum rating (1-5)",
+          semantic_tags: {
+            type: "array",
+            items: { type: "string" },
+            description: "Abstract inferred intent: hard_to_lose, child_safe, lightweight, gift, sport_use, budget, premium, durable",
+          },
+          sort_by: {
+            type: "string",
+            enum: ["relevance", "price_low", "price_high", "rating"],
+            description: "Sort preference. Default: relevance",
           },
         },
-        required: ["query"],
+        required: ["query_text"],
         additionalProperties: false,
       },
     },
@@ -75,10 +105,7 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          product_id: {
-            type: "string",
-            description: "The UUID of the product",
-          },
+          product_id: { type: "string", description: "The UUID of the product" },
         },
         required: ["product_id"],
         additionalProperties: false,
@@ -87,97 +114,46 @@ const TOOLS = [
   },
 ];
 
-// Execute tool calls
-async function executeTool(
-  supabase: any,
-  toolName: string,
-  args: any
-): Promise<any> {
-  if (toolName === "search_products") {
-    const { query, category, subcategory, max_price, min_rating } = args;
-    
-    // Split query into individual words for broader matching
-    const queryWords = query.split(/\s+/).filter((w: string) => w.length > 1);
+// ── Execute tool calls ──
+async function executeSearch(supabase: any, args: any): Promise<any> {
+  const { query_text, subcategory, filters, sort_by } = args;
+  const normalizedQuery = normalizePersian(query_text);
 
-    // Try full-text search first (with category if provided)
-    let dbQuery = supabase
-      .from("products")
-      .select("*")
-      .eq("in_stock", true)
-      .textSearch("search_vector", queryWords.join(" & "), {
-        type: "plain",
-        config: "simple",
-      })
-      .limit(6);
+  // Call hybrid_product_search RPC
+  const rpcParams: any = {
+    p_query: normalizedQuery,
+    p_in_stock: true,
+  };
+  if (subcategory) rpcParams.p_subcategory = subcategory;
+  if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
+  if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
+  if (filters?.brand) rpcParams.p_brand = filters.brand;
 
-    if (category) dbQuery = dbQuery.eq("category", category);
-    if (subcategory) dbQuery = dbQuery.eq("subcategory", subcategory);
-    if (max_price) dbQuery = dbQuery.lte("price", max_price);
-    if (min_rating) dbQuery = dbQuery.gte("rating", min_rating);
+  const { data, error } = await supabase.rpc("hybrid_product_search", rpcParams);
 
-    let { data, error } = await dbQuery;
-
-    // If category filter returned 0, retry without category
-    if ((!data || data.length === 0) && category && !error) {
-      console.log("Retrying without category filter");
-      let retryQuery = supabase
-        .from("products")
-        .select("*")
-        .eq("in_stock", true)
-        .textSearch("search_vector", queryWords.join(" & "), { type: "plain", config: "simple" })
-        .limit(6);
-      if (max_price) retryQuery = retryQuery.lte("price", max_price);
-      if (min_rating) retryQuery = retryQuery.gte("rating", min_rating);
-      const retry = await retryQuery;
-      data = retry.data;
-      error = retry.error;
-    }
-
-    // Fallback to ilike if full-text returned nothing
-    if (error || !data || data.length === 0) {
-      if (error) console.error("Search error:", error);
-      
-      // Build OR conditions for each query word
-      const orConditions = queryWords
-        .map((w: string) => `name.ilike.%${w}%,description.ilike.%${w}%,tags.cs.{${w}}`)
-        .join(",");
-      
-      let fallbackQuery = supabase
-        .from("products")
-        .select("*")
-        .eq("in_stock", true)
-        .or(orConditions)
-        .limit(6);
-      
-      if (max_price) fallbackQuery = fallbackQuery.lte("price", max_price);
-      if (min_rating) fallbackQuery = fallbackQuery.gte("rating", min_rating);
-
-      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-      if (fallbackError) {
-        console.error("Fallback search error:", fallbackError);
-        return { products: [], message: "جستجو با مشکل مواجه شد" };
-      }
-      return { products: fallbackData || [] };
-    }
-
-    return { products: data };
+  if (error) {
+    console.error("Hybrid search error:", error);
+    return { products: [], message: "جستجو با مشکل مواجه شد" };
   }
 
-  if (toolName === "get_product_details") {
-    const { product_id } = args;
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", product_id)
-      .single();
+  let results = data || [];
 
-    if (error) {
-      return { error: "محصول پیدا نشد" };
-    }
-    return { product: data };
-  }
+  // Post-sort if requested
+  if (sort_by === "price_low") results.sort((a: any, b: any) => a.price - b.price);
+  else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
+  else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
 
-  return { error: "Unknown tool" };
+  return { products: results };
+}
+
+async function getProductDetails(supabase: any, productId: string): Promise<any> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("id", productId)
+    .single();
+  if (error) return { error: "محصول پیدا نشد" };
+  return { product: data };
 }
 
 serve(async (req) => {
@@ -199,7 +175,6 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { messages: userMessages } = await req.json();
-
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -207,14 +182,14 @@ serve(async (req) => {
       );
     }
 
-    // Build messages for AI
     const aiMessages = [
       { role: "system", content: SYSTEM_PROMPT },
       ...userMessages.map((m: any) => ({ role: m.role, content: m.content })),
     ];
 
-    // Call Lovable AI with tools
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // ── Step 1: Intent Extraction (LLM call with tools) ──
+    console.log("Step 1: Intent extraction...");
+    const intentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -227,29 +202,30 @@ serve(async (req) => {
       }),
     });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+    if (!intentResponse.ok) {
+      const status = intentResponse.status;
+      if (status === 429) {
         return new Response(
           JSON.stringify({ error: "سرعت درخواست‌ها زیاد شده، لطفاً کمی صبر کنید." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (aiResponse.status === 402) {
+      if (status === 402) {
         return new Response(
           JSON.stringify({ error: "اعتبار سرویس هوش مصنوعی تمام شده." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
+      const errText = await intentResponse.text();
+      console.error("AI gateway error:", status, errText);
       return new Response(
         JSON.stringify({ error: "خطا در سرویس هوش مصنوعی" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiData = await aiResponse.json();
-    const choice = aiData.choices?.[0];
+    const intentData = await intentResponse.json();
+    const choice = intentData.choices?.[0];
 
     if (!choice) {
       return new Response(
@@ -258,94 +234,114 @@ serve(async (req) => {
       );
     }
 
-    // Check if AI wants to call tools
-    if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
-      const toolResults: any[] = [];
-      let allProducts: any[] = [];
-
-      for (const toolCall of choice.message.tool_calls) {
-        const funcName = toolCall.function.name;
-        let funcArgs;
-        try {
-          funcArgs = JSON.parse(toolCall.function.arguments);
-        } catch {
-          funcArgs = {};
-        }
-
-        console.log(`Executing tool: ${funcName}`, funcArgs);
-        const result = await executeTool(supabase, funcName, funcArgs);
-        
-        if (result.products) {
-          allProducts = [...allProducts, ...result.products];
-        }
-        
-        toolResults.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
-        });
-      }
-
-      // Second AI call with tool results to get final response
-      const followUpMessages = [
-        ...aiMessages,
-        choice.message,
-        ...toolResults,
-      ];
-
-      const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: followUpMessages,
-        }),
-      });
-
-      if (!followUpResponse.ok) {
-        const errText = await followUpResponse.text();
-        console.error("Follow-up AI error:", followUpResponse.status, errText);
-        // Still return products even if follow-up fails
-        return new Response(
-          JSON.stringify({
-            content: allProducts.length > 0 
-              ? "این محصولات رو برات پیدا کردم:\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»" 
-              : "متأسفانه محصولی با این مشخصات پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
-            products: allProducts.slice(0, 6),
-            quickReplies: [],
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const followUpData = await followUpResponse.json();
-      const finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
-
+    // ── No tool call = conversational response ──
+    if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
       return new Response(
         JSON.stringify({
-          content: finalContent,
-          products: allProducts.slice(0, 6),
-          quickReplies: allProducts.length > 0
-            ? [
-                { id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" },
-              ]
-            : [],
+          content: choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟",
+          products: [],
+          quickReplies: [],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // No tool call - just text response
-    const textContent = choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟";
+    // ── Step 2: Hybrid Retrieval ──
+    console.log("Step 2: Hybrid retrieval...");
+    const toolResults: any[] = [];
+    let allProducts: any[] = [];
+    let extractedIntent: any = null;
+
+    for (const toolCall of choice.message.tool_calls) {
+      const funcName = toolCall.function.name;
+      let funcArgs: any;
+      try {
+        funcArgs = JSON.parse(toolCall.function.arguments);
+      } catch {
+        funcArgs = {};
+      }
+
+      console.log(`Tool: ${funcName}`, JSON.stringify(funcArgs));
+
+      let result: any;
+      if (funcName === "search_products") {
+        extractedIntent = funcArgs;
+        result = await executeSearch(supabase, funcArgs);
+        if (result.products) allProducts = [...allProducts, ...result.products];
+      } else if (funcName === "get_product_details") {
+        result = await getProductDetails(supabase, funcArgs.product_id);
+      } else {
+        result = { error: "Unknown tool" };
+      }
+
+      toolResults.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(result),
+      });
+    }
+
+    // ── Step 3: LLM Re-Ranker + Response ──
+    console.log("Step 3: Re-ranking + response generation...");
+
+    // Build re-ranker prompt with top candidates
+    const candidatesForRerank = allProducts.slice(0, 10);
+    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
+
+    const rerankerSystemAddendum = candidatesForRerank.length > 0
+      ? `\n\nتو الان ${candidatesForRerank.length} محصول کاندیدا داری. با توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
+- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
+- بهترین ۳ تا ۶ محصول رو انتخاب کن
+- یه توضیح کوتاه و مفید بنویس
+- از مارک‌داون استفاده نکن`
+      : "";
+
+    const followUpMessages = [
+      ...aiMessages,
+      choice.message,
+      ...toolResults,
+      ...(rerankerSystemAddendum
+        ? [{ role: "system", content: rerankerSystemAddendum }]
+        : []),
+    ];
+
+    const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: followUpMessages,
+      }),
+    });
+
+    if (!followUpResponse.ok) {
+      const errText = await followUpResponse.text();
+      console.error("Re-ranker error:", followUpResponse.status, errText);
+      return new Response(
+        JSON.stringify({
+          content: allProducts.length > 0
+            ? "این محصولات رو برات پیدا کردم:"
+            : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
+          products: allProducts.slice(0, 6),
+          quickReplies: [],
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const followUpData = await followUpResponse.json();
+    const finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
 
     return new Response(
       JSON.stringify({
-        content: textContent,
-        products: [],
-        quickReplies: [],
+        content: finalContent,
+        products: allProducts.slice(0, 6),
+        quickReplies: allProducts.length > 0
+          ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
+          : [],
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -12,20 +12,20 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // @ts-ignore - Supabase AI is available in edge runtime
+    const session = new Supabase.ai.Session("gte-small");
 
     // Get products without embeddings
     const { data: products, error } = await supabase
       .from("products")
       .select("id, name, description, tags")
       .is("embedding", null)
-      .limit(50); // Process in batches of 50
+      .limit(5); // Very small batch to avoid compute limits
 
     if (error) throw error;
     if (!products || products.length === 0) {
@@ -39,66 +39,34 @@ serve(async (req) => {
     let processed = 0;
     let errors = 0;
 
-    // Process in sub-batches of 10 for the embedding API
-    for (let i = 0; i < products.length; i += 10) {
-      const batch = products.slice(i, i + 10);
-      const inputs = batch.map((p: any) => {
-        const parts = [p.name || ""];
-        if (p.description) parts.push(p.description);
-        if (p.tags?.length) parts.push(p.tags.join(" "));
-        return parts.join(" ").substring(0, 2000); // Limit input length
-      });
-
+    for (const product of products) {
       try {
-        const embResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/text-embedding-004",
-            input: inputs,
-          }),
-        });
+        const text = [
+          product.name || "",
+          product.description || "",
+          ...(product.tags || []),
+        ].join(" ").substring(0, 1000);
 
-        if (!embResponse.ok) {
-          const errText = await embResponse.text();
-          console.error(`Embedding API error: ${embResponse.status}`, errText);
-          errors += batch.length;
-          continue;
-        }
+        // @ts-ignore
+        const embedding = await session.run(text, { mean_pool: true, normalize: true });
 
-        const embData = await embResponse.json();
+        // Convert Float32Array/TypedArray to regular array
+        const embeddingArray = Array.from(embedding);
 
-        // Store each embedding
-        for (let j = 0; j < batch.length; j++) {
-          const embedding = embData.data?.[j]?.embedding;
-          if (!embedding) {
-            errors++;
-            continue;
-          }
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({ embedding: JSON.stringify(embeddingArray) })
+          .eq("id", product.id);
 
-          const { error: updateError } = await supabase
-            .from("products")
-            .update({ embedding: JSON.stringify(embedding) })
-            .eq("id", batch[j].id);
-
-          if (updateError) {
-            console.error(`Update error for ${batch[j].id}:`, updateError);
-            errors++;
-          } else {
-            processed++;
-          }
+        if (updateError) {
+          console.error(`Update error for ${product.id}:`, updateError);
+          errors++;
+        } else {
+          processed++;
         }
       } catch (e) {
-        console.error("Batch error:", e);
-        errors += batch.length;
-      }
-
-      // Small delay between batches to avoid rate limits
-      if (i + 10 < products.length) {
-        await new Promise((r) => setTimeout(r, 500));
+        console.error(`Embedding error for ${product.id}:`, e);
+        errors++;
       }
     }
 

@@ -307,12 +307,24 @@ serve(async (req) => {
     const candidatesForRerank = allProducts.slice(0, 10);
     // originalQuery already defined above
 
+    // Build candidate list with IDs for the re-ranker
+    const candidateList = candidatesForRerank.map((p: any, i: number) => 
+      `${i + 1}. [${p.id}] ${p.name} - ${p.price?.toLocaleString()} تومان`
+    ).join("\n");
+
     const rerankerSystemAddendum = candidatesForRerank.length > 0
       ? `\n\nتو الان ${candidatesForRerank.length} محصول کاندیدا داری. با توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
 - محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
 - بهترین ۳ تا ۶ محصول رو انتخاب کن
 - یه توضیح کوتاه و مفید بنویس
-- از مارک‌داون استفاده نکن`
+- از مارک‌داون استفاده نکن
+
+لیست کاندیداها:
+${candidateList}
+
+مهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:
+SELECTED_IDS:["id1","id2","id3"]
+که id ها همان شناسه‌های محصولات انتخابی تو هستن (UUID ها از لیست بالا). ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
       : "";
 
     const followUpMessages = [
@@ -352,13 +364,32 @@ serve(async (req) => {
     }
 
     const followUpData = await followUpResponse.json();
-    const finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
+    let finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
+
+    // Parse SELECTED_IDS from re-ranker output
+    let selectedProducts = allProducts.slice(0, 6); // fallback
+    const selectedIdsMatch = finalContent.match(/SELECTED_IDS:\s*(\[.*?\])/);
+    if (selectedIdsMatch) {
+      try {
+        const selectedIds: string[] = JSON.parse(selectedIdsMatch[1]);
+        const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
+        const reordered = selectedIds
+          .map((id: string) => idToProduct.get(id))
+          .filter(Boolean);
+        if (reordered.length > 0) selectedProducts = reordered;
+        console.log(`Re-ranker selected ${reordered.length} products`);
+      } catch (e) {
+        console.error("Failed to parse SELECTED_IDS:", e);
+      }
+      // Strip the SELECTED_IDS line from content
+      finalContent = finalContent.replace(/\n?SELECTED_IDS:\s*\[.*?\]/, "").trim();
+    }
 
     return new Response(
       JSON.stringify({
         content: finalContent,
-        products: allProducts.slice(0, 6),
-        quickReplies: allProducts.length > 0
+        products: selectedProducts,
+        quickReplies: selectedProducts.length > 0
           ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
           : [],
       }),

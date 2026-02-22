@@ -40,6 +40,7 @@ const SYSTEM_PROMPT = `تو دستیار خرید هوشمند فلوکارت ه
 - مثال: "گم نشه" → semantic_tags: ["hard_to_lose"]
 - مثال: "برای بچم" → semantic_tags: ["child_safe"]
 - مثال: "برای ورزش" → semantic_tags: ["sport_use", "sweat_resistant"]
+- مهم: هرگز price_min یا price_max رو حدس نزن. فقط وقتی مقدار عددی مشخصی رو ست کن که کاربر عدد دقیق گفته باشه. "ارزان"، "مناسب"، "اقتصادی" → از semantic_tags مثل "budget" استفاده کن، نه فیلتر قیمت.
 
 زیرمجموعه‌های موجود در فروشگاه:
 - هدفون، هدست و هندزفری
@@ -71,8 +72,8 @@ const TOOLS = [
           filters: {
             type: "object",
             properties: {
-              price_min: { type: "number", description: "Minimum price in Toman" },
-              price_max: { type: "number", description: "Maximum price in Toman" },
+              price_min: { type: "number", description: "Minimum price in Toman. Only set if user mentions a specific number." },
+              price_max: { type: "number", description: "Maximum price in Toman. Only set if user mentions a specific number. Do NOT guess price ranges for vague terms like 'ارزان' or 'مناسب'." },
               brand: { type: "string", description: "Brand name filter" },
               features: {
                 type: "array",

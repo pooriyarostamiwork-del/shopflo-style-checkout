@@ -228,6 +228,23 @@ export const PDPProductComponent = ({
                 <h1 className="text-lg font-bold text-foreground">{product.name}</h1>
               </div>
 
+              {/* Color Options / Variants */}
+              {product.colorOptions && product.colorOptions.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground">رنگ‌های موجود:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {product.colorOptions.map((color, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs px-2.5 py-1 rounded-full border border-border/60 bg-muted/30 text-foreground cursor-default"
+                      >
+                        {color}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Price */}
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold text-primary">{formatPersianPrice(product.price)}</span>

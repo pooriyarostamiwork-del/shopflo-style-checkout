@@ -19,6 +19,7 @@ export interface Product {
   fastDelivery: boolean;
   returnGuarantee: boolean;
   inStock: boolean;
+  colorOptions?: string[];
 }
 
 export interface CartItem extends Product {

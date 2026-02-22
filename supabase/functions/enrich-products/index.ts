@@ -28,10 +28,11 @@ serve(async (req) => {
     const { batch_size = 15, offset = 0 } = await req.json().catch(() => ({}));
 
     // Get products that haven't been enriched yet (empty specs and tags)
+    // Also get products missing category/subcategory
     const { data: products, error } = await supabase
       .from("products")
-      .select("id, name, description, subcategory, rating, review_count")
-      .eq("specs", "[]")
+      .select("id, name, description, subcategory, category, brand, rating, review_count")
+      .or("specs.eq.[],category.eq.,category.is.null")
       .order("created_at")
       .range(offset, offset + batch_size - 1);
 
@@ -50,6 +51,8 @@ serve(async (req) => {
       name: p.name,
       description: (p.description || "").slice(0, 300),
       subcategory: p.subcategory,
+      category: p.category,
+      brand: p.brand,
       rating: p.rating,
       review_count: p.review_count,
     }));
@@ -58,6 +61,9 @@ serve(async (req) => {
 For each product below, return a JSON array with objects containing:
 - "index": the original index
 - "description": A clean, concise Persian product description (2-3 sentences, max 200 chars). If the original is good, keep it. If empty or truncated, generate one based on the product name and subcategory.
+- "category": The product's main category in Persian. If already set and correct, keep it. Otherwise infer from name. Use one of: الکترونیک, کالای دیجیتال, لوازم جانبی
+- "subcategory": The product's subcategory in Persian. Must be one of: هدفون، هدست و هندزفری | دوربین دیجیتال | ساعت و مچ‌بند هوشمند | هارد اکسترنال | لوازم جانبی گوشی موبایل | گوشی موبایل | لپ تاپ | کیبورد و ماوس | تبلت. If already set and correct, keep it.
+- "brand": The brand name in Persian. If already set, keep it. Otherwise extract from product name.
 - "reviews_summary": A brief Persian sentence summarizing the product reception based on rating and review count (e.g., "با امتیاز ۴.۲ از ۵ و ۵۳ دیدگاه، محصول پرطرفداری است"). If no reviews, return empty string.
 - "tags": Array of 3-5 Persian search keywords for this product.
 
@@ -102,13 +108,19 @@ ${JSON.stringify(batch, null, 0)}`;
       const product = products[item.index];
       if (!product) continue;
 
+      const updateData: any = {
+        description: item.description || product.description,
+        reviews_summary: item.reviews_summary || "",
+        tags: item.tags || [],
+      };
+      // Only update category/subcategory/brand if they were empty
+      if (!product.category && item.category) updateData.category = item.category;
+      if (!product.subcategory && item.subcategory) updateData.subcategory = item.subcategory;
+      if (!product.brand && item.brand) updateData.brand = item.brand;
+
       const { error: updateError } = await supabase
         .from("products")
-        .update({
-          description: item.description || product.description,
-          reviews_summary: item.reviews_summary || "",
-          tags: item.tags || [],
-        })
+        .update(updateData)
         .eq("id", product.id);
 
       if (updateError) {

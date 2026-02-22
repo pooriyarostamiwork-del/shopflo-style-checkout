@@ -114,16 +114,34 @@ const TOOLS = [
   },
 ];
 
+// ── Generate query embedding using built-in gte-small ──
+async function generateQueryEmbedding(text: string): Promise<number[] | null> {
+  try {
+    // @ts-ignore - Supabase AI is available in edge runtime
+    const session = new Supabase.ai.Session("gte-small");
+    // @ts-ignore
+    const embedding = await session.run(text, { mean_pool: true, normalize: true });
+    return Array.from(embedding);
+  } catch (e) {
+    console.error("Query embedding error:", e);
+    return null;
+  }
+}
+
 // ── Execute tool calls ──
-async function executeSearch(supabase: any, args: any): Promise<any> {
+async function executeSearch(supabase: any, args: any, originalQuery: string): Promise<any> {
   const { query_text, subcategory, filters, sort_by } = args;
   const normalizedQuery = normalizePersian(query_text);
+
+  // Generate query embedding for semantic search
+  const queryEmbedding = await generateQueryEmbedding(normalizePersian(originalQuery));
 
   // Call hybrid_product_search RPC
   const rpcParams: any = {
     p_query: normalizedQuery,
     p_in_stock: true,
   };
+  if (queryEmbedding) rpcParams.p_embedding = JSON.stringify(queryEmbedding);
   if (subcategory) rpcParams.p_subcategory = subcategory;
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
@@ -248,6 +266,7 @@ serve(async (req) => {
 
     // ── Step 2: Hybrid Retrieval ──
     console.log("Step 2: Hybrid retrieval...");
+    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
     const toolResults: any[] = [];
     let allProducts: any[] = [];
     let extractedIntent: any = null;
@@ -266,7 +285,7 @@ serve(async (req) => {
       let result: any;
       if (funcName === "search_products") {
         extractedIntent = funcArgs;
-        result = await executeSearch(supabase, funcArgs);
+        result = await executeSearch(supabase, funcArgs, originalQuery);
         if (result.products) allProducts = [...allProducts, ...result.products];
       } else if (funcName === "get_product_details") {
         result = await getProductDetails(supabase, funcArgs.product_id);
@@ -286,7 +305,7 @@ serve(async (req) => {
 
     // Build re-ranker prompt with top candidates
     const candidatesForRerank = allProducts.slice(0, 10);
-    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
+    // originalQuery already defined above
 
     const rerankerSystemAddendum = candidatesForRerank.length > 0
       ? `\n\nتو الان ${candidatesForRerank.length} محصول کاندیدا داری. با توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:

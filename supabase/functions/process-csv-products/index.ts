@@ -113,6 +113,59 @@ interface NormalizedProduct {
   source_url: string;
   category: string;
   subcategory: string;
+  color_options: string[];
+}
+
+// Known Persian color dictionary for splitting concatenated color strings
+const KNOWN_COLORS = [
+  "مشکی براق", "سرمه ای", "نقره ای", "آبی آسمانی", "صورتی طلایی",
+  "سبز_ لیمویی", "سبز لیمویی", "زرد لیمویی", "بنفش روشن",
+  "مشکی", "سفید", "آبی", "قرمز", "طلایی", "صورتی", "سبز", "بنفش",
+  "خاکستری", "نارنجی", "کرم", "یاسی", "زرد", "نقرهای", "سرمهای",
+  "تیتانیوم", "بژ", "فیروزه ای", "عنابی", "لاجوردی", "گلبهی",
+  "آلبالویی", "زیتونی", "کاربنی", "سبزآبی", "یشمی",
+];
+
+function parseColorOptions(raw: string | undefined | null): string[] {
+  if (!raw || raw.trim().length === 0) return [];
+  let remaining = raw.trim();
+  const found: string[] = [];
+  // Sort by length descending to match longer names first
+  const sorted = [...KNOWN_COLORS].sort((a, b) => b.length - a.length);
+  while (remaining.length > 0) {
+    let matched = false;
+    for (const color of sorted) {
+      if (remaining.startsWith(color)) {
+        found.push(color.replace(/_/g, " ").trim());
+        remaining = remaining.slice(color.length);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      remaining = remaining.slice(1); // skip unrecognized char
+    }
+  }
+  return [...new Set(found)];
+}
+
+// Known brand list for extraction from title
+const KNOWN_BRANDS = [
+  "سامسونگ", "اپل", "شیائومی", "ایسوس", "لنوو", "هواوی", "نوکیا", "سونی",
+  "ال جی", "وان پلاس", "اوپو", "ریلمی", "موتورولا", "گوگل", "اچ تی سی",
+  "آنر", "ردمی", "پوکو", "اوتل", "جی پلاس", "تکنو", "اینفینیکس",
+  "Samsung", "Apple", "Xiaomi", "ASUS", "Lenovo", "Huawei", "Nokia", "Sony",
+  "MSI", "Dell", "HP", "Acer", "LG", "OnePlus", "OPPO", "Realme", "Motorola",
+  "Google", "HTC", "Honor", "Redmi", "POCO", "Oukitel", "Gplus", "Tecno", "Infinix",
+  "Logitech", "Razer", "A4Tech", "Rapoo", "Tsco", "Beyond", "Redragon",
+  "لاجیتک", "ریزر", "تسکو", "بیاند",
+];
+
+function extractBrandFromTitle(title: string): string {
+  for (const brand of KNOWN_BRANDS) {
+    if (title.includes(brand)) return brand;
+  }
+  return "";
 }
 
 // Normalize rows based on file type
@@ -129,6 +182,7 @@ function normalizeRow(row: Record<string, string>, fileType: string): Normalized
   let source_url = row["item_page_link"] || "";
   let category = "";
   let subcategory = "";
+  let color_options: string[] = [];
 
   switch (fileType) {
     case "headphones": {
@@ -196,6 +250,22 @@ function normalizeRow(row: Record<string, string>, fileType: string): Normalized
       subcategory = row["sub cat"] || "لوازم جانبی گوشی موبایل";
       break;
     }
+    case "digikala_general": {
+      name = row["title"] || "";
+      price = parsePersianNumber(row["Final Price"]);
+      original_price = parsePersianNumber(row["Original Price"]) || null;
+      rating = parsePersianFloat(row["Rate"]);
+      description = row["description"] || "";
+      image_urls = extractImageUrls(row["image"]);
+      specs_raw = [row["specs1"], row["specs2"]].filter(Boolean).join(" ||| ");
+      source_url = row["item_page_link"] || "";
+      color_options = parseColorOptions(row["Color_Options"]);
+      brand = extractBrandFromTitle(name);
+      // category/subcategory left empty for AI enrichment
+      category = "";
+      subcategory = "";
+      break;
+    }
   }
 
   // Clean name
@@ -222,6 +292,7 @@ function normalizeRow(row: Record<string, string>, fileType: string): Normalized
     source_url,
     category,
     subcategory,
+    color_options,
   };
 }
 
@@ -381,9 +452,10 @@ serve(async (req) => {
       reviews_summary: "",
       tags: [],
       brand: p.brand || null,
-      category: p.category,
-      subcategory: p.subcategory,
+      category: p.category || "",
+      subcategory: p.subcategory || null,
       source_url: p.source_url || null,
+      color_options: p.color_options || [],
       merchant_id: merchants[idx % merchants.length],
       in_stock: true,
       fast_delivery: Math.random() > 0.5,

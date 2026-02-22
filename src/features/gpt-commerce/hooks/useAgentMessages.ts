@@ -47,6 +47,7 @@ export const mapDbProduct = (dbProduct: any): Product => {
     fastDelivery: dbProduct.fast_delivery || false,
     returnGuarantee: dbProduct.return_guarantee || true,
     inStock: dbProduct.in_stock !== false,
+    colorOptions: dbProduct.color_options?.length > 0 ? dbProduct.color_options : undefined,
   };
 };
 

@@ -135,6 +135,7 @@ export type Database = {
         Row: {
           brand: string | null
           category: string
+          color_options: string[] | null
           created_at: string
           description: string | null
           embedding: string | null
@@ -160,6 +161,7 @@ export type Database = {
         Insert: {
           brand?: string | null
           category?: string
+          color_options?: string[] | null
           created_at?: string
           description?: string | null
           embedding?: string | null
@@ -185,6 +187,7 @@ export type Database = {
         Update: {
           brand?: string | null
           category?: string
+          color_options?: string[] | null
           created_at?: string
           description?: string | null
           embedding?: string | null

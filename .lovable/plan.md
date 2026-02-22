@@ -1,123 +1,166 @@
 
-# Root Cause: `handleOTPVerified` Always Injects Shipping UI, Even for Plain Sign-In
 
-## What Is Actually Happening
+# Hybrid Product Search Engine - Complete Overhaul
 
-The `addressShipping` component appears without prompting because `handleOTPVerified` in `useCheckoutFlow.ts` **unconditionally injects an `addressShipping` message** and sets `agenticState.step = 'address-confirmation'` every time OTP verification completes — regardless of whether the user was signing in for checkout or just logging in to their account.
+## Current State vs Target
 
-This means: whenever an authenticated user signs in from the login button (top-left "ورود / ثبت‌نام") or the name-entry step completes, the `handleOTPVerified(false)` call fires, which pushes an `addressShipping` message into the active basket's chat and transitions the agentic state into the checkout flow — **even if the user hasn't clicked any checkout button**.
+The current search pipeline achieves ~35-40% accuracy due to:
+- AND-joined full-text search (all words must match)
+- No ranking (arbitrary result order)
+- No fuzzy matching (typos/synonyms fail)
+- No semantic understanding
+- Persian half-space tokenization issues
+- Trailing slash in subcategory data (`لوازم جانبی گوشی موبایل/`)
+- 46 products with empty tags
 
-### The Two Valid Paths That Call `handleOTPVerified`
+Target: 80-90% accuracy using your proposed 4-layer hybrid architecture.
 
-| Path | Should Show Shipping? | Current Behavior |
-|---|---|---|
-| User clicks "ورود / ثبت‌نام" → OTP → verified | ❌ No | ✅ Injects `addressShipping` — **BUG** |
-| User is in checkout → clicks "✅ تأیید می‌کنم" quick reply → OTP required → verified | ✅ Yes | ✅ Injects `addressShipping` — correct |
+## Implementation Phases
 
-### Why the Previous Fixes Didn't Solve It
+### Phase 1: Foundation (35% to 65-75%)
 
-All previous fixes addressed what happens **after** the `addressShipping` message is already in memory (filtering on basket switch, localStorage, DB). None of them prevented the message from being **incorrectly injected in the first place** when the user just wants to sign in.
+**1A. Database Schema Changes (Migration)**
+
+- Enable `pg_trgm` extension for fuzzy matching
+- Enable `vector` extension (pgvector) for future embeddings
+- Add `embedding vector(768)` column to products
+- Fix subcategory trailing slash data
+- Update `products_search_vector_update()` trigger to normalize Persian text (half-spaces, Arabic chars)
+- Create GIN trigram index on `name`
+- Re-trigger search_vector generation for all 454 products
+
+**1B. Create `hybrid_product_search` SQL Function**
+
+Combines 3 scoring signals (embeddings added in Phase 2):
+
+```text
+FinalScore =
+  0.35 * ts_rank (full-text, OR-joined via websearch_to_tsquery)
++ 0.25 * trigram_similarity(name, query)
++ 0.25 * trigram_similarity(tags_text, query)
++ 0.15 * structured_match_boost (subcategory match)
+```
+
+With hard filters: price, rating, subcategory, in_stock.
+Returns top 20 candidates sorted by score.
+
+**1C. Rewrite `gpt-commerce-agent` Edge Function**
+
+Replace the current naive search with a 3-step pipeline:
+
+Step 1 - Structured Intent Extraction (1st LLM call with tool_choice forced):
+- New `search_products` tool schema with `query_text`, `subcategory`, `filters` (price_min, price_max, brand, features), `semantic_tags`
+- LLM extracts structured intent, NOT keyword strings
+
+Step 2 - Hybrid Retrieval:
+- Normalize Persian text on query
+- Call `hybrid_product_search` RPC with extracted filters
+- Get top 20 ranked candidates
+
+Step 3 - LLM Re-Ranker + Response (2nd LLM call):
+- Send top 10 candidates + original user query + extracted intent
+- LLM re-ranks by alignment, removes mismatches
+- Returns final 3-6 products + natural language response
+
+**1D. Persian Normalization Utility**
+
+Applied to both search queries and search_vector generation:
+- Half-space (ZWNJ) to regular space
+- Arabic ي to Persian ی
+- Arabic ك to Persian ک
+- Collapse multiple spaces
+- Remove diacritics
+
+### Phase 2: Embeddings Layer (75% to 85-90%)
+
+**2A. Create `generate-embeddings` Edge Function**
+
+- Batch process all 454 products
+- Generate embedding from: `name + " " + description + " " + tags.join(" ")`
+- Uses Lovable AI embedding endpoint
+- Stores in `embedding` column
+
+**2B. Update `hybrid_product_search` to Include Vector Similarity**
+
+Updated scoring:
+```text
+FinalScore =
+  0.30 * ts_rank
++ 0.20 * trigram_similarity
++ 0.30 * cosine_similarity (embedding)
++ 0.20 * structured_match_boost
+```
+
+**2C. Generate Query Embeddings at Search Time**
+
+In the agent edge function, generate embedding for the user's original query and pass to the hybrid search RPC.
+
+### Phase 3: Data Quality
+
+**3A. Re-enrich Products with Empty Tags**
+
+46 products have empty tags. Run `enrich-products` to fill these gaps, improving FTS and trigram coverage.
 
 ---
 
-## The Fix: Add a `context` Parameter to `onVerified` / `handleOTPVerified`
+## Files to Create/Modify
 
-### Change 1: `GPTCommerceShell.tsx` — Pass checkout context to OTPModal
+| File | Action | Purpose |
+|---|---|---|
+| Database migration | Create | Enable pg_trgm, vector; add embedding column; fix subcategory slash; update search_vector trigger; create hybrid_product_search function; create indexes |
+| `supabase/functions/gpt-commerce-agent/index.ts` | Rewrite | New 3-step pipeline: intent extraction, hybrid retrieval via RPC, LLM re-ranker |
+| `supabase/functions/generate-embeddings/index.ts` | Create | Batch generate embeddings for all products |
+| `supabase/config.toml` | Update | Add generate-embeddings function config |
 
-The `showOTPModal` is triggered from two places:
-1. `handleCheckoutFlow` → `setShowOTPModal(true)` when user clicks confirm-cart without OTP
-2. `handleSignInClick` → `setShowOTPModal(true)` when user clicks login button
+## Technical Details
 
-We need to distinguish these. Add an `otpModalContext` state:
+### New Tool Schema for Intent Extraction
 
-```ts
-// New state in GPTCommerceShell.tsx
-const [otpModalContext, setOtpModalContext] = useState<'checkout' | 'login'>('login');
+```text
+search_products:
+  query_text: string (cleaned keywords for FTS)
+  subcategory: string | null (exact match filter)
+  filters:
+    price_min: number | null
+    price_max: number | null
+    brand: string[] | null
+    features: string[] | null (wireless, noise_canceling, waterproof...)
+  semantic_tags: string[] | null (hard_to_lose, child_safe, lightweight...)
+  sort_by: relevance | price_low | price_high | rating
 ```
 
-Then pass a wrapped `onVerified` to `OTPModal`:
-```ts
-<OTPModal
-  isOpen={showOTPModal}
-  onClose={() => setShowOTPModal(false)}
-  onVerified={(isNewUser) => {
-    if (otpModalContext === 'checkout') {
-      handleOTPVerified(isNewUser);
-    } else {
-      // Plain login — just close the modal, no checkout injection
-      setShowOTPModal(false);
-    }
-  }}
-/>
+### System Prompt Changes
+
+The system prompt will instruct Gemini to:
+- Extract structured intent, not generate keywords
+- Map implicit user needs to semantic_tags
+- Use correct subcategory values from the catalog
+- Output clean `query_text` with max 2-3 core Persian words
+
+### Re-Ranker Prompt
+
+After hybrid retrieval returns 10-20 candidates:
+```text
+"Given the user's original request and extracted intent, 
+rank these products by relevance. Remove any that violate 
+implicit constraints. Return ordered product IDs with 
+brief reasoning."
 ```
 
-And update the two callers:
-```ts
-// In useCheckoutFlow.ts handleQuickReply when !isOTPVerified:
-// (called via setShowOTPModal from GPTCommerceShell — needs context)
-```
+### Performance
 
-Actually, the cleaner approach: pass `context` down through the existing call chain:
-- `handleSignInClick` → sets `otpModalContext('login')` then `setShowOTPModal(true)`
-- `useCheckoutFlow.setShowOTPModal` calls → set `otpModalContext('checkout')` first
+- pg_trgm GIN index: fast fuzzy matching
+- tsvector GIN index: already exists
+- ivfflat index on embeddings: fast vector search
+- Total latency target: ~2-3s (intent extraction + DB query + re-rank)
 
-### Simpler Implementation: Pass `onVerifiedWithContext` directly
+## What This Achieves
 
-In `GPTCommerceShell.tsx`, wrap the OTPModal's `onVerified`:
+| Query Type | Current | After |
+|---|---|---|
+| "هدفون بی سیم" (simple) | Works sometimes | Ranked results |
+| "هدفون ارزان زیر ۵۰۰ هزار" (price filter) | Misses price | Structured filter |
+| "یه هدفون برای بچم که گم نشه" (implicit) | Fails completely | Semantic tags + re-ranker |
+| "وایرلس" vs "بی سیم" (synonyms) | Fails | Trigram + embeddings |
+| "هدیه برای مادرم" (abstract) | Random results | Intent extraction + semantic |
 
-```ts
-// Replace:
-<OTPModal onVerified={handleOTPVerified} ... />
-
-// With:
-const [otpContext, setOtpContext] = useState<'checkout' | 'login'>('login');
-
-const handleOTPModalVerified = useCallback((isNewUser: boolean) => {
-  if (otpContext === 'checkout') {
-    handleOTPVerified(isNewUser);  // Inject addressShipping, set step
-  } else {
-    // Just close — user wanted to sign in, not checkout
-    setShowOTPModal(false);
-  }
-}, [otpContext, handleOTPVerified]);
-```
-
-Then update the two `setShowOTPModal(true)` call sites:
-
-**In `GPTCommerceShell.tsx` — `handleSignInClick`:**
-```ts
-const handleSignInClick = useCallback(() => {
-  if (isAuthenticated) {
-    updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
-  } else {
-    setOtpContext('login');      // ← Mark as plain login
-    setShowOTPModal(true);
-  }
-}, [isAuthenticated, updateCurrentBasket]);
-```
-
-**In `useCheckoutFlow.ts` — where `setShowOTPModal(true)` is called from `handleQuickReply` and `handleSendMessage` shortcuts:**
-
-The `setShowOTPModal` is passed in as a prop — we need a companion `setOtpContext` prop, or a combined helper.
-
-Cleanest solution: replace `setShowOTPModal` prop with a `showOTPForCheckout` callback and a `showOTPForLogin` callback — or simply add `setOtpContext` as an additional prop to `useCheckoutFlow`.
-
-### Files to Change
-
-| File | Change |
-|---|---|
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Add `otpContext` state (`'checkout'` or `'login'`). Wrap OTPModal's `onVerified` to only call `handleOTPVerified` when context is `'checkout'`. Set context to `'login'` in `handleSignInClick`. Pass `setOtpContext` (or a `showOTPForCheckout` helper) to `useCheckoutFlow`. |
-| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Accept `setOtpContext` (or use a `openCheckoutOTP` callback) and set context to `'checkout'` before calling `setShowOTPModal(true)`. |
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Same — when `setShowOTPModal(true)` is triggered from agent message flow (buy-and-send, direct-payment shortcuts), set context to `'checkout'` first. |
-
-### Why This Is The Only Correct Fix
-
-The root cause is architectural: `handleOTPVerified` was designed as a single handler for all OTP completions, but it has checkout-specific side effects (inject `addressShipping`, set step). These side effects must only fire when the OTP was triggered by a checkout action.
-
-All previous fixes were downstream patches (filtering stale messages). This fix prevents the message from being incorrectly injected at the source.
-
-### What Changes in User Experience
-
-- **Login via "ورود / ثبت‌نام" button**: OTP completes → user is signed in → chat continues normally. No shipping component appears.
-- **Login via checkout flow** (user clicks ✅ to confirm cart without being signed in): OTP completes → shipping component appears as expected. ✅
-- **Switching baskets**: Already fixed in the previous session — the filter remains as a safety net.

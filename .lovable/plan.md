@@ -1,66 +1,130 @@
 
 
-# Fix: Sync Re-Ranker Product Selection with Displayed Cards
+# Import New Product Dataset with AI Enrichment and Variant Support
 
-## Problem
+## Overview
 
-The AI re-ranker (Step 3) writes text about specific products it chose from the top 10 candidates, but the response always returns `allProducts.slice(0, 6)` -- the raw, unfiltered hybrid search results. This causes a mismatch between:
-- **Text**: Describes 1TB Toshiba Canvio, 1TB Seagate Expansion, etc.
-- **Cards**: Shows 2TB Seagate, 5TB Silicon Power, etc.
+Import ~800-900 products from the new Digikala CSV (phones, laptops, peripherals, HDDs, etc.) into the existing catalog. AI will fill missing fields (brand, category, subcategory, description), and a new variant system (color options) will be added to the database, product model, and UI.
 
-## Root Cause
+---
 
-In `supabase/functions/gpt-commerce-agent/index.ts`, line 360:
+## Phase 1: Database Schema Update
 
-```text
-products: allProducts.slice(0, 6)
-```
-
-This ignores the re-ranker's selection entirely. The LLM re-ranks in its head but the code never captures which products it chose.
-
-## Solution
-
-Make the re-ranker output structured data (ordered product IDs), then filter and reorder `allProducts` to match.
-
-### Changes to `supabase/functions/gpt-commerce-agent/index.ts`
-
-**1. Update the re-ranker system prompt** to instruct the LLM to return a JSON block with selected product IDs at the end of its response:
+Add a `color_options` column to the `products` table to store variant data (e.g., color choices).
 
 ```text
-After your response text, add on a NEW LINE:
-SELECTED_IDS:[id1,id2,id3,...]
+ALTER TABLE products ADD COLUMN color_options text[] DEFAULT '{}';
 ```
 
-This lets us parse the IDs without requiring a separate LLM call.
+This stores the raw color/variant names extracted from the CSV's `Color_Options` field (e.g., `["مشکی", "طلایی", "آبی"]`).
 
-**2. Parse the re-ranker output** to extract the selected product IDs from the response, then filter and reorder `allProducts` accordingly.
+---
 
-**3. Fallback**: If parsing fails (no IDs found), fall back to `allProducts.slice(0, 6)` as before.
+## Phase 2: CSV Processor Update
 
-### Detailed Implementation
+Update `supabase/functions/process-csv-products/index.ts`:
 
-Step-by-step changes in the edge function:
+**Add a new `file_type = "digikala_general"`** handler in `normalizeRow()` that maps:
 
-1. Modify the `rerankerSystemAddendum` to include this instruction:
-   - "At the very end of your response, on a separate line, write `SELECTED_IDS:` followed by a JSON array of the product IDs you selected, in order of relevance."
-   - Include product IDs in the candidate list so the LLM knows them.
+| CSV Column | DB Column |
+|---|---|
+| `title` | `name` |
+| `Final Price` | `price` (Persian numeral parsing) |
+| `Original Price` | `original_price` |
+| `Rate` | `rating` |
+| `item_page_link` | `source_url` |
+| `Color_Options` | `color_options` (split concatenated Persian color names) |
+| `image` (multiline) | `image_url` + `image_urls` |
+| `specs1`, `specs2` | `specs_raw` (for later AI parsing) |
+| `description` | `description` |
 
-2. After getting the re-ranker response, parse `SELECTED_IDS:[...]` from the text.
+**Color parsing logic**: The `Color_Options` field contains concatenated color names without separators (e.g., "طلاییمشکی"). Use a known color dictionary to split them:
 
-3. Filter `allProducts` to only include the selected IDs, in the re-ranker's order.
+```text
+Known colors: مشکی, سفید, آبی, قرمز, طلایی, نقره ای, صورتی, سبز, بنفش, خاکستری, ...
+```
 
-4. Strip the `SELECTED_IDS:` line from the content before returning to the client.
+**Category/subcategory will be left empty** initially -- filled by AI in Phase 3.
 
-### Files Modified
+**Brand extraction**: Attempt to extract brand from product title using known brand list (سامسونگ, اپل, شیائومی, ایسوس, لنوو, etc.), otherwise leave for AI.
+
+---
+
+## Phase 3: AI Enrichment for Missing Data
+
+Update `supabase/functions/enrich-products/index.ts` to also fill:
+
+- **category** and **subcategory** (inferred from product name/specs)
+- **brand** (if not extracted in Phase 2)
+- **description** (if empty or truncated)
+- **tags** (Persian search keywords)
+- **reviews_summary**
+
+The enrichment prompt will be updated to include category/subcategory assignment from the existing taxonomy plus new categories for phones and laptops:
+
+```text
+Existing: هدفون، هدست و هندزفری | دوربین دیجیتال | ساعت و مچ‌بند هوشمند | هارد اکسترنال | لوازم جانبی گوشی موبایل
+New: گوشی موبایل | لپ تاپ | کیبورد و ماوس | تبلت
+```
+
+---
+
+## Phase 4: Frontend Changes
+
+### 4a. Update Product Interface
+
+In `src/data/gptCommerceData.ts`, add `colorOptions` to the `Product` interface:
+
+```text
+colorOptions?: string[];
+```
+
+### 4b. Update Product Mapping
+
+In `src/features/gpt-commerce/hooks/useAgentMessages.ts`, map `color_options` from DB to `colorOptions` in the Product object.
+
+### 4c. Add Variant Selector to PDP
+
+In `src/components/gpt-commerce/PDPProductComponent.tsx`, add a color selector section above the price:
+- Show colored pills/chips for each color option
+- Selected color is highlighted
+- Visual-only for now (no separate pricing per variant)
+
+### 4d. Update Agent Subcategories
+
+In `supabase/functions/gpt-commerce-agent/index.ts`, add the new subcategories to the system prompt so the agent knows to search for phones, laptops, etc.
+
+---
+
+## Phase 5: Post-Import Pipeline
+
+After insertion, run in sequence:
+1. **enrich-products** (batched) -- fills missing category, subcategory, brand, description, tags
+2. **generate-embeddings** (batched) -- generates vector embeddings for new products
+3. Update `search_vector` trigger fires automatically on insert
+
+---
+
+## Files Modified
 
 | File | Change |
 |---|---|
-| `supabase/functions/gpt-commerce-agent/index.ts` | Update re-ranker prompt to output product IDs; parse and reorder products accordingly |
+| New migration SQL | Add `color_options text[]` column |
+| `supabase/functions/process-csv-products/index.ts` | Add `digikala_general` file type handler with color parsing |
+| `supabase/functions/enrich-products/index.ts` | Add category/subcategory/brand enrichment |
+| `src/data/gptCommerceData.ts` | Add `colorOptions` to Product interface |
+| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Map `color_options` field |
+| `src/components/gpt-commerce/PDPProductComponent.tsx` | Add variant/color selector UI |
+| `supabase/functions/gpt-commerce-agent/index.ts` | Add new subcategories to system prompt |
 
-### Expected Result
+---
 
-After this fix:
-- The text describes Product A, B, C
-- The product cards show Product A, B, C in the same order
-- Product numbering ("محصول شماره ۱") will correctly match the displayed cards
+## Execution Order
+
+1. Run DB migration (add column)
+2. Deploy updated edge functions
+3. Upload CSV via process-csv-products call
+4. Run enrich-products in batches (fills AI data)
+5. Run generate-embeddings in batches
+6. Test search queries for new product categories
 

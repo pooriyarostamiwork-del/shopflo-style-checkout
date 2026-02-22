@@ -204,7 +204,10 @@ export const useAgentMessages = ({
     const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) &&
                         (content.includes('خانه') || content.includes('بفرست') || content.includes('ارسال'));
 
-    if (selectedNumber && lastRecommendedProducts.length >= selectedNumber) {
+    // Intent detection: skip add-to-cart shortcut for compare/inquiry messages
+    const isNonAddIntent = /مقایسه|درباره|توضیح|بررسی|نظر|چطوره|فرق/.test(content);
+
+    if (selectedNumber && lastRecommendedProducts.length >= selectedNumber && !isNonAddIntent) {
       const selectedProduct = lastRecommendedProducts[selectedNumber - 1];
 
       updateCurrentBasket(s => {
@@ -318,6 +321,13 @@ export const useAgentMessages = ({
 
       if (mappedProducts.length > 0) {
         updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
+        // Smart basket naming: rename from default name on first product search
+        setBaskets(prev => prev.map(b => {
+          if (b.id !== activeBasketId) return b;
+          if (!b.title.startsWith('سبد جدید')) return b; // already renamed
+          const smartName = content.length > 20 ? content.slice(0, 20) + '…' : content;
+          return { ...b, title: smartName };
+        }));
       }
 
       const assistantMessage: ChatMessage = {
@@ -398,6 +408,10 @@ export const useAgentMessages = ({
     }
   }, [setBasketStates]);
 
+  const handleMoreResults = useCallback(() => {
+    handleSendMessage('نتایج بیشتر نشون بده');
+  }, [handleSendMessage]);
+
   return {
     handleSendMessage,
     sendMessageToBasket,
@@ -407,5 +421,6 @@ export const useAgentMessages = ({
     handleCompare,
     handleInlineProductDetails,
     handleSaveProduct,
+    handleMoreResults,
   };
 };

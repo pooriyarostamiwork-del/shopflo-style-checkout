@@ -149,6 +149,9 @@ export const useCheckoutFlow = ({
         messages: [...s.messages, moreMessage],
         agenticState: { ...s.agenticState, step: 'idle' },
       }));
+    } else if (reply.type === 'custom' && reply.action === 'more_results') {
+      // Handled externally by handleMoreResults in useAgentMessages
+      return;
     } else if (reply.type === 'track-order') {
       const trackMessage: ChatMessage = {
         id: `track-${Date.now()}`,

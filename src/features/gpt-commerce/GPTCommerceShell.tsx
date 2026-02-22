@@ -108,6 +108,7 @@ export const GPTCommerceShell = () => {
     handleCompare,
     handleInlineProductDetails,
     handleSaveProduct,
+    handleMoreResults,
   } = useAgentMessages({
     updateCurrentBasket,
     setBasketStates,
@@ -123,6 +124,15 @@ export const GPTCommerceShell = () => {
     messages,
     lastRecommendedProducts,
   });
+
+  // Wrap handleQuickReply to intercept more_results
+  const handleQuickReplyWrapped = useCallback((reply: any) => {
+    if (reply.type === 'custom' && reply.action === 'more_results') {
+      handleMoreResults();
+      return;
+    }
+    handleQuickReply(reply);
+  }, [handleQuickReply, handleMoreResults]);
 
   // ── Basket item count sync ──────────────────────────────────────────────
   useEffect(() => {
@@ -264,6 +274,7 @@ export const GPTCommerceShell = () => {
     setPendingNewChat(false);
     setActiveBasketId(basketId);
     setActiveSection('active-cart');
+    setIsCartOpen(true);
     setBasketStates(prev => {
       const bs = prev[basketId];
       if (bs) return {
@@ -287,10 +298,10 @@ export const GPTCommerceShell = () => {
     setActiveSection(section);
     if (section === 'account' || section === 'orders' || section === 'flowclub') {
       setIsCartOpen(false);
-    } else if (section === 'active-cart' && hasStartedChat) {
+    } else if (section === 'active-cart') {
       setIsCartOpen(true);
     }
-  }, [hasStartedChat]);
+  }, []);
 
   const handleRemoveSavedItem = useCallback((basketId: string, itemId: string) => {
     setBaskets(prev => prev.map(b =>
@@ -418,7 +429,7 @@ export const GPTCommerceShell = () => {
           onSignIn={handleSignInClick}
           savedProductIds={savedProductIds}
           onInlineProductDetails={handleInlineProductDetails}
-          onQuickReply={handleQuickReply}
+          onQuickReply={handleQuickReplyWrapped}
           onFinalizePurchase={handleFinalizePurchase}
           onAddressConfirm={handleAddressConfirm}
           onAddressSelect={handleAddressSelect}

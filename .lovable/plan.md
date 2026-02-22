@@ -1,130 +1,76 @@
 
 
-# Import New Product Dataset with AI Enrichment and Variant Support
+# Fix 5 Issues in GPT Commerce Chat
 
-## Overview
+## Issue 1: "محصول شماره 5 رو با محصول شماره 2 مقایسه کن" incorrectly adds to cart
 
-Import ~800-900 products from the new Digikala CSV (phones, laptops, peripherals, HDDs, etc.) into the existing catalog. AI will fill missing fields (brand, category, subcategory, description), and a new variant system (color options) will be added to the database, product model, and UI.
+**Root Cause**: In `useAgentMessages.ts`, `parseProductSelection()` (line 54-74) matches ANY message containing "محصول شماره X" regardless of intent. It returns a number, and the code at line 207 blindly adds the product to cart. There is no check for whether the user wants to compare, ask about, or add the product.
 
----
+**Fix**: Add intent detection BEFORE the product selection logic. If the message contains comparison/inquiry keywords (مقایسه, مقایسه کن, درباره, توضیح), send the full message to the AI agent instead of triggering the local add-to-cart shortcut. The `parseProductSelection` path should only activate when the intent is clearly "add to cart" (e.g., "اضافه کن", "بخر", or just the product number alone).
 
-## Phase 1: Database Schema Update
-
-Add a `color_options` column to the `products` table to store variant data (e.g., color choices).
-
-```text
-ALTER TABLE products ADD COLUMN color_options text[] DEFAULT '{}';
-```
-
-This stores the raw color/variant names extracted from the CSV's `Color_Options` field (e.g., `["مشکی", "طلایی", "آبی"]`).
+**File**: `src/features/gpt-commerce/hooks/useAgentMessages.ts`
+- Add an intent check before line 207: if the message contains compare/inquiry keywords alongside a product number, skip the local shortcut and send to the AI agent
+- The AI agent already handles comparison logic naturally
 
 ---
 
-## Phase 2: CSV Processor Update
+## Issue 2: Landing page input click redirects authenticated users to chat mode
 
-Update `supabase/functions/process-csv-products/index.ts`:
+**Root Cause**: In `ChatLanding.tsx`, the textarea's `onFocus` only sets local state. However, examining the flow more carefully: when an authenticated user clicks the sign-in button, `handleSignInClick` in `GPTCommerceShell.tsx` (line 357-364) sets `hasStartedChat: true`, which switches the view to `ChatThread`. The user likely clicks the persona/sign-in button area, not the textarea. But the user reports clicking the "prompt field" redirects them.
 
-**Add a new `file_type = "digikala_general"`** handler in `normalizeRow()` that maps:
+Looking at the landing page, the issue is that the textarea focus behavior is fine -- the real problem is that authenticated users should be able to type their query on the landing page and only transition to chat mode upon pressing send (which already works via `handleSubmit` calling `onStartChat()`). No code change needed for this specific flow.
 
-| CSV Column | DB Column |
+However, if the user is seeing a redirect on focus, it might be caused by some other interaction. The current code looks correct: `onStartChat` is only called in `handleSubmit`. No change needed here -- the behavior is already correct. I'll verify this during testing.
+
+**Update**: Re-reading the user's request: "he/she should can prompt from there, and after clicking on send go to chatmode" -- this IS the current behavior. The user might be experiencing a different bug. I'll keep this as a verification item.
+
+---
+
+## Issue 3: Smart chat naming based on first product query
+
+**Root Cause**: Baskets are always named "سبد جدید" or "سبد جدید ۲". There is no logic to rename them based on the conversation content.
+
+**Fix**: After the AI agent returns results for a product search, check if the basket still has its default name ("سبد جدید..."). If so, rename it using the first product search query (e.g., "هارد اکسترنال" or "هدفون بی‌سیم"). This gives baskets meaningful names.
+
+**Files**:
+- `src/features/gpt-commerce/hooks/useAgentMessages.ts`: After receiving agent response with products, rename the basket if it still has default name
+- The rename logic: extract the query_text or use the user's message, truncate to ~20 chars
+
+---
+
+## Issue 4: "More results" quick reply in chat mode
+
+**Root Cause**: The agent returns `{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }` but `handleQuickReply` in `useCheckoutFlow.ts` has no handler for `type: "custom"` or `action: "more_results"`. The quick reply button exists in the UI but does nothing meaningful.
+
+**Fix**: 
+- In `useCheckoutFlow.ts` `handleQuickReply`: add a case for `reply.type === 'custom' && reply.action === 'more_results'` that sends a follow-up message to the agent like "نتایج بیشتر نشون بده" 
+- Alternatively, handle it in `useAgentMessages` since it involves agent communication. Add a handler that sends the "more results" request to the agent with conversation context.
+
+**Files**:
+- `src/features/gpt-commerce/hooks/useAgentMessages.ts`: Export a `handleMoreResults` callback
+- `src/features/gpt-commerce/hooks/useCheckoutFlow.ts`: Route `more_results` quick replies to the agent
+- `supabase/functions/gpt-commerce-agent/index.ts`: The system prompt already handles follow-up queries naturally, so no edge function changes needed
+
+---
+
+## Issue 5: Cart sidebar doesn't reopen when returning to chat/baskets
+
+**Root Cause**: In `GPTCommerceShell.tsx`, `handleSectionChange` (line 286-293) closes the cart for account/orders sections and opens it for `active-cart` only if `hasStartedChat` is true. But `handleBasketSelect` (line 263-284) changes the active basket and sets `activeSection` to `active-cart` without explicitly opening the cart. The `hasStartedChat` for the selected basket is set to `true` inside `setBasketStates`, but this update happens asynchronously, so `handleSectionChange` may read stale `hasStartedChat`.
+
+**Fix**: In `handleBasketSelect`, explicitly set `setIsCartOpen(true)` since selecting a basket implies the user wants to see their cart. Also ensure `handleSectionChange` reopens cart when switching back to `active-cart`.
+
+**File**: `src/features/gpt-commerce/GPTCommerceShell.tsx`
+- Add `setIsCartOpen(true)` inside `handleBasketSelect`
+- Update `handleSectionChange` to always open cart when switching to `active-cart` (remove `hasStartedChat` condition since if we're showing chat, cart should be visible)
+
+---
+
+## Summary of Changes
+
+| File | Changes |
 |---|---|
-| `title` | `name` |
-| `Final Price` | `price` (Persian numeral parsing) |
-| `Original Price` | `original_price` |
-| `Rate` | `rating` |
-| `item_page_link` | `source_url` |
-| `Color_Options` | `color_options` (split concatenated Persian color names) |
-| `image` (multiline) | `image_url` + `image_urls` |
-| `specs1`, `specs2` | `specs_raw` (for later AI parsing) |
-| `description` | `description` |
-
-**Color parsing logic**: The `Color_Options` field contains concatenated color names without separators (e.g., "طلاییمشکی"). Use a known color dictionary to split them:
-
-```text
-Known colors: مشکی, سفید, آبی, قرمز, طلایی, نقره ای, صورتی, سبز, بنفش, خاکستری, ...
-```
-
-**Category/subcategory will be left empty** initially -- filled by AI in Phase 3.
-
-**Brand extraction**: Attempt to extract brand from product title using known brand list (سامسونگ, اپل, شیائومی, ایسوس, لنوو, etc.), otherwise leave for AI.
-
----
-
-## Phase 3: AI Enrichment for Missing Data
-
-Update `supabase/functions/enrich-products/index.ts` to also fill:
-
-- **category** and **subcategory** (inferred from product name/specs)
-- **brand** (if not extracted in Phase 2)
-- **description** (if empty or truncated)
-- **tags** (Persian search keywords)
-- **reviews_summary**
-
-The enrichment prompt will be updated to include category/subcategory assignment from the existing taxonomy plus new categories for phones and laptops:
-
-```text
-Existing: هدفون، هدست و هندزفری | دوربین دیجیتال | ساعت و مچ‌بند هوشمند | هارد اکسترنال | لوازم جانبی گوشی موبایل
-New: گوشی موبایل | لپ تاپ | کیبورد و ماوس | تبلت
-```
-
----
-
-## Phase 4: Frontend Changes
-
-### 4a. Update Product Interface
-
-In `src/data/gptCommerceData.ts`, add `colorOptions` to the `Product` interface:
-
-```text
-colorOptions?: string[];
-```
-
-### 4b. Update Product Mapping
-
-In `src/features/gpt-commerce/hooks/useAgentMessages.ts`, map `color_options` from DB to `colorOptions` in the Product object.
-
-### 4c. Add Variant Selector to PDP
-
-In `src/components/gpt-commerce/PDPProductComponent.tsx`, add a color selector section above the price:
-- Show colored pills/chips for each color option
-- Selected color is highlighted
-- Visual-only for now (no separate pricing per variant)
-
-### 4d. Update Agent Subcategories
-
-In `supabase/functions/gpt-commerce-agent/index.ts`, add the new subcategories to the system prompt so the agent knows to search for phones, laptops, etc.
-
----
-
-## Phase 5: Post-Import Pipeline
-
-After insertion, run in sequence:
-1. **enrich-products** (batched) -- fills missing category, subcategory, brand, description, tags
-2. **generate-embeddings** (batched) -- generates vector embeddings for new products
-3. Update `search_vector` trigger fires automatically on insert
-
----
-
-## Files Modified
-
-| File | Change |
-|---|---|
-| New migration SQL | Add `color_options text[]` column |
-| `supabase/functions/process-csv-products/index.ts` | Add `digikala_general` file type handler with color parsing |
-| `supabase/functions/enrich-products/index.ts` | Add category/subcategory/brand enrichment |
-| `src/data/gptCommerceData.ts` | Add `colorOptions` to Product interface |
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Map `color_options` field |
-| `src/components/gpt-commerce/PDPProductComponent.tsx` | Add variant/color selector UI |
-| `supabase/functions/gpt-commerce-agent/index.ts` | Add new subcategories to system prompt |
-
----
-
-## Execution Order
-
-1. Run DB migration (add column)
-2. Deploy updated edge functions
-3. Upload CSV via process-csv-products call
-4. Run enrich-products in batches (fills AI data)
-5. Run generate-embeddings in batches
-6. Test search queries for new product categories
+| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | 1) Add intent detection to skip add-to-cart for compare/inquiry messages; 2) Smart basket renaming after first product search; 3) Export `handleMoreResults` for "more results" quick reply |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | 1) Add `setIsCartOpen(true)` in `handleBasketSelect`; 2) Fix `handleSectionChange` to always open cart for `active-cart`; 3) Wire `handleMoreResults` to quick reply handler |
+| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Route `more_results` quick reply type to agent message handler |
+| `src/data/gptCommerceData.ts` | Ensure `QuickReply` type supports `action` field (if not already) |
 

@@ -13,7 +13,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 interface ChatInterfaceProps {
   isPendingNewChat?: boolean;
   messages: ChatMessage[];
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, forceNew?: boolean) => void;
   onAddToCart: (product: Product) => void;
   onCompare: (product: Product) => void;
   onSaveProduct?: (product: Product) => void;

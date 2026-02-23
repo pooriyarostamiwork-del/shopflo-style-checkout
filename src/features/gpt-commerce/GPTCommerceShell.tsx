@@ -168,8 +168,8 @@ export const GPTCommerceShell = () => {
     setActiveSection('active-cart');
   }, []);
 
-  const handleSendMessageWithPending = useCallback(async (message: string) => {
-    if (pendingNewChat) {
+  const handleSendMessageWithPending = useCallback(async (message: string, forceNew?: boolean) => {
+    if (pendingNewChat || forceNew) {
       // Officially create the basket now that there's a real message
       const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید') && !b.isSaved);
       let newTitle = 'سبد جدید';
@@ -381,7 +381,7 @@ export const GPTCommerceShell = () => {
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {
-      // Authenticated users: do nothing on landing page, they can type and send to enter chat
+      setPendingNewChat(true);
       return;
     }
     setOtpContext('login');

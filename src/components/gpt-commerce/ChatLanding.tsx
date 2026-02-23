@@ -66,7 +66,7 @@ const BentoCard = ({
 };
 
 interface ChatLandingProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, forceNew?: boolean) => void;
   onAddToCart: (product: Product) => void;
   onStartChat: () => void;
   onCheckout: () => void;
@@ -128,16 +128,14 @@ export const ChatLanding = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim() && !isProcessing) {
-      onStartChat();
-      onSendMessage(inputValue.trim());
+      onSendMessage(inputValue.trim(), true);
       setInputValue("");
     }
   };
 
   const handleAskAbout = (productName: string) => {
     const message = `درباره ${productName} بیشتر توضیح بده`;
-    onStartChat();
-    onSendMessage(message);
+    onSendMessage(message, true);
     setQuickViewProduct(null);
   };
 

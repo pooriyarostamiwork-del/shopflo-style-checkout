@@ -76,9 +76,11 @@ export const Sidebar = ({
     }));
   };
 
-  // Separate active and saved baskets
-  const activeBaskets = baskets.filter(b => !b.isSaved);
-  const savedBaskets = baskets.filter(b => b.isSaved);
+  // Separate baskets into zones: active (max 7), recent (overflow max 14), finalized (isSaved)
+  const unsavedBaskets = baskets.filter(b => !b.isSaved);
+  const activeBaskets = unsavedBaskets.slice(0, 7);
+  const recentBaskets = unsavedBaskets.slice(7, 21);
+  const finalizedBaskets = baskets.filter(b => b.isSaved);
 
   const handleDeleteBasket = (basketId: string) => {
     setOpenMenuId(null);
@@ -300,11 +302,31 @@ export const Sidebar = ({
             <ChevronDown className={`w-4 h-4 text-foreground/50 transition-transform duration-200 ${expandedSections['recent-baskets'] ? 'rotate-180' : ''}`} />
           </button>
           
-          {expandedSections['recent-baskets'] && (
+        {expandedSections['recent-baskets'] && (
             <div className="mt-4 space-y-2">
-              <p className="text-xs text-muted-foreground text-center py-5 bg-muted/20 rounded-xl border border-border/30">
-                سبدی اخیری وجود ندارد
-              </p>
+              {recentBaskets.length > 0 ? (
+                recentBaskets.map(basket => (
+                  <div 
+                    key={basket.id} 
+                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border/30 hover:border-border/50 transition-all cursor-pointer"
+                    onClick={() => onBasketSelect?.(basket.id)}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
+                      <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground/80 truncate">{basket.title}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {toPersianNumber(basket.itemCount)} آیتم · {basket.lastActivity}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-5 bg-muted/20 rounded-xl border border-border/30">
+                  سبدی اخیری وجود ندارد
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -319,10 +341,10 @@ export const Sidebar = ({
           >
             <div className="flex items-center gap-2.5">
               <Bookmark className="w-4 h-4 text-foreground/60" />
-              <span className="text-sm font-medium text-foreground/70">ذخیره‌شده‌ها</span>
-              {savedBaskets.length > 0 && (
+              <span className="text-sm font-medium text-foreground/70">سبدهای نهایی شده</span>
+              {finalizedBaskets.length > 0 && (
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                  {toPersianNumber(savedBaskets.length)}
+                  {toPersianNumber(finalizedBaskets.length)}
                 </span>
               )}
             </div>
@@ -331,14 +353,14 @@ export const Sidebar = ({
           
           {expandedSections['saved-baskets'] && (
             <div className="mt-4 space-y-2">
-              {savedBaskets.length > 0 ? (
-                savedBaskets.map(basket => (
+              {finalizedBaskets.length > 0 ? (
+                finalizedBaskets.map(basket => (
                   <div 
                     key={basket.id} 
                     className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border/30 hover:border-border/50 transition-all"
                   >
                     <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
-                      <Bookmark className="w-3.5 h-3.5 text-muted-foreground" />
+                      <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground/80 truncate">{basket.title}</p>
@@ -366,7 +388,7 @@ export const Sidebar = ({
                 ))
               ) : (
                 <p className="text-xs text-muted-foreground text-center py-5 bg-muted/20 rounded-xl border border-border/30">
-                  سبدی ذخیره نشده
+                  سبد نهایی شده‌ای وجود ندارد
                 </p>
               )}
             </div>

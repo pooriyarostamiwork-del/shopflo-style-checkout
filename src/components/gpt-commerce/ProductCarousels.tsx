@@ -342,13 +342,41 @@ const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerC
 };
 
 export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
+  // Fetch hot deals — cross-category products with highest discount %
+  const { data: hotDealsProducts, isLoading: isLoadingDeals } = useQuery({
+    queryKey: ['carousel-hot-deals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('in_stock', true)
+        .not('original_price', 'is', null)
+        .order('original_price', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      
+      // Sort by discount percentage descending, take top 15
+      const withDiscount = (data || [])
+        .filter(r => r.original_price && r.original_price > r.price)
+        .sort((a, b) => {
+          const discA = 1 - a.price / (a.original_price || a.price);
+          const discB = 1 - b.price / (b.original_price || b.price);
+          return discB - discA;
+        })
+        .slice(0, 15);
+      
+      return withDiscount.map(mapDbProduct);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Fetch products grouped by subcategory
   const { data: productsBySubcategory, isLoading } = useQuery({
     queryKey: ['carousel-products'],
     queryFn: async () => {
       const results: Record<string, Product[]> = {};
       
-      // Fetch all subcategories in one query, limited to top-rated products
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -359,7 +387,6 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
       
       if (error) throw error;
       
-      // Group by subcategory
       for (const row of data || []) {
         const sub = row.subcategory || '';
         if (!results[sub]) results[sub] = [];
@@ -375,10 +402,25 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
 
   return (
     <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-8 pb-16">
+      {/* 🔥 Hot Deals — cross-category promotional carousel */}
+      {(isLoadingDeals || (hotDealsProducts && hotDealsProducts.length > 0)) && (
+        <CarouselSection
+          title="داغ‌ترین تخفیف‌ها"
+          icon={<span className="text-sm">🔥</span>}
+          products={hotDealsProducts || []}
+          onAddToCart={onAddToCart}
+          onQuickView={onQuickView}
+          onAskAbout={onAskAbout}
+          cartItems={cartItems}
+          accentColor="linear-gradient(135deg, #ef4444, #f97316)"
+          bannerKey="hotDeals"
+          isLoading={isLoadingDeals}
+        />
+      )}
+
       {subcategoryConfig.map((config, index) => {
         const products = productsBySubcategory?.[config.subcategory] || [];
         
-        // Skip sections with no products (unless loading)
         if (!isLoading && products.length === 0) return null;
 
         return (
@@ -395,7 +437,6 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
               bannerKey={config.bannerKey}
               isLoading={isLoading}
             />
-            {/* Horizontal banner after every other section */}
             {index === 1 && <div className="mt-8"><HorizontalPromoBanner position="afterHotDeals" /></div>}
             {index === 3 && <div className="mt-8"><HorizontalPromoBanner position="afterYouMayLike" /></div>}
           </div>

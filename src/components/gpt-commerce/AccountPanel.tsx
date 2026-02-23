@@ -4,7 +4,7 @@ import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatu
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type AccountTab = 'profile' | 'addresses' | 'orders' | 'saved';
+type AccountTab = 'profile' | 'orders';
 
 interface UserProfileData {
   name: string;
@@ -300,9 +300,7 @@ export const AccountPanel = ({
 
   const tabs: { id: AccountTab; label: string; icon: React.ReactNode }[] = [
     { id: 'profile', label: 'پروفایل', icon: <User className="w-4 h-4" /> },
-    { id: 'addresses', label: 'آدرس‌ها', icon: <MapPin className="w-4 h-4" /> },
     { id: 'orders', label: 'سفارش‌ها', icon: <Package className="w-4 h-4" /> },
-    { id: 'saved', label: 'علاقه‌مندی‌ها', icon: <Heart className="w-4 h-4" /> },
   ];
 
   const handleSaveProfile = async () => {
@@ -446,77 +444,84 @@ export const AccountPanel = ({
                   خروج از حساب
                 </Button>
               )}
-            </div>
-          )}
 
-          {/* ===== ADDRESSES ===== */}
-          {activeTab === 'addresses' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">آدرس‌های ذخیره‌شده</h3>
-                <button onClick={() => setShowAddAddress(true)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors">
-                  <Plus className="w-3.5 h-3.5" />
-                  افزودن آدرس
-                </button>
-              </div>
-              {showAddAddress && (
-                <div className="rounded-2xl p-5 space-y-4" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                  <h4 className="text-sm font-medium text-foreground">آدرس جدید</h4>
-                  <div className="space-y-3">
-                    <Input placeholder="عنوان (مثلاً خانه)" value={newAddress.title} onChange={(e) => setNewAddress(p => ({ ...p, title: e.target.value }))} className="text-sm" dir="rtl" />
-                    <Input placeholder="آدرس کامل" value={newAddress.fullAddress} onChange={(e) => setNewAddress(p => ({ ...p, fullAddress: e.target.value }))} className="text-sm" dir="rtl" />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input placeholder="نام گیرنده" value={newAddress.recipientName} onChange={(e) => setNewAddress(p => ({ ...p, recipientName: e.target.value }))} className="text-sm" dir="rtl" />
-                      <Input placeholder="شماره تماس" value={newAddress.phone} onChange={(e) => setNewAddress(p => ({ ...p, phone: e.target.value }))} className="text-sm" dir="rtl" />
+              {/* ── Addresses Section (merged into profile) ── */}
+              <div className="pt-2">
+                <div
+                  className="h-px w-full mb-6"
+                  style={{ background: 'hsl(0 0% 0% / 0.06)' }}
+                />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">آدرس‌های ذخیره‌شده</h3>
                     </div>
+                    <button onClick={() => setShowAddAddress(true)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors">
+                      <Plus className="w-3.5 h-3.5" />
+                      افزودن آدرس
+                    </button>
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleAddAddress} size="sm" className="flex-1">ذخیره</Button>
-                    <Button onClick={() => setShowAddAddress(false)} variant="outline" size="sm" className="flex-1">انصراف</Button>
-                  </div>
-                </div>
-              )}
-              {addresses.map((addr) => (
-                <div key={addr.id} className="rounded-2xl p-4 space-y-2" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
-                  {deleteWarningId === addr.id ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-amber-600">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="text-sm font-medium">این آدرس در یک سبد فعال استفاده شده است</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">آیا مطمئنید؟</p>
-                      <div className="flex gap-2">
-                        <Button onClick={() => confirmDeleteAddress(addr.id)} variant="destructive" size="sm" className="flex-1">حذف</Button>
-                        <Button onClick={() => setDeleteWarningId(null)} variant="outline" size="sm" className="flex-1">انصراف</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium text-foreground">{addr.title}</span>
-                          {addr.isDefault && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">پیش‌فرض</span>}
+                  {showAddAddress && (
+                    <div className="rounded-2xl p-5 space-y-4" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                      <h4 className="text-sm font-medium text-foreground">آدرس جدید</h4>
+                      <div className="space-y-3">
+                        <Input placeholder="عنوان (مثلاً خانه)" value={newAddress.title} onChange={(e) => setNewAddress(p => ({ ...p, title: e.target.value }))} className="text-sm" dir="rtl" />
+                        <Input placeholder="آدرس کامل" value={newAddress.fullAddress} onChange={(e) => setNewAddress(p => ({ ...p, fullAddress: e.target.value }))} className="text-sm" dir="rtl" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input placeholder="نام گیرنده" value={newAddress.recipientName} onChange={(e) => setNewAddress(p => ({ ...p, recipientName: e.target.value }))} className="text-sm" dir="rtl" />
+                          <Input placeholder="شماره تماس" value={newAddress.phone} onChange={(e) => setNewAddress(p => ({ ...p, phone: e.target.value }))} className="text-sm" dir="rtl" />
                         </div>
-                        <button onClick={() => handleDeleteAddress(addr.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
-                        </button>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{addr.fullAddress}</p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{addr.recipientName}</span>
-                        <span>{addr.phone}</span>
+                      <div className="flex gap-2">
+                        <Button onClick={handleAddAddress} size="sm" className="flex-1">ذخیره</Button>
+                        <Button onClick={() => setShowAddAddress(false)} variant="outline" size="sm" className="flex-1">انصراف</Button>
                       </div>
-                    </>
+                    </div>
+                  )}
+                  {addresses.map((addr) => (
+                    <div key={addr.id} className="rounded-2xl p-4 space-y-2" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
+                      {deleteWarningId === addr.id ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-amber-600">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span className="text-sm font-medium">این آدرس در یک سبد فعال استفاده شده است</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">آیا مطمئنید؟</p>
+                          <div className="flex gap-2">
+                            <Button onClick={() => confirmDeleteAddress(addr.id)} variant="destructive" size="sm" className="flex-1">حذف</Button>
+                            <Button onClick={() => setDeleteWarningId(null)} variant="outline" size="sm" className="flex-1">انصراف</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-primary" />
+                              <span className="text-sm font-medium text-foreground">{addr.title}</span>
+                              {addr.isDefault && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">پیش‌فرض</span>}
+                            </div>
+                            <button onClick={() => handleDeleteAddress(addr.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{addr.fullAddress}</p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>{addr.recipientName}</span>
+                            <span>{addr.phone}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {addresses.length === 0 && (
+                    <div className="text-center py-8">
+                      <MapPin className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                      <p className="text-xs text-muted-foreground">هنوز آدرسی ذخیره نکردی</p>
+                    </div>
                   )}
                 </div>
-              ))}
-              {addresses.length === 0 && (
-                <div className="text-center py-12">
-                  <MapPin className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-                  <p className="text-sm text-muted-foreground">هنوز آدرسی ذخیره نکردی</p>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -617,17 +622,6 @@ export const AccountPanel = ({
             </div>
           )}
 
-          {/* ===== SAVED ITEMS ===== */}
-          {activeTab === 'saved' && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">علاقه‌مندی‌ها</h3>
-              <div className="text-center py-12">
-                <Heart className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">محصولی ذخیره نشده</p>
-                <p className="text-xs text-muted-foreground mt-1">محصولات مورد علاقه‌ات رو از چت ذخیره کن</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

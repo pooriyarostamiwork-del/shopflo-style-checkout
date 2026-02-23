@@ -79,7 +79,7 @@ export const Sidebar = ({
   // Separate baskets into zones: active (max 7), recent (overflow max 14), finalized (isSaved)
   const unsavedBaskets = baskets.filter(b => !b.isSaved);
   const activeBaskets = unsavedBaskets.slice(0, 7);
-  const recentBaskets = unsavedBaskets.slice(7, 21);
+  const recentBaskets = unsavedBaskets.slice(7, 12);
   const finalizedBaskets = baskets.filter(b => b.isSaved);
 
   const handleDeleteBasket = (basketId: string) => {

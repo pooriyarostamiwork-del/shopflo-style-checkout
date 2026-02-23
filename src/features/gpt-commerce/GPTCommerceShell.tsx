@@ -97,6 +97,21 @@ export const GPTCommerceShell = () => {
     setOtpContext,
     setShowCheckout,
     setShowSuccess,
+    onFinalizeBasket: useCallback(() => {
+      // Mark current basket as finalized and create a new one
+      setBaskets(prev => prev.map(b => b.id === activeBasketId ? { ...b, isSaved: true } : b));
+      const newBasket: Basket = {
+        id: crypto.randomUUID(),
+        title: 'سبد جدید',
+        itemCount: 0,
+        lastActivity: 'الان',
+        savedItems: [],
+        isSaved: false,
+      };
+      setBaskets(prev => [newBasket, ...prev]);
+      setActiveBasketId(newBasket.id);
+      setBasketStates(prev => ({ ...prev, [newBasket.id]: createDefaultBasketState() }));
+    }, [activeBasketId, setBaskets, setActiveBasketId, setBasketStates]),
   });
 
   const {

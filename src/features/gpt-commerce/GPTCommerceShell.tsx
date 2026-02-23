@@ -98,7 +98,7 @@ export const GPTCommerceShell = () => {
     setShowCheckout,
     setShowSuccess,
     onFinalizeBasket: useCallback(() => {
-      // Mark current basket as finalized and create a new one
+      // Mark current basket as finalized; create a new one in the background but stay on current
       setBaskets(prev => prev.map(b => b.id === activeBasketId ? { ...b, isSaved: true } : b));
       const newBasket: Basket = {
         id: crypto.randomUUID(),
@@ -109,9 +109,9 @@ export const GPTCommerceShell = () => {
         isSaved: false,
       };
       setBaskets(prev => [newBasket, ...prev]);
-      setActiveBasketId(newBasket.id);
       setBasketStates(prev => ({ ...prev, [newBasket.id]: createDefaultBasketState() }));
-    }, [activeBasketId, setBaskets, setActiveBasketId, setBasketStates]),
+      // Don't switch to new basket — user stays on finalized basket to see success message
+    }, [activeBasketId, setBaskets, setBasketStates]),
   });
 
   const {

@@ -1,59 +1,56 @@
 
-# Three Fixes for GPT Commerce
 
-## Issue 1: Replace Hardcoded Carousel Products with Real Database Products
+# Four Fixes for GPT Commerce
 
-Currently `ProductCarousels.tsx` uses ~270 lines of hardcoded product arrays (`hotDealsProducts`, `youMayLikeProducts`, `mostPopularProducts`). These will be replaced with real products fetched from the database (1,489 products across categories like headphones, wearables, mobiles, laptops, etc.).
+## 1. Authenticated Users Redirected Away from Landing Page
+
+**Root cause:** When `useCartPersistence` loads baskets from DB on authentication, it restores them with `hasStartedChat: true` (because they have messages). `ChatInterface` then renders `ChatThread` instead of `ChatLanding`, so the user never sees the landing/storefront.
+
+**Fix:** On initial page load (hard refresh / navigation to `/gptcommerce`), always start with `hasStartedChat: false` for the active basket. The landing page should be the default entry point. The user enters chat mode only when they explicitly send a message.
 
 ### Changes
-
-**`src/components/gpt-commerce/ProductCarousels.tsx`**
-- Remove all hardcoded product arrays (`hotDealsProducts`, `youMayLikeProducts`, `mostPopularProducts`, `ecommerceImages`)
-- Add a React Query hook (`useQuery`) to fetch products from the `products` table, grouped by subcategory
-- Map database rows to the existing `Product` interface (id, name, price, originalPrice, image, merchant, rating, etc.)
-- Carousel sections will be dynamically generated from the distinct subcategories:
-  - "هدفون، هدست و هندزفری" (Headphones)
-  - "ساعت و مچ‌بند هوشمند" (Wearables)
-  - "گوشی موبایل" (Phones)
-  - "لپ تاپ" (Laptops)
-  - "لوازم جانبی گوشی موبایل" (Accessories)
-  - "هارد اکسترنال" (External HDDs)
-  - "دوربین دیجیتال" (Cameras)
-  - "کیبورد و ماوس" (Keyboard/Mouse)
-- Fetch ~15 products per subcategory (ordered by rating DESC) to populate each carousel
-- Show loading skeletons while data loads
-- Keep the existing `CarouselSection` component, banner system, and `HomepageSettings` integration unchanged
+- **`src/features/gpt-commerce/hooks/useCartPersistence.ts`** (line 81): When restoring baskets from DB, set `hasStartedChat: false` instead of computing it from cart/message length. The baskets are loaded and available in the sidebar, but the user sees the landing page first.
+- Optionally, don't auto-activate a restored basket if it would skip the landing. Keep the active basket as the default empty one, let users click a sidebar basket to resume.
 
 ---
 
-## Issue 2: Landing Page Prompt Should Open a New Basket
+## 2. Broken Favicon Showing Raw Text at Top of Page
 
-Currently when a user types in the ChatLanding prompt and submits, `handleStartChat` sets `hasStartedChat: true` on the **current active basket** (which is the last one). This resumes an old conversation instead of starting fresh.
+**Root cause:** The `<link rel="icon">` tag in `index.html` (line 9) has malformed HTML -- the SVG data URI is broken with HTML entities (`&quot;`, `&lt;`) and has duplicate `type` attributes. The browser renders the broken tag content as visible text.
+
+**Fix:** Replace the broken favicon link with a properly formatted SVG data URI or reference the existing `public/favicon.ico`.
 
 ### Changes
-
-**`src/features/gpt-commerce/GPTCommerceShell.tsx`**
-- Modify the `handleStartChat` callback: instead of just setting `hasStartedChat: true` on the current basket, it should trigger the same "pending new chat" flow used by `handleCreateBasket`
-- Specifically: set `setPendingNewChat(true)` so the next message submission creates a brand new basket via `handleSendMessageWithPending`
-- The ChatLanding's `onStartChat` + `onSendMessage` sequence will now create a new basket with the first message, exactly like clicking "New Basket" in the sidebar
-
-**`src/components/gpt-commerce/ChatLanding.tsx`**
-- No changes needed -- it already calls `onStartChat()` then `onSendMessage(message)` which will work with the updated logic
+- **`index.html`** (line 9): Replace the broken `<link rel="icon" ...>` with a clean reference: `<link rel="icon" href="/favicon.ico" />`
 
 ---
 
-## Issue 3: Finalized Baskets Should Behave Like Other Baskets
+## 3. Finalized Baskets Don't Persist Status to Database
 
-Currently finalized baskets (Zone 3) have a different UI: they show Play/Resume and Delete icon buttons, and the whole row is NOT clickable. They should instead be clickable just like active baskets and recent baskets, with the only visual difference being the emerald-colored icon.
+**Root cause:** When a basket is finalized (`isSaved: true` locally), the DB sync in `useCartPersistence` always upserts with `status: 'active'` (line 162). The `isSaved` flag is never written to the database. On re-login, all baskets load as `status: 'active'` and appear in Zone 1 instead of Zone 3.
+
+**Fix:** Sync the finalized status to the database by setting `status: 'completed'` when `isSaved` is true. On restore, map `status: 'completed'` back to `isSaved: true`.
 
 ### Changes
+- **`src/features/gpt-commerce/hooks/useCartPersistence.ts`**:
+  - Load query (line 44): Fetch ALL baskets (remove `.eq('status', 'active')` filter, or fetch both `active` and `completed`)
+  - Restore logic (line 54): Set `isSaved: true` on baskets with `status: 'completed'`
+  - Sync upsert (line 162): Use `status: basket?.isSaved ? 'completed' : 'active'` instead of hardcoded `'active'`
+  - Also trigger a sync when a basket is finalized (currently the debounce only fires on cart/message changes)
 
-**`src/components/gpt-commerce/Sidebar.tsx`** (lines 357-387)
-- Make the finalized basket row clickable by wrapping it with `onClick={() => onBasketSelect?.(basket.id)}`
-- Add `cursor-pointer` class to the row
-- Remove the Play (resume) and Delete icon buttons from finalized baskets
-- Keep the emerald-colored Bookmark icon as the only visual differentiator
-- The basket will open in read-only conversation mode just like any other basket when clicked
+---
+
+## 4. First Carousel Should Be More Promotional
+
+**Root cause:** All carousels are identical in structure -- just subcategory listings. The user wants the first carousel to feel more like a "Hot Deals" / promotional section rather than another category.
+
+**Fix:** Make the first carousel a cross-category "deals" section showing products with the highest discount percentages, regardless of subcategory. Title it something like "داغ‌ترین تخفیف‌ها" (Hottest Deals) with a fire emoji.
+
+### Changes
+- **`src/components/gpt-commerce/ProductCarousels.tsx`**:
+  - Add a separate query for the first carousel that fetches products WHERE `original_price IS NOT NULL` and `original_price > price`, ordered by discount percentage descending, limited to 15
+  - Render this "Hot Deals" carousel first, before the subcategory carousels
+  - Give it a distinct gradient accent (red/orange) and a fire emoji
 
 ---
 
@@ -61,6 +58,7 @@ Currently finalized baskets (Zone 3) have a different UI: they show Play/Resume 
 
 | File | Change |
 |---|---|
-| `src/components/gpt-commerce/ProductCarousels.tsx` | Replace hardcoded products with database query using React Query |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Change `handleStartChat` to trigger new basket creation flow |
-| `src/components/gpt-commerce/Sidebar.tsx` | Make finalized baskets clickable like other baskets, remove resume/delete buttons |
+| `src/features/gpt-commerce/hooks/useCartPersistence.ts` | Fix landing redirect (always start on landing); persist `isSaved` as `status: 'completed'` in DB |
+| `index.html` | Fix broken favicon link |
+| `src/components/gpt-commerce/ProductCarousels.tsx` | Add cross-category "Hot Deals" carousel as first section |
+

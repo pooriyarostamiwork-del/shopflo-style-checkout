@@ -43,6 +43,7 @@ interface UseCheckoutFlowProps {
   setOtpContext: (ctx: 'checkout' | 'login') => void;
   setShowCheckout: (v: boolean) => void;
   setShowSuccess: (v: boolean) => void;
+  onFinalizeBasket?: () => void;
 }
 
 export const useCheckoutFlow = ({
@@ -62,6 +63,7 @@ export const useCheckoutFlow = ({
   setOtpContext,
   setShowCheckout,
   setShowSuccess,
+  onFinalizeBasket,
 }: UseCheckoutFlowProps) => {
 
   const getMerchantShipping = useCallback((): MerchantShippingGroup[] => {
@@ -378,8 +380,10 @@ export const useCheckoutFlow = ({
         cartItems: [],
         isProcessing: false,
       }));
+      // Auto-finalize basket after successful order
+      onFinalizeBasket?.();
     }, 2000);
-  }, [updateCurrentBasket, isAuthenticated, basketStates, activeBasketId, globalAddresses, setDbOrders]);
+  }, [updateCurrentBasket, isAuthenticated, basketStates, activeBasketId, globalAddresses, setDbOrders, onFinalizeBasket]);
 
   const handleFinalizePurchase = useCallback(() => {
     if (!hasStartedChat) {
@@ -422,7 +426,9 @@ export const useCheckoutFlow = ({
     setShowCheckout(false);
     setShowSuccess(true);
     updateCurrentBasket(s => ({ ...s, cartItems: [] }));
-  }, [updateCurrentBasket, setShowCheckout, setShowSuccess]);
+    // Auto-finalize basket after successful checkout
+    onFinalizeBasket?.();
+  }, [updateCurrentBasket, setShowCheckout, setShowSuccess, onFinalizeBasket]);
 
   const handleSuccessClose = useCallback(() => {
     setShowSuccess(false);

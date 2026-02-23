@@ -5,9 +5,29 @@ import {
   CartItem,
   Product,
   DeliveryAddress,
+  QuickReplyType,
   paymentOptions,
   merchants,
 } from "@/data/gptCommerceData";
+
+// Helper: extract a clean basket name from user query + returned products
+const FILLER_WORDS = /\b(می‌خوام|میخوام|خوب|بهترین|نشون بده|نشان بده|پیدا کن|برام|برای من|لطفا|لطفاً|یه|یک|چند|تا|رو|با|از|که|هم|و|ارزان|گران|ارسال سریع|موجود)\b/g;
+
+const extractSmartName = (userMessage: string, products: Product[]): string => {
+  // Try product subcategory/brand from first product
+  if (products.length > 0) {
+    const p = products[0];
+    // Use the product name's first 2-3 words as a category hint
+    const nameWords = p.name.split(/\s+/).slice(0, 3).join(' ');
+    if (nameWords.length <= 25) return nameWords;
+    return nameWords.slice(0, 25) + '…';
+  }
+  // Fallback: strip filler words from user message
+  const cleaned = userMessage.replace(FILLER_WORDS, '').replace(/\s+/g, ' ').trim();
+  const words = cleaned.split(/\s+/).slice(0, 3).join(' ');
+  if (!words) return userMessage.slice(0, 20);
+  return words.length > 25 ? words.slice(0, 25) + '…' : words;
+};
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 
@@ -325,7 +345,7 @@ export const useAgentMessages = ({
         setBaskets(prev => prev.map(b => {
           if (b.id !== activeBasketId) return b;
           if (!b.title.startsWith('سبد جدید')) return b; // already renamed
-          const smartName = content.length > 20 ? content.slice(0, 20) + '…' : content;
+          const smartName = extractSmartName(content, mappedProducts);
           return { ...b, title: smartName };
         }));
       }
@@ -336,6 +356,9 @@ export const useAgentMessages = ({
         content: responseContent + (mappedProducts.length > 0 ? '\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»' : ''),
         products: mappedProducts.length > 0 ? mappedProducts : undefined,
         productIndexStart: mappedProducts.length > 0 ? 1 : undefined,
+        quickReplies: mappedProducts.length > 0 ? [
+          { id: 'more', label: '🔍 نتایج بیشتر', type: 'custom' as QuickReplyType, action: 'more_results' },
+        ] : undefined,
         timestamp: new Date(),
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
@@ -385,6 +408,13 @@ export const useAgentMessages = ({
 
       if (mappedProducts.length > 0) {
         updateTarget(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
+        // Smart naming for sendMessageToBasket too
+        setBaskets(prev => prev.map(b => {
+          if (b.id !== targetBasketId) return b;
+          if (!b.title.startsWith('سبد جدید')) return b;
+          const smartName = extractSmartName(content, mappedProducts);
+          return { ...b, title: smartName };
+        }));
       }
 
       const assistantMessage: ChatMessage = {
@@ -393,6 +423,9 @@ export const useAgentMessages = ({
         content: responseContent + (mappedProducts.length > 0 ? '\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»' : ''),
         products: mappedProducts.length > 0 ? mappedProducts : undefined,
         productIndexStart: mappedProducts.length > 0 ? 1 : undefined,
+        quickReplies: mappedProducts.length > 0 ? [
+          { id: 'more', label: '🔍 نتایج بیشتر', type: 'custom' as QuickReplyType, action: 'more_results' },
+        ] : undefined,
         timestamp: new Date(),
       };
       updateTarget(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));

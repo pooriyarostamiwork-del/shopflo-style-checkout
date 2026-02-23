@@ -366,13 +366,12 @@ export const GPTCommerceShell = () => {
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {
-      // Enter chat mode directly — don't redirect to account
-      updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
-    } else {
-      setOtpContext('login');
-      setShowOTPModal(true);
+      // Authenticated users: do nothing on landing page, they can type and send to enter chat
+      return;
     }
-  }, [isAuthenticated, updateCurrentBasket]);
+    setOtpContext('login');
+    setShowOTPModal(true);
+  }, [isAuthenticated]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (

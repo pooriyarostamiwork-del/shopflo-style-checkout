@@ -1,37 +1,93 @@
 
 
-# Fix: Payment Finalization Redirects to Landing Page
+# Redesign Root Landing Page (`/`)
 
-## Root Cause
+## Overview
 
-When a user selects a payment method, `handlePaymentSelect` calls `onFinalizeBasket()` after 2 seconds. This callback:
-1. Marks the current basket as `isSaved: true`
-2. Creates a brand new basket with `createDefaultBasketState()` -- which has `hasStartedChat: false`
-3. Sets this new basket as the active one
+Transform the current simple two-button picker into a polished, brand-forward landing page with three sections: hero with brand identity, an embedded pitchdeck viewer (placeholder for now), and two product path cards.
 
-Since `hasStartedChat` is `false` on the new basket, the UI immediately switches from `ChatThread` back to `ChatLanding` (the landing page). The user never sees the success message.
+## Design Direction
 
-## Fix
+The page will use the brand primary color (#696FC7 / lavender-indigo) as the anchor, with a clean white background, subtle gradient accents, and the stroke-based separation aesthetic already established in the project. The layout is vertically stacked, centered, and responsive.
 
-In `GPTCommerceShell.tsx`, the `onFinalizeBasket` callback should NOT immediately switch to the new basket. Instead, it should:
-1. Mark the current basket as finalized (`isSaved: true`)
-2. Create a new basket in the background (add it to the list)
-3. Stay on the current (finalized) basket so the user can see the order success message and quick replies ("Track Order" / "Continue Shopping")
-4. Only switch to the new basket when the user explicitly clicks "Continue Shopping" or selects another basket from the sidebar
+### Layout (top to bottom)
 
-Alternatively, the simpler fix: delay the basket switch, or set `hasStartedChat: true` on the new basket so the user stays in chat mode.
+```text
++--------------------------------------------------+
+|                                                    |
+|              [Flowcart Logo Icon]                  |
+|                  فلوکارت                           |
+|     دستیار خرید هوش مصنوعی و سبد خرید یک کلیکی    |
+|                                                    |
++--------------------------------------------------+
+|                                                    |
+|         +--------------------------------+         |
+|         |                                |         |
+|         |       Pitchdeck Viewer         |         |
+|         |    (PDF / Slide Placeholder)   |         |
+|         |                                |         |
+|         +------[<] [1/N] [>] [expand]----+         |
+|                                                    |
++--------------------------------------------------+
+|                                                    |
+|   +------------------+  +------------------+       |
+|   |   GPT Commerce   |  |    Checkout      |       |
+|   |   AI Shopping    |  |   One-Click      |       |
+|   |   Assistant      |  |   Persian Cart   |       |
+|   |      [->]        |  |      [->]        |       |
+|   +------------------+  +------------------+       |
+|                                                    |
++--------------------------------------------------+
+```
 
-The simplest safe fix: keep the active basket on the finalized one (don't call `setActiveBasketId` in `onFinalizeBasket`). The new basket is created and available in the sidebar, but the user remains viewing the completed order conversation.
+## Technical Implementation
 
-## Technical Changes
+### New Component: `src/pages/Landing.tsx`
 
-**`src/features/gpt-commerce/GPTCommerceShell.tsx`** (lines 100-114)
-- Remove `setActiveBasketId(newBasket.id)` from `onFinalizeBasket`
-- Remove `setBasketStates(prev => ({ ...prev, [newBasket.id]: createDefaultBasketState() }))` being tied to active switch
-- Keep the new basket creation so it appears in sidebar, but don't activate it
-- The user stays on the finalized basket viewing their success message
+Replace the inline `LandingPicker` in `App.tsx` with a dedicated page component.
 
-| File | Change |
+**Hero Section**
+- Centered Zap icon in a primary-gradient rounded container (reuse the pattern from ChatLanding)
+- "فلوکارت" as a large bold title (text-4xl/5xl)
+- Subtitle in muted-foreground
+- Subtle animated floating decorative elements using existing `animate-float-slow`
+
+**Pitchdeck Viewer**
+- A container with 16:9 aspect ratio, max-width ~900px
+- Navigation bar at the bottom: previous/next slide buttons, slide counter (e.g. "1 / 12"), fullscreen toggle
+- Placeholder state: shows a branded slide mockup with "Pitchdeck Coming Soon" message
+- Uses `1px solid border` stroke separation, rounded-2xl corners
+- Fullscreen mode: uses browser Fullscreen API, dark overlay background
+- State: `currentSlide`, `totalSlides`, `isFullscreen`
+- When a real PDF is added later, this can be swapped to render PDF pages via canvas or an iframe
+
+**Product Path Cards**
+- Two side-by-side cards in a flex row (stack on mobile)
+- Each card: icon/emoji, product name (bold), subtitle description, arrow indicator
+- Hover: subtle border color change to primary, slight translateY lift
+- Links to `/gptcommerce` and `/farsi`
+- Cards use stroke separation (1px border), no shadows per design system
+
+**Decorative Elements**
+- Small floating abstract shapes (circles, rounded rectangles) in primary/5 and primary/10 opacity, using `animate-float-slow` with staggered delays
+- A subtle radial gradient behind the hero: `bg-gradient-to-b from-primary/3 via-background to-background`
+
+### Modified: `src/App.tsx`
+
+- Import `Landing` from `src/pages/Landing.tsx`
+- Replace inline `LandingPicker` component with `<Landing />`
+- Remove the old `LandingPicker` function
+
+### New Animations in `src/index.css`
+
+- Add `@keyframes slideUp` for staggered entrance of sections on load
+- Add `.animate-slide-up` utility class
+
+## Files
+
+| File | Action |
 |---|---|
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Remove automatic basket switch in `onFinalizeBasket` -- keep user on current basket after order completion |
+| `src/pages/Landing.tsx` | Create -- new landing page component with hero, pitchdeck viewer, product cards |
+| `src/App.tsx` | Edit -- replace `LandingPicker` with new `Landing` component import |
+| `src/index.css` | Edit -- add slide-up entrance animation keyframes |
 

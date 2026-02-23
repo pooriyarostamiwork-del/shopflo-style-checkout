@@ -1,93 +1,66 @@
 
+# Three Fixes for GPT Commerce
 
-# Redesign Root Landing Page (`/`)
+## Issue 1: Replace Hardcoded Carousel Products with Real Database Products
 
-## Overview
+Currently `ProductCarousels.tsx` uses ~270 lines of hardcoded product arrays (`hotDealsProducts`, `youMayLikeProducts`, `mostPopularProducts`). These will be replaced with real products fetched from the database (1,489 products across categories like headphones, wearables, mobiles, laptops, etc.).
 
-Transform the current simple two-button picker into a polished, brand-forward landing page with three sections: hero with brand identity, an embedded pitchdeck viewer (placeholder for now), and two product path cards.
+### Changes
 
-## Design Direction
+**`src/components/gpt-commerce/ProductCarousels.tsx`**
+- Remove all hardcoded product arrays (`hotDealsProducts`, `youMayLikeProducts`, `mostPopularProducts`, `ecommerceImages`)
+- Add a React Query hook (`useQuery`) to fetch products from the `products` table, grouped by subcategory
+- Map database rows to the existing `Product` interface (id, name, price, originalPrice, image, merchant, rating, etc.)
+- Carousel sections will be dynamically generated from the distinct subcategories:
+  - "هدفون، هدست و هندزفری" (Headphones)
+  - "ساعت و مچ‌بند هوشمند" (Wearables)
+  - "گوشی موبایل" (Phones)
+  - "لپ تاپ" (Laptops)
+  - "لوازم جانبی گوشی موبایل" (Accessories)
+  - "هارد اکسترنال" (External HDDs)
+  - "دوربین دیجیتال" (Cameras)
+  - "کیبورد و ماوس" (Keyboard/Mouse)
+- Fetch ~15 products per subcategory (ordered by rating DESC) to populate each carousel
+- Show loading skeletons while data loads
+- Keep the existing `CarouselSection` component, banner system, and `HomepageSettings` integration unchanged
 
-The page will use the brand primary color (#696FC7 / lavender-indigo) as the anchor, with a clean white background, subtle gradient accents, and the stroke-based separation aesthetic already established in the project. The layout is vertically stacked, centered, and responsive.
+---
 
-### Layout (top to bottom)
+## Issue 2: Landing Page Prompt Should Open a New Basket
 
-```text
-+--------------------------------------------------+
-|                                                    |
-|              [Flowcart Logo Icon]                  |
-|                  فلوکارت                           |
-|     دستیار خرید هوش مصنوعی و سبد خرید یک کلیکی    |
-|                                                    |
-+--------------------------------------------------+
-|                                                    |
-|         +--------------------------------+         |
-|         |                                |         |
-|         |       Pitchdeck Viewer         |         |
-|         |    (PDF / Slide Placeholder)   |         |
-|         |                                |         |
-|         +------[<] [1/N] [>] [expand]----+         |
-|                                                    |
-+--------------------------------------------------+
-|                                                    |
-|   +------------------+  +------------------+       |
-|   |   GPT Commerce   |  |    Checkout      |       |
-|   |   AI Shopping    |  |   One-Click      |       |
-|   |   Assistant      |  |   Persian Cart   |       |
-|   |      [->]        |  |      [->]        |       |
-|   +------------------+  +------------------+       |
-|                                                    |
-+--------------------------------------------------+
-```
+Currently when a user types in the ChatLanding prompt and submits, `handleStartChat` sets `hasStartedChat: true` on the **current active basket** (which is the last one). This resumes an old conversation instead of starting fresh.
 
-## Technical Implementation
+### Changes
 
-### New Component: `src/pages/Landing.tsx`
+**`src/features/gpt-commerce/GPTCommerceShell.tsx`**
+- Modify the `handleStartChat` callback: instead of just setting `hasStartedChat: true` on the current basket, it should trigger the same "pending new chat" flow used by `handleCreateBasket`
+- Specifically: set `setPendingNewChat(true)` so the next message submission creates a brand new basket via `handleSendMessageWithPending`
+- The ChatLanding's `onStartChat` + `onSendMessage` sequence will now create a new basket with the first message, exactly like clicking "New Basket" in the sidebar
 
-Replace the inline `LandingPicker` in `App.tsx` with a dedicated page component.
+**`src/components/gpt-commerce/ChatLanding.tsx`**
+- No changes needed -- it already calls `onStartChat()` then `onSendMessage(message)` which will work with the updated logic
 
-**Hero Section**
-- Centered Zap icon in a primary-gradient rounded container (reuse the pattern from ChatLanding)
-- "فلوکارت" as a large bold title (text-4xl/5xl)
-- Subtitle in muted-foreground
-- Subtle animated floating decorative elements using existing `animate-float-slow`
+---
 
-**Pitchdeck Viewer**
-- A container with 16:9 aspect ratio, max-width ~900px
-- Navigation bar at the bottom: previous/next slide buttons, slide counter (e.g. "1 / 12"), fullscreen toggle
-- Placeholder state: shows a branded slide mockup with "Pitchdeck Coming Soon" message
-- Uses `1px solid border` stroke separation, rounded-2xl corners
-- Fullscreen mode: uses browser Fullscreen API, dark overlay background
-- State: `currentSlide`, `totalSlides`, `isFullscreen`
-- When a real PDF is added later, this can be swapped to render PDF pages via canvas or an iframe
+## Issue 3: Finalized Baskets Should Behave Like Other Baskets
 
-**Product Path Cards**
-- Two side-by-side cards in a flex row (stack on mobile)
-- Each card: icon/emoji, product name (bold), subtitle description, arrow indicator
-- Hover: subtle border color change to primary, slight translateY lift
-- Links to `/gptcommerce` and `/farsi`
-- Cards use stroke separation (1px border), no shadows per design system
+Currently finalized baskets (Zone 3) have a different UI: they show Play/Resume and Delete icon buttons, and the whole row is NOT clickable. They should instead be clickable just like active baskets and recent baskets, with the only visual difference being the emerald-colored icon.
 
-**Decorative Elements**
-- Small floating abstract shapes (circles, rounded rectangles) in primary/5 and primary/10 opacity, using `animate-float-slow` with staggered delays
-- A subtle radial gradient behind the hero: `bg-gradient-to-b from-primary/3 via-background to-background`
+### Changes
 
-### Modified: `src/App.tsx`
+**`src/components/gpt-commerce/Sidebar.tsx`** (lines 357-387)
+- Make the finalized basket row clickable by wrapping it with `onClick={() => onBasketSelect?.(basket.id)}`
+- Add `cursor-pointer` class to the row
+- Remove the Play (resume) and Delete icon buttons from finalized baskets
+- Keep the emerald-colored Bookmark icon as the only visual differentiator
+- The basket will open in read-only conversation mode just like any other basket when clicked
 
-- Import `Landing` from `src/pages/Landing.tsx`
-- Replace inline `LandingPicker` component with `<Landing />`
-- Remove the old `LandingPicker` function
+---
 
-### New Animations in `src/index.css`
+## Files Summary
 
-- Add `@keyframes slideUp` for staggered entrance of sections on load
-- Add `.animate-slide-up` utility class
-
-## Files
-
-| File | Action |
+| File | Change |
 |---|---|
-| `src/pages/Landing.tsx` | Create -- new landing page component with hero, pitchdeck viewer, product cards |
-| `src/App.tsx` | Edit -- replace `LandingPicker` with new `Landing` component import |
-| `src/index.css` | Edit -- add slide-up entrance animation keyframes |
-
+| `src/components/gpt-commerce/ProductCarousels.tsx` | Replace hardcoded products with database query using React Query |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Change `handleStartChat` to trigger new basket creation flow |
+| `src/components/gpt-commerce/Sidebar.tsx` | Make finalized baskets clickable like other baskets, remove resume/delete buttons |

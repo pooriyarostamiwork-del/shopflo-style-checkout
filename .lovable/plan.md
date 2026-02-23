@@ -1,60 +1,37 @@
 
 
-# Three Changes: Auto-Finalize on Order, Recent Max 5, Account Panel Merge
+# Fix: Payment Finalization Redirects to Landing Page
 
-## 1. Auto-finalize basket after successful order
+## Root Cause
 
-After a successful order completes (both in `useCheckoutFlow.ts` conversational flow and `handleCheckoutSuccess` modal flow), automatically mark the basket as `isSaved: true` so it moves to "سبدهای نهایی شده" and a new basket is created for the user.
+When a user selects a payment method, `handlePaymentSelect` calls `onFinalizeBasket()` after 2 seconds. This callback:
+1. Marks the current basket as `isSaved: true`
+2. Creates a brand new basket with `createDefaultBasketState()` -- which has `hasStartedChat: false`
+3. Sets this new basket as the active one
 
-### Changes
+Since `hasStartedChat` is `false` on the new basket, the UI immediately switches from `ChatThread` back to `ChatLanding` (the landing page). The user never sees the success message.
 
-**`src/features/gpt-commerce/hooks/useCheckoutFlow.ts`**
-- In `handlePaymentSelect` (the conversational checkout flow), after the success message is appended and cart is cleared (~line 375), also set `isSaved: true` on the basket via `updateCurrentBasket`.
-- In `handleCheckoutSuccess` (~line 421), after clearing the cart, mark the current basket as saved. This requires calling a new callback or directly updating baskets.
+## Fix
 
-**`src/features/gpt-commerce/GPTCommerceShell.tsx`**
-- Update `handleCheckoutSuccess` or add post-order logic: after the checkout flow marks `agenticState.step === 'order-complete'`, set `isSaved: true` on the active basket in the `baskets` array and create a new active basket for the user (reuse logic from `handleSaveBasket`).
-- Add an `useEffect` that watches for `order-complete` step and auto-finalizes the basket, OR inject the finalization directly into the checkout flow callbacks.
+In `GPTCommerceShell.tsx`, the `onFinalizeBasket` callback should NOT immediately switch to the new basket. Instead, it should:
+1. Mark the current basket as finalized (`isSaved: true`)
+2. Create a new basket in the background (add it to the list)
+3. Stay on the current (finalized) basket so the user can see the order success message and quick replies ("Track Order" / "Continue Shopping")
+4. Only switch to the new basket when the user explicitly clicks "Continue Shopping" or selects another basket from the sidebar
 
-The simplest approach: In `useCheckoutFlow.ts`, the `handlePaymentSelect` setTimeout callback already clears the cart. Add basket finalization there by accepting a new `onFinalizeBasket` callback prop. In `GPTCommerceShell.tsx`, pass a `onFinalizeBasket` that sets `isSaved: true` on the active basket and creates a new one.
+Alternatively, the simpler fix: delay the basket switch, or set `hasStartedChat: true` on the new basket so the user stays in chat mode.
 
----
+The simplest safe fix: keep the active basket on the finalized one (don't call `setActiveBasketId` in `onFinalizeBasket`). The new basket is created and available in the sidebar, but the user remains viewing the completed order conversation.
 
-## 2. Update recent baskets max from 14 to 5
+## Technical Changes
 
-**`src/components/gpt-commerce/Sidebar.tsx`**
-- Change line 82 from `unsavedBaskets.slice(7, 21)` to `unsavedBaskets.slice(7, 12)` (7 active + 5 recent = 12 total max visible unsaved baskets).
-
----
-
-## 3. Merge Profile + Addresses, Remove Favorites tab
-
-**`src/components/gpt-commerce/AccountPanel.tsx`**
-
-Remove the `saved` tab entirely and merge `profile` and `addresses` into a single unified tab.
-
-- Remove `'saved'` from the `AccountTab` type (line 7): change to `type AccountTab = 'profile' | 'orders';`
-- Remove the `addresses` and `saved` entries from the `tabs` array (line 301-306). Keep only `profile` and `orders`.
-- Rename `profile` tab label to something like "پروفایل و آدرس‌ها" or keep it as "پروفایل" since it will now contain both.
-- Move the addresses section content (lines 452-521) into the profile tab content, below the profile card and sign-out button. Add a visual separator (heading or divider) between the profile info and addresses list.
-- Delete the `saved` tab content (lines 620-630).
-
-The unified profile tab will look like:
-1. Profile card (avatar, name, phone, email, edit)
-2. Sign out button
-3. Divider / section heading "آدرس‌های ذخیره‌شده"
-4. Add address button + address cards list
-
-This creates a clean two-tab layout: "پروفایل" (profile + addresses) and "سفارش‌ها" (orders).
-
----
-
-## Files Modified
+**`src/features/gpt-commerce/GPTCommerceShell.tsx`** (lines 100-114)
+- Remove `setActiveBasketId(newBasket.id)` from `onFinalizeBasket`
+- Remove `setBasketStates(prev => ({ ...prev, [newBasket.id]: createDefaultBasketState() }))` being tied to active switch
+- Keep the new basket creation so it appears in sidebar, but don't activate it
+- The user stays on the finalized basket viewing their success message
 
 | File | Change |
 |---|---|
-| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Add `onFinalizeBasket` callback prop; call it after order-complete in both `handlePaymentSelect` and `handleCheckoutSuccess` |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Pass `onFinalizeBasket` to checkout flow that marks basket `isSaved: true` and creates new basket |
-| `src/components/gpt-commerce/Sidebar.tsx` | Change recent baskets slice from `(7, 21)` to `(7, 12)` |
-| `src/components/gpt-commerce/AccountPanel.tsx` | Remove `saved` tab, merge addresses into profile tab as unified section, reduce to 2-tab layout |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Remove automatic basket switch in `onFinalizeBasket` -- keep user on current basket after order completion |
 

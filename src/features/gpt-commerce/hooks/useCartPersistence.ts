@@ -40,7 +40,7 @@ export const useCartPersistence = ({
         const { data, error } = await supabase
           .from('baskets')
           .select('*')
-          .eq('status', 'active')
+          .in('status', ['active', 'completed'])
           .order('last_activity', { ascending: false });
 
         if (error) {
@@ -57,6 +57,7 @@ export const useCartPersistence = ({
           itemCount: Array.isArray(b.cart_items) ? (b.cart_items as unknown as CartItem[]).length : 0,
           lastActivity: 'قبلاً',
           savedItems: [],
+          isSaved: b.status === 'completed',
         }));
 
         const dbBasketStates: Record<string, BasketState> = {};
@@ -78,7 +79,7 @@ export const useCartPersistence = ({
             selectedAddressId: null,
             selectedShippingByMerchant: {},
             agenticState: { ...defaultState.agenticState, step: 'idle' },
-            hasStartedChat: cartItems.length > 0 || messages.length > 1,
+            hasStartedChat: false,
           };
         });
 
@@ -158,7 +159,7 @@ export const useCartPersistence = ({
           selected_address_id: currentState.selectedAddressId || null,
           shipping_selections: currentState.selectedShippingByMerchant as any,
           last_activity: new Date().toISOString(),
-          status: 'active',
+          status: basket?.isSaved ? 'completed' : 'active',
         }, { onConflict: 'id' });
       } catch (err) {
         console.error('Error syncing basket to DB:', err);

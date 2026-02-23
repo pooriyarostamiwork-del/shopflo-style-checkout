@@ -357,7 +357,8 @@ export const Sidebar = ({
                 finalizedBaskets.map(basket => (
                   <div 
                     key={basket.id} 
-                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border/30 hover:border-border/50 transition-all"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border/30 hover:border-border/50 transition-all cursor-pointer"
+                    onClick={() => onBasketSelect?.(basket.id)}
                   >
                     <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
                       <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
@@ -367,22 +368,6 @@ export const Sidebar = ({
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         {toPersianNumber(basket.itemCount)} آیتم
                       </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => onResumeBasket?.(basket.id)}
-                        className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors"
-                        title="از سرگیری"
-                      >
-                        <Play className="w-3.5 h-3.5 text-primary" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteBasket(basket.id)}
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
-                        title="حذف"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
-                      </button>
                     </div>
                   </div>
                 ))

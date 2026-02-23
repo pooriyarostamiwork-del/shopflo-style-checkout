@@ -376,8 +376,8 @@ export const GPTCommerceShell = () => {
   const showAccountPanel = activeSection === 'account' || activeSection === 'orders';
 
   const handleStartChat = useCallback(() => {
-    updateCurrentBasket(s => ({ ...s, hasStartedChat: true }));
-  }, [updateCurrentBasket]);
+    setPendingNewChat(true);
+  }, []);
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {

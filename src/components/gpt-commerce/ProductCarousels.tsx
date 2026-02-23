@@ -1,7 +1,10 @@
-import { ChevronLeft, ChevronRight, Plus, Info, Flame, Heart, TrendingUp, Grid2X2, Gift, Coffee, Gamepad2, Baby, Dumbbell } from "lucide-react";
-import { Product, mockProducts, toPersianNumber, formatPersianPrice, skincareProducts, coffeeProducts, gamingProducts, babyProducts, fitnessProducts } from "@/data/gptCommerceData";
+import { ChevronLeft, ChevronRight, Plus, Info, Grid2X2 } from "lucide-react";
+import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/data/gptCommerceData";
 import { useRef, useState } from "react";
 import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from "@/contexts/HomepageSettingsContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductCarouselsProps {
   onAddToCart: (product: Product) => void;
@@ -10,277 +13,46 @@ interface ProductCarouselsProps {
   cartItems: Product[];
 }
 
-// Product images with white/solid backgrounds (ecommerce style)
-const ecommerceImages = {
-  headphones: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop&bg=white",
-  airpods: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=400&h=400&fit=crop&bg=white",
-  watch: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop&bg=white",
-  powerbank: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=400&fit=crop&bg=white",
-  keyboard: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=400&h=400&fit=crop&bg=white",
-  mouse: "https://images.unsplash.com/photo-1527814050087-3793815479db?w=400&h=400&fit=crop&bg=white",
-  phone: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&bg=white",
-  laptop: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&bg=white",
+// Subcategory config for carousel sections
+const subcategoryConfig: {
+  subcategory: string;
+  title: string;
+  emoji: string;
+  accentColor: string;
+  bannerKey: keyof BannerConfigs;
+}[] = [
+  { subcategory: 'هدفون، هدست و هندزفری', title: 'هدفون و هندزفری', emoji: '🎧', accentColor: 'linear-gradient(135deg, #ef4444, #f97316)', bannerKey: 'hotDeals' },
+  { subcategory: 'ساعت و مچ‌بند هوشمند', title: 'ساعت هوشمند', emoji: '⌚', accentColor: 'linear-gradient(135deg, #ec4899, #f472b6)', bannerKey: 'youMayLike' },
+  { subcategory: 'گوشی موبایل', title: 'گوشی موبایل', emoji: '📱', accentColor: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))', bannerKey: 'mostPopular' },
+  { subcategory: 'لپ تاپ', title: 'لپ‌تاپ', emoji: '💻', accentColor: 'linear-gradient(135deg, #6366f1, #818cf8)', bannerKey: 'hotDeals' },
+  { subcategory: 'لوازم جانبی گوشی موبایل', title: 'لوازم جانبی موبایل', emoji: '🔌', accentColor: 'linear-gradient(135deg, #14b8a6, #2dd4bf)', bannerKey: 'youMayLike' },
+  { subcategory: 'هارد اکسترنال', title: 'هارد اکسترنال', emoji: '💾', accentColor: 'linear-gradient(135deg, #92400e, #b45309)', bannerKey: 'mostPopular' },
+  { subcategory: 'دوربین دیجیتال', title: 'دوربین دیجیتال', emoji: '📷', accentColor: 'linear-gradient(135deg, #a855f7, #d946ef)', bannerKey: 'hotDeals' },
+  { subcategory: 'کیبورد و ماوس', title: 'کیبورد و ماوس', emoji: '⌨️', accentColor: 'linear-gradient(135deg, #16a34a, #22c55e)', bannerKey: 'youMayLike' },
+];
+
+const merchantMap: Record<string, typeof merchants[0]> = {
+  m1: merchants[0],
+  m2: merchants[1],
+  m3: merchants[2] || { id: 'm3', name: 'تکنولایف', logo: '💻' },
 };
 
-// Extended products for carousels with white background images
-const hotDealsProducts: Product[] = [
-  {
-    id: 'hd1',
-    name: 'هدفون سونی WH-1000XM5',
-    price: 8500000,
-    originalPrice: 12000000,
-    image: ecommerceImages.headphones,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.8,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'hd2',
-    name: 'ایرپاد پرو ۲',
-    price: 9200000,
-    originalPrice: 11000000,
-    image: ecommerceImages.airpods,
-    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
-    rating: 4.9,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'hd3',
-    name: 'ساعت هوشمند شیائومی',
-    price: 2800000,
-    originalPrice: 3500000,
-    image: ecommerceImages.watch,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.4,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'hd4',
-    name: 'پاوربانک انکر ۲۰۰۰۰',
-    price: 1200000,
-    originalPrice: 1600000,
-    image: ecommerceImages.powerbank,
-    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
-    rating: 4.6,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'hd5',
-    name: 'اسپیکر بلوتوث JBL',
-    price: 3500000,
-    originalPrice: 4200000,
-    image: ecommerceImages.headphones,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.5,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'hd6',
-    name: 'شارژر وایرلس سامسونگ',
-    price: 980000,
-    originalPrice: 1500000,
-    image: ecommerceImages.powerbank,
-    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
-    rating: 4.3,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'hd7',
-    name: 'کیس ایرپاد پرو',
-    price: 450000,
-    originalPrice: 650000,
-    image: ecommerceImages.airpods,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.7,
-    fastDelivery: false,
-    returnGuarantee: true,
-    inStock: true,
-  },
-];
-
-const youMayLikeProducts: Product[] = [
-  {
-    id: 'yl1',
-    name: 'کیبورد مکانیکی لاجیتک',
-    price: 4200000,
-    image: ecommerceImages.keyboard,
-    merchant: { id: 'm3', name: 'تکنولایف', logo: '💻' },
-    rating: 4.5,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'yl2',
-    name: 'ماوس گیمینگ ریزر',
-    price: 1900000,
-    image: ecommerceImages.mouse,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.7,
-    fastDelivery: false,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'yl3',
-    name: 'هدفون بیتس Solo Pro',
-    price: 7500000,
-    image: ecommerceImages.headphones,
-    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
-    rating: 4.6,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'yl4',
-    name: 'ساعت اپل واچ سری ۹',
-    price: 18500000,
-    image: ecommerceImages.watch,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.9,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'yl5',
-    name: 'وب‌کم لاجیتک C920',
-    price: 2800000,
-    image: ecommerceImages.laptop,
-    merchant: { id: 'm3', name: 'تکنولایف', logo: '💻' },
-    rating: 4.6,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'yl6',
-    name: 'هاب USB-C انکر',
-    price: 1200000,
-    image: ecommerceImages.powerbank,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.4,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'yl7',
-    name: 'پد ماوس گیمینگ',
-    price: 350000,
-    image: ecommerceImages.mouse,
-    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
-    rating: 4.2,
-    fastDelivery: false,
-    returnGuarantee: true,
-    inStock: true,
-  },
-];
-
-const mostPopularProducts: Product[] = [
-  {
-    id: 'mp1',
-    name: 'گوشی سامسونگ S24',
-    price: 45000000,
-    image: ecommerceImages.phone,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.9,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'mp2',
-    name: 'لپ‌تاپ مک‌بوک ایر',
-    price: 65000000,
-    image: ecommerceImages.laptop,
-    merchant: { id: 'm3', name: 'تکنولایف', logo: '💻' },
-    rating: 4.8,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'mp3',
-    name: 'آیفون ۱۵ پرو مکس',
-    price: 75000000,
-    image: ecommerceImages.phone,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.9,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'mp4',
-    name: 'ایرپاد مکس',
-    price: 24000000,
-    image: ecommerceImages.headphones,
-    merchant: { id: 'm2', name: 'اسنپ‌مارکت', logo: '🟢' },
-    rating: 4.7,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'mp5',
-    name: 'تبلت آیپد پرو',
-    price: 52000000,
-    image: ecommerceImages.laptop,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.8,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'mp6',
-    name: 'گوشی پیکسل ۸ پرو',
-    price: 38000000,
-    image: ecommerceImages.phone,
-    merchant: { id: 'm3', name: 'تکنولایف', logo: '💻' },
-    rating: 4.6,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-  {
-    id: 'mp7',
-    name: 'لپ‌تاپ ایسوس ROG',
-    price: 85000000,
-    image: ecommerceImages.laptop,
-    merchant: { id: 'm1', name: 'دیجی‌کالا', logo: '🛒' },
-    rating: 4.9,
-    fastDelivery: true,
-    returnGuarantee: true,
-    inStock: true,
-  },
-];
-
-// Category filters for each carousel
-const carouselCategories = {
-  hotDeals: ['همه', 'هدفون', 'ساعت هوشمند', 'لوازم جانبی'],
-  youMayLike: ['همه', 'کیبورد', 'ماوس', 'هدفون', 'ساعت'],
-  popular: ['همه', 'موبایل', 'لپ‌تاپ', 'هدفون'],
-  skincare: ['همه', 'کرم', 'سرم', 'ماسک', 'ست هدیه'],
-  coffee: ['همه', 'دستگاه', 'دانه قهوه', 'لوازم'],
-  gaming: ['همه', 'مانیتور', 'کیبورد', 'موس', 'هدست'],
-  baby: ['همه', 'صندلی', 'ظرف', 'لوازم غذاخوری'],
-  fitness: ['همه', 'دمبل', 'یوگا', 'ساعت', 'مکمل'],
-};
+function mapDbProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    originalPrice: row.original_price || undefined,
+    image: row.image_url,
+    imageUrls: row.image_urls || undefined,
+    description: row.description || undefined,
+    merchant: merchantMap[row.merchant_id] || merchants[0],
+    rating: Number(row.rating) || 4.0,
+    fastDelivery: row.fast_delivery,
+    returnGuarantee: row.return_guarantee,
+    inStock: row.in_stock,
+  };
+}
 
 interface CarouselSectionProps {
   title: string;
@@ -291,8 +63,8 @@ interface CarouselSectionProps {
   onAskAbout: (productName: string) => void;
   cartItems: Product[];
   accentColor: string;
-  categories: string[];
   bannerKey: keyof BannerConfigs;
+  isLoading?: boolean;
 }
 
 const CarouselSection = ({ 
@@ -304,8 +76,8 @@ const CarouselSection = ({
   onAskAbout,
   cartItems, 
   accentColor,
-  categories,
-  bannerKey
+  bannerKey,
+  isLoading,
 }: CarouselSectionProps) => {
   const { getProductImage, getBanner, getCarouselName, getProductName } = useHomepageSettings();
   const banner = getBanner(bannerKey);
@@ -313,7 +85,6 @@ const CarouselSection = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('همه');
 
   const updateScrollState = () => {
     if (scrollRef.current) {
@@ -325,7 +96,6 @@ const CarouselSection = ({
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      // Scroll by card width + gap
       const cardWidth = 220;
       const gap = 16;
       const scrollAmount = cardWidth + gap;
@@ -337,14 +107,9 @@ const CarouselSection = ({
     }
   };
 
-  // Filter products based on active filter (mock filtering)
-  const filteredProducts = activeFilter === 'همه' 
-    ? products 
-    : products.filter(p => p.name.includes(activeFilter) || activeFilter === 'لوازم جانبی');
-
   return (
     <div className="relative">
-      {/* Header with Title and Category Filters */}
+      {/* Header with Title */}
       <div className="flex flex-wrap items-center gap-3 mb-4 px-1">
         <div className="flex items-center gap-2">
           <div 
@@ -355,33 +120,7 @@ const CarouselSection = ({
           </div>
           <h3 className="font-semibold text-foreground whitespace-nowrap">{displayTitle}</h3>
         </div>
-        
-        {/* Category Filter Chips */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveFilter(category)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                activeFilter === category
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              style={{
-                background: activeFilter === category 
-                  ? 'hsl(var(--primary) / 0.1)' 
-                  : 'transparent',
-                border: activeFilter === category 
-                  ? '1px solid hsl(var(--primary) / 0.2)' 
-                  : '1px solid hsl(0 0% 0% / 0.06)',
-              }}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
         
         {/* Navigation Arrows */}
@@ -413,7 +152,7 @@ const CarouselSection = ({
 
       {/* Products Grid with Promo Banner */}
       <div className="flex gap-4">
-        {/* Promotional Banner - Fixed on left (appears first in RTL) - matches card height */}
+        {/* Promotional Banner */}
         <div 
           className="hidden lg:flex flex-shrink-0 w-[140px] h-[420px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
@@ -423,30 +162,18 @@ const CarouselSection = ({
           }}
           onClick={() => console.log('Promo clicked')}
         >
-          {/* Overlay for text readability when image is set */}
           {banner.imageUrl && banner.showText && (
             <div className="absolute inset-0 bg-black/30" />
           )}
-          
-          {/* Text Content - only show if showText is true */}
           {banner.showText && (
             <div className="relative z-10 space-y-2">
-              <p 
-                className="text-xs font-medium mb-1"
-                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--foreground))' }}
-              >
+              <p className="text-xs font-medium mb-1" style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--foreground))' }}>
                 {banner.title}
               </p>
-              <div 
-                className="text-2xl font-bold"
-                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--primary))' }}
-              >
+              <div className="text-2xl font-bold" style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--primary))' }}>
                 {banner.subtitle}
               </div>
-              <span 
-                className="text-xs underline"
-                style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--muted-foreground))' }}
-              >
+              <span className="text-xs underline" style={{ color: banner.imageUrl ? 'white' : 'hsl(var(--muted-foreground))' }}>
                 {banner.ctaText}
               </span>
             </div>
@@ -457,172 +184,131 @@ const CarouselSection = ({
           ref={scrollRef}
           onScroll={updateScrollState}
           className="flex-1 grid grid-flow-col auto-cols-[220px] gap-4 overflow-x-auto scrollbar-hide pb-2"
-          style={{ 
-            scrollbarWidth: 'none', 
-            msOverflowStyle: 'none',
-            scrollSnapType: 'x mandatory',
-          }}
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', scrollSnapType: 'x mandatory' }}
         >
-          {filteredProducts.map((product) => {
-            const isInCart = cartItems.some(item => item.id === product.id);
-            const discountPercent = product.originalPrice 
-              ? Math.round((1 - product.price / product.originalPrice) * 100)
-              : 0;
-
-            return (
-              <div
-                key={product.id}
-                className="flex-shrink-0 w-[220px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
-                style={{
-                  background: 'hsl(0 0% 100%)',
-                  border: '1px solid hsl(0 0% 0% / 0.08)',
-                  scrollSnapAlign: 'start',
-                }}
-                onClick={() => onQuickView(product)}
-              >
-                {/* Image with white background - fixed square aspect ratio (no vertical crop) */}
-                <div
-                  className="relative w-full flex-shrink-0 aspect-square"
-                  style={{ background: 'hsl(0 0% 98%)' }}
-                >
-                  <img
-                    src={getProductImage(product.id, product.image)}
-                    alt={getProductName(product.id, product.name)}
-                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                  />
-                  {discountPercent > 0 && (
-                    <div 
-                      className="absolute top-3 right-3 px-2 py-1 rounded-lg text-xs font-bold text-white"
-                      style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
-                    >
-                      {toPersianNumber(discountPercent)}٪
-                    </div>
-                  )}
-                  {product.fastDelivery && (
-                    <div 
-                      className="absolute top-3 left-3 px-2 py-1 rounded-lg text-xs text-white"
-                      style={{ background: 'hsl(142 70% 45% / 0.9)' }}
-                    >
-                      ارسال سریع
-                    </div>
-                  )}
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex-shrink-0 w-[220px] h-[420px] rounded-xl overflow-hidden" style={{ border: '1px solid hsl(0 0% 0% / 0.08)' }}>
+                <Skeleton className="w-full aspect-square" />
+                <div className="p-3 space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-4 w-2/3" />
                 </div>
+              </div>
+            ))
+          ) : (
+            <>
+              {products.map((product) => {
+                const isInCart = cartItems.some(item => item.id === product.id);
+                const discountPercent = product.originalPrice 
+                  ? Math.round((1 - product.price / product.originalPrice) * 100)
+                  : 0;
 
-                {/* Divider between image and content */}
-                <div className="w-full h-px flex-shrink-0" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
-
-                {/* Content - flexible middle section */}
-                <div className="p-3 flex-1 flex flex-col min-h-0">
-                  <h4 className="text-sm font-medium text-foreground line-clamp-3 leading-relaxed flex-shrink-0" style={{ minHeight: '3.75rem' }}>
-                    {getProductName(product.id, product.name)}
-                  </h4>
-                  
-                  {/* Rating */}
-                  <div className="flex items-center gap-1 flex-shrink-0 mt-2">
-                    <span className="text-yellow-500 text-xs">⭐</span>
-                    <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-                    <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-center gap-2 flex-shrink-0 mt-2">
-                    <span className="text-sm font-bold text-foreground">
-                      {formatPersianPrice(product.price)}
-                    </span>
-                    {product.originalPrice && (
-                      <span className="text-xs text-muted-foreground line-through">
-                        {formatPersianPrice(product.originalPrice)}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Spacer to push buttons to bottom */}
-                  <div className="flex-1" />
-                </div>
-
-                {/* Action Buttons - Fixed height section at bottom */}
-                <div 
-                  className="flex items-center gap-2 px-3 py-3 flex-shrink-0 border-t" 
-                  style={{ borderColor: 'hsl(0 0% 0% / 0.04)', height: '56px' }}
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddToCart(product);
-                    }}
-                    disabled={isInCart}
-                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0"
-                    style={{
-                      background: isInCart 
-                        ? 'hsl(142 70% 45%)' 
-                        : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                    }}
-                    title="افزودن سریع"
-                  >
-                    <Plus className="w-4 h-4 text-white" />
-                  </button>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onQuickView(product);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
+                return (
+                  <div
+                    key={product.id}
+                    className="flex-shrink-0 w-[220px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
                     style={{
                       background: 'hsl(0 0% 100%)',
                       border: '1px solid hsl(0 0% 0% / 0.08)',
+                      scrollSnapAlign: 'start',
                     }}
-                    title={`جزئیات ${product.name}`}
+                    onClick={() => onQuickView(product)}
                   >
-                    <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">جزئیات</span>
-                  </button>
+                    <div className="relative w-full flex-shrink-0 aspect-square" style={{ background: 'hsl(0 0% 98%)' }}>
+                      <img
+                        src={getProductImage(product.id, product.image)}
+                        alt={getProductName(product.id, product.name)}
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      />
+                      {discountPercent > 0 && (
+                        <div className="absolute top-3 right-3 px-2 py-1 rounded-lg text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+                          {toPersianNumber(discountPercent)}٪
+                        </div>
+                      )}
+                      {product.fastDelivery && (
+                        <div className="absolute top-3 left-3 px-2 py-1 rounded-lg text-xs text-white" style={{ background: 'hsl(142 70% 45% / 0.9)' }}>
+                          ارسال سریع
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-full h-px flex-shrink-0" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />
+
+                    <div className="p-3 flex-1 flex flex-col min-h-0">
+                      <h4 className="text-sm font-medium text-foreground line-clamp-3 leading-relaxed flex-shrink-0" style={{ minHeight: '3.75rem' }}>
+                        {getProductName(product.id, product.name)}
+                      </h4>
+                      <div className="flex items-center gap-1 flex-shrink-0 mt-2">
+                        <span className="text-yellow-500 text-xs">⭐</span>
+                        <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
+                        <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 mt-2">
+                        <span className="text-sm font-bold text-foreground">{formatPersianPrice(product.price)}</span>
+                        {product.originalPrice && (
+                          <span className="text-xs text-muted-foreground line-through">{formatPersianPrice(product.originalPrice)}</span>
+                        )}
+                      </div>
+                      <div className="flex-1" />
+                    </div>
+
+                    <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)', height: '56px' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
+                        disabled={isInCart}
+                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0"
+                        style={{
+                          background: isInCart 
+                            ? 'hsl(142 70% 45%)' 
+                            : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
+                        }}
+                        title="افزودن سریع"
+                      >
+                        <Plus className="w-4 h-4 text-white" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onQuickView(product); }}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
+                        style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
+                        title={`جزئیات ${product.name}`}
+                      >
+                        <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">جزئیات</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Terminal Card - View All */}
+              <div
+                className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
+                style={{
+                  background: 'hsl(0 0% 98%)',
+                  border: '1px solid hsl(0 0% 0% / 0.08)',
+                  scrollSnapAlign: 'start',
+                  minWidth: 'calc(25% - 12px)',
+                }}
+                onClick={() => console.log('View all clicked')}
+              >
+                <div className="relative aspect-square overflow-hidden flex items-center justify-center" style={{ background: 'hsl(0 0% 96%)' }}>
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ backdropFilter: 'blur(8px)', background: 'hsl(0 0% 100% / 0.7)' }}>
+                    <Grid2X2 className="w-12 h-12 text-primary/40 group-hover:text-primary/60 transition-colors duration-200" />
+                  </div>
+                </div>
+                <div className="p-4 flex flex-col items-center justify-center min-h-[120px] text-center">
+                  <p className="text-sm font-medium text-foreground leading-relaxed">مشاهده</p>
+                  <p className="text-sm font-medium text-foreground leading-relaxed">همه</p>
+                  <p className="text-sm font-medium text-foreground leading-relaxed">محصولات</p>
+                  <ChevronLeft className="w-5 h-5 text-primary mt-2 group-hover:translate-x-[-4px] transition-transform duration-200" />
                 </div>
               </div>
-            );
-          })}
-          
-          {/* Terminal Card - View All */}
-          <div
-            className="flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20"
-            style={{
-              background: 'hsl(0 0% 98%)',
-              border: '1px solid hsl(0 0% 0% / 0.08)',
-              scrollSnapAlign: 'start',
-              minWidth: 'calc(25% - 12px)',
-            }}
-            onClick={() => console.log('View all clicked')}
-          >
-            <div 
-              className="relative aspect-square overflow-hidden flex items-center justify-center"
-              style={{ background: 'hsl(0 0% 96%)' }}
-            >
-              {/* Blurred background effect */}
-              <div 
-                className="absolute inset-0 flex items-center justify-center"
-                style={{
-                  backdropFilter: 'blur(8px)',
-                  background: 'hsl(0 0% 100% / 0.7)',
-                }}
-              >
-                <Grid2X2 className="w-12 h-12 text-primary/40 group-hover:text-primary/60 transition-colors duration-200" />
-              </div>
-            </div>
-            <div className="p-4 flex flex-col items-center justify-center min-h-[120px] text-center">
-              <p className="text-sm font-medium text-foreground leading-relaxed">
-                مشاهده
-              </p>
-              <p className="text-sm font-medium text-foreground leading-relaxed">
-                همه
-              </p>
-              <p className="text-sm font-medium text-foreground leading-relaxed">
-                محصولات
-              </p>
-              <ChevronLeft className="w-5 h-5 text-primary mt-2 group-hover:translate-x-[-4px] transition-transform duration-200" />
-            </div>
-          </div>
+            </>
+          )}
         </div>
-
       </div>
     </div>
   );
@@ -656,118 +342,65 @@ const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerC
 };
 
 export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
+  // Fetch products grouped by subcategory
+  const { data: productsBySubcategory, isLoading } = useQuery({
+    queryKey: ['carousel-products'],
+    queryFn: async () => {
+      const results: Record<string, Product[]> = {};
+      
+      // Fetch all subcategories in one query, limited to top-rated products
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .in('subcategory', subcategoryConfig.map(s => s.subcategory))
+        .eq('in_stock', true)
+        .order('rating', { ascending: false })
+        .limit(200);
+      
+      if (error) throw error;
+      
+      // Group by subcategory
+      for (const row of data || []) {
+        const sub = row.subcategory || '';
+        if (!results[sub]) results[sub] = [];
+        if (results[sub].length < 15) {
+          results[sub].push(mapDbProduct(row));
+        }
+      }
+      
+      return results;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return (
     <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-8 pb-16">
-      <CarouselSection
-        title="تخفیف‌های ویژه"
-        icon={<Flame className="w-4 h-4 text-white" />}
-        products={hotDealsProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #ef4444, #f97316)"
-        categories={carouselCategories.hotDeals}
-        bannerKey="hotDeals"
-      />
-      
-      {/* Horizontal Banner After Hot Deals */}
-      <HorizontalPromoBanner position="afterHotDeals" />
-      
-      <CarouselSection
-        title="شاید دوست داشته باشی"
-        icon={<Heart className="w-4 h-4 text-white" />}
-        products={youMayLikeProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #ec4899, #f472b6)"
-        categories={carouselCategories.youMayLike}
-        bannerKey="youMayLike"
-      />
-      
-      {/* Horizontal Banner After You May Like */}
-      <HorizontalPromoBanner position="afterYouMayLike" />
-      
-      <CarouselSection
-        title="محبوب‌ترین‌ها"
-        icon={<TrendingUp className="w-4 h-4 text-white" />}
-        products={mostPopularProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))"
-        categories={carouselCategories.popular}
-        bannerKey="mostPopular"
-      />
+      {subcategoryConfig.map((config, index) => {
+        const products = productsBySubcategory?.[config.subcategory] || [];
+        
+        // Skip sections with no products (unless loading)
+        if (!isLoading && products.length === 0) return null;
 
-      {/* New Intent-Driven Categories */}
-      <CarouselSection
-        title="هدیه و مراقبت پوست"
-        icon={<Gift className="w-4 h-4 text-white" />}
-        products={skincareProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #a855f7, #d946ef)"
-        categories={carouselCategories.skincare}
-        bannerKey="hotDeals"
-      />
-
-      <CarouselSection
-        title="دنیای قهوه"
-        icon={<Coffee className="w-4 h-4 text-white" />}
-        products={coffeeProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #92400e, #b45309)"
-        categories={carouselCategories.coffee}
-        bannerKey="youMayLike"
-      />
-
-      <CarouselSection
-        title="ست گیمینگ"
-        icon={<Gamepad2 className="w-4 h-4 text-white" />}
-        products={gamingProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #6366f1, #818cf8)"
-        categories={carouselCategories.gaming}
-        bannerKey="mostPopular"
-      />
-
-      <CarouselSection
-        title="لوازم کودک و نوزاد"
-        icon={<Baby className="w-4 h-4 text-white" />}
-        products={babyProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #14b8a6, #2dd4bf)"
-        categories={carouselCategories.baby}
-        bannerKey="hotDeals"
-      />
-
-      <CarouselSection
-        title="ورزش و تناسب اندام"
-        icon={<Dumbbell className="w-4 h-4 text-white" />}
-        products={fitnessProducts}
-        onAddToCart={onAddToCart}
-        onQuickView={onQuickView}
-        onAskAbout={onAskAbout}
-        cartItems={cartItems}
-        accentColor="linear-gradient(135deg, #16a34a, #22c55e)"
-        categories={carouselCategories.fitness}
-        bannerKey="youMayLike"
-      />
+        return (
+          <div key={config.subcategory}>
+            <CarouselSection
+              title={config.title}
+              icon={<span className="text-sm">{config.emoji}</span>}
+              products={products}
+              onAddToCart={onAddToCart}
+              onQuickView={onQuickView}
+              onAskAbout={onAskAbout}
+              cartItems={cartItems}
+              accentColor={config.accentColor}
+              bannerKey={config.bannerKey}
+              isLoading={isLoading}
+            />
+            {/* Horizontal banner after every other section */}
+            {index === 1 && <div className="mt-8"><HorizontalPromoBanner position="afterHotDeals" /></div>}
+            {index === 3 && <div className="mt-8"><HorizontalPromoBanner position="afterYouMayLike" /></div>}
+          </div>
+        );
+      })}
     </div>
   );
 };

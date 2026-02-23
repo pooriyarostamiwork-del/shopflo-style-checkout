@@ -1,79 +1,60 @@
 
 
-# Fix 4 Issues: Basket Zones, Quick Replies, Smart Naming, Landing Page Redirect
+# Three Changes: Auto-Finalize on Order, Recent Max 5, Account Panel Merge
 
-## Issue 1: Basket Zone Logic (Active 7 / Recent 14 / Finalized Orders)
+## 1. Auto-finalize basket after successful order
 
-**Current state**: Baskets are split into `isSaved: false` (active) and `isSaved: true` (saved/archived). "Recent baskets" zone is always empty placeholder. No limit on active baskets.
+After a successful order completes (both in `useCheckoutFlow.ts` conversational flow and `handleCheckoutSuccess` modal flow), automatically mark the basket as `isSaved: true` so it moves to "سبدهای نهایی شده" and a new basket is created for the user.
 
-**Changes**:
+### Changes
 
-### Sidebar.tsx
-- **Active baskets**: Show the most recent 7 non-saved baskets (sorted by activity). If there are more than 7, the overflow goes to "Recent".
-- **Recent baskets**: Show baskets 8-21 (max 14). Currently this zone is a static empty placeholder -- populate it with real overflow baskets. Users can click to reactivate.
-- **Rename "ذخیره‌شده‌ها" to "سبدهای نهایی شده"**: Change section title and icon color to pastel green (`text-emerald-400`). Only the icon next to each basket title gets the green color, not the section icon.
-- **Finalized baskets**: Baskets where a successful order was placed get `isSaved: true` automatically. They appear in the renamed zone.
+**`src/features/gpt-commerce/hooks/useCheckoutFlow.ts`**
+- In `handlePaymentSelect` (the conversational checkout flow), after the success message is appended and cart is cleared (~line 375), also set `isSaved: true` on the basket via `updateCurrentBasket`.
+- In `handleCheckoutSuccess` (~line 421), after clearing the cart, mark the current basket as saved. This requires calling a new callback or directly updating baskets.
 
-### Basket interface changes
-- No schema changes needed. The `isSaved` flag already exists. We use array position/index to determine active vs recent.
-- Active = first 7 unsaved baskets; Recent = baskets 8-21 unsaved; anything beyond 21 stays but is deprioritized.
+**`src/features/gpt-commerce/GPTCommerceShell.tsx`**
+- Update `handleCheckoutSuccess` or add post-order logic: after the checkout flow marks `agenticState.step === 'order-complete'`, set `isSaved: true` on the active basket in the `baskets` array and create a new active basket for the user (reuse logic from `handleSaveBasket`).
+- Add an `useEffect` that watches for `order-complete` step and auto-finalizes the basket, OR inject the finalization directly into the checkout flow callbacks.
 
-### GPTCommerceShell.tsx
-- After a successful order (in `handleCheckoutSuccess` or the checkout flow), automatically mark the basket as `isSaved: true` so it moves to "سبدهای نهایی شده".
+The simplest approach: In `useCheckoutFlow.ts`, the `handlePaymentSelect` setTimeout callback already clears the cart. Add basket finalization there by accepting a new `onFinalizeBasket` callback prop. In `GPTCommerceShell.tsx`, pass a `onFinalizeBasket` that sets `isSaved: true` on the active basket and creates a new one.
 
 ---
 
-## Issue 2: "More Results" Quick Reply Not Visible
+## 2. Update recent baskets max from 14 to 5
 
-**Root cause**: The `assistantMessage` built in `useAgentMessages.ts` (line 333-340) never attaches a `quickReplies` array when products are returned. The `handleMoreResults` function exists but there's no UI trigger because no quick reply button is rendered.
-
-**Fix in `useAgentMessages.ts`**:
-- When `mappedProducts.length > 0`, attach `quickReplies` to the assistant message:
-```
-quickReplies: [
-  { id: 'more', label: 'نتایج بیشتر', type: 'custom' as QuickReplyType, action: 'more_results' },
-]
-```
-- Do the same in `sendMessageToBasket` (line 390-397).
+**`src/components/gpt-commerce/Sidebar.tsx`**
+- Change line 82 from `unsavedBaskets.slice(7, 21)` to `unsavedBaskets.slice(7, 12)` (7 active + 5 recent = 12 total max visible unsaved baskets).
 
 ---
 
-## Issue 3: Smart Naming Uses Raw User Message
+## 3. Merge Profile + Addresses, Remove Favorites tab
 
-**Current code** (line 325-330): Takes `content` (the raw user message) and truncates to 20 chars. This produces ugly names like "هدفون بی‌سیم خوب با ا…".
+**`src/components/gpt-commerce/AccountPanel.tsx`**
 
-**Fix**: Instead of using the raw user message, extract a clean product-intent name. Two approaches:
-1. Use the agent's response: parse the first product category/name from `mappedProducts[0]` subcategory or name keywords.
-2. Better: extract keywords from the user query by removing filler words (می‌خوام, خوب, بهترین, نشون بده, etc.) and keeping the product-relevant terms.
+Remove the `saved` tab entirely and merge `profile` and `addresses` into a single unified tab.
 
-**Implementation**: Create a `extractSmartName(userMessage: string, products: Product[]): string` helper that:
-- If products exist, try to use the first product's subcategory or brand + short category
-- Fallback: strip common filler words from user message and take first 2-3 meaningful words
-- Truncate to 25 chars max
+- Remove `'saved'` from the `AccountTab` type (line 7): change to `type AccountTab = 'profile' | 'orders';`
+- Remove the `addresses` and `saved` entries from the `tabs` array (line 301-306). Keep only `profile` and `orders`.
+- Rename `profile` tab label to something like "پروفایل و آدرس‌ها" or keep it as "پروفایل" since it will now contain both.
+- Move the addresses section content (lines 452-521) into the profile tab content, below the profile card and sign-out button. Add a visual separator (heading or divider) between the profile info and addresses list.
+- Delete the `saved` tab content (lines 620-630).
 
-Also apply this in `sendMessageToBasket` which currently has no naming logic at all.
+The unified profile tab will look like:
+1. Profile card (avatar, name, phone, email, edit)
+2. Sign out button
+3. Divider / section heading "آدرس‌های ذخیره‌شده"
+4. Add address button + address cards list
 
----
-
-## Issue 4: Landing Page Redirects Authenticated Users on Click
-
-**Root cause**: In `GPTCommerceShell.tsx` line 367-375, `handleSignInClick` is called when authenticated users click the sign-in/profile button on the landing page. It sets `hasStartedChat: true`, which switches the view from `ChatLanding` to `ChatThread`. The user reports clicking on the "prompt area" redirects them -- this is because the sign-in button is visually close to or overlapping the input area, and authenticated users see "ورود به فضای خرید" which they click thinking it's related to the input.
-
-**Fix in `GPTCommerceShell.tsx`**:
-- When `isAuthenticated`, `handleSignInClick` should NOT set `hasStartedChat: true`. Instead it should do nothing (user is already logged in) or navigate to account.
-- The transition to chat mode should ONLY happen via `handleStartChat` which is called from `ChatLanding.handleSubmit` (when user actually sends a message).
-
-**Fix in `ChatLanding.tsx`**:
-- When `isAuthenticated`, the sign-in button should show user info but NOT trigger chat mode entry. Change the button behavior: if authenticated, navigate to account panel instead, or simply do nothing.
+This creates a clean two-tab layout: "پروفایل" (profile + addresses) and "سفارش‌ها" (orders).
 
 ---
 
 ## Files Modified
 
-| File | Changes |
+| File | Change |
 |---|---|
-| `src/components/gpt-commerce/Sidebar.tsx` | Split baskets into active (max 7), recent (overflow, max 14), finalized (isSaved). Rename saved section to "سبدهای نهایی شده". Pastel green icon for finalized baskets. |
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | 1) Attach `quickReplies` with "نتایج بیشتر" to product response messages. 2) Fix smart naming to use AI-extracted product intent instead of raw message. 3) Add naming to `sendMessageToBasket`. |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | 1) Auto-mark basket as finalized after successful order. 2) Fix `handleSignInClick` to not enter chat mode for authenticated users. |
-| `src/components/gpt-commerce/ChatLanding.tsx` | Update sign-in button behavior for authenticated users to not trigger chat mode. |
+| `src/features/gpt-commerce/hooks/useCheckoutFlow.ts` | Add `onFinalizeBasket` callback prop; call it after order-complete in both `handlePaymentSelect` and `handleCheckoutSuccess` |
+| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Pass `onFinalizeBasket` to checkout flow that marks basket `isSaved: true` and creates new basket |
+| `src/components/gpt-commerce/Sidebar.tsx` | Change recent baskets slice from `(7, 21)` to `(7, 12)` |
+| `src/components/gpt-commerce/AccountPanel.tsx` | Remove `saved` tab, merge addresses into profile tab as unified section, reduce to 2-tab layout |
 

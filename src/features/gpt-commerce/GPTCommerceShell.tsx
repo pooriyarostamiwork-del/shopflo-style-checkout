@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Sidebar, Basket } from "@/components/gpt-commerce/Sidebar";
 import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
@@ -54,6 +54,7 @@ export const GPTCommerceShell = () => {
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [otpContext, setOtpContext] = useState<'checkout' | 'login'>('login');
   const [pendingNewChat, setPendingNewChat] = useState(false);
+  const isCreatingBasketRef = useRef(false);
 
   // Derived from current basket state
   const messages = currentState.messages;
@@ -170,7 +171,11 @@ export const GPTCommerceShell = () => {
 
   const handleSendMessageWithPending = useCallback(async (message: string, forceNew?: boolean) => {
     if (pendingNewChat || forceNew) {
-      // Officially create the basket now that there's a real message
+      // Duplicate-submit guard: prevent rapid double Enter/click from creating two baskets
+      if (isCreatingBasketRef.current) return;
+      isCreatingBasketRef.current = true;
+
+      // Atomically: create basket + seed state + activate + send message
       const existingNewBaskets = baskets.filter(b => b.title.startsWith('سبد جدید') && !b.isSaved);
       let newTitle = 'سبد جدید';
       if (existingNewBaskets.length > 0) {
@@ -192,8 +197,13 @@ export const GPTCommerceShell = () => {
         [newId]: { ...createDefaultBasketState(), hasStartedChat: true },
       }));
       setPendingNewChat(false);
+      setIsCartOpen(true);
+      setActiveSection('active-cart');
       // Use sendMessageToBasket with the explicit newId to avoid stale closure on activeBasketId
       sendMessageToBasket(newId, message);
+
+      // Release guard after a tick so React state settles
+      setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
       return;
     }
     handleSendMessage(message);

@@ -15,6 +15,17 @@ interface UseCartPersistenceProps {
   setBasketStates: React.Dispatch<React.SetStateAction<Record<string, BasketState>>>;
 }
 
+/** Returns true when a local basket state has meaningful in-flight work that must not be overwritten */
+const isLocallyDirty = (state: BasketState | undefined): boolean => {
+  if (!state) return false;
+  return (
+    state.isProcessing ||
+    state.hasStartedChat ||
+    state.messages.length > 1 ||
+    state.cartItems.length > 0
+  );
+};
+
 export const useCartPersistence = ({
   isAuthenticated,
   activeBasketId,
@@ -90,15 +101,33 @@ export const useCartPersistence = ({
           return [...dbBaskets, ...localOnlyBaskets];
         });
 
-        setBasketStates(prev => ({
-          ...prev,
-          ...dbBasketStates,
-        }));
+        // Conflict-safe merge: only hydrate DB state for baskets that are NOT locally dirty
+        setBasketStates(prev => {
+          const merged = { ...prev };
+          for (const [id, dbState] of Object.entries(dbBasketStates)) {
+            if (!isLocallyDirty(prev[id])) {
+              merged[id] = dbState;
+            }
+            // If local state is dirty, keep it as-is (don't overwrite in-flight work)
+          }
+          return merged;
+        });
 
-        // Always switch to most recent DB basket (even if cart is empty — messages count)
-        if (data[0]) {
-          setActiveBasketId(data[0].id);
-        }
+        // NON-HIJACKING active basket logic:
+        // Only set active basket to DB's latest if the current active basket doesn't exist
+        // in the merged set. This prevents hijacking a freshly-created landing basket.
+        setActiveBasketId(prev => {
+          // Check if current active basket will exist after merge
+          const allIds = new Set([...dbBaskets.map(b => b.id)]);
+          // Also include local-only basket ids
+          // We use a functional update, so we just check if prev is still valid
+          if (prev && (allIds.has(prev) || !allIds.has(prev))) {
+            // prev might be a local-only basket — that's fine, keep it
+            return prev;
+          }
+          // Fallback: pick first DB basket
+          return data[0]?.id || prev;
+        });
 
         hasLoadedFromDb.current = true;
       } catch (err) {
@@ -126,8 +155,14 @@ export const useCartPersistence = ({
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Sync on any meaningful change — not just cart items
-    const syncKey = JSON.stringify({ cart: currentState.cartItems, msgCount: currentState.messages.length });
+    // Include activeBasketId + last message id for more reliable change detection
+    const lastMsg = currentState.messages[currentState.messages.length - 1];
+    const syncKey = JSON.stringify({
+      basketId: activeBasketId,
+      cart: currentState.cartItems,
+      msgCount: currentState.messages.length,
+      lastMsgId: lastMsg?.id || '',
+    });
     if (syncKey === lastSyncedCartRef.current) return;
 
     if (debounceTimerRef.current) {

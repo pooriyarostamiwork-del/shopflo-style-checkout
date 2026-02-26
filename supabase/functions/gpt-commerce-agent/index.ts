@@ -9,22 +9,22 @@ const corsHeaders = {
 // ── Persian normalization (mirrors DB function) ──
 function normalizePersian(text: string): string {
   return text
-    .replace(/\u200C/g, " ")   // half-space → space
-    .replace(/ي/g, "ی")        // Arabic yeh → Persian yeh
-    .replace(/ك/g, "ک")        // Arabic kaf → Persian kaf
-    .replace(/\u0640/g, "")     // remove tatweel
+    .replace(/\u200C/g, " ")
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\u0640/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// ── System prompt: Intent extraction mode ──
-const SYSTEM_PROMPT = `تو دستیار خرید هوشمند فلوکارت هستی. یک فروشگاه آنلاین فارسی‌زبان.
+// ── Mode-specific system prompts ──
+const PROMPTS: Record<string, string> = {
+  discovery: `تو دستیار خرید هوشمند فلوکارت هستی. یک فروشگاه آنلاین فارسی‌زبان.
 
 وظایف تو:
 - کمک به کاربران برای پیدا کردن محصولات مورد نظرشون
 - پاسخ‌دهی به سوالات درباره محصولات
 - پیشنهاد محصولات بر اساس نیاز کاربر
-- مقایسه محصولات مختلف
 
 قوانین مهم:
 - همیشه فارسی صحبت کن
@@ -40,7 +40,7 @@ const SYSTEM_PROMPT = `تو دستیار خرید هوشمند فلوکارت ه
 - مثال: "گم نشه" → semantic_tags: ["hard_to_lose"]
 - مثال: "برای بچم" → semantic_tags: ["child_safe"]
 - مثال: "برای ورزش" → semantic_tags: ["sport_use", "sweat_resistant"]
-- مهم: هرگز price_min یا price_max رو حدس نزن. فقط وقتی مقدار عددی مشخصی رو ست کن که کاربر عدد دقیق گفته باشه. "ارزان"، "مناسب"، "اقتصادی" → از semantic_tags مثل "budget" استفاده کن، نه فیلتر قیمت.
+- مهم: هرگز price_min یا price_max رو حدس نزن. فقط وقتی مقدار عددی مشخصی رو ست کن که کاربر عدد دقیق گفته باشه.
 
 زیرمجموعه‌های موجود در فروشگاه:
 - هدفون، هدست و هندزفری
@@ -53,76 +53,116 @@ const SYSTEM_PROMPT = `تو دستیار خرید هوشمند فلوکارت ه
 - کیبورد و ماوس
 - تبلت
 
-اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی. از ابزار استفاده نکن.`;
+اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی. از ابزار استفاده نکن.`,
 
-// ── Tool definition: structured intent extraction ──
-const TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "search_products",
-      description: "Search product catalog. Extract structured intent from user query. Do NOT generate keyword strings — extract structured filters and semantic tags.",
-      parameters: {
-        type: "object",
-        properties: {
-          query_text: {
-            type: "string",
-            description: "Cleaned search keywords for full-text search (max 2-3 core Persian words). Example: 'هدفون بی سیم' not 'یک هدفون بی سیم خوب برای ورزش'",
-          },
-          subcategory: {
-            type: "string",
-            description: "Exact subcategory filter. Must be one of: هدفون، هدست و هندزفری | دوربین دیجیتال | ساعت و مچ‌بند هوشمند | هارد اکسترنال | لوازم جانبی گوشی موبایل | گوشی موبایل | لپ تاپ | کیبورد و ماوس | تبلت",
-          },
-          filters: {
-            type: "object",
-            properties: {
-              price_min: { type: "number", description: "Minimum price in Toman. Only set if user mentions a specific number." },
-              price_max: { type: "number", description: "Maximum price in Toman. Only set if user mentions a specific number. Do NOT guess price ranges for vague terms like 'ارزان' or 'مناسب'." },
-              brand: { type: "string", description: "Brand name filter" },
-              features: {
-                type: "array",
-                items: { type: "string" },
-                description: "Functional requirements: wireless, noise_canceling, waterproof, fast_delivery, etc.",
-              },
-            },
-          },
-          semantic_tags: {
-            type: "array",
-            items: { type: "string" },
-            description: "Abstract inferred intent: hard_to_lose, child_safe, lightweight, gift, sport_use, budget, premium, durable",
-          },
-          sort_by: {
-            type: "string",
-            enum: ["relevance", "price_low", "price_high", "rating"],
-            description: "Sort preference. Default: relevance",
+  comparison: `تو متخصص مقایسه محصولات در فلوکارت هستی.
+
+وظیفه تو: مقایسه دقیق و ساختارمند محصولات بر اساس مشخصات فنی‌شون.
+
+قوانین:
+- فارسی صحبت کن
+- بدون مارک‌داون بنویس - متن ساده
+- روی تفاوت‌های کلیدی تمرکز کن
+- مزایا و معایب هر کدوم رو بگو
+- در نهایت پیشنهادت رو بده
+- قیمت‌ها به تومان هستن`,
+
+  info_retrieval: `تو دستیار اطلاعاتی فلوکارت هستی.
+
+وظیفه تو: پاسخ دقیق و مختصر به سوالات کاربر درباره محصولات، سفارش‌ها، ارسال، و سیاست‌های فروشگاه.
+
+سیاست‌های فروشگاه:
+- ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان
+- ضمانت بازگشت ۷ روزه
+- ارسال سریع ۱-۳ روز کاری
+- پشتیبانی ۲۴/۷
+
+قوانین:
+- فارسی صحبت کن
+- بدون مارک‌داون - متن ساده
+- مختصر و دقیق باش`,
+
+  conversational: `تو دستیار خرید دوستانه فلوکارت هستی.
+
+قوانین:
+- فارسی صحبت کن
+- لحن صمیمی و گرم داشته باش
+- بدون مارک‌داون - متن ساده
+- اگه سلام کرد، خوش‌آمد بگو و بپرس چطور می‌تونی کمکش کنی
+- اگه تشکر کرد، خواهش کن و بگو اگه کمکی نیاز داشت در خدمتشی
+- اگه سوالی درباره قابلیت‌هات داشت، توضیح بده می‌تونی محصول جستجو کنی، مقایسه کنی، و کمک به خرید کنی`,
+};
+
+// ── Tool definitions ──
+const SEARCH_TOOL = {
+  type: "function",
+  function: {
+    name: "search_products",
+    description: "Search product catalog. Extract structured intent from user query.",
+    parameters: {
+      type: "object",
+      properties: {
+        query_text: {
+          type: "string",
+          description: "Cleaned search keywords (max 2-3 core Persian words)",
+        },
+        subcategory: {
+          type: "string",
+          description: "Exact subcategory filter",
+        },
+        filters: {
+          type: "object",
+          properties: {
+            price_min: { type: "number" },
+            price_max: { type: "number" },
+            brand: { type: "string" },
+            features: { type: "array", items: { type: "string" } },
           },
         },
-        required: ["query_text"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_product_details",
-      description: "Get full details of a specific product by its ID.",
-      parameters: {
-        type: "object",
-        properties: {
-          product_id: { type: "string", description: "The UUID of the product" },
+        semantic_tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Abstract inferred intent: hard_to_lose, child_safe, budget, premium, etc.",
         },
-        required: ["product_id"],
-        additionalProperties: false,
+        sort_by: {
+          type: "string",
+          enum: ["relevance", "price_low", "price_high", "rating"],
+        },
       },
+      required: ["query_text"],
+      additionalProperties: false,
     },
   },
-];
+};
 
-// ── Generate query embedding using built-in gte-small ──
+const DETAILS_TOOL = {
+  type: "function",
+  function: {
+    name: "get_product_details",
+    description: "Get full details of a specific product by its ID.",
+    parameters: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "The UUID of the product" },
+      },
+      required: ["product_id"],
+      additionalProperties: false,
+    },
+  },
+};
+
+// Mode → tools mapping
+const MODE_TOOLS: Record<string, any[]> = {
+  discovery: [SEARCH_TOOL, DETAILS_TOOL],
+  comparison: [], // data injected, no tools needed
+  info_retrieval: [DETAILS_TOOL],
+  conversational: [], // no tools
+};
+
+// ── Generate query embedding ──
 async function generateQueryEmbedding(text: string): Promise<number[] | null> {
   try {
-    // @ts-ignore - Supabase AI is available in edge runtime
+    // @ts-ignore
     const session = new Supabase.ai.Session("gte-small");
     // @ts-ignore
     const embedding = await session.run(text, { mean_pool: true, normalize: true });
@@ -137,15 +177,9 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 async function executeSearch(supabase: any, args: any, originalQuery: string): Promise<any> {
   const { query_text, subcategory, filters, sort_by } = args;
   const normalizedQuery = normalizePersian(query_text);
-
-  // Generate query embedding for semantic search
   const queryEmbedding = await generateQueryEmbedding(normalizePersian(originalQuery));
 
-  // Call hybrid_product_search RPC
-  const rpcParams: any = {
-    p_query: normalizedQuery,
-    p_in_stock: true,
-  };
+  const rpcParams: any = { p_query: normalizedQuery, p_in_stock: true };
   if (queryEmbedding) rpcParams.p_embedding = JSON.stringify(queryEmbedding);
   if (subcategory) rpcParams.p_subcategory = subcategory;
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
@@ -153,15 +187,12 @@ async function executeSearch(supabase: any, args: any, originalQuery: string): P
   if (filters?.brand) rpcParams.p_brand = filters.brand;
 
   const { data, error } = await supabase.rpc("hybrid_product_search", rpcParams);
-
   if (error) {
     console.error("Hybrid search error:", error);
     return { products: [], message: "جستجو با مشکل مواجه شد" };
   }
 
   let results = data || [];
-
-  // Post-sort if requested
   if (sort_by === "price_low") results.sort((a: any, b: any) => a.price - b.price);
   else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
   else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
@@ -197,7 +228,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages } = await req.json();
+    const { messages: userMessages, mode = "discovery", products_context } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -205,24 +236,44 @@ serve(async (req) => {
       );
     }
 
+    const effectiveMode = mode in PROMPTS ? mode : "discovery";
+    console.log(`Agent mode: ${effectiveMode}`);
+
+    // Build system prompt
+    let systemPrompt = PROMPTS[effectiveMode];
+
+    // For comparison mode, inject product data
+    if (effectiveMode === "comparison" && products_context) {
+      const productsList = products_context.map((p: any, i: number) =>
+        `محصول ${i + 1}: ${p.name}\n- قیمت: ${p.price?.toLocaleString()} تومان\n- برند: ${p.brand || "نامشخص"}\n- امتیاز: ${p.rating}\n- مشخصات: ${JSON.stringify(p.specs || {})}`
+      ).join("\n\n");
+      systemPrompt += `\n\nمحصولات برای مقایسه:\n${productsList}`;
+    }
+
     const aiMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       ...userMessages.map((m: any) => ({ role: m.role, content: m.content })),
     ];
 
-    // ── Step 1: Intent Extraction (LLM call with tools) ──
-    console.log("Step 1: Intent extraction...");
+    const tools = MODE_TOOLS[effectiveMode] || [];
+
+    // ── Step 1: LLM call (with or without tools based on mode) ──
+    console.log(`Step 1: ${effectiveMode} LLM call...`);
+    const llmBody: any = {
+      model: "google/gemini-3-flash-preview",
+      messages: aiMessages,
+    };
+    if (tools.length > 0) {
+      llmBody.tools = tools;
+    }
+
     const intentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: aiMessages,
-        tools: TOOLS,
-      }),
+      body: JSON.stringify(llmBody),
     });
 
     if (!intentResponse.ok) {
@@ -257,7 +308,7 @@ serve(async (req) => {
       );
     }
 
-    // ── No tool call = conversational response ──
+    // ── No tool call = direct response (comparison, conversational, info_retrieval, or discovery without search) ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
       return new Response(
         JSON.stringify({
@@ -269,7 +320,7 @@ serve(async (req) => {
       );
     }
 
-    // ── Step 2: Hybrid Retrieval ──
+    // ── Step 2: Execute tool calls (discovery/info_retrieval modes) ──
     console.log("Step 2: Hybrid retrieval...");
     const originalQuery = userMessages[userMessages.length - 1]?.content || "";
     const toolResults: any[] = [];
@@ -307,13 +358,8 @@ serve(async (req) => {
 
     // ── Step 3: LLM Re-Ranker + Response ──
     console.log("Step 3: Re-ranking + response generation...");
-
-    // Build re-ranker prompt with top candidates
     const candidatesForRerank = allProducts.slice(0, 10);
-    // originalQuery already defined above
-
-    // Build candidate list with IDs for the re-ranker
-    const candidateList = candidatesForRerank.map((p: any, i: number) => 
+    const candidateList = candidatesForRerank.map((p: any, i: number) =>
       `${i + 1}. [${p.id}] ${p.name} - ${p.price?.toLocaleString()} تومان`
     ).join("\n");
 
@@ -329,16 +375,14 @@ ${candidateList}
 
 مهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:
 SELECTED_IDS:["id1","id2","id3"]
-که id ها همان شناسه‌های محصولات انتخابی تو هستن (UUID ها از لیست بالا). ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
+که id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
       : "";
 
     const followUpMessages = [
       ...aiMessages,
       choice.message,
       ...toolResults,
-      ...(rerankerSystemAddendum
-        ? [{ role: "system", content: rerankerSystemAddendum }]
-        : []),
+      ...(rerankerSystemAddendum ? [{ role: "system", content: rerankerSystemAddendum }] : []),
     ];
 
     const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -372,21 +416,18 @@ SELECTED_IDS:["id1","id2","id3"]
     let finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
 
     // Parse SELECTED_IDS from re-ranker output
-    let selectedProducts = allProducts.slice(0, 6); // fallback
+    let selectedProducts = allProducts.slice(0, 6);
     const selectedIdsMatch = finalContent.match(/SELECTED_IDS:\s*(\[.*?\])/);
     if (selectedIdsMatch) {
       try {
         const selectedIds: string[] = JSON.parse(selectedIdsMatch[1]);
         const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
-        const reordered = selectedIds
-          .map((id: string) => idToProduct.get(id))
-          .filter(Boolean);
+        const reordered = selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
         if (reordered.length > 0) selectedProducts = reordered;
         console.log(`Re-ranker selected ${reordered.length} products`);
       } catch (e) {
         console.error("Failed to parse SELECTED_IDS:", e);
       }
-      // Strip the SELECTED_IDS line from content
       finalContent = finalContent.replace(/\n?SELECTED_IDS:\s*\[.*?\]/, "").trim();
     }
 

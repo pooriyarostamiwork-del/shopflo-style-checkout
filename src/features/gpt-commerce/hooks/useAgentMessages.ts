@@ -14,15 +14,12 @@ import {
 const FILLER_WORDS = /\b(می‌خوام|میخوام|خوب|بهترین|نشون بده|نشان بده|پیدا کن|برام|برای من|لطفا|لطفاً|یه|یک|چند|تا|رو|با|از|که|هم|و|ارزان|گران|ارسال سریع|موجود)\b/g;
 
 const extractSmartName = (userMessage: string, products: Product[]): string => {
-  // Try product subcategory/brand from first product
   if (products.length > 0) {
     const p = products[0];
-    // Use the product name's first 2-3 words as a category hint
     const nameWords = p.name.split(/\s+/).slice(0, 3).join(' ');
     if (nameWords.length <= 25) return nameWords;
     return nameWords.slice(0, 25) + '…';
   }
-  // Fallback: strip filler words from user message
   const cleaned = userMessage.replace(FILLER_WORDS, '').replace(/\s+/g, ' ').trim();
   const words = cleaned.split(/\s+/).slice(0, 3).join(' ');
   if (!words) return userMessage.slice(0, 20);
@@ -30,6 +27,21 @@ const extractSmartName = (userMessage: string, products: Product[]): string => {
 };
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
+
+// ── Intent classification types ──
+interface IntentClassification {
+  intent_type: "transactional" | "discovery" | "comparison" | "info_retrieval" | "conversational";
+  intent_subtype: string;
+  entities: {
+    product_ref?: number;
+    product_name?: string;
+    product_refs?: number[];
+    quantity?: number;
+    delta?: number;
+    coupon_code?: string;
+  };
+  confidence: number;
+}
 
 interface UseAgentMessagesProps {
   updateCurrentBasket: (updater: (prev: BasketState) => BasketState) => void;
@@ -42,7 +54,6 @@ interface UseAgentMessagesProps {
   setIsCartOpen: (v: boolean) => void;
   setShowOTPModal: (v: boolean) => void;
   setOtpContext: (ctx: 'checkout' | 'login') => void;
-  // Current basket derived state
   cartItems: CartItem[];
   messages: ChatMessage[];
   lastRecommendedProducts: Product[];
@@ -71,27 +82,48 @@ export const mapDbProduct = (dbProduct: any): Product => {
   };
 };
 
-const parseProductSelection = (content: string): number | null => {
-  const persianNumbers: { [key: string]: number } = {
-    '۱': 1, '۲': 2, '۳': 3, '۴': 4, '۵': 5, '۶': 6,
-    'یک': 1, 'دو': 2, 'سه': 3, 'چهار': 4, 'پنج': 5, 'شش': 6,
-    '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
-  };
-  const patterns = [
-    /محصول\s*(شماره\s*)?(\d|۱|۲|۳|۴|۵|۶|یک|دو|سه|چهار|پنج|شش)/,
-    /شماره\s*(\d|۱|۲|۳|۴|۵|۶)/,
-    /اضافه.*(\d|۱|۲|۳|۴|۵|۶)/,
-    /#(\d|۱|۲|۳|۴|۵|۶)/,
-  ];
-  for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match) {
-      const numStr = match[match.length - 1];
-      return persianNumbers[numStr] || parseInt(numStr);
-    }
+// ── Classify intent via edge function ──
+async function classifyIntent(
+  message: string,
+  conversationHistory: { role: string; content: string }[],
+  context: {
+    has_cart_items: boolean;
+    last_recommended_count: number;
+    last_recommended_names: string[];
+    checkout_step: string;
   }
-  return null;
-};
+): Promise<IntentClassification> {
+  try {
+    const { data, error } = await supabase.functions.invoke('classify-intent', {
+      body: { message, conversation_history: conversationHistory, context },
+    });
+    if (error) throw new Error(error.message);
+    return data as IntentClassification;
+  } catch (err) {
+    console.error('Intent classification failed, falling back to discovery:', err);
+    return {
+      intent_type: 'discovery',
+      intent_subtype: 'product_search',
+      entities: {},
+      confidence: 0.3,
+    };
+  }
+}
+
+// ── Fuzzy match product by name ──
+function fuzzyMatchProduct(name: string, products: Product[]): Product | null {
+  if (!name || products.length === 0) return null;
+  const lowerName = name.toLowerCase();
+  // Exact substring match first
+  const exact = products.find(p => p.name.toLowerCase().includes(lowerName));
+  if (exact) return exact;
+  // Try brand match
+  const brandMatch = products.find(p =>
+    p.merchant?.name?.toLowerCase().includes(lowerName) ||
+    p.name.toLowerCase().includes(lowerName)
+  );
+  return brandMatch || null;
+}
 
 export const useAgentMessages = ({
   updateCurrentBasket,
@@ -197,6 +229,130 @@ export const useAgentMessages = ({
     }));
   }, [activeBasketId, setBaskets]);
 
+  // ── Transactional handlers (no LLM call needed) ──
+
+  const handleTransactionalCartAdd = useCallback((ref: number) => {
+    if (ref < 1 || ref > lastRecommendedProducts.length) {
+      const msg: ChatMessage = {
+        id: `err-${Date.now()}`, role: 'assistant',
+        content: `محصول شماره ${ref} وجود نداره. لطفاً یه شماره بین ۱ تا ${lastRecommendedProducts.length} بگو.`,
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+      return;
+    }
+    const product = lastRecommendedProducts[ref - 1];
+    handleAddToCart(product);
+    updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+  }, [lastRecommendedProducts, handleAddToCart, updateCurrentBasket]);
+
+  const handleTransactionalCartAddByName = useCallback((name: string) => {
+    const product = fuzzyMatchProduct(name, lastRecommendedProducts);
+    if (!product) {
+      // Also try cart items
+      const cartProduct = fuzzyMatchProduct(name, cartItems as Product[]);
+      if (cartProduct) {
+        handleAddToCart(cartProduct);
+        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+        return;
+      }
+      const msg: ChatMessage = {
+        id: `err-${Date.now()}`, role: 'assistant',
+        content: `محصولی با نام "${name}" پیدا نکردم. می‌خوای برات جستجو کنم؟`,
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+      return;
+    }
+    handleAddToCart(product);
+    updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+  }, [lastRecommendedProducts, cartItems, handleAddToCart, updateCurrentBasket]);
+
+  const handleTransactionalCartRemove = useCallback((ref?: number, name?: string) => {
+    let productToRemove: CartItem | undefined;
+    if (ref && ref >= 1 && ref <= lastRecommendedProducts.length) {
+      const refProduct = lastRecommendedProducts[ref - 1];
+      productToRemove = cartItems.find(item => item.id === refProduct.id);
+    } else if (name) {
+      productToRemove = cartItems.find(item => item.name.toLowerCase().includes(name.toLowerCase()));
+    } else if (cartItems.length === 1) {
+      productToRemove = cartItems[0];
+    }
+
+    if (!productToRemove) {
+      const msg: ChatMessage = {
+        id: `err-${Date.now()}`, role: 'assistant',
+        content: 'محصول مورد نظر در سبد خریدت پیدا نشد.',
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+      return;
+    }
+
+    const removedName = productToRemove.name;
+    handleRemoveItem(productToRemove.id);
+    const msg: ChatMessage = {
+      id: `removed-${Date.now()}`, role: 'assistant',
+      content: `${removedName} از سبد خریدت حذف شد. ❌`,
+      timestamp: new Date(),
+    };
+    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+  }, [lastRecommendedProducts, cartItems, handleRemoveItem, updateCurrentBasket]);
+
+  const handleTransactionalQuantityUpdate = useCallback((ref: number | undefined, quantity: number, delta?: number) => {
+    let targetItem: CartItem | undefined;
+    if (ref && ref >= 1 && ref <= lastRecommendedProducts.length) {
+      const refProduct = lastRecommendedProducts[ref - 1];
+      targetItem = cartItems.find(item => item.id === refProduct.id);
+    } else if (cartItems.length === 1) {
+      targetItem = cartItems[0];
+    }
+
+    if (!targetItem) {
+      const msg: ChatMessage = {
+        id: `err-${Date.now()}`, role: 'assistant',
+        content: 'محصول مورد نظر در سبد خریدت پیدا نشد.',
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+      return;
+    }
+
+    const newQty = delta ? targetItem.quantity + delta : quantity;
+    if (newQty < 1) {
+      handleRemoveItem(targetItem.id);
+      const msg: ChatMessage = {
+        id: `removed-${Date.now()}`, role: 'assistant',
+        content: `${targetItem.name} از سبد خریدت حذف شد.`,
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+    } else {
+      handleUpdateQuantity(targetItem.id, newQty);
+      const msg: ChatMessage = {
+        id: `qty-${Date.now()}`, role: 'assistant',
+        content: `تعداد ${targetItem.name} به ${newQty} عدد تغییر کرد. ✅`,
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+    }
+  }, [lastRecommendedProducts, cartItems, handleRemoveItem, handleUpdateQuantity, updateCurrentBasket]);
+
+  const handleTransactionalCheckout = useCallback(() => {
+    if (cartItems.length === 0) {
+      const msg: ChatMessage = {
+        id: `err-${Date.now()}`, role: 'assistant',
+        content: 'سبد خریدت خالیه! اول محصولی اضافه کن.',
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+      return;
+    }
+    handleFinalizePurchase();
+    updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+  }, [cartItems.length, handleFinalizePurchase, updateCurrentBasket]);
+
+  // ── Main message handler with intent classification ──
   const handleSendMessage = useCallback(async (content: string) => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -206,133 +362,174 @@ export const useAgentMessages = ({
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    // Order inquiry shortcut
-    if (content.includes('سفارش') && (content.includes('پیگیری') || content.includes('کجاست') || content.includes('وضعیت'))) {
-      const orderInquiryMessage: ChatMessage = {
-        id: `order-inquiry-${Date.now()}`,
-        role: 'assistant',
-        content: 'برای مشاهده و پیگیری سفارش‌هایت، به بخش «سفارش‌ها» مراجعه کن.',
-        ctaButton: { label: '📦 مشاهده سفارش‌ها', action: 'view-orders', disabled: false },
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, orderInquiryMessage], isProcessing: false }));
-      return;
-    }
+    // Build conversation history for classifier
+    const conversationHistory = messages
+      .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))
+      .slice(-6)
+      .map(m => ({ role: m.role, content: m.content }));
 
-    const selectedNumber = parseProductSelection(content);
-    const isDirectPayment = content.includes('پرداخت مستقیم') && (content.includes('بخر') || content.includes('خرید'));
-    const isBuyAndSend = !isDirectPayment && (content.includes('بخر') || content.includes('بخرید')) &&
-                        (content.includes('خانه') || content.includes('بفرست') || content.includes('ارسال'));
+    // Build context for classifier
+    const classifierContext = {
+      has_cart_items: cartItems.length > 0,
+      last_recommended_count: lastRecommendedProducts.length,
+      last_recommended_names: lastRecommendedProducts.slice(0, 6).map(p => p.name),
+      checkout_step: 'idle', // could be enhanced with agenticState
+    };
 
-    // Intent detection: skip add-to-cart shortcut for compare/inquiry messages
-    const isNonAddIntent = /مقایسه|درباره|توضیح|بررسی|نظر|چطوره|فرق/.test(content);
+    // ── Step 1: Classify intent ──
+    const intent = await classifyIntent(content, conversationHistory, classifierContext);
+    console.log('Intent classified:', JSON.stringify(intent));
 
-    if (selectedNumber && lastRecommendedProducts.length >= selectedNumber && !isNonAddIntent) {
-      const selectedProduct = lastRecommendedProducts[selectedNumber - 1];
+    // ── Step 2: Route based on intent ──
+    switch (intent.intent_type) {
+      case 'transactional': {
+        switch (intent.intent_subtype) {
+          case 'cart_add':
+            if (intent.entities.product_ref) {
+              handleTransactionalCartAdd(intent.entities.product_ref);
+            } else {
+              // No ref, fall through to discovery
+              await callAgent(content, conversationHistory, 'discovery');
+            }
+            return;
 
-      updateCurrentBasket(s => {
-        const existing = s.cartItems.find(item => item.id === selectedProduct.id);
-        const newCart = existing
-          ? s.cartItems.map(item => item.id === selectedProduct.id ? { ...item, quantity: item.quantity + 1 } : item)
-          : [...s.cartItems, { ...selectedProduct, quantity: 1 }];
-        return { ...s, cartItems: newCart };
-      });
+          case 'cart_add_by_name':
+            if (intent.entities.product_name) {
+              handleTransactionalCartAddByName(intent.entities.product_name);
+            } else {
+              await callAgent(content, conversationHistory, 'discovery');
+            }
+            return;
 
-      if (isDirectPayment) {
-        if (!isOTPVerified) {
-          setOtpContext('checkout');
-          setShowOTPModal(true);
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-          return;
+          case 'cart_remove':
+            handleTransactionalCartRemove(intent.entities.product_ref, intent.entities.product_name);
+            return;
+
+          case 'quantity_update':
+            handleTransactionalQuantityUpdate(
+              intent.entities.product_ref,
+              intent.entities.quantity || 1,
+              intent.entities.delta
+            );
+            return;
+
+          case 'checkout_initiate':
+            handleTransactionalCheckout();
+            return;
+
+          case 'checkout_direct':
+            if (intent.entities.product_ref && lastRecommendedProducts.length >= intent.entities.product_ref) {
+              const product = lastRecommendedProducts[intent.entities.product_ref - 1];
+              handleAddToCart(product);
+              setTimeout(() => {
+                handleFinalizePurchase();
+                updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+              }, 500);
+            } else {
+              await callAgent(content, conversationHistory, 'discovery');
+            }
+            return;
+
+          case 'save_for_later':
+            if (intent.entities.product_ref && lastRecommendedProducts.length >= intent.entities.product_ref) {
+              const product = lastRecommendedProducts[intent.entities.product_ref - 1];
+              handleSaveProduct(product);
+              const msg: ChatMessage = {
+                id: `saved-${Date.now()}`, role: 'assistant',
+                content: `${product.name} ذخیره شد! ✅`,
+                timestamp: new Date(),
+              };
+              updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+            } else {
+              const msg: ChatMessage = {
+                id: `err-${Date.now()}`, role: 'assistant',
+                content: 'کدوم محصول رو می‌خوای ذخیره کنی؟ شماره محصول رو بگو.',
+                timestamp: new Date(),
+              };
+              updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+            }
+            return;
+
+          case 'order_status': {
+            const msg: ChatMessage = {
+              id: `order-inquiry-${Date.now()}`, role: 'assistant',
+              content: 'برای مشاهده و پیگیری سفارش‌هایت، به بخش «سفارش‌ها» مراجعه کن.',
+              ctaButton: { label: '📦 مشاهده سفارش‌ها', action: 'view-orders', disabled: false },
+              timestamp: new Date(),
+            };
+            updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+            return;
+          }
+
+          default:
+            // Unknown transactional subtype, fall through to discovery
+            await callAgent(content, conversationHistory, 'discovery');
+            return;
         }
-        const addedMessage: ChatMessage = {
-          id: `added-${Date.now()}`, role: 'assistant',
-          content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nداریم سفارشت رو با پرداخت مستقیم پردازش می‌کنیم...`,
-          timestamp: new Date(),
-        };
-        updateCurrentBasket(s => ({ ...s, messages: [...s.messages, addedMessage] }));
-        setTimeout(() => {
-          const orderId = `FLC-${Date.now().toString().slice(-6)}`;
-          const successMessage: ChatMessage = {
-            id: `success-${Date.now()}`, role: 'assistant',
-            content: `سفارشت با موفقیت ثبت شد! 🎉\n\nشماره سفارش: ${orderId}\n📍 آدرس: ${globalAddresses[0]?.fullAddress || ''}\n💳 پرداخت: درگاه مستقیم`,
-            quickReplies: [
-              { id: 'track', label: '📦 پیگیری سفارش', type: 'track-order' },
-              { id: 'continue', label: '🛍️ ادامه خرید', type: 'add-more' },
-            ],
-            timestamp: new Date(),
-          };
-          updateCurrentBasket(s => ({
-            ...s, messages: [...s.messages, successMessage],
-            agenticState: { ...s.agenticState, step: 'order-complete', orderId, selectedPayment: 'gateway' },
-            cartItems: [], isProcessing: false,
-          }));
-        }, 2000);
-        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-        return;
       }
 
-      if (isBuyAndSend) {
-        if (!isOTPVerified) {
-          setOtpContext('checkout');
-          setShowOTPModal(true);
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-          return;
+      case 'comparison': {
+        // Resolve product refs and inject data
+        const refs = intent.entities.product_refs || [];
+        const productsContext = refs
+          .filter(r => r >= 1 && r <= lastRecommendedProducts.length)
+          .map(r => lastRecommendedProducts[r - 1]);
+
+        if (productsContext.length >= 2) {
+          await callAgent(content, conversationHistory, 'comparison', productsContext);
+        } else {
+          // Not enough products to compare, let discovery handle it
+          await callAgent(content, conversationHistory, 'discovery');
         }
-        const addedMessage: ChatMessage = {
-          id: `added-${Date.now()}`, role: 'assistant',
-          content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\n📍 آدرس تحویل: ${globalAddresses[0]?.fullAddress || ''}\n\nحالا روش پرداخت رو انتخاب کن:`,
-          paymentOptions: paymentOptions, timestamp: new Date(),
-        };
-        updateCurrentBasket(s => ({
-          ...s, messages: [...s.messages, addedMessage],
-          agenticState: { ...s.agenticState, step: 'payment-selection' }, isProcessing: false,
-        }));
         return;
       }
 
-      updateCurrentBasket(s => ({
-        ...s,
-        messages: s.messages.map(msg =>
-          msg.ctaButton ? { ...msg, ctaButton: undefined, content: msg.content.split('\n')[0] + '\n\n«سبد خرید به‌روزرسانی شد»' } : msg
-        ),
-        agenticState: { ...s.agenticState, step: 'product-added' },
-      }));
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`, role: 'assistant',
-        content: `${selectedProduct.name} به سبدت اضافه شد! ✅\n\nمحصول دیگه‌ای می‌خوای یا خرید رو نهایی کنیم؟`,
-        ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false },
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
-      return;
-    }
-
-    if (content.includes('نهایی') || content.includes('انجام بده') || content.includes('تموم')) {
-      handleFinalizePurchase();
-      updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-      return;
-    }
-    if (content.includes('خرید') && content.includes('انجام')) {
-      if (cartItems.length > 0) {
-        handleFinalizePurchase();
-        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+      case 'info_retrieval':
+        await callAgent(content, conversationHistory, 'info_retrieval');
         return;
-      }
-    }
 
-    // === AI-POWERED SEARCH ===
+      case 'conversational':
+        await callAgent(content, conversationHistory, 'conversational');
+        return;
+
+      case 'discovery':
+      default:
+        await callAgent(content, conversationHistory, 'discovery');
+        return;
+    }
+  }, [
+    cartItems, lastRecommendedProducts, messages,
+    handleFinalizePurchase, updateCurrentBasket, handleAddToCart,
+    handleTransactionalCartAdd, handleTransactionalCartAddByName,
+    handleTransactionalCartRemove, handleTransactionalQuantityUpdate,
+    handleTransactionalCheckout, handleSaveProduct,
+    globalAddresses, isOTPVerified, setShowOTPModal, setOtpContext,
+  ]);
+
+  // ── Call the gpt-commerce-agent with a specific mode ──
+  const callAgent = useCallback(async (
+    content: string,
+    conversationHistory: { role: string; content: string }[],
+    mode: string,
+    productsContext?: Product[]
+  ) => {
     try {
-      const conversationHistory = messages
-        .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))
-        .slice(-6)
-        .map(m => ({ role: m.role, content: m.content }));
-      conversationHistory.push({ role: 'user', content });
+      const body: any = {
+        messages: [...conversationHistory, { role: 'user', content }],
+        mode,
+      };
+      if (productsContext) {
+        body.products_context = productsContext.map(p => ({
+          name: p.name,
+          price: p.price,
+          brand: p.merchant?.name,
+          rating: p.rating,
+          specs: p.specs,
+          description: p.description,
+        }));
+      }
 
-      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', {
-        body: { messages: conversationHistory },
-      });
-
+      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', { body });
       if (error) throw new Error(error.message);
 
       const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
@@ -341,10 +538,9 @@ export const useAgentMessages = ({
 
       if (mappedProducts.length > 0) {
         updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
-        // Smart basket naming: rename from default name on first product search
         setBaskets(prev => prev.map(b => {
           if (b.id !== activeBasketId) return b;
-          if (!b.title.startsWith('سبد جدید')) return b; // already renamed
+          if (!b.title.startsWith('سبد جدید')) return b;
           const smartName = extractSmartName(content, mappedProducts);
           return { ...b, title: smartName };
         }));
@@ -372,13 +568,9 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [
-    cartItems.length, lastRecommendedProducts, messages,
-    handleFinalizePurchase, updateCurrentBasket,
-    globalAddresses, isOTPVerified, setShowOTPModal, setOtpContext,
-  ]);
+  }, [updateCurrentBasket, setBaskets, activeBasketId]);
 
-  // ── sendMessageToBasket: targets an explicit basket ID, avoiding stale closure ──
+  // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {
     const updateTarget = (updater: (prev: BasketState) => BasketState) => {
       setBasketStates(prev => {
@@ -397,7 +589,7 @@ export const useAgentMessages = ({
 
     try {
       const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', {
-        body: { messages: [{ role: 'user', content }] },
+        body: { messages: [{ role: 'user', content }], mode: 'discovery' },
       });
 
       if (error) throw new Error(error.message);
@@ -408,7 +600,6 @@ export const useAgentMessages = ({
 
       if (mappedProducts.length > 0) {
         updateTarget(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
-        // Smart naming for sendMessageToBasket too
         setBaskets(prev => prev.map(b => {
           if (b.id !== targetBasketId) return b;
           if (!b.title.startsWith('سبد جدید')) return b;

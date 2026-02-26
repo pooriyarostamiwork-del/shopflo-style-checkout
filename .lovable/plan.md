@@ -1,182 +1,144 @@
 
 
-# Intent Classification & Multi-Mode Agent Architecture
+# New Agent Mode: `cart_manipulation`
 
 ## Problem
 
-Current system has one monolithic path: client-side regex shortcuts (lines 210-322 in `useAgentMessages.ts`) handle a few Persian keywords, everything else goes to `gpt-commerce-agent` which only knows how to search products. When user says "محصول ۲ رو بخر" the agent searches for products instead of adding to cart.
+Transactional cart intents are currently handled entirely client-side after classification. This works for simple cases (add by number, remove, update quantity), but fails for ambiguous or complex cart operations where the user needs intelligent resolution — e.g.:
+
+- "ایرپاد رو بخر" when multiple AirPods exist in recommendations
+- "ارزون‌ترین رو بذار سبد" — requires sorting + selecting
+- "همه رو بخر" — batch add
+- "عوضش کن با اون یکی" — replace item
+- "یه دونه از هر کدوم بذار" — multi-add with quantity logic
+- Disambiguation: "کدوم سامسونگ؟" when user said "سامسونگ رو بخر" but 3 Samsung products exist
+
+The client-side handlers can't reason about these. A dedicated `cart_manipulation` agent mode would receive the current cart state + recommended products as context, reason about the user's request, and return structured cart operations.
 
 ## Architecture
 
 ```text
-User Message
-     │
-     ▼
-┌─────────────────────────────┐
-│  classify-intent (edge fn)  │  gemini-2.5-flash-lite (~50ms)
-│  Returns structured intent  │
-└──────────┬──────────────────┘
-           │
-    ┌──────┴───────────────────────────┐
-    │              │                   │
-    ▼              ▼                   ▼
-TRANSACTIONAL   DISCOVERY/          CONVERSATIONAL
-(client-side)   COMPARISON          (agent, no tools)
-                (agent + tools)
+classify-intent returns:
+  intent_type: "transactional"
+  intent_subtype: "cart_add_by_name" | "cart_add" | "cart_remove" | ...
+  confidence: 0.7 (ambiguous)
+       │
+       ▼
+  confidence >= 0.85 AND entities fully resolved?
+       │                    │
+      YES                  NO
+       │                    │
+       ▼                    ▼
+  Client-side          Call gpt-commerce-agent
+  (current behavior)   mode: "cart_manipulation"
+                            │
+                            ▼
+                       Returns structured JSON:
+                       { actions: [...], message: "..." }
+                            │
+                            ▼
+                       Client executes actions
 ```
 
-## Complete Intent Taxonomy
+## New Mode: `cart_manipulation` in `gpt-commerce-agent`
 
-### Group A: Transactional — executed client-side, zero LLM calls after classification
+### System Prompt
+A Persian cart management assistant that receives:
+- Current cart contents (items, quantities, prices)
+- Last recommended products (with indices)
+- User's request
 
-| Subtype | Persian triggers (examples) | Entities extracted | Client action |
-|---|---|---|---|
-| `cart_add` | محصول ۲ رو بخر، شماره ۳ اضافه کن، #1 رو بذار | `product_ref: number` | Resolve from `lastRecommendedProducts[ref-1]`, add to cart, confirm message |
-| `cart_add_by_name` | ایرپاد رو بخر، همون سامسونگ رو اضافه کن | `product_name: string` | Fuzzy match against `lastRecommendedProducts` by name, add to cart |
-| `cart_remove` | حذفش کن، محصول ۲ رو بردار، از سبد حذف کن | `product_ref?: number, product_name?: string` | Remove from `cartItems` |
-| `quantity_update` | ۲ تاش کن، تعداد رو ۳ کن، یکی کم کن | `product_ref?: number, quantity: number, delta?: number` | Update quantity in cart |
-| `checkout_initiate` | نهایی کن، بخرشون، خرید رو انجام بده، تموم کن | (none) | Call `handleFinalizePurchase()` |
-| `checkout_direct` | محصول ۲ رو بخر بفرست خونه، پرداخت مستقیم | `product_ref: number` | Add + initiate checkout in one shot |
-| `coupon_apply` | کد تخفیف SALE20، تخفیف بزن | `coupon_code: string` | Apply coupon to cart |
-| `save_for_later` | ذخیره کن، بعداً میخرم | `product_ref?: number` | Move to saved items |
+And returns structured cart operations.
 
-### Group B: Discovery — routed to agent with search/detail tools
-
-| Subtype | Persian triggers (examples) | Agent mode | Tools available |
-|---|---|---|---|
-| `product_search` | هدفون بلوتوثی میخوام، لپتاپ زیر ۱۰ میلیون | `discovery` | `search_products` |
-| `product_filter` | ارزان‌ترینش، فقط سامسونگ رو نشون بده | `discovery` | `search_products` (with filters from context) |
-| `product_details` | مشخصاتش چیه، جزئیات بیشتر بده | `discovery` | `get_product_details` |
-| `product_alternatives` | مشابهش چی داری، جایگزین بده | `discovery` | `search_products` |
-| `product_availability` | موجوده؟ کی میرسه؟ | `discovery` | `get_product_details` |
-
-### Group C: Comparison — routed to agent with product data injected, no search
-
-| Subtype | Persian triggers (examples) | Agent mode | Data injected |
-|---|---|---|---|
-| `compare_products` | فرق ۱ و ۳ چیه، مقایسه کن | `comparison` | Full specs of referenced products from `lastRecommendedProducts` |
-| `compare_with_external` | این با ایرپاد پرو چه فرقی داره | `comparison` | One from context + search for the other |
-
-### Group D: Information Retrieval — routed to agent, read-only context
-
-| Subtype | Persian triggers (examples) | Agent mode | Context |
-|---|---|---|---|
-| `order_status` | سفارشم کجاست، پیگیری سفارش | `info_retrieval` | User's order data |
-| `return_policy` | گارانتی داره؟ مرجوع میشه؟ | `info_retrieval` | Store policies |
-| `shipping_info` | چند روزه میرسه، ارسال رایگانه؟ | `info_retrieval` | Product/shipping data |
-
-### Group E: Conversational Control — routed to agent, lightweight
-
-| Subtype | Persian triggers (examples) | Agent mode | Behavior |
-|---|---|---|---|
-| `greeting` | سلام، خسته نباشی | `conversational` | Greeting + suggest help |
-| `clarification` | منظورم آبی بود، نه اون یکی | `conversational` | Re-interpret with context |
-| `correction` | نه اشتباه شد، بردار | `conversational` | Undo/correct last action |
-| `thanks` | ممنون، دستت درد نکنه | `conversational` | Polite close |
-| `help` | چیکار میتونی بکنی | `conversational` | Capability overview |
-
-## Classifier Edge Function: `classify-intent`
-
-**Model**: `google/gemini-2.5-flash-lite` (fastest, cheapest)
-
-**Input**: last user message + last 3 conversation turns + `context` object containing:
-- `has_cart_items`: boolean
-- `last_recommended_count`: number  
-- `last_recommended_names`: string[] (first 6)
-- `checkout_step`: current agentic step
-
-**Output schema** (via tool-calling):
+### Input (injected via `products_context` and new `cart_context`)
 ```typescript
+// Request body additions:
 {
-  intent_type: "transactional" | "discovery" | "comparison" | "info_retrieval" | "conversational",
-  intent_subtype: string,  // e.g. "cart_add", "product_search", "compare_products"
-  entities: {
-    product_ref?: number,        // numeric reference like #2
-    product_name?: string,       // name-based reference
-    product_refs?: number[],     // for comparison: [1, 3]
-    quantity?: number,
-    coupon_code?: string,
+  mode: "cart_manipulation",
+  cart_context: {
+    items: [{ id, name, price, quantity, merchant }],
+    total: number,
   },
-  confidence: number  // 0-1
+  products_context: [{ id, name, price, merchant, rating }],  // lastRecommended
 }
 ```
 
-**Fallback**: If confidence < 0.5 or classification fails, default to `discovery` mode (current behavior).
+### Output Schema (via tool-calling)
+The agent calls a `execute_cart_operations` tool returning:
+```typescript
+{
+  actions: [
+    { type: "add", product_index: 2, quantity: 1 },
+    { type: "remove", product_id: "uuid" },
+    { type: "update_quantity", product_id: "uuid", quantity: 3 },
+    { type: "replace", remove_product_id: "uuid", add_product_index: 1 },
+  ],
+  message: "string",  // Persian confirmation message
+  needs_clarification: boolean,
+  clarification_options?: string[],
+}
+```
 
-## Agent Modes in `gpt-commerce-agent`
+### Tool Definition
+```typescript
+{
+  name: "execute_cart_operations",
+  description: "Execute one or more cart operations based on user request",
+  parameters: {
+    actions: [{
+      type: "add" | "remove" | "update_quantity" | "replace",
+      product_index?: number,      // 1-based index from recommended products
+      product_id?: string,         // UUID from cart items
+      quantity?: number,
+    }],
+    message: string,               // Persian response to show user
+    needs_clarification: boolean,  // true if ambiguous
+    clarification_options: string[], // quick-reply options for disambiguation
+  }
+}
+```
 
-The existing edge function gets a new `mode` parameter. Each mode has a specialized system prompt and tool set:
+## Intent Subtypes That Route to This Mode
 
-### Mode: `discovery` (default, current behavior)
-- System prompt: current prompt (product search assistant)
-- Tools: `search_products`, `get_product_details`
-- Pipeline: Intent extraction → Hybrid retrieval → Re-ranker → Response
-- No changes needed except accepting `mode` param
-
-### Mode: `comparison`
-- System prompt: "You are comparing products. Given the product specs below, provide a clear structured comparison in Persian. Focus on key differences. No markdown."
-- Tools: none (data injected in request body as `products_context`)
-- Pipeline: Single LLM call with product data → Comparison response
-- No search, no re-ranking
-
-### Mode: `info_retrieval`
-- System prompt: "You answer factual questions about products, orders, shipping, and store policies. Be concise and accurate."
-- Tools: `get_product_details` only
-- Pipeline: Single LLM call, optionally fetch product details
-- Context: order data, product data from client
-
-### Mode: `conversational`
-- System prompt: "You are a friendly Persian shopping assistant. Respond naturally. No product search needed."
-- Tools: none
-- Pipeline: Single LLM call → Response
-- Fastest path
-
-## Client-Side Transactional Handlers
-
-New handlers added to `useAgentMessages.ts`, replacing the current regex block:
-
-- `handleCartAddByRef(ref: number)` — resolves `lastRecommendedProducts[ref-1]`, calls existing `handleAddToCart`
-- `handleCartAddByName(name: string)` — fuzzy match against `lastRecommendedProducts`, calls `handleAddToCart`
-- `handleCartRemoveByRef(ref?: number, name?: string)` — resolves and removes
-- `handleQuantityUpdateByRef(ref?: number, qty: number)` — resolves and updates
-- `handleCheckoutDirect(ref: number)` — add + finalize in one shot
-
-Each produces a confirmation `ChatMessage` immediately, no LLM call.
+| Subtype | When routed to agent | Example |
+|---|---|---|
+| `cart_add` | `product_ref` missing OR confidence < 0.85 | "اون رو بذار سبد" |
+| `cart_add_by_name` | fuzzy match returns 0 or 2+ results | "سامسونگ رو بخر" (3 Samsungs) |
+| `cart_remove` | no ref, no name, multiple cart items | "یکیشو حذف کن" |
+| `quantity_update` | ambiguous target | "بیشتر بذار" |
+| `checkout_direct` | ref missing | "خریدش کن بفرست" |
+| `cart_batch_add` | NEW subtype: "همه رو بخر" | batch operations |
+| `cart_replace` | NEW subtype: "عوضش کن" | swap item |
+| `cart_cheapest` | NEW subtype: "ارزون‌ترین رو بذار" | selection by criteria |
 
 ## Implementation Steps
 
-### Step 1: Create `supabase/functions/classify-intent/index.ts`
-- Lightweight edge function
-- Single LLM call with tool-calling to extract structured intent
-- ~50ms latency, minimal token usage
+### Step 1: Add `cart_manipulation` prompt and tool to `gpt-commerce-agent`
+- New system prompt in `PROMPTS` object
+- New `CART_OPERATIONS_TOOL` definition
+- New `MODE_TOOLS` entry: `cart_manipulation: [CART_OPERATIONS_TOOL]`
+- Parse tool response and return structured actions
 
-### Step 2: Update `supabase/functions/gpt-commerce-agent/index.ts`
-- Accept `mode` parameter in request body
-- Switch system prompt and tools based on mode
-- Accept optional `products_context` for comparison mode
-- Keep existing logic as `discovery` mode (default)
+### Step 2: Add routing logic in `useAgentMessages.ts`
+- After transactional classification, check if entities are fully resolved and confidence is high
+- If not, route to `callAgent(content, history, 'cart_manipulation', productsContext, cartContext)`
+- Add `cartContext` parameter to `callAgent`
+- Process returned `actions` array to execute each operation locally
 
-### Step 3: Refactor `src/features/gpt-commerce/hooks/useAgentMessages.ts`
-- Remove regex-based intent detection (lines 210-322)
-- Add `classifyIntent()` call as first step in `handleSendMessage`
-- Route based on `intent_type`:
-  - `transactional` → client-side handlers (no LLM)
-  - `discovery` → call agent with `mode: "discovery"` 
-  - `comparison` → inject product data, call agent with `mode: "comparison"`
-  - `info_retrieval` → call agent with `mode: "info_retrieval"`
-  - `conversational` → call agent with `mode: "conversational"`
-- Add all transactional handler functions
-- Same refactoring for `sendMessageToBasket`
+### Step 3: Add new subtypes to `classify-intent`
+- Add `cart_batch_add`, `cart_replace`, `cart_cheapest` to the subtype enum
+- Update system prompt examples for these new subtypes
 
-### Step 4: Update `supabase/config.toml`
-- Add `[functions.classify-intent]` with `verify_jwt = false`
+### Step 4: Handle agent response actions client-side
+- New function `executeCartActions(actions)` that loops through the returned actions array and calls existing handlers (`handleAddToCart`, `handleRemoveItem`, `handleUpdateQuantity`)
+- Render the agent's `message` as the confirmation
+- If `needs_clarification`, render `clarification_options` as quick replies
 
 ## Files
 
 | File | Change |
 |---|---|
-| `supabase/functions/classify-intent/index.ts` | **NEW** — intent classifier |
-| `supabase/functions/gpt-commerce-agent/index.ts` | Add `mode` parameter, mode-specific prompts and tool sets |
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Replace regex with classifier → router, add transactional handlers |
-| `supabase/config.toml` | Add classify-intent config (auto-managed) |
+| `supabase/functions/gpt-commerce-agent/index.ts` | Add `cart_manipulation` prompt, `CART_OPERATIONS_TOOL`, mode routing |
+| `supabase/functions/classify-intent/index.ts` | Add new subtypes, update prompt examples |
+| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Add ambiguity detection, `cart_manipulation` routing, `executeCartActions` |
 

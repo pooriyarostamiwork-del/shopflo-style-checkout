@@ -1,6 +1,7 @@
 
 
-# New Agent Mode: `cart_manipulation`
+
+# New Agent Mode: `cart_manipulation` ✅ IMPLEMENTED
 
 ## Problem
 
@@ -40,105 +41,22 @@ classify-intent returns:
                        Client executes actions
 ```
 
-## New Mode: `cart_manipulation` in `gpt-commerce-agent`
+## Implementation (Completed)
 
-### System Prompt
-A Persian cart management assistant that receives:
-- Current cart contents (items, quantities, prices)
-- Last recommended products (with indices)
-- User's request
+### Step 1: `gpt-commerce-agent` — `cart_manipulation` mode
+- Added `cart_manipulation` system prompt to `PROMPTS`
+- Added `CART_OPERATIONS_TOOL` with `execute_cart_operations` function
+- Added `cart_manipulation: [CART_OPERATIONS_TOOL]` to `MODE_TOOLS`
+- Accepts `cart_context` in request body, injects into prompt
+- Parses tool call response and returns `{ cart_actions, content, needs_clarification, clarification_options }`
 
-And returns structured cart operations.
+### Step 2: `classify-intent` — New subtypes
+- Added `cart_batch_add`, `cart_replace`, `cart_cheapest` to subtype enum
+- Updated system prompt with examples for new subtypes
 
-### Input (injected via `products_context` and new `cart_context`)
-```typescript
-// Request body additions:
-{
-  mode: "cart_manipulation",
-  cart_context: {
-    items: [{ id, name, price, quantity, merchant }],
-    total: number,
-  },
-  products_context: [{ id, name, price, merchant, rating }],  // lastRecommended
-}
-```
-
-### Output Schema (via tool-calling)
-The agent calls a `execute_cart_operations` tool returning:
-```typescript
-{
-  actions: [
-    { type: "add", product_index: 2, quantity: 1 },
-    { type: "remove", product_id: "uuid" },
-    { type: "update_quantity", product_id: "uuid", quantity: 3 },
-    { type: "replace", remove_product_id: "uuid", add_product_index: 1 },
-  ],
-  message: "string",  // Persian confirmation message
-  needs_clarification: boolean,
-  clarification_options?: string[],
-}
-```
-
-### Tool Definition
-```typescript
-{
-  name: "execute_cart_operations",
-  description: "Execute one or more cart operations based on user request",
-  parameters: {
-    actions: [{
-      type: "add" | "remove" | "update_quantity" | "replace",
-      product_index?: number,      // 1-based index from recommended products
-      product_id?: string,         // UUID from cart items
-      quantity?: number,
-    }],
-    message: string,               // Persian response to show user
-    needs_clarification: boolean,  // true if ambiguous
-    clarification_options: string[], // quick-reply options for disambiguation
-  }
-}
-```
-
-## Intent Subtypes That Route to This Mode
-
-| Subtype | When routed to agent | Example |
-|---|---|---|
-| `cart_add` | `product_ref` missing OR confidence < 0.85 | "اون رو بذار سبد" |
-| `cart_add_by_name` | fuzzy match returns 0 or 2+ results | "سامسونگ رو بخر" (3 Samsungs) |
-| `cart_remove` | no ref, no name, multiple cart items | "یکیشو حذف کن" |
-| `quantity_update` | ambiguous target | "بیشتر بذار" |
-| `checkout_direct` | ref missing | "خریدش کن بفرست" |
-| `cart_batch_add` | NEW subtype: "همه رو بخر" | batch operations |
-| `cart_replace` | NEW subtype: "عوضش کن" | swap item |
-| `cart_cheapest` | NEW subtype: "ارزون‌ترین رو بذار" | selection by criteria |
-
-## Implementation Steps
-
-### Step 1: Add `cart_manipulation` prompt and tool to `gpt-commerce-agent`
-- New system prompt in `PROMPTS` object
-- New `CART_OPERATIONS_TOOL` definition
-- New `MODE_TOOLS` entry: `cart_manipulation: [CART_OPERATIONS_TOOL]`
-- Parse tool response and return structured actions
-
-### Step 2: Add routing logic in `useAgentMessages.ts`
-- After transactional classification, check if entities are fully resolved and confidence is high
-- If not, route to `callAgent(content, history, 'cart_manipulation', productsContext, cartContext)`
-- Add `cartContext` parameter to `callAgent`
-- Process returned `actions` array to execute each operation locally
-
-### Step 3: Add new subtypes to `classify-intent`
-- Add `cart_batch_add`, `cart_replace`, `cart_cheapest` to the subtype enum
-- Update system prompt examples for these new subtypes
-
-### Step 4: Handle agent response actions client-side
-- New function `executeCartActions(actions)` that loops through the returned actions array and calls existing handlers (`handleAddToCart`, `handleRemoveItem`, `handleUpdateQuantity`)
-- Render the agent's `message` as the confirmation
-- If `needs_clarification`, render `clarification_options` as quick replies
-
-## Files
-
-| File | Change |
-|---|---|
-| `supabase/functions/gpt-commerce-agent/index.ts` | Add `cart_manipulation` prompt, `CART_OPERATIONS_TOOL`, mode routing |
-| `supabase/functions/classify-intent/index.ts` | Add new subtypes, update prompt examples |
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Add ambiguity detection, `cart_manipulation` routing, `executeCartActions` |
-
+### Step 3: `useAgentMessages.ts` — Ambiguity routing + action executor
+- New subtypes (`cart_batch_add`, `cart_replace`, `cart_cheapest`) always route to `callCartManipulationAgent`
+- Existing subtypes (`cart_add`, `cart_add_by_name`, `cart_remove`, `quantity_update`) route to agent when entities can't be resolved
+- `executeCartActions(actions)` loops through returned actions and calls existing handlers
+- `callCartManipulationAgent` sends cart + recommended products context, processes response
+- Clarification options rendered as quick replies when `needs_clarification` is true

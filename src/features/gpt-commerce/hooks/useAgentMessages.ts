@@ -383,34 +383,57 @@ export const useAgentMessages = ({
     // ── Step 2: Route based on intent ──
     switch (intent.intent_type) {
       case 'transactional': {
+        // New subtypes that always route to cart_manipulation agent
+        if (['cart_batch_add', 'cart_replace', 'cart_cheapest'].includes(intent.intent_subtype)) {
+          await callCartManipulationAgent(content, conversationHistory);
+          return;
+        }
+
         switch (intent.intent_subtype) {
           case 'cart_add':
             if (intent.entities.product_ref) {
               handleTransactionalCartAdd(intent.entities.product_ref);
             } else {
-              // No ref, fall through to discovery
-              await callAgent(content, conversationHistory, 'discovery');
+              // No ref — ambiguous, route to cart_manipulation agent
+              await callCartManipulationAgent(content, conversationHistory);
             }
             return;
 
           case 'cart_add_by_name':
             if (intent.entities.product_name) {
-              handleTransactionalCartAddByName(intent.entities.product_name);
+              // Try fuzzy match; if ambiguous (0 or 2+ matches), route to agent
+              const matches = lastRecommendedProducts.filter(p =>
+                p.name.toLowerCase().includes(intent.entities.product_name!.toLowerCase())
+              );
+              if (matches.length === 1) {
+                handleAddToCart(matches[0]);
+                updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+              } else {
+                await callCartManipulationAgent(content, conversationHistory);
+              }
             } else {
               await callAgent(content, conversationHistory, 'discovery');
             }
             return;
 
           case 'cart_remove':
-            handleTransactionalCartRemove(intent.entities.product_ref, intent.entities.product_name);
+            if (intent.entities.product_ref || intent.entities.product_name || cartItems.length === 1) {
+              handleTransactionalCartRemove(intent.entities.product_ref, intent.entities.product_name);
+            } else {
+              await callCartManipulationAgent(content, conversationHistory);
+            }
             return;
 
           case 'quantity_update':
-            handleTransactionalQuantityUpdate(
-              intent.entities.product_ref,
-              intent.entities.quantity || 1,
-              intent.entities.delta
-            );
+            if (intent.entities.product_ref || cartItems.length === 1) {
+              handleTransactionalQuantityUpdate(
+                intent.entities.product_ref,
+                intent.entities.quantity || 1,
+                intent.entities.delta
+              );
+            } else {
+              await callCartManipulationAgent(content, conversationHistory);
+            }
             return;
 
           case 'checkout_initiate':
@@ -426,7 +449,7 @@ export const useAgentMessages = ({
                 updateCurrentBasket(s => ({ ...s, isProcessing: false }));
               }, 500);
             } else {
-              await callAgent(content, conversationHistory, 'discovery');
+              await callCartManipulationAgent(content, conversationHistory);
             }
             return;
 
@@ -462,7 +485,6 @@ export const useAgentMessages = ({
           }
 
           default:
-            // Unknown transactional subtype, fall through to discovery
             await callAgent(content, conversationHistory, 'discovery');
             return;
         }
@@ -505,6 +527,124 @@ export const useAgentMessages = ({
     handleTransactionalCheckout, handleSaveProduct,
     globalAddresses, isOTPVerified, setShowOTPModal, setOtpContext,
   ]);
+
+  // ── Execute cart actions returned by cart_manipulation agent ──
+  const executeCartActions = useCallback((actions: any[]) => {
+    for (const action of actions) {
+      switch (action.type) {
+        case 'add': {
+          const idx = action.product_index;
+          if (idx && idx >= 1 && idx <= lastRecommendedProducts.length) {
+            const product = lastRecommendedProducts[idx - 1];
+            const qty = action.quantity || 1;
+            updateCurrentBasket(s => {
+              const existing = s.cartItems.find(item => item.id === product.id);
+              const newCart = existing
+                ? s.cartItems.map(item => item.id === product.id ? { ...item, quantity: item.quantity + qty } : item)
+                : [...s.cartItems, { ...product, quantity: qty }];
+              return { ...s, cartItems: newCart };
+            });
+          }
+          break;
+        }
+        case 'remove': {
+          const pid = action.product_id;
+          if (pid) {
+            handleRemoveItem(pid);
+          }
+          break;
+        }
+        case 'update_quantity': {
+          const pid = action.product_id;
+          const qty = action.quantity || 1;
+          if (pid) {
+            handleUpdateQuantity(pid, qty);
+          }
+          break;
+        }
+        case 'replace': {
+          if (action.remove_product_id) {
+            handleRemoveItem(action.remove_product_id);
+          }
+          const addIdx = action.add_product_index;
+          if (addIdx && addIdx >= 1 && addIdx <= lastRecommendedProducts.length) {
+            const product = lastRecommendedProducts[addIdx - 1];
+            updateCurrentBasket(s => {
+              const existing = s.cartItems.find(item => item.id === product.id);
+              const newCart = existing
+                ? s.cartItems.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
+                : [...s.cartItems, { ...product, quantity: 1 }];
+              return { ...s, cartItems: newCart };
+            });
+          }
+          break;
+        }
+      }
+    }
+    setIsCartOpen(true);
+  }, [lastRecommendedProducts, handleRemoveItem, handleUpdateQuantity, updateCurrentBasket, setIsCartOpen]);
+
+  // ── Call cart_manipulation agent for ambiguous cart operations ──
+  const callCartManipulationAgent = useCallback(async (
+    content: string,
+    conversationHistory: { role: string; content: string }[],
+  ) => {
+    try {
+      const body: any = {
+        messages: [...conversationHistory, { role: 'user', content }],
+        mode: 'cart_manipulation',
+        cart_context: {
+          items: cartItems.map(item => ({
+            id: item.id, name: item.name, price: item.price,
+            quantity: item.quantity, merchant: item.merchant?.name,
+          })),
+          total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        },
+        products_context: lastRecommendedProducts.map(p => ({
+          id: p.id, name: p.name, price: p.price,
+          brand: p.merchant?.name, rating: p.rating,
+        })),
+      };
+
+      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', { body });
+      if (error) throw new Error(error.message);
+
+      const actions = data?.cart_actions || [];
+      const responseContent = data?.content || 'عملیات انجام شد.';
+      const needsClarification = data?.needs_clarification || false;
+      const clarificationOptions = data?.clarification_options || [];
+
+      // Execute cart actions if any
+      if (actions.length > 0 && !needsClarification) {
+        executeCartActions(actions);
+      }
+
+      // Build quick replies from clarification options
+      const quickReplies = needsClarification && clarificationOptions.length > 0
+        ? clarificationOptions.map((opt: string, i: number) => ({
+            id: `clarify-${i}`, label: opt, type: 'custom' as QuickReplyType, action: `clarify_${i}`,
+          }))
+        : undefined;
+
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: responseContent,
+        quickReplies,
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
+    } catch (err) {
+      console.error('Cart manipulation agent failed:', err);
+      const fallbackMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: 'متأسفانه نتونستم درخواستت رو پردازش کنم. دوباره امتحان کن. 🙏',
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
+    }
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket]);
 
   // ── Call the gpt-commerce-agent with a specific mode ──
   const callAgent = useCallback(async (

@@ -91,6 +91,26 @@ const PROMPTS: Record<string, string> = {
 - اگه سلام کرد، خوش‌آمد بگو و بپرس چطور می‌تونی کمکش کنی
 - اگه تشکر کرد، خواهش کن و بگو اگه کمکی نیاز داشت در خدمتشی
 - اگه سوالی درباره قابلیت‌هات داشت، توضیح بده می‌تونی محصول جستجو کنی، مقایسه کنی، و کمک به خرید کنی`,
+
+  cart_manipulation: `تو دستیار مدیریت سبد خرید فلوکارت هستی.
+
+وظیفه تو: تحلیل درخواست کاربر درباره سبد خرید و اجرای عملیات مناسب.
+
+اطلاعاتی که بهت داده میشه:
+- محتویات فعلی سبد خرید (آیتم‌ها، تعداد، قیمت)
+- محصولات پیشنهادی اخیر (با شماره ایندکس)
+- درخواست کاربر
+
+قوانین:
+- فارسی صحبت کن
+- بدون مارک‌داون - متن ساده
+- اگه درخواست مبهمه و نمی‌تونی تشخیص بدی کدوم محصول رو میگه، needs_clarification رو true کن و گزینه‌ها رو بده
+- product_index شماره ایندکس ۱-based از لیست محصولات پیشنهادی هست
+- product_id شناسه UUID از آیتم‌های سبد خرید هست
+- برای "همه رو بخر" → همه محصولات پیشنهادی رو اضافه کن
+- برای "ارزون‌ترین" → محصول با کمترین قیمت رو انتخاب کن
+- برای "عوضش کن" → یکی حذف و یکی اضافه کن
+- همیشه یه پیام تأیید فارسی بنویس`,
 };
 
 // ── Tool definitions ──
@@ -151,12 +171,76 @@ const DETAILS_TOOL = {
   },
 };
 
+// ── Cart operations tool ──
+const CART_OPERATIONS_TOOL = {
+  type: "function",
+  function: {
+    name: "execute_cart_operations",
+    description: "Execute one or more cart operations based on user request. Use product_index (1-based) to reference recommended products, product_id (UUID) to reference cart items.",
+    parameters: {
+      type: "object",
+      properties: {
+        actions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: ["add", "remove", "update_quantity", "replace"],
+              },
+              product_index: {
+                type: "number",
+                description: "1-based index from recommended products list (for add operations)",
+              },
+              product_id: {
+                type: "string",
+                description: "UUID from cart items (for remove/update operations)",
+              },
+              remove_product_id: {
+                type: "string",
+                description: "UUID of cart item to remove (for replace operations)",
+              },
+              add_product_index: {
+                type: "number",
+                description: "1-based index of recommended product to add (for replace operations)",
+              },
+              quantity: {
+                type: "number",
+                description: "Quantity for add or update_quantity operations",
+              },
+            },
+            required: ["type"],
+          },
+          description: "List of cart operations to execute",
+        },
+        message: {
+          type: "string",
+          description: "Persian confirmation message to show the user",
+        },
+        needs_clarification: {
+          type: "boolean",
+          description: "True if the request is ambiguous and needs user clarification",
+        },
+        clarification_options: {
+          type: "array",
+          items: { type: "string" },
+          description: "Quick-reply options for disambiguation when needs_clarification is true",
+        },
+      },
+      required: ["actions", "message", "needs_clarification"],
+      additionalProperties: false,
+    },
+  },
+};
+
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
   discovery: [SEARCH_TOOL, DETAILS_TOOL],
-  comparison: [], // data injected, no tools needed
+  comparison: [],
   info_retrieval: [DETAILS_TOOL],
-  conversational: [], // no tools
+  conversational: [],
+  cart_manipulation: [CART_OPERATIONS_TOOL],
 };
 
 // ── Generate query embedding ──
@@ -228,7 +312,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages, mode = "discovery", products_context } = await req.json();
+    const { messages: userMessages, mode = "discovery", products_context, cart_context } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -248,6 +332,24 @@ serve(async (req) => {
         `محصول ${i + 1}: ${p.name}\n- قیمت: ${p.price?.toLocaleString()} تومان\n- برند: ${p.brand || "نامشخص"}\n- امتیاز: ${p.rating}\n- مشخصات: ${JSON.stringify(p.specs || {})}`
       ).join("\n\n");
       systemPrompt += `\n\nمحصولات برای مقایسه:\n${productsList}`;
+    }
+
+    // For cart_manipulation mode, inject cart + recommended products context
+    if (effectiveMode === "cart_manipulation") {
+      if (cart_context?.items?.length > 0) {
+        const cartList = cart_context.items.map((item: any, i: number) =>
+          `${i + 1}. [${item.id}] ${item.name} - ${item.price?.toLocaleString()} تومان × ${item.quantity}`
+        ).join("\n");
+        systemPrompt += `\n\nسبد خرید فعلی:\n${cartList}\nجمع: ${cart_context.total?.toLocaleString()} تومان`;
+      } else {
+        systemPrompt += `\n\nسبد خرید فعلی: خالی`;
+      }
+      if (products_context?.length > 0) {
+        const recList = products_context.map((p: any, i: number) =>
+          `${i + 1}. [${p.id}] ${p.name} - ${p.price?.toLocaleString()} تومان (${p.brand || "نامشخص"})`
+        ).join("\n");
+        systemPrompt += `\n\nمحصولات پیشنهادی اخیر:\n${recList}`;
+      }
     }
 
     const aiMessages = [
@@ -313,6 +415,29 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           content: choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟",
+          products: [],
+          quickReplies: [],
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── cart_manipulation mode: parse tool call and return structured actions ──
+    if (effectiveMode === "cart_manipulation") {
+      const toolCall = choice.message.tool_calls[0];
+      let cartResult: any;
+      try {
+        cartResult = JSON.parse(toolCall.function.arguments);
+      } catch {
+        cartResult = { actions: [], message: "متوجه نشدم. دوباره بگو.", needs_clarification: false };
+      }
+      console.log("Cart manipulation result:", JSON.stringify(cartResult));
+      return new Response(
+        JSON.stringify({
+          cart_actions: cartResult.actions || [],
+          content: cartResult.message || "عملیات انجام شد.",
+          needs_clarification: cartResult.needs_clarification || false,
+          clarification_options: cartResult.clarification_options || [],
           products: [],
           quickReplies: [],
         }),

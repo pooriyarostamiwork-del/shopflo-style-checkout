@@ -19,6 +19,9 @@ IMPORTANT RULES:
 - When user is searching for NEW products (no specific reference to shown products) → product_search
 - "بخر" without a product reference but with a product description → product_search (they want to find and buy)
 - "بخر" WITH a product number/name from shown products → cart_add (they want to add a specific shown product)
+- "همه رو بخر" or "همه رو اضافه کن" → cart_batch_add (batch add all shown products)
+- "ارزون‌ترین رو بذار" or "گرون‌ترین" with criteria selection → cart_cheapest
+- "عوضش کن" or "جایگزین کن" → cart_replace (swap a cart item with another)
 
 Context interpretation:
 - last_recommended_count > 0 means products were recently shown to the user
@@ -43,6 +46,7 @@ const CLASSIFY_TOOL = {
           enum: [
             "cart_add", "cart_add_by_name", "cart_remove", "quantity_update",
             "checkout_initiate", "checkout_direct", "coupon_apply", "save_for_later",
+            "cart_batch_add", "cart_replace", "cart_cheapest",
             "product_search", "product_filter", "product_details", "product_alternatives", "product_availability",
             "compare_products", "compare_with_external",
             "order_status", "return_policy", "shipping_info",

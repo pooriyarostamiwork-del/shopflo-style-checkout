@@ -23,6 +23,17 @@ IMPORTANT RULES:
 - "ارزون‌ترین رو بذار" or "گرون‌ترین" with criteria selection → cart_cheapest
 - "عوضش کن" or "جایگزین کن" → cart_replace (swap a cart item with another)
 
+QUANTITY EXTRACTION (very important):
+- "دو تا از محصول شماره ۴" → cart_add, product_ref: 4, quantity: 2
+- "سه تا از شماره ۲ بخر" → cart_add, product_ref: 2, quantity: 3
+- "یه دونه از اولی" → cart_add, product_ref: 1, quantity: 1
+- "محصول شماره ۴ رو اضافه کن" → cart_add, product_ref: 4, quantity: 1
+- "دو تا از لپ تاپ لنوو بخر" → cart_add_by_name, product_name: "لنوو", quantity: 2
+- "یکی دیگه اضافه کن" → quantity_update, delta: 1
+- "یکی کم کن" → quantity_update, delta: -1
+- "تعدادش رو ۳ کن" → quantity_update, quantity: 3
+- "بهترینشو خودت انتخاب کن و بخر" → cart_cheapest (agent should pick best value)
+
 Context interpretation:
 - last_recommended_count > 0 means products were recently shown to the user
 - product references (#1, محصول ۲, etc.) refer to those shown products
@@ -63,7 +74,7 @@ const CLASSIFY_TOOL = {
             },
             product_name: {
               type: "string",
-              description: "Product name mentioned by user for name-based matching. e.g. 'ایرپاد' or 'سامسونگ'",
+              description: "Product name or brand mentioned by user for name-based matching. e.g. 'ایرپاد' or 'سامسونگ' or 'لنوو' or 'اچ پی'",
             },
             product_refs: {
               type: "array",
@@ -72,7 +83,7 @@ const CLASSIFY_TOOL = {
             },
             quantity: {
               type: "number",
-              description: "Desired quantity. e.g. ۲ تاش کن → 2",
+              description: "Desired quantity. e.g. دو تا → 2, سه تا → 3, یه دونه → 1. Always extract this when user mentions a count.",
             },
             delta: {
               type: "number",
@@ -90,7 +101,7 @@ const CLASSIFY_TOOL = {
           description: "Confidence score 0-1. Use lower values when intent is ambiguous.",
         },
       },
-      required: ["intent_type", "intent_subtype", "confidence"],
+      required: ["intent_type", "intent_subtype", "entities", "confidence"],
       additionalProperties: false,
     },
   },
@@ -167,7 +178,6 @@ serve(async (req) => {
       }
       const errText = await response.text();
       console.error("Classify intent error:", status, errText);
-      // Fallback to discovery
       return new Response(
         JSON.stringify({
           intent_type: "discovery",

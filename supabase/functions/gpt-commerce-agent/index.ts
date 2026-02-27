@@ -17,6 +17,9 @@ function normalizePersian(text: string): string {
     .trim();
 }
 
+// ── No-greeting instruction ──
+const NO_GREETING = `مهم: این یک مکالمه ادامه‌دار است. هرگز با سلام، خوش‌آمدگویی، یا معرفی خودت شروع نکن. مستقیم برو سر اصل مطلب.`;
+
 // ── Mode-specific system prompts ──
 const PROMPTS: Record<string, string> = {
   discovery: `تو دستیار خرید هوشمند فلوکارت هستی. یک فروشگاه آنلاین فارسی‌زبان.
@@ -53,7 +56,15 @@ const PROMPTS: Record<string, string> = {
 - کیبورد و ماوس
 - تبلت
 
-اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی. از ابزار استفاده نکن.`,
+اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی. از ابزار استفاده نکن.
+
+نکته مهم درباره پاسخ بعد از جستجو:
+- بعد از دریافت نتایج جستجو، بهترین ۳ تا ۶ محصول رو انتخاب کن که بیشترین ارتباط با درخواست کاربر دارن
+- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
+- یه توضیح کوتاه و مفید بنویس
+- در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:
+SELECTED_IDS:["id1","id2","id3"]
+که id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`,
 
   comparison: `تو متخصص مقایسه محصولات در فلوکارت هستی.
 
@@ -88,7 +99,6 @@ const PROMPTS: Record<string, string> = {
 - فارسی صحبت کن
 - لحن صمیمی و گرم داشته باش
 - بدون مارک‌داون - متن ساده
-- اگه سلام کرد، خوش‌آمد بگو و بپرس چطور می‌تونی کمکش کنی
 - اگه تشکر کرد، خواهش کن و بگو اگه کمکی نیاز داشت در خدمتشی
 - اگه سوالی درباره قابلیت‌هات داشت، توضیح بده می‌تونی محصول جستجو کنی، مقایسه کنی، و کمک به خرید کنی`,
 
@@ -258,13 +268,12 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 }
 
 // ── Execute tool calls ──
-async function executeSearch(supabase: any, args: any, originalQuery: string): Promise<any> {
+async function executeSearch(supabase: any, args: any, precomputedEmbedding: number[] | null): Promise<any> {
   const { query_text, subcategory, filters, sort_by } = args;
   const normalizedQuery = normalizePersian(query_text);
-  const queryEmbedding = await generateQueryEmbedding(normalizePersian(originalQuery));
 
   const rpcParams: any = { p_query: normalizedQuery, p_in_stock: true };
-  if (queryEmbedding) rpcParams.p_embedding = JSON.stringify(queryEmbedding);
+  if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
   if (subcategory) rpcParams.p_subcategory = subcategory;
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
@@ -312,7 +321,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages, mode = "discovery", products_context, cart_context } = await req.json();
+    const { messages: userMessages, mode = "discovery", products_context, cart_context, is_first_message = false } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -321,10 +330,13 @@ serve(async (req) => {
     }
 
     const effectiveMode = mode in PROMPTS ? mode : "discovery";
-    console.log(`Agent mode: ${effectiveMode}`);
+    console.log(`Agent mode: ${effectiveMode}, is_first_message: ${is_first_message}`);
 
-    // Build system prompt
+    // Build system prompt with greeting control
     let systemPrompt = PROMPTS[effectiveMode];
+    if (!is_first_message) {
+      systemPrompt = NO_GREETING + "\n\n" + systemPrompt;
+    }
 
     // For comparison mode, inject product data
     if (effectiveMode === "comparison" && products_context) {
@@ -359,10 +371,17 @@ serve(async (req) => {
 
     const tools = MODE_TOOLS[effectiveMode] || [];
 
+    // ── Start embedding generation in parallel for discovery mode ──
+    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
+    let embeddingPromise: Promise<number[] | null> | null = null;
+    if (effectiveMode === "discovery") {
+      embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));
+    }
+
     // ── Step 1: LLM call (with or without tools based on mode) ──
     console.log(`Step 1: ${effectiveMode} LLM call...`);
     const llmBody: any = {
-      model: "google/gemini-3-flash-preview",
+      model: "google/gemini-2.5-flash",
       messages: aiMessages,
     };
     if (tools.length > 0) {
@@ -410,7 +429,7 @@ serve(async (req) => {
       );
     }
 
-    // ── No tool call = direct response (comparison, conversational, info_retrieval, or discovery without search) ──
+    // ── No tool call = direct response ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
       return new Response(
         JSON.stringify({
@@ -445,9 +464,9 @@ serve(async (req) => {
       );
     }
 
-    // ── Step 2: Execute tool calls (discovery/info_retrieval modes) ──
+    // ── Step 2: Execute tool calls + get embedding result ──
     console.log("Step 2: Hybrid retrieval...");
-    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
+    const precomputedEmbedding = embeddingPromise ? await embeddingPromise : null;
     const toolResults: any[] = [];
     let allProducts: any[] = [];
     let extractedIntent: any = null;
@@ -466,7 +485,7 @@ serve(async (req) => {
       let result: any;
       if (funcName === "search_products") {
         extractedIntent = funcArgs;
-        result = await executeSearch(supabase, funcArgs, originalQuery);
+        result = await executeSearch(supabase, funcArgs, precomputedEmbedding);
         if (result.products) allProducts = [...allProducts, ...result.products];
       } else if (funcName === "get_product_details") {
         result = await getProductDetails(supabase, funcArgs.product_id);
@@ -481,14 +500,14 @@ serve(async (req) => {
       });
     }
 
-    // ── Step 3: LLM Re-Ranker + Response ──
-    console.log("Step 3: Re-ranking + response generation...");
+    // ── Step 3: Single follow-up LLM call for response generation + re-ranking ──
+    console.log("Step 3: Response generation...");
     const candidatesForRerank = allProducts.slice(0, 10);
     const candidateList = candidatesForRerank.map((p: any, i: number) =>
       `${i + 1}. [${p.id}] ${p.name} - ${p.price?.toLocaleString()} تومان`
     ).join("\n");
 
-    const rerankerSystemAddendum = candidatesForRerank.length > 0
+    const rerankerInstruction = candidatesForRerank.length > 0
       ? `\n\nتو الان ${candidatesForRerank.length} محصول کاندیدا داری. با توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
 - محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
 - بهترین ۳ تا ۶ محصول رو انتخاب کن
@@ -507,7 +526,7 @@ SELECTED_IDS:["id1","id2","id3"]
       ...aiMessages,
       choice.message,
       ...toolResults,
-      ...(rerankerSystemAddendum ? [{ role: "system", content: rerankerSystemAddendum }] : []),
+      ...(rerankerInstruction ? [{ role: "system", content: rerankerInstruction }] : []),
     ];
 
     const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -517,7 +536,7 @@ SELECTED_IDS:["id1","id2","id3"]
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: followUpMessages,
       }),
     });

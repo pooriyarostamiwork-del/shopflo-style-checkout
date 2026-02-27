@@ -141,14 +141,27 @@ export const GPTCommerceShell = () => {
     lastRecommendedProducts,
   });
 
-  // Wrap handleQuickReply to intercept more_results
+  // Wrap handleQuickReply to intercept more_results and disambiguation
   const handleQuickReplyWrapped = useCallback((reply: any) => {
     if (reply.type === 'custom' && reply.action === 'more_results') {
       handleMoreResults();
       return;
     }
+    // Handle disambiguation quick-reply: add_product_{id}_qty_{n}
+    if (reply.type === 'custom' && typeof reply.action === 'string' && reply.action.startsWith('add_product_')) {
+      const match = reply.action.match(/^add_product_(.+)_qty_(\d+)$/);
+      if (match) {
+        const productId = match[1];
+        const qty = parseInt(match[2]) || 1;
+        const product = lastRecommendedProducts.find(p => p.id === productId);
+        if (product) {
+          handleAddToCart(product, qty);
+          return;
+        }
+      }
+    }
     handleQuickReply(reply);
-  }, [handleQuickReply, handleMoreResults]);
+  }, [handleQuickReply, handleMoreResults, lastRecommendedProducts, handleAddToCart]);
 
   // ── Basket item count sync ──────────────────────────────────────────────
   useEffect(() => {

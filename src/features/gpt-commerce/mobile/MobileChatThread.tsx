@@ -1,0 +1,367 @@
+import { useState, useRef, useEffect } from "react";
+import { ArrowUp, Zap, Mic, ArrowRight, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  ChatMessage,
+  Product,
+  QuickReply,
+  AgenticState,
+  DeliveryAddress,
+  CartItem,
+} from "@/data/gptCommerceData";
+import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
+import { PDPProductComponent } from "@/components/gpt-commerce/PDPProductComponent";
+import {
+  QuickReplyButtons,
+  CTAButton,
+  CartSummaryCard,
+  AddressConfirmation,
+  AddressSelector,
+  PaymentSelector,
+} from "@/components/gpt-commerce/AgenticMessageComponents";
+import {
+  AddressShippingSelector,
+  MerchantShipping,
+} from "@/components/gpt-commerce/AddressShippingSelector";
+
+interface MobileChatThreadProps {
+  messages: ChatMessage[];
+  onSendMessage: (message: string) => void;
+  onAddToCart: (product: Product) => void;
+  onCompare: (product: Product) => void;
+  onSaveProduct?: (product: Product) => void;
+  cartItems: CartItem[];
+  isProcessing: boolean;
+  savedProductIds?: string[];
+  onInlineProductDetails?: (product: Product) => void;
+  onQuickReply?: (reply: QuickReply) => void;
+  onFinalizePurchase?: () => void;
+  onAddressConfirm?: () => void;
+  onAddressSelect?: (addressId: string) => void;
+  selectedAddressId?: string | null;
+  merchantShipping?: MerchantShipping[];
+  selectedShippingByMerchant?: Record<string, string>;
+  onSelectShipping?: (merchantId: string, shippingId: string) => void;
+  onAddNewAddress?: (address: Omit<DeliveryAddress, "id">) => void;
+  onPaymentSelect?: (paymentId: string) => void;
+  agenticState?: AgenticState;
+  onBack: () => void;
+  onNewChat: () => void;
+}
+
+export const MobileChatThread = ({
+  messages,
+  onSendMessage,
+  onAddToCart,
+  onCompare,
+  onSaveProduct,
+  cartItems,
+  isProcessing,
+  savedProductIds = [],
+  onInlineProductDetails,
+  onQuickReply,
+  onFinalizePurchase,
+  onAddressConfirm,
+  onAddressSelect,
+  selectedAddressId,
+  merchantShipping = [],
+  selectedShippingByMerchant = {},
+  onSelectShipping,
+  onAddNewAddress,
+  onPaymentSelect,
+  onBack,
+  onNewChat,
+}: MobileChatThreadProps) => {
+  const [inputValue, setInputValue] = useState("");
+  const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isProcessing]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "44px";
+      const sh = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = Math.min(sh, 120) + "px";
+    }
+  }, [inputValue]);
+
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (inputValue.trim() && !isProcessing) {
+      onSendMessage(inputValue.trim());
+      setInputValue("");
+    }
+  };
+
+  const handlePaymentSelection = (paymentId: string) => {
+    setSelectedPayment(paymentId);
+    if (onPaymentSelect) onPaymentSelect(paymentId);
+  };
+
+  return (
+    <div className="flex flex-col h-[100dvh] bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto pt-2 pb-2">
+        <div className="px-3 space-y-5">
+          {messages.map((msg) => (
+            <div key={msg.id} className="space-y-3 animate-fade-in">
+              <div
+                className={`flex gap-2 ${
+                  msg.role === "user" ? "justify-start flex-row-reverse" : "justify-start"
+                }`}
+              >
+                {msg.role === "assistant" && (
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
+                    }}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[82%] px-3.5 py-2.5 ${
+                    msg.role === "user"
+                      ? "rounded-[16px_16px_4px_16px]"
+                      : "rounded-[16px_16px_16px_4px]"
+                  }`}
+                  style={{
+                    background:
+                      msg.role === "user"
+                        ? "hsl(var(--primary) / 0.1)"
+                        : "hsl(0 0% 100%)",
+                    border: "1px solid hsl(0 0% 0% / 0.06)",
+                  }}
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                    {msg.content
+                      .replace(/\*\*(.*?)\*\*/g, "$1")
+                      .replace(/\*(.*?)\*/g, "$1")
+                      .replace(/^#{1,6}\s+/gm, "")
+                      .replace(/^[-*]\s+/gm, "• ")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Product cards — horizontal scroll on mobile */}
+              {msg.products && msg.products.length > 0 && (
+                <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
+                  <div className="flex gap-3 pr-9 pb-1" style={{ width: "max-content" }}>
+                    {msg.products.map((product, index) => (
+                      <div key={product.id} className="w-[260px] flex-shrink-0">
+                        <ChatProductCard
+                          product={product}
+                          index={(msg.productIndexStart || 1) + index}
+                          onAddToCart={onAddToCart}
+                          onCompare={onCompare}
+                          onSave={onSaveProduct}
+                          onViewDetails={() => {}}
+                          onInlineDetails={onInlineProductDetails}
+                          useInlineDetails={true}
+                          isInCart={cartItems.some((i) => i.id === product.id)}
+                          isSaved={savedProductIds.includes(product.id)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {msg.inlineProduct && (
+                <div className="mr-9">
+                  <PDPProductComponent
+                    product={msg.inlineProduct}
+                    isInCart={cartItems.some((i) => i.id === msg.inlineProduct?.id)}
+                    onAddToCart={onAddToCart}
+                    showContextLabel={false}
+                  />
+                </div>
+              )}
+
+              {msg.addressShipping && onAddressConfirm && onSelectShipping && onAddNewAddress && (
+                <div className="mr-9">
+                  <AddressShippingSelector
+                    mode={msg.addressShipping.mode}
+                    addresses={msg.addressShipping.addresses}
+                    selectedAddressId={selectedAddressId || null}
+                    onSelectAddressId={(id) => onAddressSelect?.(id)}
+                    merchantShipping={merchantShipping}
+                    selectedShippingByMerchant={selectedShippingByMerchant}
+                    onSelectShipping={onSelectShipping}
+                    onSubmitNewAddress={onAddNewAddress}
+                    onAddNewAddress={onAddNewAddress}
+                    onConfirm={onAddressConfirm}
+                  />
+                </div>
+              )}
+
+              {msg.addressSelector && !msg.addressShipping && onAddressSelect && onAddressConfirm && (
+                <div className="mr-9">
+                  <AddressSelector
+                    addresses={msg.addressSelector}
+                    selectedAddressId={selectedAddressId || null}
+                    onSelect={(address) => onAddressSelect(address.id)}
+                    onConfirm={onAddressConfirm}
+                  />
+                </div>
+              )}
+
+              {msg.addressConfirmation && !msg.addressSelector && !msg.addressShipping && onAddressConfirm && (
+                <div className="mr-9">
+                  <AddressConfirmation
+                    address={msg.addressConfirmation}
+                    onConfirm={onAddressConfirm}
+                    onEdit={() => {}}
+                  />
+                </div>
+              )}
+
+              {msg.paymentOptions && (
+                <div className="mr-9">
+                  <PaymentSelector
+                    options={msg.paymentOptions}
+                    selectedPayment={selectedPayment}
+                    onSelect={handlePaymentSelection}
+                  />
+                </div>
+              )}
+
+              {msg.orderSummary && (
+                <div className="mr-9">
+                  <CartSummaryCard orderSummary={msg.orderSummary} cartItems={cartItems} />
+                </div>
+              )}
+
+              {msg.quickReplies && onQuickReply && (
+                <div className="mr-9">
+                  <QuickReplyButtons replies={msg.quickReplies} onSelect={onQuickReply} />
+                </div>
+              )}
+
+              {msg.ctaButton && onFinalizePurchase && (
+                <div className="mr-9">
+                  <CTAButton
+                    label={msg.ctaButton.label}
+                    onClick={onFinalizePurchase}
+                    disabled={msg.ctaButton.disabled}
+                    disabledReason={msg.ctaButton.disabledReason}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+
+          {isProcessing && (
+            <div className="flex gap-2 animate-fade-in">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background:
+                    "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
+                }}
+              >
+                <Zap className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div
+                className="rounded-[16px_16px_16px_4px] px-3.5 py-2.5"
+                style={{
+                  background: "hsl(0 0% 100%)",
+                  border: "1px solid hsl(0 0% 0% / 0.06)",
+                }}
+              >
+                <div className="flex gap-1">
+                  <span
+                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} className="h-2" />
+        </div>
+      </div>
+
+      {/* Bottom input */}
+      <div
+        className="px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t"
+        style={{
+          background: "hsl(0 0% 100%)",
+          borderColor: "hsl(0 0% 0% / 0.06)",
+        }}
+      >
+        <form onSubmit={submit} className="flex items-end gap-2">
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 flex-shrink-0"
+            style={{
+              background: "hsl(0 0% 98%)",
+              border: "1px solid hsl(0 0% 0% / 0.06)",
+            }}
+            aria-label="چت جدید"
+          >
+            <Plus className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <div
+            className="flex-1 flex items-end gap-2 p-1.5 rounded-2xl"
+            style={{
+              background: "hsl(0 0% 100%)",
+              border: "1px solid hsl(0 0% 0% / 0.08)",
+            }}
+          >
+            <textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder="چی می‌خوای بخری؟"
+              disabled={isProcessing}
+              className="flex-1 min-h-[36px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-sm resize-none py-2 px-2"
+              style={{ lineHeight: "1.5" }}
+              dir="rtl"
+            />
+            <button
+              type="button"
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{
+                background: "hsl(0 0% 98%)",
+                border: "1px solid hsl(0 0% 0% / 0.06)",
+              }}
+              aria-label="پیام صوتی"
+            >
+              <Mic className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+            <Button
+              type="submit"
+              disabled={!inputValue.trim() || isProcessing}
+              className="h-8 w-8 rounded-full p-0 flex-shrink-0"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};

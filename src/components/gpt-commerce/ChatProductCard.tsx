@@ -2,6 +2,7 @@ import { Plus, Info, Bookmark } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface ChatProductCardProps {
   product: Product;

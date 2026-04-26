@@ -2,6 +2,7 @@ import { Truck, Star, ShieldCheck, Plus, Info } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface ProductCardProps {
   product: Product;

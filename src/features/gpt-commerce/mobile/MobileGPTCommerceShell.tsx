@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ShoppingCart, Menu, Zap, ArrowRight, SquarePen } from "lucide-react";
+import { ShoppingCart, Menu, Zap, ArrowRight, MessageSquarePlus } from "lucide-react";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
@@ -350,7 +350,7 @@ export const MobileGPTCommerceShell = () => {
             aria-label="چت جدید"
             title="چت جدید"
           >
-            <SquarePen className="w-4 h-4" />
+            <MessageSquarePlus className="w-[18px] h-[18px] text-foreground/80" strokeWidth={1.75} />
           </button>
           <button
             onClick={() => {

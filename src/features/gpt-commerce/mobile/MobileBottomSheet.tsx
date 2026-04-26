@@ -187,7 +187,7 @@ export const MobileBottomSheet = ({
                         <div className="divide-y divide-border/40">
                           {vs.items.map((item) => (
                             <div key={item.id} className="flex gap-3 p-3">
-                              <img
+                              <ProductImage
                                 src={getChatProductImage(item.id, item.image)}
                                 alt={item.name}
                                 className="w-14 h-14 rounded-xl object-cover flex-shrink-0"

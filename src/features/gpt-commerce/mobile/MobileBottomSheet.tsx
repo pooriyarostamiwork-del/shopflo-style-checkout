@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X, ShoppingCart, MessageSquare, User, Plus, Trash2, Sparkles } from "lucide-react";
+import { X, ShoppingCart, MessageSquare, User, Plus, Trash2, Sparkles, ArrowLeft } from "lucide-react";
 import {
   CartItem,
   Product,
@@ -10,6 +10,20 @@ import {
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+
+// Stable per-basket pastel hue for the avatar accent
+const BASKET_HUES = [
+  { bg: "hsl(var(--primary) / 0.12)", fg: "hsl(var(--primary))" },
+  { bg: "hsl(210 90% 56% / 0.12)", fg: "hsl(210 90% 46%)" },
+  { bg: "hsl(38 92% 50% / 0.14)", fg: "hsl(28 85% 45%)" },
+  { bg: "hsl(346 80% 60% / 0.12)", fg: "hsl(346 70% 50%)" },
+];
+const hueFromId = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return BASKET_HUES[h % BASKET_HUES.length];
+};
 
 export type MobileSheetTab = "cart" | "baskets" | "account";
 

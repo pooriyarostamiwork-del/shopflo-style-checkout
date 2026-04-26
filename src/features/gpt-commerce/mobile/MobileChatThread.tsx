@@ -103,9 +103,9 @@ export const MobileChatThread = ({
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
+    <div className="flex flex-col h-full min-h-0 bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto pt-2 pb-2">
+      <div className="flex-1 min-h-0 overflow-y-auto pt-5 pb-2">
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">

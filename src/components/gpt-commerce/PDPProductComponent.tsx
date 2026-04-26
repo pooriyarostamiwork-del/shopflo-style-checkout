@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Za
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface PDPProductComponentProps {
   product: Product;
@@ -115,8 +116,8 @@ export const PDPProductComponent = ({
       {/* Collapsed Summary */}
       {isCollapsed && (
         <div className="px-4 py-3 flex items-center gap-3">
-          <img 
-            src={productImage} 
+          <ProductImage
+            src={productImage}
             alt={product.name}
             className="w-12 h-12 rounded-lg object-cover"
           />
@@ -147,8 +148,8 @@ export const PDPProductComponent = ({
                 style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
                 onClick={() => showImageNavigation && setIsLightboxOpen(true)}
               >
-                <img 
-                  src={productImage} 
+                <ProductImage
+                  src={productImage}
                   alt={product.name}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
@@ -510,10 +511,10 @@ export const PDPProductComponent = ({
           </button>
           
           <div className="relative max-w-4xl max-h-[80vh]" onClick={e => e.stopPropagation()}>
-            <img 
+            <ProductImage
               src={productImage}
               alt={product.name}
-              className="max-w-full max-h-[80vh] object-contain rounded-xl"
+              className="max-w-full max-h-[80vh] object-contain rounded-xl min-w-[300px] min-h-[300px]"
             />
             
             {productImages.length > 1 && (

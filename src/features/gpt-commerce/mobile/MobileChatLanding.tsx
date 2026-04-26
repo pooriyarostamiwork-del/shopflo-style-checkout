@@ -10,20 +10,17 @@ const placeholderTexts = [
   "«خودت برام خرید کن»",
 ];
 
-const quickCategories = [
-  { emoji: "🎧", label: "هدفون", action: "هدفون بی‌سیم خوب می‌خوام" },
-  { emoji: "📱", label: "موبایل", action: "گوشی موبایل با قیمت مناسب پیشنهاد بده" },
-  { emoji: "💻", label: "لپ‌تاپ", action: "لپ‌تاپ برای کار و برنامه‌نویسی می‌خوام" },
-  { emoji: "⌚", label: "ساعت", action: "ساعت هوشمند خوب پیشنهاد بده" },
-  { emoji: "📷", label: "دوربین", action: "دوربین دیجیتال برای عکاسی پیشنهاد بده" },
-  { emoji: "🎁", label: "هدیه", action: "می‌خوام برای دوستم هدیه بخرم" },
-];
-
-const suggestions = [
-  "بهترین تخفیف‌های امروز",
-  "خودت برام خرید کن",
-  "مقایسه دو محصول",
-  "نیاز به مشاوره دارم",
+const promptChips = [
+  "🎧 هدفون بی‌سیم زیر ۵ میلیون",
+  "📱 گوشی موبایل با دوربین خوب",
+  "💻 لپ‌تاپ برای برنامه‌نویسی",
+  "⌚ ساعت هوشمند مناسب ورزش",
+  "🎁 می‌خوام برای دوستم هدیه بخرم",
+  "🔥 بهترین تخفیف‌های امروز",
+  "🛒 خودت برام خرید کن",
+  "⚖️ مقایسه دو محصول",
+  "📷 دوربین دیجیتال برای عکاسی",
+  "💬 نیاز به مشاوره دارم",
 ];
 
 interface MobileChatLandingProps {
@@ -72,11 +69,11 @@ export const MobileChatLanding = ({
 
   return (
     <div
-      className="flex flex-col min-h-[100dvh] bg-gradient-to-b from-background via-background to-primary/5"
+      className="flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5"
       dir="rtl"
     >
       {/* Hero */}
-      <div className="px-5 pt-12 pb-6 text-center">
+      <div className="px-5 pt-6 pb-6 text-center">
         {firstPageLogo.imageUrl ? (
           <img
             src={firstPageLogo.imageUrl}
@@ -105,49 +102,25 @@ export const MobileChatLanding = ({
         </p>
       </div>
 
-      {/* Quick categories grid */}
+      {/* Prompt chips — full prompts as taps */}
       <div className="px-5 mb-6">
         <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
-          دسته‌بندی‌های پرطرفدار
+          از این‌ها شروع کن
         </p>
-        <div className="grid grid-cols-3 gap-2.5">
-          {quickCategories.map((cat) => (
-            <button
-              key={cat.label}
-              onClick={() => submit(cat.action)}
-              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl active:scale-95 transition-transform"
-              style={{
-                background: "hsl(0 0% 100%)",
-                border: "1px solid hsl(0 0% 0% / 0.06)",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-              }}
-            >
-              <span className="text-2xl">{cat.emoji}</span>
-              <span className="text-xs font-medium text-foreground">
-                {cat.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Suggestion chips */}
-      <div className="px-5 mb-6">
-        <p className="text-xs text-muted-foreground mb-3">یا اینا رو امتحان کن</p>
         <div className="flex flex-wrap gap-2">
-          {suggestions.map((s) => (
+          {promptChips.map((chip) => (
             <button
-              key={s}
-              onClick={() => submit(s)}
-              className="text-xs px-3.5 py-2 rounded-full active:scale-95 transition-transform"
+              key={chip}
+              onClick={() => submit(chip.replace(/^[^\u0600-\u06FF\w]+\s*/, ""))}
+              className="text-xs px-3.5 py-2 rounded-full active:scale-95 transition-transform leading-tight"
               style={{
                 background: "hsl(var(--primary) / 0.06)",
                 border: "1px solid hsl(var(--primary) / 0.15)",
                 color: "hsl(var(--primary))",
               }}
             >
-              {s}
+              {chip}
             </button>
           ))}
         </div>

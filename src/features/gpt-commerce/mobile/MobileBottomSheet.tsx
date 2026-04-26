@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X, ShoppingCart, MessageSquare, User, Plus, Trash2, Sparkles } from "lucide-react";
+import { X, ShoppingCart, MessageSquare, User, Plus, Trash2, Sparkles, ArrowLeft } from "lucide-react";
 import {
   CartItem,
   Product,
@@ -10,6 +10,20 @@ import {
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+
+// Stable per-basket pastel hue for the avatar accent
+const BASKET_HUES = [
+  { bg: "hsl(var(--primary) / 0.12)", fg: "hsl(var(--primary))" },
+  { bg: "hsl(210 90% 56% / 0.12)", fg: "hsl(210 90% 46%)" },
+  { bg: "hsl(38 92% 50% / 0.14)", fg: "hsl(28 85% 45%)" },
+  { bg: "hsl(346 80% 60% / 0.12)", fg: "hsl(346 70% 50%)" },
+];
+const hueFromId = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return BASKET_HUES[h % BASKET_HUES.length];
+};
 
 export type MobileSheetTab = "cart" | "baskets" | "account";
 
@@ -173,7 +187,7 @@ export const MobileBottomSheet = ({
                         <div className="divide-y divide-border/40">
                           {vs.items.map((item) => (
                             <div key={item.id} className="flex gap-3 p-3">
-                              <img
+                              <ProductImage
                                 src={getChatProductImage(item.id, item.image)}
                                 alt={item.name}
                                 className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
@@ -232,66 +246,161 @@ export const MobileBottomSheet = ({
           )}
 
           {tab === "baskets" && (
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-4">
+              {/* Hero new-chat card */}
               <button
                 onClick={() => {
                   onCreateBasket();
                   onClose();
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium text-primary active:scale-[0.98] transition-transform"
+                className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-right active:scale-[0.98] transition-transform"
                 style={{
-                  background: "hsl(var(--primary) / 0.08)",
-                  border: "1px dashed hsl(var(--primary) / 0.3)",
+                  background:
+                    "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
+                  boxShadow: "0 8px 24px hsl(var(--primary) / 0.25)",
                 }}
               >
-                <Plus className="w-4 h-4" />
-                شروع چت جدید
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "hsl(0 0% 100% / 0.18)" }}
+                >
+                  <Sparkles className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-primary-foreground">
+                    گفتگوی جدید
+                  </p>
+                  <p className="text-[11px] text-primary-foreground/80 mt-0.5">
+                    یک سبد خرید تازه شروع کن
+                  </p>
+                </div>
+                <Plus className="w-5 h-5 text-primary-foreground/90" />
               </button>
+
               {baskets.length === 0 ? (
-                <EmptyState
-                  icon={<MessageSquare className="w-7 h-7 text-muted-foreground/40" />}
-                  title="هیچ گفتگویی نداری"
-                  subtitle="یک چت جدید شروع کن"
-                />
-              ) : (
-                baskets.map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => {
-                      onBasketSelect(b.id);
-                      onClose();
-                    }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-2xl text-right active:scale-[0.99] transition-transform ${
-                      b.id === activeBasketId ? "ring-2 ring-primary/30" : ""
-                    }`}
+                <div className="text-center py-12">
+                  <div
+                    className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
                     style={{
-                      background: "hsl(0 0% 100%)",
-                      border: "1px solid hsl(0 0% 0% / 0.06)",
+                      background: "hsl(0 0% 0% / 0.025)",
+                      border: "1px dashed hsl(0 0% 0% / 0.12)",
                     }}
                   >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: "hsl(var(--primary) / 0.08)" }}
-                    >
-                      <MessageSquare className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium line-clamp-1">{b.title}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {toPersianNumber(b.itemCount)} کالا · {b.lastActivity}
-                      </p>
-                    </div>
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteBasket(b.id);
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground active:bg-destructive/10 active:text-destructive"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-7 h-7 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground/80">
+                    هنوز گفتگویی نداری
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">
+                    اولین چت خرید رو شروع کن
+                  </p>
+                  <Button
+                    onClick={() => {
+                      onCreateBasket();
+                      onClose();
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                  >
+                    شروع کن
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Section label */}
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                      گفتگوهای اخیر
                     </span>
-                  </button>
-                ))
+                    <span
+                      className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      style={{
+                        background: "hsl(0 0% 0% / 0.05)",
+                        color: "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      {toPersianNumber(baskets.length)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {baskets.map((b) => {
+                      const hue = hueFromId(b.id);
+                      const isActive = b.id === activeBasketId;
+                      return (
+                        <button
+                          key={b.id}
+                          onClick={() => {
+                            onBasketSelect(b.id);
+                            onClose();
+                          }}
+                          className="w-full group flex items-center gap-3 p-3.5 rounded-2xl text-right active:scale-[0.99] transition-all relative overflow-hidden"
+                          style={{
+                            background: isActive
+                              ? "hsl(var(--primary) / 0.06)"
+                              : "hsl(0 0% 100%)",
+                            border: `1px solid ${isActive ? "hsl(var(--primary) / 0.2)" : "hsl(0 0% 0% / 0.06)"}`,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          {isActive && (
+                            <div
+                              className="absolute right-0 top-3 bottom-3 w-[3px] rounded-l-full"
+                              style={{ background: "hsl(var(--primary))" }}
+                            />
+                          )}
+                          <div
+                            className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: hue.bg }}
+                          >
+                            <MessageSquare
+                              className="w-[18px] h-[18px]"
+                              style={{ color: hue.fg }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[15px] font-semibold text-foreground line-clamp-1 leading-tight">
+                              {b.title}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              {b.itemCount > 0 && (
+                                <span
+                                  className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                  style={{
+                                    background: "hsl(var(--primary) / 0.08)",
+                                    color: "hsl(var(--primary))",
+                                  }}
+                                >
+                                  {toPersianNumber(b.itemCount)} کالا
+                                </span>
+                              )}
+                              <span
+                                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                style={{
+                                  background: "hsl(0 0% 0% / 0.04)",
+                                  color: "hsl(var(--muted-foreground))",
+                                }}
+                              >
+                                {b.lastActivity}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteBasket(b.id);
+                            }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground/50 active:bg-destructive/10 active:text-destructive transition-colors"
+                            aria-label="حذف"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}

@@ -2,6 +2,7 @@ import { Plus, Info, Bookmark } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface ChatProductCardProps {
   product: Product;
@@ -68,8 +69,8 @@ export const ChatProductCard = ({
         className="relative w-full aspect-square"
         style={{ background: 'hsl(0 0% 98%)' }}
       >
-        <img 
-          src={getChatProductImage(product.id, product.image)} 
+        <ProductImage
+          src={getChatProductImage(product.id, product.image)}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />

@@ -24,6 +24,12 @@ import {
   MerchantShipping,
 } from "@/components/gpt-commerce/AddressShippingSelector";
 
+const placeholderTexts = [
+  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
+  "«بهترین تخفیف‌های امروز چیه؟»",
+  "«خودت برام خرید کن»",
+];
+
 interface MobileChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;

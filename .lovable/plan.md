@@ -1,105 +1,118 @@
+# Mobile Polish + Image Placeholder Fallback
 
+Front-end only. Zero changes to edge functions, hooks, or DB. Five scoped fixes.
 
-# Fix Plan: Latency, Cart Manipulation, Disambiguation, Repeated Greetings
+---
 
-## 4 Problems Identified
+## 1. Mobile header — replace Account button with New Chat button
+**Scope:** `/m/gptcommerce` only
 
-### Problem 1: 50-60s Response Times
-**Root causes from code analysis:**
-- Every message makes TWO sequential LLM calls: `classify-intent` (flash-lite) THEN `gpt-commerce-agent` (gemini-3-flash-preview)
-- Discovery mode in `gpt-commerce-agent` makes THREE LLM calls total: Step 1 intent extraction → Step 2 hybrid search → Step 3 re-ranker response generation (lines 362-557)
-- So a discovery query = 1 classifier + 3 agent = **4 serial LLM calls**
-- Embedding generation via `Supabase.ai.Session("gte-small")` adds latency (line 250)
-- Conversation history includes ALL messages including ones with products (line 366-368 in useAgentMessages), bloating tokens
+In `MobileGPTCommerceShell.tsx`, the right-side header cluster currently has `[Account] [Cart]`. Replace the Account icon button with a **New Chat** button (`SquarePen` / `Plus` icon).
 
-**Fixes:**
-1. **Merge classifier into agent for discovery intents**: For non-transactional intents, skip the classify-intent call entirely when the message is clearly a search query (no product refs, no cart keywords). Add a fast client-side pre-filter regex that catches obvious discovery queries and routes directly to the agent — saving one LLM round-trip.
-2. **Eliminate Step 3 re-ranker call**: The re-ranker is a full second LLM call just to filter/reorder 10→6 products. Instead, do this filtering in Step 1's response: modify the Step 1 prompt to output both the search parameters AND a selection instruction, then apply it post-search in code. This cuts the agent from 3 LLM calls to 1.
-3. **Parallelize embedding + LLM**: Currently `generateQueryEmbedding` runs INSIDE `executeSearch` which runs AFTER the LLM Step 1. Instead, start embedding generation as soon as we have the user query (parallel with Step 1 LLM), then use the pre-computed embedding in the search.
-4. **Trim conversation history**: In `callAgent` (line 657), the full conversation history is sent. Limit to last 4 turns and strip product data from assistant messages.
-5. **Switch agent model from `gemini-3-flash-preview` to `gemini-2.5-flash`**: The preview model may be slower; 2.5-flash is the proven fast option.
+- Click → `setPendingNewChat(true)` (same handler the input area uses).
+- Account access stays accessible via the bottom-sheet `account` tab (already exists).
+- Cart button stays unchanged.
+- Desktop `GPTCommerceShell.tsx` is **not touched**.
 
-**Expected improvement**: 4 LLM calls → 1-2 calls. Target: sub-15s.
+---
 
-### Problem 2: Cart Manipulation Says "Done" But Doesn't Execute
-**Root cause from code (lines 386-490 in useAgentMessages):**
-- When `cart_add` with `product_ref=4` is classified, `handleTransactionalCartAdd(4)` is called (line 395)
-- This resolves `lastRecommendedProducts[3]` — BUT `lastRecommendedProducts` is a stale closure value from when the hook was last rendered
-- The message "دو تا از محصول شماره 4 به سبد اضافه کن" gets classified as `cart_add` with `product_ref=4`, but the `quantity` entity may not be extracted (the classifier may miss "دو تا"), so it defaults to adding 1 item
-- Even worse: the intent routes to `callCartManipulationAgent` which calls `gpt-commerce-agent` in `cart_manipulation` mode — but the agent responds with a discovery-like response (new product search) instead of structured cart actions, because the conversation history sent includes the full previous discovery conversation and the agent loses context
+## 2. Landing — replace category icon grid with prompt chips
+**Scope:** `/m/gptcommerce` only (`MobileChatLanding.tsx`)
 
-**Fixes:**
-1. **Fix quantity extraction in classifier**: Update `classify-intent` system prompt with explicit examples: "دو تا از محصول شماره ۴" → `cart_add, product_ref: 4, quantity: 2`
-2. **Fix `handleTransactionalCartAdd` to respect quantity**: Currently ignores `quantity` entity. Change line 244-246 to pass quantity from classification result.
-3. **Fix `callCartManipulationAgent` conversation history**: Currently sends full conversation history (line 594) which confuses the cart agent. Send ONLY the current user message + cart/product context, no conversation history.
-4. **Ensure `executeCartActions` triggers proper state update**: The current `executeCartActions` (lines 532-585) calls `updateCurrentBasket` inside a loop — each call creates a new state update. Batch all actions into a single `updateCurrentBasket` call.
+Remove the `quickCategories` 3-column emoji grid entirely. Merge them into the existing horizontal "suggestion chips" row as a single, scrollable group of pill chips. Each chip = a full prompt string that is sent on tap.
 
-### Problem 3: Same-Brand Ambiguity (e.g., 2 Lenovo laptops)
-**Root cause:**
-- `cart_add_by_name` with `product_name: "لنوو"` hits `fuzzyMatchProduct` (line 114-126) which returns the FIRST match only
-- When multiple products match, the code at lines 405-413 does check `matches.length === 1` and routes to `callCartManipulationAgent` for disambiguation — BUT the cart manipulation agent returns a discovery response instead of clarification options because its prompt doesn't explicitly handle this case well
+New chip set (Persian, prompt-style, not category labels):
+- "هدفون بی‌سیم زیر ۵ میلیون پیشنهاد بده"
+- "گوشی موبایل با دوربین خوب"
+- "لپ‌تاپ برای برنامه‌نویسی"
+- "ساعت هوشمند مناسب ورزش"
+- "بهترین تخفیف‌های امروز"
+- "خودت برام خرید کن"
+- "می‌خوام برای دوستم هدیه بخرم"
+- "مقایسه دو محصول"
 
-**Fixes:**
-1. **Improve disambiguation in `useAgentMessages`**: When `matches.length > 1`, don't route to the full cart_manipulation agent (slow). Instead, generate quick-reply chips directly on the client:
-   ```
-   const quickReplies = matches.map((p, i) => ({
-     id: `disambig-${i}`, label: p.name.slice(0,40), 
-     type: 'custom', action: `add_product_${p.id}`
-   }));
-   ```
-   Show a message: "چند محصول لنوو پیدا کردم. کدومشو می‌خوای؟" + quick replies. No LLM call needed.
-2. **Handle quick-reply click for disambiguation**: In `handleQuickReplyWrapped`, intercept `action.startsWith('add_product_')` and extract product ID to add directly.
+Layout: `flex flex-wrap gap-2` (chips wrap naturally on narrow screens), same primary-tinted pill styling already used. Section title becomes "از این‌ها شروع کن".
 
-### Problem 4: Agent Says "سلام" in Every Response
-**Root cause:**
-- The `gpt-commerce-agent` discovery prompt (line 22-56) contains: "اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی"
-- But more critically, the prompt says nothing about NOT greeting in follow-up messages
-- The conversational mode prompt (line 85-93) also says "اگه سلام کرد، خوش‌آمد بگو"
-- Since the agent has no session awareness, it greets on every call
+---
 
-**Fixes:**
-1. **Add explicit no-greeting instruction to all agent prompts**: Add to discovery/comparison/info_retrieval/cart_manipulation prompts: "این یک مکالمه ادامه‌دار است. هرگز سلام یا خوش‌آمدگویی نکن مگر اینکه این اولین پیام مکالمه باشد."
-2. **Pass `is_first_message` flag**: In `callAgent` (line 657), add `is_first_message: messages.length === 0` to the request body. In the agent, prepend "این اولین پیام کاربر نیست. بدون سلام و خوش‌آمدگویی جواب بده." when false.
-3. **Client-side welcome message**: The welcome/greeting is already handled client-side via `WELCOME_MESSAGE` in `ChatInterface.tsx` (line 6-11). The agent should NEVER generate greetings.
+## 3. Fix top-clipping under sticky header
+**Scope:** `/m/gptcommerce` only (`MobileChatThread.tsx`, `MobileChatLanding.tsx`)
 
-## Implementation Steps
+**Root cause:** Both screens use `h-[100dvh]` / `min-h-[100dvh]` internally, but they are rendered **inside** the shell's flex container which already accounts for the header. The double-allocation (header + `100dvh` child) pushes the first message's top edge above the visible scroll origin.
 
-### Step 1: Fix repeated greetings in agent prompts
-- **File**: `supabase/functions/gpt-commerce-agent/index.ts`
-- Add `is_first_message` from request body
-- Prepend no-greeting instruction to all prompts when `is_first_message === false`
-- Add to all PROMPTS: "هرگز با سلام شروع نکن مگر اینکه is_first_message فلگ true باشد"
+**Fix:**
+- In `MobileChatThread.tsx`: change root `h-[100dvh]` → `h-full`. Increase top padding of message list from `pt-2` to `pt-4`.
+- In `MobileChatLanding.tsx`: change `min-h-[100dvh]` → `min-h-full` and reduce top hero padding from `pt-12` → `pt-6` (header now provides offset).
+- In `MobileGPTCommerceShell.tsx`: the body wrapper is already `flex-1 min-h-0 overflow-hidden` — confirm and keep. Add `flex` to enable child `h-full`.
 
-### Step 2: Fix cart manipulation execution
-- **File**: `supabase/functions/classify-intent/index.ts` — Add quantity extraction examples to prompt
-- **File**: `src/features/gpt-commerce/hooks/useAgentMessages.ts`:
-  - `handleTransactionalCartAdd`: Accept and use `quantity` parameter
-  - `callCartManipulationAgent`: Send minimal history (just user message)
-  - `executeCartActions`: Batch into single `updateCurrentBasket` call
+This restores the intended scroll anchor under the sticky header and removes the clipped first-message issue.
 
-### Step 3: Add client-side brand disambiguation
-- **File**: `src/features/gpt-commerce/hooks/useAgentMessages.ts`
-  - When `matches.length > 1` in `cart_add_by_name`, generate quick-reply chips directly instead of calling agent
-- **File**: `src/features/gpt-commerce/GPTCommerceShell.tsx`
-  - Handle `add_product_*` quick-reply actions in `handleQuickReplyWrapped`
+---
 
-### Step 4: Reduce latency — eliminate re-ranker LLM call
-- **File**: `supabase/functions/gpt-commerce-agent/index.ts`
-  - Merge Step 1 + Step 3 into a single LLM call: the initial call should both extract search params AND generate the final response after receiving search results (using tool results in a single conversation turn, no second LLM call)
-  - Switch model from `gemini-3-flash-preview` to `gemini-2.5-flash`
-  - Parallelize embedding generation with LLM call
+## 4. Redesign the "چت‌ها" tab in the bottom sheet
+**Scope:** `/m/gptcommerce` only (`MobileBottomSheet.tsx`, `baskets` tab body)
 
-### Step 5: Trim conversation context sent to agent
-- **File**: `src/features/gpt-commerce/hooks/useAgentMessages.ts`
-  - In `callAgent`: limit history to 4 turns, strip product arrays from assistant messages
-  - In `classifyIntent`: already limited to 6 turns (line 366-368), keep as-is
+Modernize the chats list. Visual upgrades:
 
-## Files Changed
+- **Hero "+ New Chat" card** at the top: full-width, gradient primary background, larger touch target (~64px), Sparkles + Plus icons, label "گفتگوی جدید". Replaces the dashed-outline button.
+- **Section label** "گفتگوهای اخیر" with a count badge.
+- **Basket cards**:
+  - Slightly taller (p-3.5), softer shadow `0 1px 3px rgba(0,0,0,0.04)`, rounded-2xl.
+  - Avatar circle uses a per-basket pastel hue derived from `b.id` hash (4-color rotation: primary/blue/amber/rose tints) to give the list visual rhythm.
+  - Two-line content: title (15px, semibold) + meta row with two pills (`{count} کالا` and `{lastActivity}`) instead of a dot-separated single line.
+  - Active basket: primary-tinted background + thin primary left border (`border-r-2` in RTL) instead of the heavy `ring-2` outline.
+  - Delete becomes a small trailing icon button only revealed on press (active state), reducing visual clutter.
+- **Empty state**: larger illustration block with a subtle dashed border and a CTA ghost button "شروع کن".
 
-| File | Changes |
+No data/logic changes — purely presentational rewrite of the `tab === "baskets"` branch.
+
+---
+
+## 5. Image fallback placeholder (desktop + mobile)
+**Scope:** Shared component used everywhere a product image renders
+
+Create `src/components/gpt-commerce/ProductImage.tsx`:
+
+```tsx
+interface Props extends React.ImgHTMLAttributes<HTMLImageElement> {
+  src?: string;
+  alt: string;
+  className?: string;
+  fallbackClassName?: string;
+}
+```
+
+Behavior:
+- Renders an `<img>` with `onError` → swap to fallback state.
+- Fallback state renders a styled placeholder div (same dimensions via className) with:
+  - Soft gradient background (`from-muted/40 to-muted/20`).
+  - Centered `ImageOff` lucide icon (40% opacity).
+  - Optional first 2 chars of `alt` as a faint label.
+- Also handles empty/missing `src` (treats as error from the start).
+- `loading="lazy"` and `decoding="async"` defaults.
+
+**Replace `<img>` with `<ProductImage>` in:**
+- `src/components/gpt-commerce/ChatProductCard.tsx` (line 71)
+- `src/components/gpt-commerce/ProductCard.tsx` (line 30)
+- `src/components/gpt-commerce/PDPProductComponent.tsx` (lines 118, 150, 513)
+- `src/features/gpt-commerce/mobile/MobileBottomSheet.tsx` (cart item thumbnail, line 176)
+- `src/features/gpt-commerce/mobile/MobileChatThread.tsx` — N/A (uses ChatProductCard)
+- `src/components/CartItemLocalized.tsx` if it has a product image (verify during impl)
+
+Single component → consistent fallback across all surfaces, both viewports.
+
+---
+
+## Files Touched
+| File | Change |
 |---|---|
-| `supabase/functions/gpt-commerce-agent/index.ts` | No-greeting logic, eliminate re-ranker step, switch to gemini-2.5-flash, accept is_first_message, parallelize embedding |
-| `supabase/functions/classify-intent/index.ts` | Better quantity extraction examples in prompt |
-| `src/features/gpt-commerce/hooks/useAgentMessages.ts` | Fix cart add with quantity, client-side disambiguation, trim history, batch executeCartActions, send is_first_message |
-| `src/features/gpt-commerce/GPTCommerceShell.tsx` | Handle disambiguation quick-reply actions |
+| `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx` | Header: Account → New Chat button |
+| `src/features/gpt-commerce/mobile/MobileChatLanding.tsx` | Replace category grid with prompt chips; fix top spacing |
+| `src/features/gpt-commerce/mobile/MobileChatThread.tsx` | Fix `h-[100dvh]` → `h-full`; add top padding |
+| `src/features/gpt-commerce/mobile/MobileBottomSheet.tsx` | Redesign baskets tab; swap cart image to ProductImage |
+| `src/components/gpt-commerce/ProductImage.tsx` | **New** shared component with onError fallback |
+| `src/components/gpt-commerce/ChatProductCard.tsx` | Use ProductImage |
+| `src/components/gpt-commerce/ProductCard.tsx` | Use ProductImage |
+| `src/components/gpt-commerce/PDPProductComponent.tsx` | Use ProductImage |
 
+No backend, no hooks, no routing, no desktop shell changes.

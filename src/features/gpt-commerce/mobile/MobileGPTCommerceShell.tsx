@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ShoppingCart, Menu, Zap, ArrowRight, User } from "lucide-react";
+import { ShoppingCart, Menu, Zap, ArrowRight, SquarePen } from "lucide-react";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
@@ -344,19 +344,13 @@ export const MobileGPTCommerceShell = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              if (!isAuthenticated) {
-                handleSignInClick();
-              } else {
-                setSheetTab("account");
-                setSheetOpen(true);
-              }
-            }}
+            onClick={() => setPendingNewChat(true)}
             className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
             style={{ background: "hsl(0 0% 0% / 0.04)" }}
-            aria-label="حساب کاربری"
+            aria-label="چت جدید"
+            title="چت جدید"
           >
-            <User className="w-4 h-4" />
+            <SquarePen className="w-4 h-4" />
           </button>
           <button
             onClick={() => {

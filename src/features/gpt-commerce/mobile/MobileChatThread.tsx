@@ -73,6 +73,7 @@ export const MobileChatThread = ({
   onNewChat,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

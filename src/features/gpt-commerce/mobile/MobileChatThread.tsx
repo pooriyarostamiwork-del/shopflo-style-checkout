@@ -83,6 +83,14 @@ export const MobileChatThread = ({
   }, [messages, isProcessing]);
 
   useEffect(() => {
+    if (inputValue) return;
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [inputValue]);
+
+  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "44px";
       const sh = textareaRef.current.scrollHeight;

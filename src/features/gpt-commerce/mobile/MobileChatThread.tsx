@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic, ArrowRight, Plus } from "lucide-react";
+import { ArrowUp, Zap, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -23,6 +23,12 @@ import {
   AddressShippingSelector,
   MerchantShipping,
 } from "@/components/gpt-commerce/AddressShippingSelector";
+
+const placeholderTexts = [
+  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
+  "«بهترین تخفیف‌های امروز چیه؟»",
+  "«خودت برام خرید کن»",
+];
 
 interface MobileChatThreadProps {
   messages: ChatMessage[];
@@ -73,6 +79,7 @@ export const MobileChatThread = ({
   onNewChat,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -80,6 +87,14 @@ export const MobileChatThread = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isProcessing]);
+
+  useEffect(() => {
+    if (inputValue) return;
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [inputValue]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -297,34 +312,24 @@ export const MobileChatThread = ({
         </div>
       </div>
 
-      {/* Bottom input */}
+      {/* Bottom input — mirrors landing */}
       <div
-        className="px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t"
+        className="px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         style={{
-          background: "hsl(0 0% 100%)",
-          borderColor: "hsl(0 0% 0% / 0.06)",
+          background:
+            "linear-gradient(180deg, hsl(0 0% 100% / 0), hsl(0 0% 100% / 0.95) 30%)",
         }}
       >
-        <form onSubmit={submit} className="flex items-end gap-2">
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 flex-shrink-0"
-            style={{
-              background: "hsl(0 0% 98%)",
-              border: "1px solid hsl(0 0% 0% / 0.06)",
-            }}
-            aria-label="چت جدید"
-          >
-            <Plus className="w-4 h-4 text-muted-foreground" />
-          </button>
-          <div
-            className="flex-1 flex items-end gap-2 p-1.5 rounded-2xl"
-            style={{
-              background: "hsl(0 0% 100%)",
-              border: "1px solid hsl(0 0% 0% / 0.08)",
-            }}
-          >
+        <form
+          onSubmit={submit}
+          className="flex items-end gap-2 p-2 rounded-2xl"
+          style={{
+            background: "hsl(0 0% 100%)",
+            border: "1px solid hsl(0 0% 0% / 0.08)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div className="relative flex-1">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -335,29 +340,44 @@ export const MobileChatThread = ({
                   submit();
                 }
               }}
-              placeholder="چی می‌خوای بخری؟"
+              placeholder=""
               disabled={isProcessing}
-              className="flex-1 min-h-[36px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-sm resize-none py-2 px-2"
+              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
               style={{ lineHeight: "1.5" }}
               dir="rtl"
             />
+            {!inputValue && (
+              <div
+                className="absolute inset-0 flex items-center pointer-events-none px-2 py-2.5 overflow-hidden"
+                dir="rtl"
+              >
+                <span
+                  key={placeholderIndex}
+                  className="text-muted-foreground/50 text-sm text-right w-full truncate"
+                >
+                  {placeholderTexts[placeholderIndex]}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 pb-1">
             <button
               type="button"
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
               style={{
                 background: "hsl(0 0% 98%)",
                 border: "1px solid hsl(0 0% 0% / 0.06)",
               }}
               aria-label="پیام صوتی"
             >
-              <Mic className="w-3.5 h-3.5 text-muted-foreground" />
+              <Mic className="w-4 h-4 text-muted-foreground" />
             </button>
             <Button
               type="submit"
               disabled={!inputValue.trim() || isProcessing}
-              className="h-8 w-8 rounded-full p-0 flex-shrink-0"
+              className="h-9 w-9 rounded-full p-0"
             >
-              <ArrowUp className="w-4 h-4" />
+              <ArrowUp className="w-5 h-5" />
             </Button>
           </div>
         </form>

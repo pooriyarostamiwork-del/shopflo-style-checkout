@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic, ArrowRight, Plus } from "lucide-react";
+import { ArrowUp, Zap, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,

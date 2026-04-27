@@ -73,7 +73,6 @@ export const MobileChatThread = ({
   onNewChat,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -81,14 +80,6 @@ export const MobileChatThread = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isProcessing]);
-
-  useEffect(() => {
-    if (inputValue) return;
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [inputValue]);
 
   useEffect(() => {
     if (textareaRef.current) {

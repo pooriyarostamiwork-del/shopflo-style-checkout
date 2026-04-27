@@ -271,7 +271,7 @@ export const MobileChatLanding = ({
             />
             {!inputValue && (
               <div
-                className="absolute inset-0 flex items-start pointer-events-none px-2 py-2.5"
+                className="absolute inset-0 flex items-center pointer-events-none px-2"
                 dir="rtl"
               >
                 <span

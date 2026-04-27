@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ShoppingCart, Menu, Zap, ArrowRight, MessageSquarePlus } from "lucide-react";
+import { ShoppingCart, Menu, Zap, MessageSquarePlus } from "lucide-react";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
@@ -320,15 +320,6 @@ export const MobileGPTCommerceShell = () => {
           >
             <Menu className="w-4 h-4" />
           </button>
-          {!onLanding && (
-            <button
-              onClick={() => setPendingNewChat(true)}
-              className="text-xs text-muted-foreground active:text-foreground flex items-center gap-1"
-            >
-              <ArrowRight className="w-3.5 h-3.5" />
-              برگشت
-            </button>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <div

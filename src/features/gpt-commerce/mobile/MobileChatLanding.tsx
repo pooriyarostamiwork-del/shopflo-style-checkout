@@ -283,7 +283,7 @@ export const MobileChatLanding = ({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 pb-1">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"

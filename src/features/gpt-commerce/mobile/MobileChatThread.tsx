@@ -325,7 +325,7 @@ export const MobileChatThread = ({
                   submit();
                 }
               }}
-              placeholder="چی می‌خوای بخری؟"
+              placeholder=""
               disabled={isProcessing}
               className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2 placeholder:text-muted-foreground/50"
               style={{ lineHeight: "1.5" }}

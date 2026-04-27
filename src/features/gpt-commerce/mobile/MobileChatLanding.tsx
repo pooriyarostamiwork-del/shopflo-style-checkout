@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, Sparkles } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem } from "@/data/gptCommerceData";
+import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
+import slideItick from "@/assets/mobile-slide-itick.jpg";
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -20,30 +22,8 @@ const promptChips = [
 ];
 
 const heroSlides = [
-  {
-    id: "loan",
-    emoji: "💸",
-    title: "وام فلوپی",
-    subtitle: "تا ۱۰۰ میلیون اعتبار خرید",
-    gradient:
-      "linear-gradient(135deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.06))",
-  },
-  {
-    id: "deals",
-    emoji: "🔥",
-    title: "پیشنهادهای داغ امروز",
-    subtitle: "تا ۴۰٪ تخفیف روی منتخب‌ها",
-    gradient:
-      "linear-gradient(135deg, hsl(20 95% 60% / 0.18), hsl(20 95% 60% / 0.05))",
-  },
-  {
-    id: "shipping",
-    emoji: "🚚",
-    title: "ارسال رایگان",
-    subtitle: "برای سفارش بالای ۲ میلیون",
-    gradient:
-      "linear-gradient(135deg, hsl(150 60% 45% / 0.18), hsl(150 60% 45% / 0.05))",
-  },
+  { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
+  { id: "itick", image: slideItick, alt: "آی‌تیکت" },
 ];
 
 interface MobileChatLandingProps {
@@ -63,7 +43,9 @@ export const MobileChatLanding = ({
 }: MobileChatLandingProps) => {
   const [inputValue, setInputValue] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (inputValue) return;
@@ -81,6 +63,14 @@ export const MobileChatLanding = ({
     }
   }, [inputValue]);
 
+  // Track which slide is most visible for the dot indicator
+  const handleSliderScroll = () => {
+    if (!sliderRef.current) return;
+    const el = sliderRef.current;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== activeSlide) setActiveSlide(idx);
+  };
+
   const submit = (msg?: string) => {
     const text = (msg ?? inputValue).trim();
     if (!text || isProcessing) return;
@@ -88,70 +78,125 @@ export const MobileChatLanding = ({
     setInputValue("");
   };
 
+  // Subtle dotted background pattern (light)
+  const bgPattern: React.CSSProperties = {
+    backgroundImage:
+      "radial-gradient(hsl(var(--primary) / 0.06) 1px, transparent 1px)",
+    backgroundSize: "18px 18px",
+  };
+
   return (
     <div
-      className="flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5 pb-44"
+      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5 pb-44"
       dir="rtl"
     >
-      {/* Optional personalized greeting */}
-      {isAuthenticated && userFirstName && (
-        <div className="px-5 pt-5 pb-3">
-          <h1 className="text-xl font-semibold text-foreground">
-            سلام {userFirstName} جان 👋
-          </h1>
-        </div>
-      )}
+      {/* Light dotted pattern overlay */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={bgPattern}
+      />
 
-      {/* Hero slider */}
-      <div className="pt-4 pb-5">
-        <div className="overflow-x-auto snap-x snap-mandatory scrollbar-none px-5">
-          <div className="flex gap-3">
-            {heroSlides.map((s) => (
-              <div
-                key={s.id}
-                className="snap-center shrink-0 w-[85%] rounded-2xl p-4 flex items-center gap-3"
-                style={{
-                  background: s.gradient,
-                  border: "1px solid hsl(0 0% 0% / 0.06)",
-                  minHeight: 96,
-                }}
-              >
-                <span className="text-3xl">{s.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground leading-snug">
-                    {s.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-snug">
-                    {s.subtitle}
-                  </p>
+      <div className="relative z-10 flex flex-col">
+        {/* Inside logo + subtitle (larger) */}
+        <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
+          <div className="flex items-center gap-2.5 mb-2">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
+              }}
+            >
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-2xl font-bold tracking-tight">Flowcart</span>
+          </div>
+          <p className="text-sm text-muted-foreground leading-snug max-w-[260px]">
+            دستیار خرید هوشمند تو — فقط بگو چی می‌خوای
+          </p>
+          {isAuthenticated && userFirstName && (
+            <p className="text-sm font-medium text-foreground mt-2">
+              سلام {userFirstName} جان 👋
+            </p>
+          )}
+        </div>
+
+        {/* Hero slider — real promo images, slidable, no scrollbars */}
+        <div className="pt-2 pb-5">
+          <div
+            ref={sliderRef}
+            onScroll={handleSliderScroll}
+            className="overflow-x-auto snap-x snap-mandatory px-5 scroll-smooth"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
+            <div className="hero-slider-track flex gap-3">
+              {heroSlides.map((s) => (
+                <div
+                  key={s.id}
+                  className="snap-center shrink-0 w-[88%] rounded-2xl overflow-hidden"
+                  style={{
+                    border: "1px solid hsl(0 0% 0% / 0.06)",
+                    aspectRatio: "1920 / 1080",
+                  }}
+                >
+                  <img
+                    src={s.image}
+                    alt={s.alt}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+          {/* Dot indicators */}
+          <div className="flex items-center justify-center gap-1.5 mt-3">
+            {heroSlides.map((_, i) => (
+              <span
+                key={i}
+                className="rounded-full transition-all"
+                style={{
+                  width: i === activeSlide ? 18 : 6,
+                  height: 6,
+                  background:
+                    i === activeSlide
+                      ? "hsl(var(--primary))"
+                      : "hsl(0 0% 0% / 0.15)",
+                }}
+              />
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Prompt chips — max 3 rows */}
-      <div className="px-5">
-        <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
-          از این‌ها شروع کن
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {promptChips.map((chip) => (
-            <button
-              key={chip}
-              onClick={() => submit(chip.replace(/^[^\u0600-\u06FF\w]+\s*/, ""))}
-              className="text-xs px-3.5 py-2 rounded-full active:scale-95 transition-transform leading-tight"
-              style={{
-                background: "hsl(var(--primary) / 0.06)",
-                border: "1px solid hsl(var(--primary) / 0.15)",
-                color: "hsl(var(--primary))",
-              }}
-            >
-              {chip}
-            </button>
-          ))}
+        {/* Prompt chips — max 3 rows */}
+        <div className="px-5">
+          <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            از این‌ها شروع کن
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {promptChips.map((chip) => (
+              <button
+                key={chip}
+                onClick={() => submit(chip.replace(/^[^\u0600-\u06FF\w]+\s*/, ""))}
+                className="text-xs px-3.5 py-2 rounded-full active:scale-95 transition-transform leading-tight"
+                style={{
+                  background: "hsl(var(--primary) / 0.06)",
+                  border: "1px solid hsl(var(--primary) / 0.15)",
+                  color: "hsl(var(--primary))",
+                }}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

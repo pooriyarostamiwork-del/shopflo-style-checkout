@@ -322,16 +322,20 @@ export const MobileGPTCommerceShell = () => {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{
-              background:
-                "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
-            }}
-          >
-            <Zap className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="text-sm font-semibold">Flowcart</span>
+          {!onLanding && (
+            <>
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
+                }}
+              >
+                <Zap className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="text-sm font-semibold">Flowcart</span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button

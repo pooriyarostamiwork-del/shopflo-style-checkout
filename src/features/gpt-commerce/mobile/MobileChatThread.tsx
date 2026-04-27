@@ -24,12 +24,6 @@ import {
   MerchantShipping,
 } from "@/components/gpt-commerce/AddressShippingSelector";
 
-const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
-];
-
 interface MobileChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
@@ -79,7 +73,6 @@ export const MobileChatThread = ({
   onNewChat,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -87,14 +80,6 @@ export const MobileChatThread = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isProcessing]);
-
-  useEffect(() => {
-    if (inputValue) return;
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [inputValue]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -340,25 +325,12 @@ export const MobileChatThread = ({
                   submit();
                 }
               }}
-              placeholder=""
+              placeholder="چی می‌خوای بخری؟"
               disabled={isProcessing}
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
+              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2 placeholder:text-muted-foreground/50"
               style={{ lineHeight: "1.5" }}
               dir="rtl"
             />
-            {!inputValue && (
-              <div
-                className="absolute inset-0 flex items-center pointer-events-none px-2 py-2.5 overflow-hidden"
-                dir="rtl"
-              >
-                <span
-                  key={placeholderIndex}
-                  className="text-muted-foreground/50 text-sm text-right w-full truncate"
-                >
-                  {placeholderTexts[placeholderIndex]}
-                </span>
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-1.5 pb-1">
             <button

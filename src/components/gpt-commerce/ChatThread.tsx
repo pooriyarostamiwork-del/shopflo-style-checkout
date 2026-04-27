@@ -16,6 +16,12 @@ import {
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 
+const placeholderTexts = [
+  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
+  "«بهترین تخفیف‌های امروز چیه؟»",
+  "«خودت برام خرید کن»",
+];
+
 interface ChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
@@ -77,6 +83,15 @@ export const ChatThread = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    if (inputValue) return;
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [inputValue]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -301,22 +316,37 @@ export const ChatThread = ({
             className="flex items-end gap-3 p-3 rounded-xl"
             style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
           >
-            <textarea
-              ref={textareaRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }
-              }}
-              placeholder="چی می‌خوای بخری؟ بگو تا پیدا کنم..."
-              disabled={isProcessing}
-              className="flex-1 min-h-[48px] max-h-[160px] bg-transparent border-none focus:outline-none focus:ring-0 text-right resize-none py-3 px-2"
-              style={{ lineHeight: '1.6' }}
-              dir="rtl"
-            />
+            <div className="relative flex-1">
+              <textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+                placeholder=""
+                disabled={isProcessing}
+                className="w-full min-h-[56px] max-h-[160px] bg-transparent border-none focus:outline-none focus:ring-0 text-right resize-none py-3 px-2"
+                style={{ lineHeight: '1.6' }}
+                dir="rtl"
+              />
+              {!inputValue && (
+                <div
+                  className="absolute inset-0 flex items-start pointer-events-none px-2 py-3"
+                  dir="rtl"
+                >
+                  <span
+                    key={placeholderIndex}
+                    className="text-muted-foreground/50 text-base text-right w-full whitespace-normal break-words leading-snug"
+                  >
+                    {placeholderTexts[placeholderIndex]}
+                  </span>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2 pb-1">
               <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110" style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.06)' }} title="ارسال فایل">
                 <Paperclip className="w-4 h-4 text-muted-foreground" />

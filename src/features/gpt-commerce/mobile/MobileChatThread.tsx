@@ -325,25 +325,12 @@ export const MobileChatThread = ({
                   submit();
                 }
               }}
-              placeholder=""
+              placeholder="چی می‌خوای بخری؟"
               disabled={isProcessing}
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
+              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2 placeholder:text-muted-foreground/50"
               style={{ lineHeight: "1.5" }}
               dir="rtl"
             />
-            {!inputValue && (
-              <div
-                className="absolute inset-0 flex items-center pointer-events-none px-2 py-2.5 overflow-hidden"
-                dir="rtl"
-              >
-                <span
-                  key={placeholderIndex}
-                  className="text-muted-foreground/50 text-sm text-right w-full truncate"
-                >
-                  {placeholderTexts[placeholderIndex]}
-                </span>
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-1.5 pb-1">
             <button

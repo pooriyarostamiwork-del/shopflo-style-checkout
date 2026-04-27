@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic, Sparkles } from "lucide-react";
+import { ArrowUp, Mic, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem } from "@/data/gptCommerceData";
-import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -10,17 +9,41 @@ const placeholderTexts = [
   "«خودت برام خرید کن»",
 ];
 
+// Capped to 6 chips → fits in max 3 rows on 360–430px viewports
 const promptChips = [
   "🎧 هدفون بی‌سیم زیر ۵ میلیون",
   "📱 گوشی موبایل با دوربین خوب",
   "💻 لپ‌تاپ برای برنامه‌نویسی",
-  "⌚ ساعت هوشمند مناسب ورزش",
-  "🎁 می‌خوام برای دوستم هدیه بخرم",
+  "🎁 هدیه برای دوست",
   "🔥 بهترین تخفیف‌های امروز",
   "🛒 خودت برام خرید کن",
-  "⚖️ مقایسه دو محصول",
-  "📷 دوربین دیجیتال برای عکاسی",
-  "💬 نیاز به مشاوره دارم",
+];
+
+const heroSlides = [
+  {
+    id: "loan",
+    emoji: "💸",
+    title: "وام فلوپی",
+    subtitle: "تا ۱۰۰ میلیون اعتبار خرید",
+    gradient:
+      "linear-gradient(135deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.06))",
+  },
+  {
+    id: "deals",
+    emoji: "🔥",
+    title: "پیشنهادهای داغ امروز",
+    subtitle: "تا ۴۰٪ تخفیف روی منتخب‌ها",
+    gradient:
+      "linear-gradient(135deg, hsl(20 95% 60% / 0.18), hsl(20 95% 60% / 0.05))",
+  },
+  {
+    id: "shipping",
+    emoji: "🚚",
+    title: "ارسال رایگان",
+    subtitle: "برای سفارش بالای ۲ میلیون",
+    gradient:
+      "linear-gradient(135deg, hsl(150 60% 45% / 0.18), hsl(150 60% 45% / 0.05))",
+  },
 ];
 
 interface MobileChatLandingProps {
@@ -41,8 +64,6 @@ export const MobileChatLanding = ({
   const [inputValue, setInputValue] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { getLogoSettings } = useHomepageSettings();
-  const firstPageLogo = getLogoSettings("firstPage");
 
   useEffect(() => {
     if (inputValue) return;
@@ -54,7 +75,7 @@ export const MobileChatLanding = ({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "44px";
+      textareaRef.current.style.height = "56px";
       const sh = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(sh, 120) + "px";
     }
@@ -69,41 +90,49 @@ export const MobileChatLanding = ({
 
   return (
     <div
-      className="flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5"
+      className="flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5 pb-44"
       dir="rtl"
     >
-      {/* Hero */}
-      <div className="px-5 pt-6 pb-6 text-center">
-        {firstPageLogo.imageUrl ? (
-          <img
-            src={firstPageLogo.imageUrl}
-            alt="فلوکارت"
-            className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4"
-          />
-        ) : (
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{
-              background:
-                "linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.08))",
-              border: "1px solid hsl(0 0% 0% / 0.06)",
-            }}
-          >
-            <Zap className="w-8 h-8 text-primary" />
+      {/* Optional personalized greeting */}
+      {isAuthenticated && userFirstName && (
+        <div className="px-5 pt-5 pb-3">
+          <h1 className="text-xl font-semibold text-foreground">
+            سلام {userFirstName} جان 👋
+          </h1>
+        </div>
+      )}
+
+      {/* Hero slider */}
+      <div className="pt-4 pb-5">
+        <div className="overflow-x-auto snap-x snap-mandatory scrollbar-none px-5">
+          <div className="flex gap-3">
+            {heroSlides.map((s) => (
+              <div
+                key={s.id}
+                className="snap-center shrink-0 w-[85%] rounded-2xl p-4 flex items-center gap-3"
+                style={{
+                  background: s.gradient,
+                  border: "1px solid hsl(0 0% 0% / 0.06)",
+                  minHeight: 96,
+                }}
+              >
+                <span className="text-3xl">{s.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground leading-snug">
+                    {s.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                    {s.subtitle}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-        <h1 className="text-2xl font-bold text-foreground">
-          {isAuthenticated && userFirstName
-            ? `سلام ${userFirstName} جان 👋`
-            : "Flowcart"}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-2 px-4">
-          {firstPageLogo.subtitle || "دستیار خرید هوشمند جیبی شما"}
-        </p>
+        </div>
       </div>
 
-      {/* Prompt chips — full prompts as taps */}
-      <div className="px-5 mb-6">
+      {/* Prompt chips — max 3 rows */}
+      <div className="px-5">
         <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
           از این‌ها شروع کن
@@ -123,31 +152,6 @@ export const MobileChatLanding = ({
               {chip}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Floppy loan info pill */}
-      <div className="px-5 mb-24">
-        <div
-          className="rounded-2xl p-4 flex items-center gap-3"
-          style={{
-            background:
-              "linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.03))",
-            border: "1px solid hsl(var(--primary) / 0.12)",
-          }}
-        >
-          <span className="text-2xl">💸</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-foreground leading-snug">
-              تا صد میلیون اعتبار خرید
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              با وام فلوپی، الان بخر بعداً پرداخت کن
-            </p>
-          </div>
-          <button className="text-xs font-semibold text-primary whitespace-nowrap">
-            دریافت وام
-          </button>
         </div>
       </div>
 
@@ -183,18 +187,18 @@ export const MobileChatLanding = ({
                 }
               }}
               placeholder=""
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
+              className="w-full min-h-[56px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
               style={{ lineHeight: "1.5" }}
               dir="rtl"
             />
             {!inputValue && (
               <div
-                className="absolute inset-0 flex items-center pointer-events-none px-2 py-2.5 overflow-hidden"
+                className="absolute inset-0 flex items-start pointer-events-none px-2 py-2.5"
                 dir="rtl"
               >
                 <span
                   key={placeholderIndex}
-                  className="text-muted-foreground/50 text-sm text-right w-full truncate"
+                  className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug"
                 >
                   {placeholderTexts[placeholderIndex]}
                 </span>

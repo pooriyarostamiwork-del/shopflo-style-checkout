@@ -1,118 +1,79 @@
-# Mobile Polish + Image Placeholder Fallback
+# Mobile Landing Redesign + Placeholder Fixes
 
-Front-end only. Zero changes to edge functions, hooks, or DB. Five scoped fixes.
+Frontend-only. No backend/edge function changes.
 
----
+## Scope summary
+| # | Change | Scope |
+|---|---|---|
+| 1 | Placeholder text can wrap (no truncate) so long Persian phrases fit | `/m/gptcommerce` + `/gptcommerce` chat input |
+| 2 | Add rotating placeholder to desktop chat-mode input | `/gptcommerce` |
+| 3 | Remove `برگشت` button from header | `/m/gptcommerce` |
+| 4 | Move prompt chips ABOVE chatbox in landing, cap to max 3 rows | `/m/gptcommerce` |
+| 5 | Add a hero promo slider above chips, below logo/title | `/m/gptcommerce` |
+| 6 | Delete the "فلوپی" loan pill | `/m/gptcommerce` |
+| 7 | Logo + subtitle slightly larger | `/m/gptcommerce` landing |
+| 8 | Delete logo block from landing (keep only header logo) | `/m/gptcommerce` |
+| 9 | Remove rotating placeholder from chatbox in chat-mode (keep only landing) | `/m/gptcommerce` |
 
-## 1. Mobile header — replace Account button with New Chat button
-**Scope:** `/m/gptcommerce` only
+## File changes
 
-In `MobileGPTCommerceShell.tsx`, the right-side header cluster currently has `[Account] [Cart]`. Replace the Account icon button with a **New Chat** button (`SquarePen` / `Plus` icon).
+### `src/features/gpt-commerce/mobile/MobileChatLanding.tsx` (the big one)
 
-- Click → `setPendingNewChat(true)` (same handler the input area uses).
-- Account access stays accessible via the bottom-sheet `account` tab (already exists).
-- Cart button stays unchanged.
-- Desktop `GPTCommerceShell.tsx` is **not touched**.
+Restructure to this vertical order:
+1. ~~Logo + greeting block~~ — **DELETE** (per item 8). Replace with just the personalized greeting line if authenticated (`سلام {name} جان 👋`), or nothing.
+2. **NEW: Hero slider** — horizontal swipeable carousel of 3–4 promo cards (e.g. "وام فلوپی تا ۱۰۰ میلیون", "پیشنهادهای داغ امروز", "ارسال رایگان"). Native scroll-snap, dots underneath. Compact (~120px tall).
+3. **Prompt chips** — moved here, directly above the chatbox. Cap rendered chips so they fit in **max 3 rows**: keep current `flex-wrap` but slice the array to first ~6 chips so layout never exceeds 3 rows on a 360–430px viewport.
+4. **Chatbox** — keep card style, keep rotating placeholder (this is the only place it should remain).
+5. ~~فلوپی loan pill~~ — **DELETE** (item 6).
 
----
+Layout switches from "scroll → fixed bottom input" to a single scroll column with the input still sticky at bottom.
 
-## 2. Landing — replace category icon grid with prompt chips
-**Scope:** `/m/gptcommerce` only (`MobileChatLanding.tsx`)
+### `src/features/gpt-commerce/mobile/MobileChatThread.tsx`
 
-Remove the `quickCategories` 3-column emoji grid entirely. Merge them into the existing horizontal "suggestion chips" row as a single, scrollable group of pill chips. Each chip = a full prompt string that is sent on tap.
+- Remove the `placeholderTexts` array, `placeholderIndex` state, the rotating `useEffect`, and the absolute-positioned rotating `<span>`.
+- Replace with a single static placeholder via the textarea's native `placeholder` attribute, e.g. `چی می‌خوای بخری؟`.
 
-New chip set (Persian, prompt-style, not category labels):
-- "هدفون بی‌سیم زیر ۵ میلیون پیشنهاد بده"
-- "گوشی موبایل با دوربین خوب"
-- "لپ‌تاپ برای برنامه‌نویسی"
-- "ساعت هوشمند مناسب ورزش"
-- "بهترین تخفیف‌های امروز"
-- "خودت برام خرید کن"
-- "می‌خوام برای دوستم هدیه بخرم"
-- "مقایسه دو محصول"
+### `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx`
 
-Layout: `flex flex-wrap gap-2` (chips wrap naturally on narrow screens), same primary-tinted pill styling already used. Section title becomes "از این‌ها شروع کن".
+- Delete the `برگشت` button (lines ~323–331) and its `ArrowRight` import if unused.
 
----
+### `src/components/gpt-commerce/ChatThread.tsx` (desktop chat mode)
 
-## 3. Fix top-clipping under sticky header
-**Scope:** `/m/gptcommerce` only (`MobileChatThread.tsx`, `MobileChatLanding.tsx`)
+- Add rotating placeholder identical to landing's: `placeholderTexts` array, `placeholderIndex` state, 3.5s interval, absolute-positioned `<span>` overlay shown only when `!inputValue`. Remove the static `placeholder=""` attr from the textarea.
 
-**Root cause:** Both screens use `h-[100dvh]` / `min-h-[100dvh]` internally, but they are rendered **inside** the shell's flex container which already accounts for the header. The double-allocation (header + `100dvh` child) pushes the first message's top edge above the visible scroll origin.
+### Placeholder wrapping fix (items 1–2)
 
-**Fix:**
-- In `MobileChatThread.tsx`: change root `h-[100dvh]` → `h-full`. Increase top padding of message list from `pt-2` to `pt-4`.
-- In `MobileChatLanding.tsx`: change `min-h-[100dvh]` → `min-h-full` and reduce top hero padding from `pt-12` → `pt-6` (header now provides offset).
-- In `MobileGPTCommerceShell.tsx`: the body wrapper is already `flex-1 min-h-0 overflow-hidden` — confirm and keep. Add `flex` to enable child `h-full`.
+Currently the rotating placeholder `<span>` uses `truncate` (or `overflow-hidden` + single line) which clips long Persian phrases. Fix in **both** places:
+- `src/features/gpt-commerce/mobile/MobileChatLanding.tsx`
+- `src/features/gpt-commerce/mobile/MobileChatThread.tsx` (becomes moot after removal)
+- `src/components/gpt-commerce/ChatThread.tsx` (after adding the rotating placeholder)
 
-This restores the intended scroll anchor under the sticky header and removes the clipped first-message issue.
+Change the overlay container from `items-center ... overflow-hidden` + `<span class="truncate">` to `items-start` (top-aligned) with `<span class="text-right w-full whitespace-normal break-words leading-snug">` so multi-line placeholders render fully. Also raise the textarea's `min-h` slightly (e.g. 44 → 56px) so 2-line placeholders don't visually overflow the input box.
 
----
+## Hero slider — technical notes
 
-## 4. Redesign the "چت‌ها" tab in the bottom sheet
-**Scope:** `/m/gptcommerce` only (`MobileBottomSheet.tsx`, `baskets` tab body)
-
-Modernize the chats list. Visual upgrades:
-
-- **Hero "+ New Chat" card** at the top: full-width, gradient primary background, larger touch target (~64px), Sparkles + Plus icons, label "گفتگوی جدید". Replaces the dashed-outline button.
-- **Section label** "گفتگوهای اخیر" with a count badge.
-- **Basket cards**:
-  - Slightly taller (p-3.5), softer shadow `0 1px 3px rgba(0,0,0,0.04)`, rounded-2xl.
-  - Avatar circle uses a per-basket pastel hue derived from `b.id` hash (4-color rotation: primary/blue/amber/rose tints) to give the list visual rhythm.
-  - Two-line content: title (15px, semibold) + meta row with two pills (`{count} کالا` and `{lastActivity}`) instead of a dot-separated single line.
-  - Active basket: primary-tinted background + thin primary left border (`border-r-2` in RTL) instead of the heavy `ring-2` outline.
-  - Delete becomes a small trailing icon button only revealed on press (active state), reducing visual clutter.
-- **Empty state**: larger illustration block with a subtle dashed border and a CTA ghost button "شروع کن".
-
-No data/logic changes — purely presentational rewrite of the `tab === "baskets"` branch.
-
----
-
-## 5. Image fallback placeholder (desktop + mobile)
-**Scope:** Shared component used everywhere a product image renders
-
-Create `src/components/gpt-commerce/ProductImage.tsx`:
+Implement inline (no new component file) using native CSS scroll-snap to keep it lightweight:
 
 ```tsx
-interface Props extends React.ImgHTMLAttributes<HTMLImageElement> {
-  src?: string;
-  alt: string;
-  className?: string;
-  fallbackClassName?: string;
-}
+<div className="overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-5 px-5">
+  <div className="flex gap-3">
+    {slides.map(s => (
+      <div key={s.id} className="snap-center shrink-0 w-[85%] rounded-2xl p-4 ...">
+        ...
+      </div>
+    ))}
+  </div>
+</div>
 ```
 
-Behavior:
-- Renders an `<img>` with `onError` → swap to fallback state.
-- Fallback state renders a styled placeholder div (same dimensions via className) with:
-  - Soft gradient background (`from-muted/40 to-muted/20`).
-  - Centered `ImageOff` lucide icon (40% opacity).
-  - Optional first 2 chars of `alt` as a faint label.
-- Also handles empty/missing `src` (treats as error from the start).
-- `loading="lazy"` and `decoding="async"` defaults.
+Slides content (Persian, brand-aligned):
+1. 💸 وام فلوپی — تا ۱۰۰ میلیون اعتبار خرید
+2. 🔥 پیشنهادهای داغ امروز — تا ۴۰٪ تخفیف
+3. 🚚 ارسال رایگان برای سفارش بالای ۲ میلیون
 
-**Replace `<img>` with `<ProductImage>` in:**
-- `src/components/gpt-commerce/ChatProductCard.tsx` (line 71)
-- `src/components/gpt-commerce/ProductCard.tsx` (line 30)
-- `src/components/gpt-commerce/PDPProductComponent.tsx` (lines 118, 150, 513)
-- `src/features/gpt-commerce/mobile/MobileBottomSheet.tsx` (cart item thumbnail, line 176)
-- `src/features/gpt-commerce/mobile/MobileChatThread.tsx` — N/A (uses ChatProductCard)
-- `src/components/CartItemLocalized.tsx` if it has a product image (verify during impl)
+Tap on a slide does nothing for now (or focuses chatbox) — purely visual marketing.
 
-Single component → consistent fallback across all surfaces, both viewports.
-
----
-
-## Files Touched
-| File | Change |
-|---|---|
-| `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx` | Header: Account → New Chat button |
-| `src/features/gpt-commerce/mobile/MobileChatLanding.tsx` | Replace category grid with prompt chips; fix top spacing |
-| `src/features/gpt-commerce/mobile/MobileChatThread.tsx` | Fix `h-[100dvh]` → `h-full`; add top padding |
-| `src/features/gpt-commerce/mobile/MobileBottomSheet.tsx` | Redesign baskets tab; swap cart image to ProductImage |
-| `src/components/gpt-commerce/ProductImage.tsx` | **New** shared component with onError fallback |
-| `src/components/gpt-commerce/ChatProductCard.tsx` | Use ProductImage |
-| `src/components/gpt-commerce/ProductCard.tsx` | Use ProductImage |
-| `src/components/gpt-commerce/PDPProductComponent.tsx` | Use ProductImage |
-
-No backend, no hooks, no routing, no desktop shell changes.
+## Out of scope
+- No backend changes
+- No new files (slider is inline)
+- No changes to desktop landing (`ChatLanding.tsx`)

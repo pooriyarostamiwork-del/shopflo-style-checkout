@@ -63,12 +63,29 @@ export const MobileChatLanding = ({
     }
   }, [inputValue]);
 
-  // Track which slide is most visible for the dot indicator
+  // Track which slide is most visible — measure per-slide width (RTL-safe)
   const handleSliderScroll = () => {
-    if (!sliderRef.current) return;
     const el = sliderRef.current;
-    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (!el) return;
+    const firstSlide = el.querySelector<HTMLElement>("[data-slide]");
+    const slideW = firstSlide ? firstSlide.offsetWidth + 12 /* gap */ : el.clientWidth;
+    // In RTL, scrollLeft is <= 0 in most browsers
+    const offset = Math.abs(el.scrollLeft);
+    const idx = Math.min(
+      heroSlides.length - 1,
+      Math.max(0, Math.round(offset / slideW))
+    );
     if (idx !== activeSlide) setActiveSlide(idx);
+  };
+
+  const goToSlide = (i: number) => {
+    const el = sliderRef.current;
+    if (!el) return;
+    const firstSlide = el.querySelector<HTMLElement>("[data-slide]");
+    const slideW = firstSlide ? firstSlide.offsetWidth + 12 : el.clientWidth;
+    const target = slideW * i;
+    // RTL → negative scrollLeft
+    el.scrollTo({ left: -target, behavior: "smooth" });
   };
 
   const submit = (msg?: string) => {
@@ -122,45 +139,61 @@ export const MobileChatLanding = ({
           )}
         </div>
 
-        {/* Hero slider — real promo images, slidable, no scrollbars */}
+        {/* Hero slider — slidable, snap-proximity for easy swipe */}
         <div className="pt-2 pb-5">
           <div
             ref={sliderRef}
             onScroll={handleSliderScroll}
-            className="overflow-x-auto snap-x snap-mandatory px-5 scroll-smooth"
+            className="hero-slider-track overflow-x-auto snap-x snap-proximity scroll-smooth"
             style={{
               scrollbarWidth: "none",
               msOverflowStyle: "none",
               WebkitOverflowScrolling: "touch",
+              scrollPaddingInline: "1.25rem",
             }}
           >
             <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
-            <div className="hero-slider-track flex gap-3">
+            <div className="flex gap-3 ps-5 pe-5">
               {heroSlides.map((s) => (
                 <div
                   key={s.id}
-                  className="snap-center shrink-0 w-[88%] rounded-2xl overflow-hidden"
+                  data-slide
+                  className="snap-start shrink-0 w-[97%] rounded-2xl overflow-hidden relative"
                   style={{
                     border: "1px solid hsl(0 0% 0% / 0.06)",
                     aspectRatio: "1920 / 1080",
+                    background:
+                      "linear-gradient(110deg, hsl(0 0% 95%) 30%, hsl(0 0% 90%) 50%, hsl(0 0% 95%) 70%)",
+                    backgroundSize: "200% 100%",
+                    animation: "heroShimmer 1.6s linear infinite",
                   }}
                 >
+                  <style>{`@keyframes heroShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
                   <img
                     src={s.image}
                     alt={s.alt}
                     loading="lazy"
-                    className="w-full h-full object-cover"
+                    decoding="async"
+                    className="w-full h-full object-cover relative z-10"
                     draggable={false}
+                    onLoad={(e) => {
+                      const parent = e.currentTarget.parentElement as HTMLElement;
+                      parent.style.animation = "none";
+                      parent.style.background = "hsl(0 0% 96%)";
+                    }}
                   />
                 </div>
               ))}
             </div>
           </div>
-          {/* Dot indicators */}
+          {/* Dot indicators — clickable */}
           <div className="flex items-center justify-center gap-1.5 mt-3">
             {heroSlides.map((_, i) => (
-              <span
+              <button
                 key={i}
+                type="button"
+                aria-label={`اسلاید ${i + 1}`}
+                onClick={() => goToSlide(i)}
                 className="rounded-full transition-all"
                 style={{
                   width: i === activeSlide ? 18 : 6,
@@ -213,7 +246,7 @@ export const MobileChatLanding = ({
             e.preventDefault();
             submit();
           }}
-          className="flex items-end gap-2 p-2 rounded-2xl"
+          className="flex items-center gap-2 p-2 rounded-2xl"
           style={{
             background: "hsl(0 0% 100%)",
             border: "1px solid hsl(0 0% 0% / 0.08)",
@@ -238,7 +271,7 @@ export const MobileChatLanding = ({
             />
             {!inputValue && (
               <div
-                className="absolute inset-0 flex items-start pointer-events-none px-2 py-2.5"
+                className="absolute inset-0 flex items-center pointer-events-none px-2"
                 dir="rtl"
               >
                 <span
@@ -250,7 +283,7 @@ export const MobileChatLanding = ({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 pb-1">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"

@@ -16,6 +16,12 @@ import {
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 
+const placeholderTexts = [
+  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
+  "«بهترین تخفیف‌های امروز چیه؟»",
+  "«خودت برام خرید کن»",
+];
+
 interface ChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
@@ -77,6 +83,15 @@ export const ChatThread = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    if (inputValue) return;
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [inputValue]);
 
   // Auto-scroll to bottom
   useEffect(() => {

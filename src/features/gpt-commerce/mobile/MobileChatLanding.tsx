@@ -246,7 +246,7 @@ export const MobileChatLanding = ({
             e.preventDefault();
             submit();
           }}
-          className="flex items-end gap-2 p-2 rounded-2xl"
+          className="flex items-center gap-2 p-2 rounded-2xl"
           style={{
             background: "hsl(0 0% 100%)",
             border: "1px solid hsl(0 0% 0% / 0.08)",

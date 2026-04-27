@@ -63,12 +63,29 @@ export const MobileChatLanding = ({
     }
   }, [inputValue]);
 
-  // Track which slide is most visible for the dot indicator
+  // Track which slide is most visible — measure per-slide width (RTL-safe)
   const handleSliderScroll = () => {
-    if (!sliderRef.current) return;
     const el = sliderRef.current;
-    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (!el) return;
+    const firstSlide = el.querySelector<HTMLElement>("[data-slide]");
+    const slideW = firstSlide ? firstSlide.offsetWidth + 12 /* gap */ : el.clientWidth;
+    // In RTL, scrollLeft is <= 0 in most browsers
+    const offset = Math.abs(el.scrollLeft);
+    const idx = Math.min(
+      heroSlides.length - 1,
+      Math.max(0, Math.round(offset / slideW))
+    );
     if (idx !== activeSlide) setActiveSlide(idx);
+  };
+
+  const goToSlide = (i: number) => {
+    const el = sliderRef.current;
+    if (!el) return;
+    const firstSlide = el.querySelector<HTMLElement>("[data-slide]");
+    const slideW = firstSlide ? firstSlide.offsetWidth + 12 : el.clientWidth;
+    const target = slideW * i;
+    // RTL → negative scrollLeft
+    el.scrollTo({ left: -target, behavior: "smooth" });
   };
 
   const submit = (msg?: string) => {

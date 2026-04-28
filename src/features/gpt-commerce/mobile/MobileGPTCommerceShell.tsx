@@ -56,6 +56,7 @@ export const MobileGPTCommerceShell = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<MobileSheetTab>("cart");
   const [showAccountFull, setShowAccountFull] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("all");
   const isCreatingBasketRef = useRef(false);
 
   const messages = currentState.messages;

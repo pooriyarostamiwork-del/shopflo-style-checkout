@@ -43,6 +43,9 @@ export const MobileChatLanding = ({
   isProcessing,
   isAuthenticated,
   userFirstName,
+  onOpenBaskets,
+  onOpenCart,
+  onOpenAccount,
 }: MobileChatLandingProps) => {
   const [inputValue, setInputValue] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);

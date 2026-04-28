@@ -101,24 +101,47 @@ export const MobileChatLanding = ({
     setInputValue("");
   };
 
-  // Subtle dotted background pattern (light)
-  const bgPattern: React.CSSProperties = {
-    backgroundImage:
-      "radial-gradient(hsl(var(--primary) / 0.06) 1px, transparent 1px)",
-    backgroundSize: "18px 18px",
+  // Bento card style (matches desktop /gptcommerce landing background)
+  const bentoBase: React.CSSProperties = {
+    background: "hsl(0 0% 100% / 0.04)",
+    border: "1px solid hsl(0 0% 100% / 0.08)",
+    borderRadius: "20px",
+    backdropFilter: "blur(28px)",
+    opacity: 0.29,
   };
 
   return (
     <div
-      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5 pb-44"
+      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56"
       dir="rtl"
     >
-      {/* Light dotted pattern overlay */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={bgPattern}
-      />
+      {/* Floating bento background cards (desktop /gptcommerce parity) */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute" style={{ ...bentoBase, width: 110, height: 140, top: 40, right: -20, transform: "rotate(-3deg)" }}>
+          <div className="w-full h-20 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2.5 space-y-2">
+            <div className="h-2.5 bg-foreground/20 rounded w-3/4" />
+            <div className="h-2 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+        <div className="absolute flex items-center justify-center" style={{ ...bentoBase, width: 90, height: 32, top: 180, left: -10, transform: "rotate(2deg)" }}>
+          <span className="text-[10px] text-foreground/30">٪۱۰ تخفیف</span>
+        </div>
+        <div className="absolute flex items-center gap-2 px-3" style={{ ...bentoBase, width: 140, height: 44, bottom: 280, right: -30, transform: "rotate(2deg)" }}>
+          <div className="w-7 h-7 rounded-lg bg-foreground/10" />
+          <div className="flex-1 space-y-1">
+            <div className="h-1.5 bg-foreground/15 rounded w-1/2" />
+            <div className="h-1.5 bg-foreground/10 rounded w-3/4" />
+          </div>
+        </div>
+        <div className="absolute" style={{ ...bentoBase, width: 100, height: 120, bottom: 220, left: -20, transform: "rotate(-2deg)" }}>
+          <div className="w-full h-16 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2 space-y-1.5">
+            <div className="h-2 bg-foreground/20 rounded w-3/4" />
+            <div className="h-1.5 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+      </div>
 
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle (larger) */}

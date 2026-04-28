@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ShoppingCart, Menu, Zap, MessageSquarePlus } from "lucide-react";
+import { Zap, MessageSquarePlus } from "lucide-react";
+import { CategorySelector } from "@/components/gpt-commerce/CategorySelector";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";

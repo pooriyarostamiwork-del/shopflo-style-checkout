@@ -310,18 +310,20 @@ export const MobileGPTCommerceShell = () => {
           paddingTop: "max(0.625rem, env(safe-area-inset-top))",
         }}
       >
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setSheetTab("baskets");
-              setSheetOpen(true);
-            }}
-            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: "hsl(0 0% 0% / 0.04)" }}
-            aria-label="منو"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-2 mobile-cat-selector">
+          <CategorySelector
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+          />
+          <style>{`
+            .mobile-cat-selector > button {
+              padding: 0.4rem 0.7rem !important;
+              font-size: 0.75rem !important;
+              border-radius: 0.625rem !important;
+              box-shadow: none !important;
+            }
+            .mobile-cat-selector svg { width: 0.85rem !important; height: 0.85rem !important; }
+          `}</style>
         </div>
         <div className="flex items-center gap-2">
           {!onLanding && (
@@ -348,22 +350,6 @@ export const MobileGPTCommerceShell = () => {
             title="چت جدید"
           >
             <MessageSquarePlus className="w-[18px] h-[18px] text-foreground/80" strokeWidth={1.75} />
-          </button>
-          <button
-            onClick={() => {
-              setSheetTab("cart");
-              setSheetOpen(true);
-            }}
-            className="relative w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: "hsl(var(--primary) / 0.08)" }}
-            aria-label="سبد خرید"
-          >
-            <ShoppingCart className="w-4 h-4 text-primary" />
-            {cartItems.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center font-medium">
-                {toPersianNumber(cartItems.length)}
-              </span>
-            )}
           </button>
         </div>
       </header>

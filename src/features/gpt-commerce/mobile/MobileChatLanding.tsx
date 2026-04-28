@@ -332,6 +332,29 @@ export const MobileChatLanding = ({
             </Button>
           </div>
         </form>
+
+        {/* Action bar — opens corresponding bottom-sheet tab */}
+        <div className="flex items-center justify-center gap-3 mt-2.5">
+          {[
+            { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
+            { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
+            { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount },
+          ].map(({ key, icon: Icon, label, onClick }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={onClick}
+              aria-label={label}
+              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+              style={{
+                background: "hsl(0 0% 100%)",
+                border: "1px solid hsl(0 0% 0% / 0.1)",
+              }}
+            >
+              <Icon className="w-[18px] h-[18px] text-foreground/75" strokeWidth={1.75} />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

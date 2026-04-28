@@ -364,6 +364,9 @@ export const MobileGPTCommerceShell = () => {
             isProcessing={isProcessing}
             isAuthenticated={isAuthenticated}
             userFirstName={profile?.full_name?.split(" ")[0]}
+            onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
+            onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
+            onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}
           />
         ) : (
           <MobileChatThread

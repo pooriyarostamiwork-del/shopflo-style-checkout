@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic } from "lucide-react";
+import { ArrowUp, Zap, Mic, Layers, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -47,6 +47,9 @@ interface MobileChatThreadProps {
   agenticState?: AgenticState;
   onBack: () => void;
   onNewChat: () => void;
+  onOpenBaskets?: () => void;
+  onOpenCart?: () => void;
+  onOpenAccount?: () => void;
 }
 
 export const MobileChatThread = ({
@@ -71,6 +74,9 @@ export const MobileChatThread = ({
   onPaymentSelect,
   onBack,
   onNewChat,
+  onOpenBaskets,
+  onOpenCart,
+  onOpenAccount,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);

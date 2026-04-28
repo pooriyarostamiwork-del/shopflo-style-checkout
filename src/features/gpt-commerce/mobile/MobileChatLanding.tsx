@@ -33,6 +33,9 @@ interface MobileChatLandingProps {
   isProcessing: boolean;
   isAuthenticated?: boolean;
   userFirstName?: string;
+  onOpenBaskets?: () => void;
+  onOpenCart?: () => void;
+  onOpenAccount?: () => void;
 }
 
 export const MobileChatLanding = ({

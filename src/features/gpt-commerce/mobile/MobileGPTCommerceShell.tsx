@@ -344,8 +344,11 @@ export const MobileGPTCommerceShell = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPendingNewChat(true)}
-            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: "hsl(0 0% 0% / 0.04)" }}
+            className="flex items-center justify-center w-9 h-9 rounded-xl active:scale-95 transition-transform"
+            style={{
+              background: "hsl(0 0% 100%)",
+              border: "1px solid hsl(0 0% 0% / 0.12)",
+            }}
             aria-label="چت جدید"
             title="چت جدید"
           >
@@ -392,6 +395,9 @@ export const MobileGPTCommerceShell = () => {
             agenticState={agenticState}
             onBack={() => setPendingNewChat(true)}
             onNewChat={() => setPendingNewChat(true)}
+            onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
+            onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
+            onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}
           />
         )}
       </div>

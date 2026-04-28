@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, Sparkles, Zap, Layers, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, Layers, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
+import flowcartLogo from "@/assets/flowcart-logo.svg";
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -144,22 +145,16 @@ export const MobileChatLanding = ({
       </div>
 
       <div className="relative z-10 flex flex-col">
-        {/* Inside logo + subtitle (larger) */}
+        {/* Inside logo + subtitle */}
         <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
-          <div className="flex items-center gap-2.5 mb-2">
-            <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center"
-              style={{
-                background:
-                  "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
-              }}
-            >
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">Flowcart</span>
-          </div>
-          <p className="text-sm text-muted-foreground leading-snug max-w-[260px]">
-            دستیار خرید هوشمند تو — فقط بگو چی می‌خوای
+          <img
+            src={flowcartLogo}
+            alt="Flowcart"
+            className="w-14 h-14 mb-3"
+            draggable={false}
+          />
+          <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">
+            یک دستیار خرید واقعاً باهوش :)
           </p>
           {isAuthenticated && userFirstName && (
             <p className="text-sm font-medium text-foreground mt-2">
@@ -333,8 +328,8 @@ export const MobileChatLanding = ({
           </div>
         </form>
 
-        {/* Action bar — opens corresponding bottom-sheet tab */}
-        <div className="flex items-center justify-center gap-3 mt-2.5">
+        {/* Action bar — frameless icons, increased spacing */}
+        <div className="flex items-center justify-center gap-9 mt-3">
           {[
             { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
             { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
@@ -345,13 +340,9 @@ export const MobileChatLanding = ({
               type="button"
               onClick={onClick}
               aria-label={label}
-              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-              style={{
-                background: "hsl(0 0% 100%)",
-                border: "1px solid hsl(0 0% 0% / 0.1)",
-              }}
+              className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
             >
-              <Icon className="w-[18px] h-[18px] text-foreground/75" strokeWidth={1.75} />
+              <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
             </button>
           ))}
         </div>

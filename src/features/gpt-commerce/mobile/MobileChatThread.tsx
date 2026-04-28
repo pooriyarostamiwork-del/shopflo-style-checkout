@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic } from "lucide-react";
+import { ArrowUp, Zap, Mic, Layers, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -47,6 +47,9 @@ interface MobileChatThreadProps {
   agenticState?: AgenticState;
   onBack: () => void;
   onNewChat: () => void;
+  onOpenBaskets?: () => void;
+  onOpenCart?: () => void;
+  onOpenAccount?: () => void;
 }
 
 export const MobileChatThread = ({
@@ -71,6 +74,9 @@ export const MobileChatThread = ({
   onPaymentSelect,
   onBack,
   onNewChat,
+  onOpenBaskets,
+  onOpenCart,
+  onOpenAccount,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
@@ -353,6 +359,27 @@ export const MobileChatThread = ({
             </Button>
           </div>
         </form>
+
+        {/* Action bar — frameless icons, opens corresponding bottom-sheet tab */}
+        {(onOpenBaskets || onOpenCart || onOpenAccount) && (
+          <div className="flex items-center justify-center gap-9 mt-3">
+            {[
+              { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
+              { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
+              { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount },
+            ].map(({ key, icon: Icon, label, onClick }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={onClick}
+                aria-label={label}
+                className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
+              >
+                <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

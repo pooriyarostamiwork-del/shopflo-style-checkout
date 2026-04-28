@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, Sparkles, Zap } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, Zap, Layers, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
@@ -33,6 +33,9 @@ interface MobileChatLandingProps {
   isProcessing: boolean;
   isAuthenticated?: boolean;
   userFirstName?: string;
+  onOpenBaskets?: () => void;
+  onOpenCart?: () => void;
+  onOpenAccount?: () => void;
 }
 
 export const MobileChatLanding = ({
@@ -40,6 +43,9 @@ export const MobileChatLanding = ({
   isProcessing,
   isAuthenticated,
   userFirstName,
+  onOpenBaskets,
+  onOpenCart,
+  onOpenAccount,
 }: MobileChatLandingProps) => {
   const [inputValue, setInputValue] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -95,24 +101,47 @@ export const MobileChatLanding = ({
     setInputValue("");
   };
 
-  // Subtle dotted background pattern (light)
-  const bgPattern: React.CSSProperties = {
-    backgroundImage:
-      "radial-gradient(hsl(var(--primary) / 0.06) 1px, transparent 1px)",
-    backgroundSize: "18px 18px",
+  // Bento card style (matches desktop /gptcommerce landing background)
+  const bentoBase: React.CSSProperties = {
+    background: "hsl(0 0% 100% / 0.04)",
+    border: "1px solid hsl(0 0% 100% / 0.08)",
+    borderRadius: "20px",
+    backdropFilter: "blur(28px)",
+    opacity: 0.29,
   };
 
   return (
     <div
-      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-b from-background via-background to-primary/5 pb-44"
+      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56"
       dir="rtl"
     >
-      {/* Light dotted pattern overlay */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={bgPattern}
-      />
+      {/* Floating bento background cards (desktop /gptcommerce parity) */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute" style={{ ...bentoBase, width: 110, height: 140, top: 40, right: -20, transform: "rotate(-3deg)" }}>
+          <div className="w-full h-20 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2.5 space-y-2">
+            <div className="h-2.5 bg-foreground/20 rounded w-3/4" />
+            <div className="h-2 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+        <div className="absolute flex items-center justify-center" style={{ ...bentoBase, width: 90, height: 32, top: 180, left: -10, transform: "rotate(2deg)" }}>
+          <span className="text-[10px] text-foreground/30">٪۱۰ تخفیف</span>
+        </div>
+        <div className="absolute flex items-center gap-2 px-3" style={{ ...bentoBase, width: 140, height: 44, bottom: 280, right: -30, transform: "rotate(2deg)" }}>
+          <div className="w-7 h-7 rounded-lg bg-foreground/10" />
+          <div className="flex-1 space-y-1">
+            <div className="h-1.5 bg-foreground/15 rounded w-1/2" />
+            <div className="h-1.5 bg-foreground/10 rounded w-3/4" />
+          </div>
+        </div>
+        <div className="absolute" style={{ ...bentoBase, width: 100, height: 120, bottom: 220, left: -20, transform: "rotate(-2deg)" }}>
+          <div className="w-full h-16 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2 space-y-1.5">
+            <div className="h-2 bg-foreground/20 rounded w-3/4" />
+            <div className="h-1.5 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+      </div>
 
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle (larger) */}
@@ -153,12 +182,12 @@ export const MobileChatLanding = ({
             }}
           >
             <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
-            <div className="flex gap-3 ps-5 pe-5">
+            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "2rem" }}>
               {heroSlides.map((s) => (
                 <div
                   key={s.id}
                   data-slide
-                  className="snap-start shrink-0 w-[97%] rounded-2xl overflow-hidden relative"
+                  className="snap-start shrink-0 w-[92%] rounded-2xl overflow-hidden relative"
                   style={{
                     border: "1px solid hsl(0 0% 0% / 0.06)",
                     aspectRatio: "1920 / 1080",
@@ -303,6 +332,29 @@ export const MobileChatLanding = ({
             </Button>
           </div>
         </form>
+
+        {/* Action bar — opens corresponding bottom-sheet tab */}
+        <div className="flex items-center justify-center gap-3 mt-2.5">
+          {[
+            { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
+            { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
+            { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount },
+          ].map(({ key, icon: Icon, label, onClick }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={onClick}
+              aria-label={label}
+              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+              style={{
+                background: "hsl(0 0% 100%)",
+                border: "1px solid hsl(0 0% 0% / 0.1)",
+              }}
+            >
+              <Icon className="w-[18px] h-[18px] text-foreground/75" strokeWidth={1.75} />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

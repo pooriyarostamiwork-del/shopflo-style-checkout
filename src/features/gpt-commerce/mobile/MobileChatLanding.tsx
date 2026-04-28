@@ -182,12 +182,12 @@ export const MobileChatLanding = ({
             }}
           >
             <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
-            <div className="flex gap-3 ps-5 pe-5">
+            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "2rem" }}>
               {heroSlides.map((s) => (
                 <div
                   key={s.id}
                   data-slide
-                  className="snap-start shrink-0 w-[97%] rounded-2xl overflow-hidden relative"
+                  className="snap-start shrink-0 w-[92%] rounded-2xl overflow-hidden relative"
                   style={{
                     border: "1px solid hsl(0 0% 0% / 0.06)",
                     aspectRatio: "1920 / 1080",

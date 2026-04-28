@@ -359,6 +359,27 @@ export const MobileChatThread = ({
             </Button>
           </div>
         </form>
+
+        {/* Action bar — frameless icons, opens corresponding bottom-sheet tab */}
+        {(onOpenBaskets || onOpenCart || onOpenAccount) && (
+          <div className="flex items-center justify-center gap-9 mt-3">
+            {[
+              { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
+              { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
+              { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount },
+            ].map(({ key, icon: Icon, label, onClick }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={onClick}
+                aria-label={label}
+                className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
+              >
+                <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

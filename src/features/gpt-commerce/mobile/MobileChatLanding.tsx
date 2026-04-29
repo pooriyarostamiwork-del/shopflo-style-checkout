@@ -22,6 +22,11 @@ const promptChips = [
   "🛒 خودت برام خرید کن",
 ];
 
+// Chip sizing — 15% smaller than baseline (px-3.5 py-2 text-xs)
+const CHIP_FONT_SIZE = "0.638rem"; // 0.75rem * 0.85
+const CHIP_PADDING_X = "0.74rem"; // ~0.875rem * 0.85
+const CHIP_PADDING_Y = "0.425rem"; // 0.5rem * 0.85
+
 const heroSlides = [
   { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
   { id: "itick", image: slideItick, alt: "آی‌تیکت" },
@@ -153,13 +158,21 @@ export const MobileChatLanding = ({
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle */}
         <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
-          <img
-            src={flowcartLogo}
-            alt="Flowcart"
-            style={{ width: "4.1rem", height: "4.1rem" }}
-            className="mb-3"
-            draggable={false}
-          />
+          <div
+            className="mb-3 flex items-center justify-center rounded-2xl"
+            style={{
+              width: "4.1rem",
+              height: "4.1rem",
+              background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
+            }}
+          >
+            <img
+              src={flowcartLogo}
+              alt="Flowcart"
+              style={{ width: "70%", height: "70%" }}
+              draggable={false}
+            />
+          </div>
           <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">
             یک دستیار خرید واقعاً باهوش :)
           </p>
@@ -205,7 +218,7 @@ export const MobileChatLanding = ({
                     alt={s.alt}
                     loading="lazy"
                     decoding="async"
-                    className="w-full h-full object-cover relative z-10"
+                    className="w-full h-full object-contain relative z-10"
                     draggable={false}
                     onLoad={(e) => {
                       const parent = e.currentTarget.parentElement as HTMLElement;
@@ -243,15 +256,17 @@ export const MobileChatLanding = ({
         <div className="px-5">
           <p className="text-muted-foreground mb-3 flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
             <Sparkles className="w-4 h-4 text-primary" />
-            از این‌ها شروع کن
+            پرطرفدارترین‌های امروز
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {promptChips.map((chip) => (
               <button
                 key={chip}
                 onClick={() => submit(chip.replace(/^[^\u0600-\u06FF\w]+\s*/, ""))}
-                className="text-xs px-3.5 py-2 rounded-full active:scale-95 transition-transform leading-tight"
+                className="rounded-full active:scale-95 transition-transform leading-tight"
                 style={{
+                  fontSize: CHIP_FONT_SIZE,
+                  padding: `${CHIP_PADDING_Y} ${CHIP_PADDING_X}`,
                   background: "hsl(var(--primary) / 0.06)",
                   border: "1px solid hsl(var(--primary) / 0.15)",
                   color: "hsl(var(--primary))",
@@ -336,7 +351,7 @@ export const MobileChatLanding = ({
         </form>
 
         {/* Action bar — frameless icons, increased spacing */}
-        <div className="flex items-center justify-center gap-[2.75rem] mt-3">
+        <div className="flex items-center justify-center gap-[3.16rem] mt-3">
           {[
             { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
             { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },

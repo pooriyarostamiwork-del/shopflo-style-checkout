@@ -316,22 +316,50 @@ export const MobileGPTCommerceShell = () => {
             onCategoryChange={setActiveCategory}
           />
           <style>{`
+            /* Trigger chip — 35% bigger than previous mobile-shrunk size */
             .mobile-cat-selector > button {
-              padding: 0.3rem 0.55rem !important;
-              font-size: 0.7rem !important;
-              border-radius: 0.55rem !important;
-              gap: 0.35rem !important;
+              padding: 0.405rem 0.74rem !important;
+              font-size: 0.945rem !important;
+              border-radius: 0.74rem !important;
+              gap: 0.47rem !important;
+              line-height: 1.1 !important;
               box-shadow: none !important;
               border: 1px solid hsl(0 0% 0% / 0.12) !important;
               background: hsl(0 0% 100%) !important;
+              height: 2.25rem !important;
             }
-            .mobile-cat-selector svg { width: 0.7rem !important; height: 0.7rem !important; }
+            .mobile-cat-selector > button svg { width: 0.945rem !important; height: 0.945rem !important; }
+            /* New-chat button: same vertical size + matching stroke */
             .mobile-new-chat-btn {
-              padding: 0.3rem 0.55rem !important;
-              border-radius: 0.55rem !important;
+              height: 2.25rem !important;
+              width: 2.25rem !important;
+              padding: 0 !important;
+              border-radius: 0.74rem !important;
               border: 1px solid hsl(0 0% 0% / 0.12) !important;
               background: hsl(0 0% 100%) !important;
               box-shadow: none !important;
+            }
+            /* Dropdown menu — 40% smaller (mobile only) */
+            @media (max-width: 640px) {
+              [data-radix-popper-content-wrapper] [role="menu"] {
+                min-width: 0 !important;
+                width: 8.4rem !important;
+                padding: 0.3rem !important;
+              }
+              [data-radix-popper-content-wrapper] [role="menuitem"] {
+                padding: 0.36rem 0.6rem !important;
+                min-height: 1.65rem !important;
+                font-size: 0.7rem !important;
+                gap: 0.45rem !important;
+                border-radius: 0.4rem !important;
+              }
+              [data-radix-popper-content-wrapper] [role="menuitem"] svg {
+                width: 0.8rem !important;
+                height: 0.8rem !important;
+              }
+              [data-radix-popper-content-wrapper] [role="menuitem"] span {
+                font-size: 0.72rem !important;
+              }
             }
           `}</style>
         </div>
@@ -358,7 +386,7 @@ export const MobileGPTCommerceShell = () => {
             aria-label="چت جدید"
             title="چت جدید"
           >
-            <MessageSquarePlus style={{ width: "0.85rem", height: "0.85rem" }} className="text-foreground/80" strokeWidth={1.75} />
+            <MessageSquarePlus style={{ width: "1.05rem", height: "1.05rem" }} className="text-foreground/80" strokeWidth={1.75} />
           </button>
         </div>
       </header>

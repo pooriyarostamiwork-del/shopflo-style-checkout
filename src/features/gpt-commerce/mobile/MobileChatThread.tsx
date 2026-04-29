@@ -136,7 +136,7 @@ export const MobileChatThread = ({
             <div key={msg.id} className="space-y-3 animate-fade-in">
               <div
                 className={`flex gap-2 ${
-                  msg.role === "user" ? "justify-start flex-row-reverse" : "justify-start"
+                  msg.role === "user" ? "justify-end" : "justify-end flex-row-reverse"
                 }`}
               >
                 {msg.role === "assistant" && (
@@ -177,7 +177,7 @@ export const MobileChatThread = ({
               {/* Product cards — horizontal scroll on mobile */}
               {msg.products && msg.products.length > 0 && (
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
-                  <div className="flex gap-3 pr-9 pb-1" style={{ width: "max-content" }}>
+                  <div className="flex gap-[0.375rem] pr-9 pb-1" style={{ width: "max-content" }}>
                     {msg.products.map((product, index) => (
                       <div key={product.id} className="w-[260px] flex-shrink-0">
                         <ChatProductCard

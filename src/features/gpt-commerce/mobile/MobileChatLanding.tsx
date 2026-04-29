@@ -343,7 +343,7 @@ export const MobileChatLanding = ({
         </form>
 
         {/* Action bar — frameless icons, increased spacing */}
-        <div className="flex items-center justify-center gap-[2.75rem] mt-3">
+        <div className="flex items-center justify-center gap-[3.16rem] mt-3">
           {[
             { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
             { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },

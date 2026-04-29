@@ -391,7 +391,7 @@ export const MobileChatThread = ({
 
         {/* Action bar — frameless icons, opens corresponding bottom-sheet tab */}
         {(onOpenBaskets || onOpenCart || onOpenAccount) && (
-          <div className="flex items-center justify-center gap-[2.75rem] mt-3">
+          <div className="flex items-center justify-center gap-[3.16rem] mt-3">
             {[
               { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
               { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },

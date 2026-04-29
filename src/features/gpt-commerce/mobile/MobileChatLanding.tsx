@@ -22,6 +22,11 @@ const promptChips = [
   "🛒 خودت برام خرید کن",
 ];
 
+// Chip sizing — 15% smaller than baseline (px-3.5 py-2 text-xs)
+const CHIP_FONT_SIZE = "0.638rem"; // 0.75rem * 0.85
+const CHIP_PADDING_X = "0.74rem"; // ~0.875rem * 0.85
+const CHIP_PADDING_Y = "0.425rem"; // 0.5rem * 0.85
+
 const heroSlides = [
   { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
   { id: "itick", image: slideItick, alt: "آی‌تیکت" },
@@ -243,15 +248,17 @@ export const MobileChatLanding = ({
         <div className="px-5">
           <p className="text-muted-foreground mb-3 flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
             <Sparkles className="w-4 h-4 text-primary" />
-            از این‌ها شروع کن
+            پرطرفدارترین‌های امروز
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {promptChips.map((chip) => (
               <button
                 key={chip}
                 onClick={() => submit(chip.replace(/^[^\u0600-\u06FF\w]+\s*/, ""))}
-                className="text-xs px-3.5 py-2 rounded-full active:scale-95 transition-transform leading-tight"
+                className="rounded-full active:scale-95 transition-transform leading-tight"
                 style={{
+                  fontSize: CHIP_FONT_SIZE,
+                  padding: `${CHIP_PADDING_Y} ${CHIP_PADDING_X}`,
                   background: "hsl(var(--primary) / 0.06)",
                   border: "1px solid hsl(var(--primary) / 0.15)",
                   color: "hsl(var(--primary))",

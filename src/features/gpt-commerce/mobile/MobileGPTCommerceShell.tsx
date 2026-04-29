@@ -317,12 +317,22 @@ export const MobileGPTCommerceShell = () => {
           />
           <style>{`
             .mobile-cat-selector > button {
-              padding: 0.4rem 0.7rem !important;
-              font-size: 0.75rem !important;
-              border-radius: 0.625rem !important;
+              padding: 0.3rem 0.55rem !important;
+              font-size: 0.7rem !important;
+              border-radius: 0.55rem !important;
+              gap: 0.35rem !important;
+              box-shadow: none !important;
+              border: 1px solid hsl(0 0% 0% / 0.12) !important;
+              background: hsl(0 0% 100%) !important;
+            }
+            .mobile-cat-selector svg { width: 0.7rem !important; height: 0.7rem !important; }
+            .mobile-new-chat-btn {
+              padding: 0.3rem 0.55rem !important;
+              border-radius: 0.55rem !important;
+              border: 1px solid hsl(0 0% 0% / 0.12) !important;
+              background: hsl(0 0% 100%) !important;
               box-shadow: none !important;
             }
-            .mobile-cat-selector svg { width: 0.85rem !important; height: 0.85rem !important; }
           `}</style>
         </div>
         <div className="flex items-center gap-2">
@@ -344,15 +354,11 @@ export const MobileGPTCommerceShell = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPendingNewChat(true)}
-            className="flex items-center justify-center w-9 h-9 rounded-xl active:scale-95 transition-transform"
-            style={{
-              background: "hsl(0 0% 100%)",
-              border: "1px solid hsl(0 0% 0% / 0.12)",
-            }}
+            className="mobile-new-chat-btn flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
             aria-label="چت جدید"
             title="چت جدید"
           >
-            <MessageSquarePlus className="w-[18px] h-[18px] text-foreground/80" strokeWidth={1.75} />
+            <MessageSquarePlus style={{ width: "0.85rem", height: "0.85rem" }} className="text-foreground/80" strokeWidth={1.75} />
           </button>
         </div>
       </header>

@@ -210,7 +210,7 @@ export const MobileChatLanding = ({
                     alt={s.alt}
                     loading="lazy"
                     decoding="async"
-                    className="w-full h-full object-cover relative z-10"
+                    className="w-full h-full object-contain relative z-10"
                     draggable={false}
                     onLoad={(e) => {
                       const parent = e.currentTarget.parentElement as HTMLElement;

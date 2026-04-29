@@ -113,9 +113,15 @@ export const MobileChatLanding = ({
 
   return (
     <div
-      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56"
+      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56 mobile-no-img-label"
       dir="rtl"
     >
+      {/* Mobile-scoped overrides: hide ProductImage placeholder label */}
+      <style>{`
+        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
+        .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+      `}</style>
       {/* Floating bento background cards (desktop /gptcommerce parity) */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
         <div className="absolute" style={{ ...bentoBase, width: 110, height: 140, top: 40, right: -20, transform: "rotate(-3deg)" }}>

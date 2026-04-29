@@ -1,79 +1,132 @@
-# Mobile Landing Redesign + Placeholder Fixes
 
-Frontend-only. No backend/edge function changes.
+# /m/gptcommerce UI Refinements (frontend only)
 
-## Scope summary
-| # | Change | Scope |
-|---|---|---|
-| 1 | Placeholder text can wrap (no truncate) so long Persian phrases fit | `/m/gptcommerce` + `/gptcommerce` chat input |
-| 2 | Add rotating placeholder to desktop chat-mode input | `/gptcommerce` |
-| 3 | Remove `برگشت` button from header | `/m/gptcommerce` |
-| 4 | Move prompt chips ABOVE chatbox in landing, cap to max 3 rows | `/m/gptcommerce` |
-| 5 | Add a hero promo slider above chips, below logo/title | `/m/gptcommerce` |
-| 6 | Delete the "فلوپی" loan pill | `/m/gptcommerce` |
-| 7 | Logo + subtitle slightly larger | `/m/gptcommerce` landing |
-| 8 | Delete logo block from landing (keep only header logo) | `/m/gptcommerce` |
-| 9 | Remove rotating placeholder from chatbox in chat-mode (keep only landing) | `/m/gptcommerce` |
+Scope: only files under `src/features/gpt-commerce/mobile/*` plus narrow, mobile-scoped CSS overrides. No backend, no shared-component prop signature changes that would affect desktop behavior.
 
-## File changes
+## Files to edit
 
-### `src/features/gpt-commerce/mobile/MobileChatLanding.tsx` (the big one)
+1. `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx`
+2. `src/features/gpt-commerce/mobile/MobileChatLanding.tsx`
+3. `src/features/gpt-commerce/mobile/MobileChatThread.tsx`
 
-Restructure to this vertical order:
-1. ~~Logo + greeting block~~ — **DELETE** (per item 8). Replace with just the personalized greeting line if authenticated (`سلام {name} جان 👋`), or nothing.
-2. **NEW: Hero slider** — horizontal swipeable carousel of 3–4 promo cards (e.g. "وام فلوپی تا ۱۰۰ میلیون", "پیشنهادهای داغ امروز", "ارسال رایگان"). Native scroll-snap, dots underneath. Compact (~120px tall).
-3. **Prompt chips** — moved here, directly above the chatbox. Cap rendered chips so they fit in **max 3 rows**: keep current `flex-wrap` but slice the array to first ~6 chips so layout never exceeds 3 rows on a 360–430px viewport.
-4. **Chatbox** — keep card style, keep rotating placeholder (this is the only place it should remain).
-5. ~~فلوپی loan pill~~ — **DELETE** (item 6).
+No edits to `PDPProductComponent.tsx`, `CategorySelector.tsx`, `ChatProductCard.tsx`, or `ProductImage.tsx` source — instead we wrap their mobile usages and use scoped CSS overrides (className wrappers) so desktop stays untouched.
 
-Layout switches from "scroll → fixed bottom input" to a single scroll column with the input still sticky at bottom.
+---
 
-### `src/features/gpt-commerce/mobile/MobileChatThread.tsx`
+## 1. PDP (Product Details) is not mobile-friendly
 
-- Remove the `placeholderTexts` array, `placeholderIndex` state, the rotating `useEffect`, and the absolute-positioned rotating `<span>`.
-- Replace with a single static placeholder via the textarea's native `placeholder` attribute, e.g. `چی می‌خوای بخری؟`.
+`PDPProductComponent` (used inline in chat via `msg.inlineProduct`) currently renders `flex gap-6` with a fixed `w-56` image — on a 484px viewport this overflows and clips info / actions.
 
-### `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx`
+Fix in `MobileChatThread.tsx` only — wrap the inline PDP in a `mobile-pdp` container and inject scoped CSS:
 
-- Delete the `برگشت` button (lines ~323–331) and its `ArrowRight` import if unused.
+- Force the inner layout `.mobile-pdp .flex.gap-6` → `flex-direction: column; gap: 1rem;`
+- Image column `.mobile-pdp .w-56` → `width: 100%;` with `max-width: 280px; margin-inline: auto;`
+- Reduce inner padding `.mobile-pdp .p-4` → `padding: 0.875rem`
+- Sections (`.rounded-xl` cards) get full width and the spec-row label width changes from `w-28` to wrap (`min-width: 6rem; flex-shrink:0`)
+- Action button row stays full width
+- Lightbox + suppliers + comments + specs: keep all functions; only layout changes via CSS
+- Remove the `mr-9` indent on mobile (`.mobile-pdp` parent → `margin-inline-start: 0`)
 
-### `src/components/gpt-commerce/ChatThread.tsx` (desktop chat mode)
+All existing handlers (`onAddToCart`, image gallery, suppliers, expand/collapse) remain untouched.
 
-- Add rotating placeholder identical to landing's: `placeholderTexts` array, `placeholderIndex` state, 3.5s interval, absolute-positioned `<span>` overlay shown only when `!inputValue`. Remove the static `placeholder=""` attr from the textarea.
+## 2. New-chat icon frame to match category chip exactly
 
-### Placeholder wrapping fix (items 1–2)
+In `MobileGPTCommerceShell.tsx` header: the new-chat button is currently `border: 1px solid hsl(0 0% 0% / 0.12)` with `rounded-xl`. CategorySelector trigger (after our mobile shrink CSS) uses `rounded-[0.625rem]`, `padding 0.4rem 0.7rem`, `border 1px hsl(0 0% 0% / 0.12)`, `background hsl(0 0% 100%)`, no shadow.
 
-Currently the rotating placeholder `<span>` uses `truncate` (or `overflow-hidden` + single line) which clips long Persian phrases. Fix in **both** places:
-- `src/features/gpt-commerce/mobile/MobileChatLanding.tsx`
-- `src/features/gpt-commerce/mobile/MobileChatThread.tsx` (becomes moot after removal)
-- `src/components/gpt-commerce/ChatThread.tsx` (after adding the rotating placeholder)
+Replace the new-chat button styles with the exact same: same border color, same `rounded-[0.625rem]`, same vertical padding (`0.4rem 0.5rem` to keep it square-ish), same hover/active (`hover:scale-105 active:scale-95`), same background, no shadow. Icon size matched to the chip's icon (`w-[14px] h-[14px]`-ish via `0.85rem`).
 
-Change the overlay container from `items-center ... overflow-hidden` + `<span class="truncate">` to `items-start` (top-aligned) with `<span class="text-right w-full whitespace-normal break-words leading-snug">` so multi-line placeholders render fully. Also raise the textarea's `min-h` slightly (e.g. 44 → 56px) so 2-line placeholders don't visually overflow the input box.
+## 3. Category chip dropdown ~40% smaller and more compact
 
-## Hero slider — technical notes
+Already shrunk via `.mobile-cat-selector` CSS. Tighten further:
+- `padding: 0.3rem 0.55rem` (was 0.4rem 0.7rem) → ~−25% more
+- `font-size: 0.7rem` (was 0.75rem)
+- `gap: 0.35rem` between icon/label/chevron
+- `border-radius: 0.55rem`
+- Icons: `width/height 0.7rem` (was 0.85rem)
+- Dropdown content: add scoped CSS for `.mobile-cat-selector + [role=menu]` won't work; instead wrap CategorySelector in a portal-aware className isn't trivial. Simpler: shrink only the trigger (visible) and leave the open menu as-is, since the menu items remain readable.
 
-Implement inline (no new component file) using native CSS scroll-snap to keep it lightweight:
+Net visual reduction on the trigger ≈ 40%.
 
-```tsx
-<div className="overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-5 px-5">
-  <div className="flex gap-3">
-    {slides.map(s => (
-      <div key={s.id} className="snap-center shrink-0 w-[85%] rounded-2xl p-4 ...">
-        ...
-      </div>
-    ))}
-  </div>
-</div>
+## 4. Action-bar icons +12.5%, +22.5% spacing
+
+Currently `w-[23px] h-[23px]` and `gap-9` (2.25rem). Update in both `MobileChatLanding.tsx` and `MobileChatThread.tsx`:
+- Icon size: 23 × 1.125 ≈ `26px`
+- Gap: 2.25rem × 1.225 ≈ `2.75rem` (use `gap-[2.75rem]`)
+
+## 5. Chat-mode chatbox === landing chatbox + placeholder
+
+In `MobileChatThread.tsx` rewrite the bottom input wrapper to match landing exactly:
+
+- Same `min-h-[56px]` (was 44px), same `max-h-[120px]`, same `py-2.5 px-2`, same parent `flex items-center gap-2 p-2 rounded-2xl` (was `items-end`)
+- Same auto-resize hook (initialize at `56px`)
+- Same Mic + Submit button sizes (`w-9 h-9 rounded-full`)
+- Add textarea `placeholder=""` and a positioned overlay span (same pattern as landing) showing `از فلوکارت بخوا` with the exact same classes used for landing's rotating placeholder:
+  `text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug`
+  Static (no rotation) — only shown when `inputValue` is empty.
+- Sticky positioning of the bottom bar in chat mode is already inside a flex column above messages; keep current layout but ensure outer paddings match landing (`px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]`) — already does.
+
+## 6. Prompt-chips title +17.5%
+
+In `MobileChatLanding.tsx`, the "از این‌ها شروع کن" line is `text-xs` (0.75rem). 0.75 × 1.175 ≈ `0.88rem` → use inline `style={{ fontSize: '0.88rem' }}` on that paragraph. Sparkles icon scaled proportionally to `w-4 h-4`.
+
+## 7. Landing inline logo +17.5%
+
+`flowcartLogo` `<img>` is `w-14 h-14` (3.5rem). 3.5 × 1.175 ≈ `4.1rem` → `style={{ width: '4.1rem', height: '4.1rem' }}`, replacing `w-14 h-14`.
+
+## 8. Landing slider +20%
+
+Slides currently `w-[92%]` with aspect `1920/1080`. Width is already constrained by viewport, so "20% larger" means height. Increase visual size by:
+- Slide width → `w-[96%]` (small bump so adjacent peek shrinks)
+- Wrap track in a container with `style={{ ['--hero-scale' as any]: 1.2 }}` and apply `aspectRatio: '1920 / 1296'` (1080 × 1.2) to each slide so slide height grows ~20% while width stays bounded by viewport.
+- Bump `paddingInlineStart` / vertical container padding (`pt-2 pb-5` → `pt-3 pb-6`) so the larger slide isn't cropped.
+
+## 9. Last slide: zero space on left side, mirror right spacing
+
+In `MobileChatLanding.tsx` the flex track currently uses `paddingInlineStart: 1.25rem; paddingInlineEnd: 2rem`. In RTL the *last* visible slide (left side after swiping) is the final flex child. Change to symmetric:
+`paddingInlineStart: 1.25rem; paddingInlineEnd: 1.25rem`
+and keep slide width at `w-[96%]` so it terminates with mirrored spacing on the left.
+
+## 10. Swap chat bubble alignment (user ↔ assistant)
+
+In `MobileChatThread.tsx` message row:
+- User messages should appear on the **right** (RTL conventional "from me"), assistant on the **left**.
+- Current code uses `flex-row-reverse` for user, normal for assistant — given `dir="rtl"`, that puts user on the LEFT visually. Invert:
+  - `msg.role === "user"` → `flex flex-row` (no reverse) and `justify-end`
+  - `msg.role === "assistant"` → `flex flex-row-reverse` and `justify-end`
+- Bubble corners stay the same (already asymmetric).
+- Avatar (Zap) stays adjacent to assistant bubble, on the visual left side after reversal.
+- Loading bubble already mimics assistant — update it identically (`flex-row-reverse justify-end`).
+
+## 11. Remove 2-letter placeholder label from product images on mobile
+
+`ProductImage` renders a small uppercase `<span>` (first 2 chars of alt) inside the fallback. Without changing the shared component:
+
+- In `MobileChatThread.tsx` and `MobileChatLanding.tsx`, wrap product surfaces in a class `mobile-no-img-label` and inject scoped CSS:
+  `.mobile-no-img-label [role="img"] > span { display: none !important; }`
+
+This hides the label only on mobile (the wrapper class is only added in mobile files).
+
+## 12. Mobile carousels: −50% gap between cards, hide scrollbar
+
+`MobileChatThread.tsx` carousel uses `flex gap-3` (0.75rem) → change to `gap-[0.375rem]` (−50%).
+Track already has `scrollbar-none` class. Add scoped CSS to be safe across browsers:
+```text
+.mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
+.mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 ```
 
-Slides content (Persian, brand-aligned):
-1. 💸 وام فلوپی — تا ۱۰۰ میلیون اعتبار خرید
-2. 🔥 پیشنهادهای داغ امروز — تا ۴۰٪ تخفیف
-3. 🚚 ارسال رایگان برای سفارش بالای ۲ میلیون
+---
 
-Tap on a slide does nothing for now (or focuses chatbox) — purely visual marketing.
+## Acceptance check
 
-## Out of scope
-- No backend changes
-- No new files (slider is inline)
-- No changes to desktop landing (`ChatLanding.tsx`)
+- PDP fully readable on 360–484px; image stacks above details; all sections expand/collapse; lightbox works.
+- New-chat button is visually identical (border, radius, padding, bg, no shadow) to the category chip trigger.
+- Category trigger ~40% smaller; dropdown still functional.
+- Action-bar icons larger and more spaced on both landing and chat mode.
+- Chat-mode chatbox visually identical to landing chatbox; shows "از فلوکارت بخوا" placeholder.
+- "از این‌ها شروع کن" larger; logo larger; slider larger.
+- Last slide ends flush with right-symmetric left spacing.
+- User chat bubbles render on the right; assistant on the left.
+- No 2-letter labels visible on product placeholders inside /m/gptcommerce.
+- Carousel cards tighter; no scrollbar visible.
+- All existing handlers unchanged — no backend touched.

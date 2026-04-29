@@ -89,7 +89,7 @@ export const MobileChatThread = ({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "44px";
+      textareaRef.current.style.height = "56px";
       const sh = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(sh, 120) + "px";
     }
@@ -109,7 +109,26 @@ export const MobileChatThread = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
+    <div className="flex flex-col h-full min-h-0 bg-gradient-to-b from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
+      {/* Mobile-scoped overrides */}
+      <style>{`
+        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
+        .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+        /* Mobile PDP layout */
+        .mobile-pdp { margin-inline-start: 0 !important; margin-inline-end: 0 !important; }
+        .mobile-pdp .p-4 { padding: 0.875rem !important; }
+        .mobile-pdp > div > div.p-4 > div.flex.gap-6 {
+          flex-direction: column !important;
+          gap: 1rem !important;
+        }
+        .mobile-pdp .w-56 {
+          width: 100% !important;
+          max-width: 280px !important;
+          margin-inline: auto !important;
+        }
+        .mobile-pdp .w-28 { width: auto !important; min-width: 5.5rem !important; flex-shrink: 0 !important; }
+      `}</style>
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto pt-5 pb-2">
         <div className="px-3 space-y-5">

@@ -241,8 +241,8 @@ export const MobileChatLanding = ({
 
         {/* Prompt chips — max 3 rows */}
         <div className="px-5">
-          <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <p className="text-muted-foreground mb-3 flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
+            <Sparkles className="w-4 h-4 text-primary" />
             از این‌ها شروع کن
           </p>
           <div className="flex flex-wrap gap-2">

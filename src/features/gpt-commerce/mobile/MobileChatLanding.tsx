@@ -113,9 +113,15 @@ export const MobileChatLanding = ({
 
   return (
     <div
-      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56"
+      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56 mobile-no-img-label"
       dir="rtl"
     >
+      {/* Mobile-scoped overrides: hide ProductImage placeholder label */}
+      <style>{`
+        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
+        .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+      `}</style>
       {/* Floating bento background cards (desktop /gptcommerce parity) */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
         <div className="absolute" style={{ ...bentoBase, width: 110, height: 140, top: 40, right: -20, transform: "rotate(-3deg)" }}>
@@ -150,7 +156,8 @@ export const MobileChatLanding = ({
           <img
             src={flowcartLogo}
             alt="Flowcart"
-            className="w-14 h-14 mb-3"
+            style={{ width: "4.1rem", height: "4.1rem" }}
+            className="mb-3"
             draggable={false}
           />
           <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">
@@ -164,7 +171,7 @@ export const MobileChatLanding = ({
         </div>
 
         {/* Hero slider — slidable, snap-proximity for easy swipe */}
-        <div className="pt-2 pb-5">
+        <div className="pt-3 pb-6">
           <div
             ref={sliderRef}
             onScroll={handleSliderScroll}
@@ -177,15 +184,15 @@ export const MobileChatLanding = ({
             }}
           >
             <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
-            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "2rem" }}>
+            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}>
               {heroSlides.map((s) => (
                 <div
                   key={s.id}
                   data-slide
-                  className="snap-start shrink-0 w-[92%] rounded-2xl overflow-hidden relative"
+                  className="snap-start shrink-0 w-[96%] rounded-2xl overflow-hidden relative"
                   style={{
                     border: "1px solid hsl(0 0% 0% / 0.06)",
-                    aspectRatio: "1920 / 1080",
+                    aspectRatio: "1920 / 1296",
                     background:
                       "linear-gradient(110deg, hsl(0 0% 95%) 30%, hsl(0 0% 90%) 50%, hsl(0 0% 95%) 70%)",
                     backgroundSize: "200% 100%",
@@ -234,8 +241,8 @@ export const MobileChatLanding = ({
 
         {/* Prompt chips — max 3 rows */}
         <div className="px-5">
-          <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <p className="text-muted-foreground mb-3 flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
+            <Sparkles className="w-4 h-4 text-primary" />
             از این‌ها شروع کن
           </p>
           <div className="flex flex-wrap gap-2">
@@ -329,7 +336,7 @@ export const MobileChatLanding = ({
         </form>
 
         {/* Action bar — frameless icons, increased spacing */}
-        <div className="flex items-center justify-center gap-9 mt-3">
+        <div className="flex items-center justify-center gap-[2.75rem] mt-3">
           {[
             { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
             { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
@@ -342,7 +349,7 @@ export const MobileChatLanding = ({
               aria-label={label}
               className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
             >
-              <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
+              <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
             </button>
           ))}
         </div>

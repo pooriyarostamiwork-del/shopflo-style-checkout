@@ -89,7 +89,7 @@ export const MobileChatThread = ({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "44px";
+      textareaRef.current.style.height = "56px";
       const sh = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(sh, 120) + "px";
     }
@@ -109,7 +109,26 @@ export const MobileChatThread = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
+    <div className="flex flex-col h-full min-h-0 bg-gradient-to-b from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
+      {/* Mobile-scoped overrides */}
+      <style>{`
+        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
+        .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+        /* Mobile PDP layout */
+        .mobile-pdp { margin-inline-start: 0 !important; margin-inline-end: 0 !important; }
+        .mobile-pdp .p-4 { padding: 0.875rem !important; }
+        .mobile-pdp > div > div.p-4 > div.flex.gap-6 {
+          flex-direction: column !important;
+          gap: 1rem !important;
+        }
+        .mobile-pdp .w-56 {
+          width: 100% !important;
+          max-width: 280px !important;
+          margin-inline: auto !important;
+        }
+        .mobile-pdp .w-28 { width: auto !important; min-width: 5.5rem !important; flex-shrink: 0 !important; }
+      `}</style>
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto pt-5 pb-2">
         <div className="px-3 space-y-5">
@@ -117,7 +136,7 @@ export const MobileChatThread = ({
             <div key={msg.id} className="space-y-3 animate-fade-in">
               <div
                 className={`flex gap-2 ${
-                  msg.role === "user" ? "justify-start flex-row-reverse" : "justify-start"
+                  msg.role === "user" ? "justify-end" : "justify-end flex-row-reverse"
                 }`}
               >
                 {msg.role === "assistant" && (
@@ -158,7 +177,7 @@ export const MobileChatThread = ({
               {/* Product cards — horizontal scroll on mobile */}
               {msg.products && msg.products.length > 0 && (
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
-                  <div className="flex gap-3 pr-9 pb-1" style={{ width: "max-content" }}>
+                  <div className="flex gap-[0.375rem] pr-9 pb-1" style={{ width: "max-content" }}>
                     {msg.products.map((product, index) => (
                       <div key={product.id} className="w-[260px] flex-shrink-0">
                         <ChatProductCard
@@ -180,7 +199,7 @@ export const MobileChatThread = ({
               )}
 
               {msg.inlineProduct && (
-                <div className="mr-9">
+                <div className="mobile-pdp">
                   <PDPProductComponent
                     product={msg.inlineProduct}
                     isInCart={cartItems.some((i) => i.id === msg.inlineProduct?.id)}
@@ -264,7 +283,7 @@ export const MobileChatThread = ({
           ))}
 
           {isProcessing && (
-            <div className="flex gap-2 animate-fade-in">
+            <div className="flex gap-2 animate-fade-in justify-end flex-row-reverse">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
@@ -313,7 +332,7 @@ export const MobileChatThread = ({
       >
         <form
           onSubmit={submit}
-          className="flex items-end gap-2 p-2 rounded-2xl"
+          className="flex items-center gap-2 p-2 rounded-2xl"
           style={{
             background: "hsl(0 0% 100%)",
             border: "1px solid hsl(0 0% 0% / 0.08)",
@@ -333,12 +352,22 @@ export const MobileChatThread = ({
               }}
               placeholder=""
               disabled={isProcessing}
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2 placeholder:text-muted-foreground/50"
+              className="w-full min-h-[56px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
               style={{ lineHeight: "1.5" }}
               dir="rtl"
             />
+            {!inputValue && (
+              <div
+                className="absolute inset-0 flex items-center pointer-events-none px-2"
+                dir="rtl"
+              >
+                <span className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug">
+                  از فلوکارت بخوا
+                </span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 pb-1">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
@@ -362,7 +391,7 @@ export const MobileChatThread = ({
 
         {/* Action bar — frameless icons, opens corresponding bottom-sheet tab */}
         {(onOpenBaskets || onOpenCart || onOpenAccount) && (
-          <div className="flex items-center justify-center gap-9 mt-3">
+          <div className="flex items-center justify-center gap-[2.75rem] mt-3">
             {[
               { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
               { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
@@ -375,7 +404,7 @@ export const MobileChatThread = ({
                 aria-label={label}
                 className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
               >
-                <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
+                <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
               </button>
             ))}
           </div>

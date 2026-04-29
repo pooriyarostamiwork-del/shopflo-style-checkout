@@ -158,13 +158,21 @@ export const MobileChatLanding = ({
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle */}
         <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
-          <img
-            src={flowcartLogo}
-            alt="Flowcart"
-            style={{ width: "4.1rem", height: "4.1rem" }}
-            className="mb-3"
-            draggable={false}
-          />
+          <div
+            className="mb-3 flex items-center justify-center rounded-2xl"
+            style={{
+              width: "4.1rem",
+              height: "4.1rem",
+              background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
+            }}
+          >
+            <img
+              src={flowcartLogo}
+              alt="Flowcart"
+              style={{ width: "70%", height: "70%" }}
+              draggable={false}
+            />
+          </div>
           <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">
             یک دستیار خرید واقعاً باهوش :)
           </p>

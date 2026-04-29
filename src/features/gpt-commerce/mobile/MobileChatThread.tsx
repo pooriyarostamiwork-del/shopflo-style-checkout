@@ -332,7 +332,7 @@ export const MobileChatThread = ({
       >
         <form
           onSubmit={submit}
-          className="flex items-end gap-2 p-2 rounded-2xl"
+          className="flex items-center gap-2 p-2 rounded-2xl"
           style={{
             background: "hsl(0 0% 100%)",
             border: "1px solid hsl(0 0% 0% / 0.08)",
@@ -352,12 +352,22 @@ export const MobileChatThread = ({
               }}
               placeholder=""
               disabled={isProcessing}
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2 placeholder:text-muted-foreground/50"
+              className="w-full min-h-[56px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
               style={{ lineHeight: "1.5" }}
               dir="rtl"
             />
+            {!inputValue && (
+              <div
+                className="absolute inset-0 flex items-center pointer-events-none px-2"
+                dir="rtl"
+              >
+                <span className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug">
+                  از فلوکارت بخوا
+                </span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 pb-1">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
@@ -381,7 +391,7 @@ export const MobileChatThread = ({
 
         {/* Action bar — frameless icons, opens corresponding bottom-sheet tab */}
         {(onOpenBaskets || onOpenCart || onOpenAccount) && (
-          <div className="flex items-center justify-center gap-9 mt-3">
+          <div className="flex items-center justify-center gap-[2.75rem] mt-3">
             {[
               { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
               { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
@@ -394,7 +404,7 @@ export const MobileChatThread = ({
                 aria-label={label}
                 className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
               >
-                <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
+                <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
               </button>
             ))}
           </div>

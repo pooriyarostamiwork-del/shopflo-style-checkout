@@ -136,7 +136,7 @@ export const MobileChatThread = ({
             <div key={msg.id} className="space-y-3 animate-fade-in">
               <div
                 className={`flex gap-2 ${
-                  msg.role === "user" ? "justify-end" : "justify-end flex-row-reverse"
+                  msg.role === "user" ? "justify-end flex-row-reverse" : "justify-end"
                 }`}
               >
                 {msg.role === "assistant" && (
@@ -283,7 +283,7 @@ export const MobileChatThread = ({
           ))}
 
           {isProcessing && (
-            <div className="flex gap-2 animate-fade-in justify-end flex-row-reverse">
+            <div className="flex gap-2 animate-fade-in justify-end">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{

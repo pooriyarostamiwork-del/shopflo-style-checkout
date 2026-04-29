@@ -1,10 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="16" fill="url(#g)"/>
-  <path d="M36 12L18 36h12l-2 16 18-24H34l2-16z" fill="#fff"/>
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop stop-color="hsl(232, 39%, 60%)"/>
-      <stop offset="1" stop-color="hsl(232, 39%, 50%)"/>
-    </linearGradient>
-  </defs>
-</svg>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080"><defs><style>.cls-1{fill:#fff;}</style></defs><path class="cls-1" d="M582,500l-214.8,82c-49.17,18.77-92.64-37.9-61.78-80.53L549.21,164.63c19.53-27,62.18-13.17,62.18,20.14V457.35A45.66,45.66,0,0,1,582,500Z"/><path class="cls-1" d="M498,580l214.8-82c49.17-18.77,92.64,37.9,61.78,80.53L530.79,915.37c-19.53,27-62.18,13.17-62.18-20.14V622.65A45.66,45.66,0,0,1,498,580Z"/></svg>

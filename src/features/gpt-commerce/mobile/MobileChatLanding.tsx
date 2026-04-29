@@ -171,7 +171,7 @@ export const MobileChatLanding = ({
         </div>
 
         {/* Hero slider — slidable, snap-proximity for easy swipe */}
-        <div className="pt-2 pb-5">
+        <div className="pt-3 pb-6">
           <div
             ref={sliderRef}
             onScroll={handleSliderScroll}
@@ -184,15 +184,15 @@ export const MobileChatLanding = ({
             }}
           >
             <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
-            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "2rem" }}>
+            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}>
               {heroSlides.map((s) => (
                 <div
                   key={s.id}
                   data-slide
-                  className="snap-start shrink-0 w-[92%] rounded-2xl overflow-hidden relative"
+                  className="snap-start shrink-0 w-[96%] rounded-2xl overflow-hidden relative"
                   style={{
                     border: "1px solid hsl(0 0% 0% / 0.06)",
-                    aspectRatio: "1920 / 1080",
+                    aspectRatio: "1920 / 1296",
                     background:
                       "linear-gradient(110deg, hsl(0 0% 95%) 30%, hsl(0 0% 90%) 50%, hsl(0 0% 95%) 70%)",
                     backgroundSize: "200% 100%",

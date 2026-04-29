@@ -336,7 +336,7 @@ export const MobileChatLanding = ({
         </form>
 
         {/* Action bar — frameless icons, increased spacing */}
-        <div className="flex items-center justify-center gap-9 mt-3">
+        <div className="flex items-center justify-center gap-[2.75rem] mt-3">
           {[
             { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
             { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
@@ -349,7 +349,7 @@ export const MobileChatLanding = ({
               aria-label={label}
               className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
             >
-              <Icon className="w-[23px] h-[23px] text-foreground/75" strokeWidth={1.75} />
+              <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
             </button>
           ))}
         </div>

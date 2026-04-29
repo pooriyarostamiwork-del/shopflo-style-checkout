@@ -199,7 +199,7 @@ export const MobileChatThread = ({
               )}
 
               {msg.inlineProduct && (
-                <div className="mr-9">
+                <div className="mobile-pdp">
                   <PDPProductComponent
                     product={msg.inlineProduct}
                     isInCart={cartItems.some((i) => i.id === msg.inlineProduct?.id)}
@@ -283,7 +283,7 @@ export const MobileChatThread = ({
           ))}
 
           {isProcessing && (
-            <div className="flex gap-2 animate-fade-in">
+            <div className="flex gap-2 animate-fade-in justify-end flex-row-reverse">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{

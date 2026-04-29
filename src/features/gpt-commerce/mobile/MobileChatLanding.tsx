@@ -156,7 +156,8 @@ export const MobileChatLanding = ({
           <img
             src={flowcartLogo}
             alt="Flowcart"
-            className="w-14 h-14 mb-3"
+            style={{ width: "4.1rem", height: "4.1rem" }}
+            className="mb-3"
             draggable={false}
           />
           <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">

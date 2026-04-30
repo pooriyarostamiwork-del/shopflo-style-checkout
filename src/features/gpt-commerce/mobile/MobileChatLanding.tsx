@@ -230,7 +230,7 @@ export const MobileChatLanding = ({
               draggable={false}
             />
           </div>
-          <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">
+          <p className="text-muted-foreground leading-tight max-w-[280px]" style={{ fontSize: "0.78rem", letterSpacing: "-0.01em" }}>
             یک دستیار خرید واقعاً باهوش :)
           </p>
           {isAuthenticated && userFirstName && (

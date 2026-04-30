@@ -52,6 +52,7 @@ interface MobileChatThreadProps {
   onOpenBaskets?: () => void;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
+  basketCount?: number;
 }
 
 export const MobileChatThread = ({

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic, Layers, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Zap, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
+import { toPersianNumber } from "@/data/gptCommerceData";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { Button } from "@/components/ui/button";
 import {

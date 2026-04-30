@@ -284,15 +284,15 @@ export const MobileChatThread = ({
           ))}
 
           {isProcessing && (
-            <div className="flex gap-2 animate-fade-in justify-end">
+            <div className="flex gap-2 animate-fade-in justify-start flex-row-reverse">
               <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
                 style={{
                   background:
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                 }}
               >
-                <Zap className="w-3.5 h-3.5 text-white" />
+                <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
               </div>
               <div
                 className="rounded-[16px_16px_16px_4px] px-3.5 py-2.5"

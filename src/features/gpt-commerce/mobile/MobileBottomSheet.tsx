@@ -117,18 +117,18 @@ export const MobileBottomSheet = ({
             style={{ background: "hsl(0 0% 0% / 0.04)" }}
           >
             <SheetTabBtn
-              active={tab === "cart"}
-              onClick={() => onTabChange("cart")}
-              icon={<ShoppingCart className="w-3.5 h-3.5" />}
-              label="سبد"
-              count={cartItems.length}
-            />
-            <SheetTabBtn
               active={tab === "baskets"}
               onClick={() => onTabChange("baskets")}
               icon={<MessageSquare className="w-3.5 h-3.5" />}
               label="چت‌ها"
               count={baskets.filter((b) => !b.isSaved).length}
+            />
+            <SheetTabBtn
+              active={tab === "cart"}
+              onClick={() => onTabChange("cart")}
+              icon={<ShoppingCart className="w-3.5 h-3.5" />}
+              label="سبد"
+              count={cartItems.length}
             />
             <SheetTabBtn
               active={tab === "account"}

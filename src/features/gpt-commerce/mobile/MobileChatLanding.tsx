@@ -1,10 +1,36 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, Sparkles, Layers, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, CartItem } from "@/data/gptCommerceData";
+import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+
+// Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
+const merchantMap: Record<string, typeof merchants[0]> = {
+  m1: merchants[0],
+  m2: merchants[1],
+  m3: merchants[2] || { id: "m3", name: "تکنولایف", logo: "💻" },
+};
+function mapDbProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    originalPrice: row.original_price || undefined,
+    image: row.image_url,
+    imageUrls: row.image_urls || undefined,
+    description: row.description || undefined,
+    merchant: merchantMap[row.merchant_id] || merchants[0],
+    rating: Number(row.rating) || 4.0,
+    fastDelivery: row.fast_delivery,
+    returnGuarantee: row.return_guarantee,
+    inStock: row.in_stock,
+  } as Product;
+}
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -22,10 +48,10 @@ const promptChips = [
   "🛒 خودت برام خرید کن",
 ];
 
-// Chip sizing — 15% smaller than baseline (px-3.5 py-2 text-xs)
-const CHIP_FONT_SIZE = "0.638rem"; // 0.75rem * 0.85
-const CHIP_PADDING_X = "0.74rem"; // ~0.875rem * 0.85
-const CHIP_PADDING_Y = "0.425rem"; // 0.5rem * 0.85
+// Chip sizing — bumped +10% per latest spec
+const CHIP_FONT_SIZE = "0.702rem";
+const CHIP_PADDING_X = "0.814rem";
+const CHIP_PADDING_Y = "0.468rem";
 
 const heroSlides = [
   { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
@@ -107,6 +133,27 @@ export const MobileChatLanding = ({
     setInputValue("");
   };
 
+  // Hot deals — client-side query, mirrors desktop carousel logic
+  const { data: hotDeals, isLoading: hotDealsLoading } = useQuery({
+    queryKey: ["mobile-hot-deals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("in_stock", true)
+        .not("original_price", "is", null)
+        .order("original_price", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return (data || [])
+        .filter((r: any) => r.original_price && r.original_price > r.price)
+        .sort((a: any, b: any) => (1 - b.price / b.original_price) - (1 - a.price / a.original_price))
+        .slice(0, 12)
+        .map(mapDbProduct);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Bento card style (matches desktop /gptcommerce landing background)
   const bentoBase: React.CSSProperties = {
     background: "hsl(0 0% 100% / 0.04)",
@@ -169,7 +216,7 @@ export const MobileChatLanding = ({
             <img
               src={flowcartLogo}
               alt="Flowcart"
-              style={{ width: "70%", height: "70%" }}
+              style={{ width: "77%", height: "77%" }}
               draggable={false}
             />
           </div>
@@ -277,6 +324,93 @@ export const MobileChatLanding = ({
             ))}
           </div>
         </div>
+
+        {/* Hot Deals carousel — mobile, elegant, frameless scrollbar */}
+        {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
+          <div className="mt-6">
+            <div className="px-5 mb-3 flex items-center gap-1.5">
+              <span className="text-base">🔥</span>
+              <p className="text-foreground/80" style={{ fontSize: "0.88rem", fontWeight: 500 }}>
+                داغ‌ترین تخفیف‌ها
+              </p>
+            </div>
+            <div
+              className="overflow-x-auto scrollbar-none snap-x snap-proximity"
+              style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+            >
+              <div className="flex gap-2" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}>
+                {hotDealsLoading
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-[150px] flex-shrink-0 rounded-2xl overflow-hidden"
+                        style={{
+                          border: "1px solid hsl(0 0% 0% / 0.06)",
+                          background: "hsl(0 0% 100%)",
+                        }}
+                      >
+                        <div className="w-full aspect-square bg-muted/40 animate-pulse" />
+                        <div className="p-2 space-y-1.5">
+                          <div className="h-3 bg-muted/40 rounded w-3/4 animate-pulse" />
+                          <div className="h-3 bg-muted/40 rounded w-1/2 animate-pulse" />
+                        </div>
+                      </div>
+                    ))
+                  : (hotDeals || []).map((p) => {
+                      const discountPct = p.originalPrice
+                        ? Math.round((1 - p.price / p.originalPrice) * 100)
+                        : 0;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => submit(`درباره ${p.name} بیشتر بگو`)}
+                          className="snap-start w-[150px] flex-shrink-0 rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
+                          style={{
+                            border: "1px solid hsl(0 0% 0% / 0.06)",
+                            background: "hsl(0 0% 100%)",
+                          }}
+                        >
+                          <div className="relative w-full aspect-square bg-muted/30">
+                            <ProductImage
+                              src={p.image}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {discountPct > 0 && (
+                              <span
+                                className="absolute top-1.5 left-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                style={{
+                                  background: "hsl(var(--primary))",
+                                  color: "hsl(var(--primary-foreground))",
+                                }}
+                              >
+                                ٪{toPersianNumber(discountPct)}-
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <p className="text-[12px] leading-tight line-clamp-2 text-foreground/85 min-h-[2.4em]">
+                              {p.name}
+                            </p>
+                            <div className="mt-1.5 flex flex-col items-start">
+                              {p.originalPrice && (
+                                <span className="text-[10px] text-muted-foreground/70 line-through">
+                                  {formatPersianPrice(p.originalPrice)}
+                                </span>
+                              )}
+                              <span className="text-[12px] font-semibold text-primary">
+                                {formatPersianPrice(p.price)}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sticky bottom input */}

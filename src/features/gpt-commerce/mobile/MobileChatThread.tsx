@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Mic, Layers, ShoppingBag, UserRound } from "lucide-react";
+import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -136,18 +137,18 @@ export const MobileChatThread = ({
             <div key={msg.id} className="space-y-3 animate-fade-in">
               <div
                 className={`flex gap-2 ${
-                  msg.role === "user" ? "justify-end flex-row-reverse" : "justify-end"
+                  msg.role === "user" ? "justify-end flex-row-reverse" : "justify-start flex-row-reverse"
                 }`}
               >
                 {msg.role === "assistant" && (
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden"
                     style={{
                       background:
                         "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                     }}
                   >
-                    <Zap className="w-3.5 h-3.5 text-white" />
+                    <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
                   </div>
                 )}
                 <div
@@ -283,15 +284,15 @@ export const MobileChatThread = ({
           ))}
 
           {isProcessing && (
-            <div className="flex gap-2 animate-fade-in justify-end">
+            <div className="flex gap-2 animate-fade-in justify-start flex-row-reverse">
               <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
                 style={{
                   background:
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                 }}
               >
-                <Zap className="w-3.5 h-3.5 text-white" />
+                <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
               </div>
               <div
                 className="rounded-[16px_16px_16px_4px] px-3.5 py-2.5"

@@ -388,7 +388,7 @@ export const MobileGPTCommerceShell = () => {
             aria-label="چت جدید"
             title="چت جدید"
           >
-            <MessageSquarePlus style={{ width: "1.05rem", height: "1.05rem" }} className="text-foreground/80" strokeWidth={1.75} />
+            <MessageSquarePlus style={{ width: "1.25rem", height: "1.25rem" }} className="text-foreground/80" strokeWidth={1.75} />
           </button>
         </div>
       </header>

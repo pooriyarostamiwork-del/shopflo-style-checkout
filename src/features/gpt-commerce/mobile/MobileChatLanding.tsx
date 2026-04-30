@@ -324,6 +324,93 @@ export const MobileChatLanding = ({
             ))}
           </div>
         </div>
+
+        {/* Hot Deals carousel — mobile, elegant, frameless scrollbar */}
+        {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
+          <div className="mt-6">
+            <div className="px-5 mb-3 flex items-center gap-1.5">
+              <span className="text-base">🔥</span>
+              <p className="text-foreground/80" style={{ fontSize: "0.88rem", fontWeight: 500 }}>
+                داغ‌ترین تخفیف‌ها
+              </p>
+            </div>
+            <div
+              className="overflow-x-auto scrollbar-none snap-x snap-proximity"
+              style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+            >
+              <div className="flex gap-2" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}>
+                {hotDealsLoading
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-[150px] flex-shrink-0 rounded-2xl overflow-hidden"
+                        style={{
+                          border: "1px solid hsl(0 0% 0% / 0.06)",
+                          background: "hsl(0 0% 100%)",
+                        }}
+                      >
+                        <div className="w-full aspect-square bg-muted/40 animate-pulse" />
+                        <div className="p-2 space-y-1.5">
+                          <div className="h-3 bg-muted/40 rounded w-3/4 animate-pulse" />
+                          <div className="h-3 bg-muted/40 rounded w-1/2 animate-pulse" />
+                        </div>
+                      </div>
+                    ))
+                  : (hotDeals || []).map((p) => {
+                      const discountPct = p.originalPrice
+                        ? Math.round((1 - p.price / p.originalPrice) * 100)
+                        : 0;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => submit(`درباره ${p.name} بیشتر بگو`)}
+                          className="snap-start w-[150px] flex-shrink-0 rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
+                          style={{
+                            border: "1px solid hsl(0 0% 0% / 0.06)",
+                            background: "hsl(0 0% 100%)",
+                          }}
+                        >
+                          <div className="relative w-full aspect-square bg-muted/30">
+                            <ProductImage
+                              src={p.image}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {discountPct > 0 && (
+                              <span
+                                className="absolute top-1.5 left-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                style={{
+                                  background: "hsl(var(--primary))",
+                                  color: "hsl(var(--primary-foreground))",
+                                }}
+                              >
+                                ٪{toPersianNumber(discountPct)}-
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <p className="text-[12px] leading-tight line-clamp-2 text-foreground/85 min-h-[2.4em]">
+                              {p.name}
+                            </p>
+                            <div className="mt-1.5 flex flex-col items-start">
+                              {p.originalPrice && (
+                                <span className="text-[10px] text-muted-foreground/70 line-through">
+                                  {formatPersianPrice(p.originalPrice)}
+                                </span>
+                              )}
+                              <span className="text-[12px] font-semibold text-primary">
+                                {formatPersianPrice(p.price)}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sticky bottom input */}

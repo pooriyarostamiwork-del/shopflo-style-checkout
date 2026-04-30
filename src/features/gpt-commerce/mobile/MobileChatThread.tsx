@@ -80,6 +80,7 @@ export const MobileChatThread = ({
   onOpenBaskets,
   onOpenCart,
   onOpenAccount,
+  basketCount = 0,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Zap, MessageSquarePlus } from "lucide-react";
+import { Zap, SquarePen } from "lucide-react";
 import { CategorySelector } from "@/components/gpt-commerce/CategorySelector";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
@@ -388,7 +388,7 @@ export const MobileGPTCommerceShell = () => {
             aria-label="چت جدید"
             title="چت جدید"
           >
-            <MessageSquarePlus style={{ width: "1.25rem", height: "1.25rem" }} className="text-foreground/80" strokeWidth={1.75} />
+            <SquarePen style={{ width: "1.25rem", height: "1.25rem" }} className="text-foreground/80" strokeWidth={1.75} />
           </button>
         </div>
       </header>
@@ -399,10 +399,14 @@ export const MobileGPTCommerceShell = () => {
           <MobileChatLanding
             onSendMessage={handleSendMessageWithPending}
             onAddToCart={handleAddToCart}
+            onCompare={handleCompare}
+            onSaveProduct={handleSaveProduct}
+            savedProductIds={baskets.find(b => b.id === activeBasketId)?.savedItems.map(i => i.productId) || []}
             cartItems={cartItems}
             isProcessing={isProcessing}
             isAuthenticated={isAuthenticated}
             userFirstName={profile?.full_name?.split(" ")[0]}
+            basketCount={baskets.filter(b => !b.isSaved).length}
             onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
             onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
             onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}
@@ -434,6 +438,7 @@ export const MobileGPTCommerceShell = () => {
             onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
             onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
             onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}
+            basketCount={baskets.filter(b => !b.isSaved).length}
           />
         )}
       </div>

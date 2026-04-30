@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, Sparkles, Layers, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
@@ -7,7 +7,7 @@ import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
 const merchantMap: Record<string, typeof merchants[0]> = {
@@ -61,10 +61,14 @@ const heroSlides = [
 interface MobileChatLandingProps {
   onSendMessage: (message: string, forceNew?: boolean) => void;
   onAddToCart: (product: Product) => void;
+  onCompare?: (product: Product) => void;
+  onSaveProduct?: (product: Product) => void;
+  savedProductIds?: string[];
   cartItems: CartItem[];
   isProcessing: boolean;
   isAuthenticated?: boolean;
   userFirstName?: string;
+  basketCount?: number;
   onOpenBaskets?: () => void;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
@@ -72,9 +76,15 @@ interface MobileChatLandingProps {
 
 export const MobileChatLanding = ({
   onSendMessage,
+  onAddToCart,
+  onCompare,
+  onSaveProduct,
+  savedProductIds = [],
+  cartItems,
   isProcessing,
   isAuthenticated,
   userFirstName,
+  basketCount = 0,
   onOpenBaskets,
   onOpenCart,
   onOpenAccount,
@@ -220,7 +230,7 @@ export const MobileChatLanding = ({
               draggable={false}
             />
           </div>
-          <p className="text-sm text-muted-foreground leading-snug max-w-[280px]">
+          <p className="text-muted-foreground leading-tight max-w-[280px]" style={{ fontSize: "0.78rem", letterSpacing: "-0.01em" }}>
             یک دستیار خرید واقعاً باهوش :)
           </p>
           {isAuthenticated && userFirstName && (
@@ -325,12 +335,12 @@ export const MobileChatLanding = ({
           </div>
         </div>
 
-        {/* Hot Deals carousel — mobile, elegant, frameless scrollbar */}
+        {/* Hot Deals carousel — uses canonical ChatProductCard for full feature parity */}
         {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
           <div className="mt-6">
-            <div className="px-5 mb-3 flex items-center gap-1.5">
-              <span className="text-base">🔥</span>
-              <p className="text-foreground/80" style={{ fontSize: "0.88rem", fontWeight: 500 }}>
+            <div className="px-5 mb-3">
+              <p className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
+                <Sparkles className="w-4 h-4 text-primary" />
                 داغ‌ترین تخفیف‌ها
               </p>
             </div>
@@ -338,75 +348,43 @@ export const MobileChatLanding = ({
               className="overflow-x-auto scrollbar-none snap-x snap-proximity"
               style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
             >
-              <div className="flex gap-2" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}>
+              <div
+                className="flex gap-3 items-stretch"
+                style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}
+              >
                 {hotDealsLoading
-                  ? Array.from({ length: 6 }).map((_, i) => (
+                  ? Array.from({ length: 4 }).map((_, i) => (
                       <div
                         key={i}
-                        className="w-[150px] flex-shrink-0 rounded-2xl overflow-hidden"
+                        className="w-[220px] h-[420px] flex-shrink-0 rounded-xl overflow-hidden"
                         style={{
-                          border: "1px solid hsl(0 0% 0% / 0.06)",
+                          border: "1px solid hsl(0 0% 0% / 0.08)",
                           background: "hsl(0 0% 100%)",
                         }}
                       >
                         <div className="w-full aspect-square bg-muted/40 animate-pulse" />
-                        <div className="p-2 space-y-1.5">
+                        <div className="p-3 space-y-2">
                           <div className="h-3 bg-muted/40 rounded w-3/4 animate-pulse" />
                           <div className="h-3 bg-muted/40 rounded w-1/2 animate-pulse" />
+                          <div className="h-3 bg-muted/40 rounded w-2/3 animate-pulse" />
                         </div>
                       </div>
                     ))
-                  : (hotDeals || []).map((p) => {
-                      const discountPct = p.originalPrice
-                        ? Math.round((1 - p.price / p.originalPrice) * 100)
-                        : 0;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => submit(`درباره ${p.name} بیشتر بگو`)}
-                          className="snap-start w-[150px] flex-shrink-0 rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
-                          style={{
-                            border: "1px solid hsl(0 0% 0% / 0.06)",
-                            background: "hsl(0 0% 100%)",
-                          }}
-                        >
-                          <div className="relative w-full aspect-square bg-muted/30">
-                            <ProductImage
-                              src={p.image}
-                              alt={p.name}
-                              className="w-full h-full object-cover"
-                            />
-                            {discountPct > 0 && (
-                              <span
-                                className="absolute top-1.5 left-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                                style={{
-                                  background: "hsl(var(--primary))",
-                                  color: "hsl(var(--primary-foreground))",
-                                }}
-                              >
-                                ٪{toPersianNumber(discountPct)}-
-                              </span>
-                            )}
-                          </div>
-                          <div className="p-2">
-                            <p className="text-[12px] leading-tight line-clamp-2 text-foreground/85 min-h-[2.4em]">
-                              {p.name}
-                            </p>
-                            <div className="mt-1.5 flex flex-col items-start">
-                              {p.originalPrice && (
-                                <span className="text-[10px] text-muted-foreground/70 line-through">
-                                  {formatPersianPrice(p.originalPrice)}
-                                </span>
-                              )}
-                              <span className="text-[12px] font-semibold text-primary">
-                                {formatPersianPrice(p.price)}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                  : (hotDeals || []).map((p, idx) => (
+                      <div key={p.id} className="snap-start flex-shrink-0">
+                        <ChatProductCard
+                          product={p}
+                          index={idx + 1}
+                          onAddToCart={onAddToCart}
+                          onCompare={onCompare ?? (() => submit(`درباره ${p.name} بیشتر بگو`))}
+                          onSave={onSaveProduct}
+                          onInlineDetails={() => submit(`درباره ${p.name} بیشتر بگو`)}
+                          useInlineDetails
+                          isInCart={cartItems.some(c => c.id === p.id)}
+                          isSaved={savedProductIds.includes(p.id)}
+                        />
+                      </div>
+                    ))}
               </div>
             </div>
           </div>
@@ -484,21 +462,33 @@ export const MobileChatLanding = ({
           </div>
         </form>
 
-        {/* Action bar — frameless icons, increased spacing */}
+        {/* Action bar — frameless icons with count badges on chats & cart */}
         <div className="flex items-center justify-center gap-[3.16rem] mt-3">
           {[
-            { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
-            { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
-            { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount },
-          ].map(({ key, icon: Icon, label, onClick }) => (
+            { key: "baskets", icon: MessagesSquare, label: "چت‌ها", onClick: onOpenBaskets, count: basketCount },
+            { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart, count: cartItems.length },
+            { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount, count: 0 },
+          ].map(({ key, icon: Icon, label, onClick, count }) => (
             <button
               key={key}
               type="button"
               onClick={onClick}
               aria-label={label}
-              className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
+              className="relative flex items-center justify-center active:scale-90 transition-transform p-1.5"
             >
               <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
+              {count > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-[4px] flex items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                  style={{
+                    background: "hsl(var(--primary))",
+                    color: "hsl(var(--primary-foreground))",
+                    border: "1.5px solid hsl(0 0% 100%)",
+                  }}
+                >
+                  {toPersianNumber(count)}
+                </span>
+              )}
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic, Layers, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Zap, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
+import { toPersianNumber } from "@/data/gptCommerceData";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +52,7 @@ interface MobileChatThreadProps {
   onOpenBaskets?: () => void;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
+  basketCount?: number;
 }
 
 export const MobileChatThread = ({
@@ -78,6 +80,7 @@ export const MobileChatThread = ({
   onOpenBaskets,
   onOpenCart,
   onOpenAccount,
+  basketCount = 0,
 }: MobileChatThreadProps) => {
   const [inputValue, setInputValue] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
@@ -390,22 +393,34 @@ export const MobileChatThread = ({
           </div>
         </form>
 
-        {/* Action bar — frameless icons, opens corresponding bottom-sheet tab */}
+        {/* Action bar — frameless icons with count badges on chats & cart */}
         {(onOpenBaskets || onOpenCart || onOpenAccount) && (
           <div className="flex items-center justify-center gap-[3.16rem] mt-3">
             {[
-              { key: "baskets", icon: Layers, label: "سبدها", onClick: onOpenBaskets },
-              { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart },
-              { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount },
-            ].map(({ key, icon: Icon, label, onClick }) => (
+              { key: "baskets", icon: MessagesSquare, label: "چت‌ها", onClick: onOpenBaskets, count: basketCount },
+              { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart, count: cartItems.length },
+              { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount, count: 0 },
+            ].map(({ key, icon: Icon, label, onClick, count }) => (
               <button
                 key={key}
                 type="button"
                 onClick={onClick}
                 aria-label={label}
-                className="flex items-center justify-center active:scale-90 transition-transform p-1.5"
+                className="relative flex items-center justify-center active:scale-90 transition-transform p-1.5"
               >
                 <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
+                {count > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-[4px] flex items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                    style={{
+                      background: "hsl(var(--primary))",
+                      color: "hsl(var(--primary-foreground))",
+                      border: "1.5px solid hsl(0 0% 100%)",
+                    }}
+                  >
+                    {toPersianNumber(count)}
+                  </span>
+                )}
               </button>
             ))}
           </div>

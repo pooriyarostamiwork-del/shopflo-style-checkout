@@ -319,7 +319,9 @@ export const MobileGPTCommerceShell = () => {
             /* Trigger chip — 35% bigger than previous mobile-shrunk size */
             .mobile-cat-selector > button {
               padding: 0.405rem 0.74rem !important;
-              font-size: 0.945rem !important;
+              font-size: 0.84rem !important;
+              font-weight: 400 !important;
+              letter-spacing: -0.01em !important;
               border-radius: 0.74rem !important;
               gap: 0.47rem !important;
               line-height: 1.1 !important;

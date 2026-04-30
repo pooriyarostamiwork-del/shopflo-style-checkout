@@ -137,18 +137,18 @@ export const MobileChatThread = ({
             <div key={msg.id} className="space-y-3 animate-fade-in">
               <div
                 className={`flex gap-2 ${
-                  msg.role === "user" ? "justify-end flex-row-reverse" : "justify-end"
+                  msg.role === "user" ? "justify-end flex-row-reverse" : "justify-start flex-row-reverse"
                 }`}
               >
                 {msg.role === "assistant" && (
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden"
                     style={{
                       background:
                         "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                     }}
                   >
-                    <Zap className="w-3.5 h-3.5 text-white" />
+                    <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
                   </div>
                 )}
                 <div

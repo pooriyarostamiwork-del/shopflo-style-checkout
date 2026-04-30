@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, Sparkles, Layers, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
@@ -7,7 +7,7 @@ import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
 const merchantMap: Record<string, typeof merchants[0]> = {

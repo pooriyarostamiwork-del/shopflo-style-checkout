@@ -46,9 +46,13 @@ export const ProductImage = ({
         role="img"
         aria-label={alt}
       >
-        <ImageOff
-          className="w-1/3 h-1/3 max-w-[40px] max-h-[40px] text-muted-foreground/40"
-          strokeWidth={1.5}
+        <img
+          src={flowcartLogo}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="w-1/3 h-1/3 max-w-[40px] max-h-[40px] opacity-40"
+          style={{ filter: "grayscale(1) brightness(0.6)" }}
         />
         {label && (
           <span className="absolute bottom-1 right-1 text-[9px] font-medium text-muted-foreground/40 uppercase tracking-wider">

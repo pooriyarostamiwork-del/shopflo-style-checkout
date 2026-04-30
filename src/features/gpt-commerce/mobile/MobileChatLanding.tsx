@@ -48,10 +48,10 @@ const promptChips = [
   "🛒 خودت برام خرید کن",
 ];
 
-// Chip sizing — 15% smaller than baseline (px-3.5 py-2 text-xs)
-const CHIP_FONT_SIZE = "0.638rem"; // 0.75rem * 0.85
-const CHIP_PADDING_X = "0.74rem"; // ~0.875rem * 0.85
-const CHIP_PADDING_Y = "0.425rem"; // 0.5rem * 0.85
+// Chip sizing — bumped +10% per latest spec
+const CHIP_FONT_SIZE = "0.702rem";
+const CHIP_PADDING_X = "0.814rem";
+const CHIP_PADDING_Y = "0.468rem";
 
 const heroSlides = [
   { id: "drnext", image: slideDrnext, alt: "دکترنکست" },

@@ -1,6 +1,6 @@
 import { useState, useEffect, ImgHTMLAttributes } from "react";
-import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import flowcartLogo from "@/assets/flowcart-logo.svg";
 
 interface ProductImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "onError"> {
   src?: string | null;

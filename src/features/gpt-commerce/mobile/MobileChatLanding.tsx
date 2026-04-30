@@ -61,10 +61,14 @@ const heroSlides = [
 interface MobileChatLandingProps {
   onSendMessage: (message: string, forceNew?: boolean) => void;
   onAddToCart: (product: Product) => void;
+  onCompare?: (product: Product) => void;
+  onSaveProduct?: (product: Product) => void;
+  savedProductIds?: string[];
   cartItems: CartItem[];
   isProcessing: boolean;
   isAuthenticated?: boolean;
   userFirstName?: string;
+  basketCount?: number;
   onOpenBaskets?: () => void;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
@@ -72,9 +76,15 @@ interface MobileChatLandingProps {
 
 export const MobileChatLanding = ({
   onSendMessage,
+  onAddToCart,
+  onCompare,
+  onSaveProduct,
+  savedProductIds = [],
+  cartItems,
   isProcessing,
   isAuthenticated,
   userFirstName,
+  basketCount = 0,
   onOpenBaskets,
   onOpenCart,
   onOpenAccount,

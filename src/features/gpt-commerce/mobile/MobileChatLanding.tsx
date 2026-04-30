@@ -133,6 +133,27 @@ export const MobileChatLanding = ({
     setInputValue("");
   };
 
+  // Hot deals — client-side query, mirrors desktop carousel logic
+  const { data: hotDeals, isLoading: hotDealsLoading } = useQuery({
+    queryKey: ["mobile-hot-deals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("in_stock", true)
+        .not("original_price", "is", null)
+        .order("original_price", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return (data || [])
+        .filter((r: any) => r.original_price && r.original_price > r.price)
+        .sort((a: any, b: any) => (1 - b.price / b.original_price) - (1 - a.price / a.original_price))
+        .slice(0, 12)
+        .map(mapDbProduct);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Bento card style (matches desktop /gptcommerce landing background)
   const bentoBase: React.CSSProperties = {
     background: "hsl(0 0% 100% / 0.04)",

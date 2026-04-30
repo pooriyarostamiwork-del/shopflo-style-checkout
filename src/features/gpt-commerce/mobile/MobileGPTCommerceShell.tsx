@@ -399,10 +399,14 @@ export const MobileGPTCommerceShell = () => {
           <MobileChatLanding
             onSendMessage={handleSendMessageWithPending}
             onAddToCart={handleAddToCart}
+            onCompare={handleCompare}
+            onSaveProduct={handleSaveProduct}
+            savedProductIds={baskets.find(b => b.id === activeBasketId)?.savedItems.map(i => i.productId) || []}
             cartItems={cartItems}
             isProcessing={isProcessing}
             isAuthenticated={isAuthenticated}
             userFirstName={profile?.full_name?.split(" ")[0]}
+            basketCount={baskets.filter(b => !b.isSaved).length}
             onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
             onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
             onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}

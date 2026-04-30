@@ -1,10 +1,36 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, Sparkles, Layers, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, CartItem } from "@/data/gptCommerceData";
+import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+
+// Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
+const merchantMap: Record<string, typeof merchants[0]> = {
+  m1: merchants[0],
+  m2: merchants[1],
+  m3: merchants[2] || { id: "m3", name: "تکنولایف", logo: "💻" },
+};
+function mapDbProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    originalPrice: row.original_price || undefined,
+    image: row.image_url,
+    imageUrls: row.image_urls || undefined,
+    description: row.description || undefined,
+    merchant: merchantMap[row.merchant_id] || merchants[0],
+    rating: Number(row.rating) || 4.0,
+    fastDelivery: row.fast_delivery,
+    returnGuarantee: row.return_guarantee,
+    inStock: row.in_stock,
+  } as Product;
+}
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",

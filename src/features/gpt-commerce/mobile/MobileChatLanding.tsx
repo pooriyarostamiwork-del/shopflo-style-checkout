@@ -195,7 +195,7 @@ export const MobileChatLanding = ({
             <img
               src={flowcartLogo}
               alt="Flowcart"
-              style={{ width: "70%", height: "70%" }}
+              style={{ width: "77%", height: "77%" }}
               draggable={false}
             />
           </div>

@@ -93,7 +93,7 @@ export const MobileChatThread = ({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "56px";
+      textareaRef.current.style.height = "44px";
       const sh = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(sh, 120) + "px";
     }
@@ -113,7 +113,7 @@ export const MobileChatThread = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-gradient-to-b from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
+    <div className="relative flex flex-col h-full min-h-0 bg-gradient-to-br from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
       {/* Mobile-scoped overrides */}
       <style>{`
         .mobile-no-img-label [role="img"] > span { display: none !important; }
@@ -133,8 +133,30 @@ export const MobileChatThread = ({
         }
         .mobile-pdp .w-28 { width: auto !important; min-width: 5.5rem !important; flex-shrink: 0 !important; }
       `}</style>
+
+      {/* Floating bento decorations — match landing */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute" style={{ background: "hsl(0 0% 100% / 0.04)", border: "1px solid hsl(0 0% 100% / 0.08)", borderRadius: "20px", backdropFilter: "blur(28px)", opacity: 0.29, width: 110, height: 140, top: 80, right: -20, transform: "rotate(-3deg)" }}>
+          <div className="w-full h-20 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2.5 space-y-2">
+            <div className="h-2.5 bg-foreground/20 rounded w-3/4" />
+            <div className="h-2 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+        <div className="absolute flex items-center justify-center" style={{ background: "hsl(0 0% 100% / 0.04)", border: "1px solid hsl(0 0% 100% / 0.08)", borderRadius: "20px", backdropFilter: "blur(28px)", opacity: 0.29, width: 90, height: 32, top: 220, left: -10, transform: "rotate(2deg)" }}>
+          <span className="text-[10px] text-foreground/30">٪۱۰ تخفیف</span>
+        </div>
+        <div className="absolute" style={{ background: "hsl(0 0% 100% / 0.04)", border: "1px solid hsl(0 0% 100% / 0.08)", borderRadius: "20px", backdropFilter: "blur(28px)", opacity: 0.29, width: 100, height: 120, bottom: 220, left: -20, transform: "rotate(-2deg)" }}>
+          <div className="w-full h-16 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2 space-y-1.5">
+            <div className="h-2 bg-foreground/20 rounded w-3/4" />
+            <div className="h-1.5 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+
       {/* Messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto pt-5 pb-2">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-2">
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">
@@ -181,9 +203,9 @@ export const MobileChatThread = ({
               {/* Product cards — horizontal scroll on mobile */}
               {msg.products && msg.products.length > 0 && (
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
-                  <div className="flex gap-[0.375rem] pr-9 pb-1" style={{ width: "max-content" }}>
+                  <div className="flex gap-[0.375rem] pl-9 pb-1" style={{ width: "max-content" }}>
                     {msg.products.map((product, index) => (
-                      <div key={product.id} className="w-[260px] flex-shrink-0">
+                      <div key={product.id} className="w-auto flex-shrink-0">
                         <ChatProductCard
                           product={product}
                           index={(msg.productIndexStart || 1) + index}

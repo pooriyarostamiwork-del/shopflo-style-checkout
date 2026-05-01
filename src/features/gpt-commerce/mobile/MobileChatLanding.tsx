@@ -335,7 +335,7 @@ export const MobileChatLanding = ({
           </div>
         </div>
 
-        {/* Hot Deals carousel — uses canonical ChatProductCard for full feature parity */}
+        {/* Hot Deals carousel — redesigned: tap-to-chat, no buttons */}
         {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
           <div className="mt-6">
             <div className="px-5 mb-3">
@@ -349,14 +349,14 @@ export const MobileChatLanding = ({
               style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
             >
               <div
-                className="flex gap-3 items-stretch"
+                className="flex gap-2.5 items-stretch"
                 style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}
               >
                 {hotDealsLoading
                   ? Array.from({ length: 4 }).map((_, i) => (
                       <div
                         key={i}
-                        className="w-[220px] h-[420px] flex-shrink-0 rounded-xl overflow-hidden"
+                        className="w-[168px] flex-shrink-0 rounded-2xl overflow-hidden"
                         style={{
                           border: "1px solid hsl(0 0% 0% / 0.08)",
                           background: "hsl(0 0% 100%)",
@@ -370,25 +370,132 @@ export const MobileChatLanding = ({
                         </div>
                       </div>
                     ))
-                  : (hotDeals || []).map((p, idx) => (
-                      <div key={p.id} className="snap-start flex-shrink-0">
-                        <ChatProductCard
-                          product={p}
-                          index={idx + 1}
-                          onAddToCart={onAddToCart}
-                          onCompare={onCompare ?? (() => submit(`درباره ${p.name} بیشتر بگو`))}
-                          onSave={onSaveProduct}
-                          onInlineDetails={() => submit(`درباره ${p.name} بیشتر بگو`)}
-                          useInlineDetails
-                          isInCart={cartItems.some(c => c.id === p.id)}
-                          isSaved={savedProductIds.includes(p.id)}
-                        />
-                      </div>
-                    ))}
+                  : (hotDeals || []).map((p) => {
+                      const discountPct = p.originalPrice
+                        ? Math.round((1 - p.price / p.originalPrice) * 100)
+                        : 0;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => submit(`درباره ${p.name} بیشتر بگو`)}
+                          className="snap-start flex-shrink-0 w-[168px] rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
+                          style={{
+                            background: "hsl(0 0% 100%)",
+                            border: "1px solid hsl(0 0% 0% / 0.08)",
+                          }}
+                        >
+                          {/* Image with discount chip */}
+                          <div className="relative w-full aspect-square" style={{ background: "hsl(0 0% 98%)" }}>
+                            <img
+                              src={p.image}
+                              alt={p.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover"
+                              draggable={false}
+                            />
+                            {discountPct > 0 && (
+                              <div
+                                className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[10px] font-bold text-white"
+                                style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}
+                              >
+                                {toPersianNumber(discountPct)}٪
+                              </div>
+                            )}
+                          </div>
+                          {/* Divider */}
+                          <div className="w-full h-px" style={{ background: "hsl(0 0% 0% / 0.06)" }} />
+                          {/* Content */}
+                          <div className="p-3" dir="rtl">
+                            <h4 className="text-[13px] font-medium text-foreground line-clamp-2 leading-snug min-h-[2.6em]">
+                              {p.name}
+                            </h4>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Star className="w-3 h-3 fill-current text-amber-400" />
+                              <span className="text-[11px] text-muted-foreground">{toPersianNumber(p.rating)}</span>
+                              <span className="mx-1 text-[11px] text-muted-foreground/60">|</span>
+                              <Store className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-[11px] text-muted-foreground truncate">{p.merchant.name}</span>
+                            </div>
+                            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 mt-2">
+                              <span className="text-[13px] font-bold text-foreground">
+                                {formatPersianPrice(p.price)}
+                              </span>
+                              {p.originalPrice && (
+                                <span className="text-[11px] text-muted-foreground line-through">
+                                  {formatPersianPrice(p.originalPrice)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
               </div>
             </div>
           </div>
         )}
+
+        {/* Mobile Landing Footer */}
+        <footer
+          className="mt-10 mx-5 px-4 py-6 border-t"
+          style={{ borderColor: "hsl(0 0% 0% / 0.06)" }}
+          dir="rtl"
+        >
+          {/* Brand block */}
+          <div className="flex items-center gap-2.5 mb-4">
+            <div
+              className="w-9 h-9 flex items-center justify-center rounded-xl"
+              style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))" }}
+            >
+              <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-foreground leading-tight">فلوکارت</span>
+              <span className="text-[11px] text-muted-foreground leading-tight">دستیار خرید هوشمند</span>
+            </div>
+          </div>
+
+          {/* Links */}
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {["درباره ما", "پشتیبانی", "حریم خصوصی", "قوانین"].map((label) => (
+              <button
+                key={label}
+                type="button"
+                className="px-2.5 py-1 rounded-full text-[11px] text-muted-foreground active:scale-95 transition-transform"
+                style={{ border: "1px solid hsl(0 0% 0% / 0.08)", background: "hsl(0 0% 100% / 0.6)" }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Social */}
+          <div className="flex items-center gap-2 mb-4">
+            {[Instagram, Twitter, Linkedin].map((SocialIcon, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label="social"
+                className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ border: "1px solid hsl(0 0% 0% / 0.08)", background: "hsl(0 0% 100% / 0.6)" }}
+              >
+                <SocialIcon className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+
+          {/* Copyright */}
+          <div className="text-center space-y-1">
+            <p className="text-[11px] text-muted-foreground/70">
+              تمامی حقوق محفوظ است · {toPersianNumber(1404)}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60">
+              ساخته‌شده با ❤︎ در ایران
+            </p>
+          </div>
+        </footer>
       </div>
 
       {/* Sticky bottom input */}

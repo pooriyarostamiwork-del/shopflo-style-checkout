@@ -223,8 +223,9 @@ export const PDPProductComponent = ({
             {/* Product Info */}
             <div className="flex-1 space-y-3">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs text-muted-foreground">{product.merchant.logo} {product.merchant.name}</span>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Store className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
                 </div>
                 <h1 className="text-lg font-bold text-foreground">{product.name}</h1>
               </div>

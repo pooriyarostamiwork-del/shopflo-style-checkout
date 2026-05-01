@@ -1,4 +1,4 @@
-import { Truck, Star, ShieldCheck, Plus, Info } from "lucide-react";
+import { Truck, Star, ShieldCheck, Plus, Info, Store } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
@@ -62,9 +62,11 @@ export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: Produ
 
         {/* Rating & Merchant */}
         <div className="flex items-center gap-1">
-          <span className="text-yellow-500 text-xs">⭐</span>
+          <Star className="w-3 h-3 fill-current text-amber-400" />
           <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-          <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
+          <span className="mx-1 text-xs text-muted-foreground/60">|</span>
+          <Store className="w-3 h-3 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
         </div>
 
         {/* Price */}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShoppingCart, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Sparkles } from "lucide-react";
+import { ShoppingCart, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Sparkles, Store } from "lucide-react";
 import { CartItem, Product, formatPersianPrice, toPersianNumber, favorites, calculateOrderSummary } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -345,7 +345,7 @@ export const RightPanel = ({
                               borderBottom: '1px solid hsl(0 0% 0% / 0.06)'
                             }}
                           >
-                            <span className="text-lg">{vendorSummary.merchant.logo}</span>
+                            <Store className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
                             <span className="text-xs text-muted-foreground mr-auto">
                               {toPersianNumber(vendorSummary.items.length)} کالا

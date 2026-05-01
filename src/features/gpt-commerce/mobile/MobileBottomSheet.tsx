@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X, ShoppingCart, MessageSquare, User, Plus, Trash2, Sparkles, ArrowLeft } from "lucide-react";
+import { X, ShoppingCart, MessageSquare, User, Plus, Trash2, Sparkles, ArrowLeft, Store } from "lucide-react";
 import {
   CartItem,
   Product,
@@ -178,7 +178,7 @@ export const MobileBottomSheet = ({
                             borderBottom: "1px solid hsl(0 0% 0% / 0.05)",
                           }}
                         >
-                          <span className="text-base">{vs.merchant.logo}</span>
+                          <Store className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm font-medium">{vs.merchant.name}</span>
                           <span className="text-[11px] text-muted-foreground mr-auto">
                             {toPersianNumber(vs.items.length)} کالا

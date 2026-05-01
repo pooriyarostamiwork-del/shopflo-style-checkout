@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, MapPin, Truck, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, MapPin, Truck, Plus, ChevronDown, ChevronUp, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -317,7 +317,7 @@ export const AddressShippingSelector = ({
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-base">{ms.merchant.logo}</span>
+                      <Store className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium text-sm">{ms.merchant.name}</span>
                     </div>
                     

@@ -1,4 +1,4 @@
-import { Plus, Info, Bookmark } from "lucide-react";
+import { Plus, Info, Bookmark, Star, Store } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
@@ -33,7 +33,7 @@ export const ChatProductCard = ({
   
   return (
     <div 
-      className="w-[220px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col relative"
+      className="w-[240px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col relative"
       style={{
         background: 'hsl(0 0% 100%)',
         border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -96,13 +96,15 @@ export const ChatProductCard = ({
 
         {/* Rating & Merchant */}
         <div className="flex items-center gap-1 mt-2">
-          <span className="text-yellow-500 text-xs">⭐</span>
+          <Star className="w-3 h-3 fill-current text-amber-400" />
           <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-          <span className="text-xs text-muted-foreground mr-1">| {product.merchant.logo} {product.merchant.name}</span>
+          <span className="mx-1 text-xs text-muted-foreground/60">|</span>
+          <Store className="w-3 h-3 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
         </div>
 
         {/* Price */}
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-2">
           <span className="text-sm font-bold text-foreground">
             {formatPersianPrice(product.price)}
           </span>

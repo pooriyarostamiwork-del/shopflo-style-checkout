@@ -1,4 +1,4 @@
-import { Check, MapPin, CreditCard, Package, FileText, Pencil, Lock, ChevronLeft } from "lucide-react";
+import { Check, MapPin, CreditCard, Package, FileText, Pencil, Lock, ChevronLeft, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   QuickReply, 
@@ -154,7 +154,7 @@ export const CartSummaryCard = ({ orderSummary: propOrderSummary, cartItems }: C
           <div key={vendor.merchant.id} className="p-4">
             {/* Vendor Header */}
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">{vendor.merchant.logo}</span>
+              <Store className="w-4 h-4 text-muted-foreground" />
               <span className="font-medium text-sm">{vendor.merchant.name}</span>
             </div>
 

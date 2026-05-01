@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut } from "lucide-react";
+import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut, Store } from "lucide-react";
 import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,7 +124,7 @@ const OrderDetailView = ({ order: rawOrder, onBack }: { order: any; onBack: () =
             className="px-4 py-3 flex items-center gap-2.5"
             style={{ background: 'hsl(0 0% 0% / 0.02)', borderBottom: '1px solid hsl(0 0% 0% / 0.04)' }}
           >
-            <span className="text-base">{group.merchant.logo}</span>
+            <Store className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium text-foreground">{group.merchant.name}</span>
             <span className="text-[10px] text-muted-foreground mr-auto">
               {toPersianNumber(group.items.length)} کالا

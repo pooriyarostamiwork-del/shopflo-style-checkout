@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound, Star, Store, Instagram, Twitter, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
@@ -105,7 +105,7 @@ export const MobileChatLanding = ({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "56px";
+      textareaRef.current.style.height = "44px";
       const sh = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(sh, 120) + "px";
     }

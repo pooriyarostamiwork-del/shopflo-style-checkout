@@ -365,7 +365,7 @@ export const MobileChatThread = ({
             boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
           }}
         >
-          <div className="relative flex-1">
+          <div className="relative flex-1 flex items-center min-h-[44px]">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -378,8 +378,8 @@ export const MobileChatThread = ({
               }}
               placeholder=""
               disabled={isProcessing}
-              className="w-full min-h-[56px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base resize-none py-2.5 px-2"
-              style={{ lineHeight: "1.5" }}
+              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none py-0 px-2 self-center"
+              style={{ lineHeight: "1.5", letterSpacing: "-0.005em" }}
               dir="rtl"
             />
             {!inputValue && (

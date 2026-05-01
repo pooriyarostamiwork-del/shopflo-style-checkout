@@ -236,7 +236,7 @@ export const MobileChatThread = ({
               )}
 
               {msg.addressShipping && onAddressConfirm && onSelectShipping && onAddNewAddress && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <AddressShippingSelector
                     mode={msg.addressShipping.mode}
                     addresses={msg.addressShipping.addresses}
@@ -253,7 +253,7 @@ export const MobileChatThread = ({
               )}
 
               {msg.addressSelector && !msg.addressShipping && onAddressSelect && onAddressConfirm && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <AddressSelector
                     addresses={msg.addressSelector}
                     selectedAddressId={selectedAddressId || null}
@@ -264,7 +264,7 @@ export const MobileChatThread = ({
               )}
 
               {msg.addressConfirmation && !msg.addressSelector && !msg.addressShipping && onAddressConfirm && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <AddressConfirmation
                     address={msg.addressConfirmation}
                     onConfirm={onAddressConfirm}
@@ -274,7 +274,7 @@ export const MobileChatThread = ({
               )}
 
               {msg.paymentOptions && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <PaymentSelector
                     options={msg.paymentOptions}
                     selectedPayment={selectedPayment}
@@ -284,19 +284,19 @@ export const MobileChatThread = ({
               )}
 
               {msg.orderSummary && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <CartSummaryCard orderSummary={msg.orderSummary} cartItems={cartItems} />
                 </div>
               )}
 
               {msg.quickReplies && onQuickReply && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <QuickReplyButtons replies={msg.quickReplies} onSelect={onQuickReply} />
                 </div>
               )}
 
               {msg.ctaButton && onFinalizePurchase && (
-                <div className="mr-9">
+                <div className="ml-9">
                   <CTAButton
                     label={msg.ctaButton.label}
                     onClick={onFinalizePurchase}

@@ -5,9 +5,12 @@ import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } fro
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
+import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
 const merchantMap: Record<string, typeof merchants[0]> = {
@@ -275,7 +278,7 @@ export const MobileChatLanding = ({
                     alt={s.alt}
                     loading="lazy"
                     decoding="async"
-                    className="w-full h-full object-contain relative z-10"
+                    className="w-full h-full object-cover relative z-10"
                     draggable={false}
                     onLoad={(e) => {
                       const parent = e.currentTarget.parentElement as HTMLElement;
@@ -387,13 +390,10 @@ export const MobileChatLanding = ({
                         >
                           {/* Image with discount chip */}
                           <div className="relative w-full aspect-square" style={{ background: "hsl(0 0% 98%)" }}>
-                            <img
+                            <ProductImage
                               src={p.image}
                               alt={p.name}
-                              loading="lazy"
-                              decoding="async"
                               className="w-full h-full object-cover"
-                              draggable={false}
                             />
                             {discountPct > 0 && (
                               <div
@@ -437,25 +437,33 @@ export const MobileChatLanding = ({
           </div>
         )}
 
+        {/* Prompt tips & tricks — creative carousel */}
+        <MobilePromptTipsCard onSendMessage={onSendMessage} />
+
         {/* Mobile Landing Footer */}
         <footer
           className="mt-10 mx-5 px-4 py-6 border-t"
           style={{ borderColor: "hsl(0 0% 0% / 0.06)" }}
           dir="rtl"
         >
-          {/* Brand block */}
-          <div className="flex items-center gap-2.5 mb-4">
+          {/* Brand block — gradient mark + logotype */}
+          <div className="flex items-center gap-2.5 mb-1">
             <div
               className="w-9 h-9 flex items-center justify-center rounded-xl"
               style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))" }}
             >
               <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-foreground leading-tight">فلوکارت</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">دستیار خرید هوشمند</span>
-            </div>
+            <img
+              src={flowcartLogotype}
+              alt="Flowcart"
+              style={{ height: "18px", width: "auto" }}
+              draggable={false}
+            />
           </div>
+          <p className="text-[11px] text-muted-foreground leading-tight mb-4 mr-[2.875rem]">
+            دستیار خرید هوشمند
+          </p>
 
           {/* Links */}
           <div className="flex flex-wrap gap-1.5 mb-4">
@@ -518,7 +526,7 @@ export const MobileChatLanding = ({
             boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
           }}
         >
-          <div className="relative flex-1 flex items-center min-h-[44px]">
+          <div className="relative flex-1 flex items-stretch min-h-[44px]">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -530,8 +538,8 @@ export const MobileChatLanding = ({
                 }
               }}
               placeholder=""
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none py-0 px-2 self-center"
-              style={{ lineHeight: "1.5", letterSpacing: "-0.005em" }}
+              className="w-full max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none px-2 block"
+              style={{ lineHeight: "22px", paddingBlock: "11px", letterSpacing: "-0.005em" }}
               dir="rtl"
             />
             {!inputValue && (

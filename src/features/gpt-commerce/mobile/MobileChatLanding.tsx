@@ -526,7 +526,7 @@ export const MobileChatLanding = ({
             boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
           }}
         >
-          <div className="relative flex-1 flex items-center min-h-[44px]">
+          <div className="relative flex-1 flex items-stretch min-h-[44px]">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -538,8 +538,8 @@ export const MobileChatLanding = ({
                 }
               }}
               placeholder=""
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none py-0 px-2 self-center"
-              style={{ lineHeight: "1.5", letterSpacing: "-0.005em" }}
+              className="w-full max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none px-2 block"
+              style={{ lineHeight: "22px", paddingBlock: "11px", letterSpacing: "-0.005em" }}
               dir="rtl"
             />
             {!inputValue && (

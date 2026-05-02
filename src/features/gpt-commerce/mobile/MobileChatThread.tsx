@@ -155,8 +155,8 @@ export const MobileChatThread = ({
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-2">
+      {/* Messages — scrolls full height; floating input sits above with extra bottom padding */}
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-44">
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">
@@ -348,9 +348,9 @@ export const MobileChatThread = ({
         </div>
       </div>
 
-      {/* Bottom input — mirrors landing */}
+      {/* Bottom input — floats above messages with same gradient backdrop as landing */}
       <div
-        className="px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="absolute bottom-0 inset-x-0 z-30 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         style={{
           background:
             "linear-gradient(180deg, hsl(0 0% 100% / 0), hsl(0 0% 100% / 0.95) 30%)",
@@ -365,7 +365,7 @@ export const MobileChatThread = ({
             boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
           }}
         >
-          <div className="relative flex-1 flex items-center min-h-[44px]">
+          <div className="relative flex-1 flex items-stretch min-h-[44px]">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -378,8 +378,8 @@ export const MobileChatThread = ({
               }}
               placeholder=""
               disabled={isProcessing}
-              className="w-full min-h-[44px] max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none py-0 px-2 self-center"
-              style={{ lineHeight: "1.5", letterSpacing: "-0.005em" }}
+              className="w-full max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none px-2 block"
+              style={{ lineHeight: "22px", paddingBlock: "11px", letterSpacing: "-0.005em" }}
               dir="rtl"
             />
             {!inputValue && (

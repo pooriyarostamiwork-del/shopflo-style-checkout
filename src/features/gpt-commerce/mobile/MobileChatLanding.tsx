@@ -5,9 +5,12 @@ import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } fro
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
+import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
 const merchantMap: Record<string, typeof merchants[0]> = {
@@ -275,7 +278,7 @@ export const MobileChatLanding = ({
                     alt={s.alt}
                     loading="lazy"
                     decoding="async"
-                    className="w-full h-full object-contain relative z-10"
+                    className="w-full h-full object-cover relative z-10"
                     draggable={false}
                     onLoad={(e) => {
                       const parent = e.currentTarget.parentElement as HTMLElement;
@@ -387,13 +390,10 @@ export const MobileChatLanding = ({
                         >
                           {/* Image with discount chip */}
                           <div className="relative w-full aspect-square" style={{ background: "hsl(0 0% 98%)" }}>
-                            <img
+                            <ProductImage
                               src={p.image}
                               alt={p.name}
-                              loading="lazy"
-                              decoding="async"
                               className="w-full h-full object-cover"
-                              draggable={false}
                             />
                             {discountPct > 0 && (
                               <div

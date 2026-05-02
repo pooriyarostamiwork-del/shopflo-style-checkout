@@ -437,25 +437,33 @@ export const MobileChatLanding = ({
           </div>
         )}
 
+        {/* Prompt tips & tricks — creative carousel */}
+        <MobilePromptTipsCard onSendMessage={onSendMessage} />
+
         {/* Mobile Landing Footer */}
         <footer
           className="mt-10 mx-5 px-4 py-6 border-t"
           style={{ borderColor: "hsl(0 0% 0% / 0.06)" }}
           dir="rtl"
         >
-          {/* Brand block */}
-          <div className="flex items-center gap-2.5 mb-4">
+          {/* Brand block — gradient mark + logotype */}
+          <div className="flex items-center gap-2.5 mb-1">
             <div
               className="w-9 h-9 flex items-center justify-center rounded-xl"
               style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))" }}
             >
               <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-foreground leading-tight">فلوکارت</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">دستیار خرید هوشمند</span>
-            </div>
+            <img
+              src={flowcartLogotype}
+              alt="Flowcart"
+              style={{ height: "18px", width: "auto" }}
+              draggable={false}
+            />
           </div>
+          <p className="text-[11px] text-muted-foreground leading-tight mb-4 mr-[2.875rem]">
+            دستیار خرید هوشمند
+          </p>
 
           {/* Links */}
           <div className="flex flex-wrap gap-1.5 mb-4">

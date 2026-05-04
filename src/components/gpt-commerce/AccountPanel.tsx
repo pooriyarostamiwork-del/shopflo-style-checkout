@@ -3,6 +3,7 @@ import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, 
 import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductImage } from "./ProductImage";
 
 type AccountTab = 'profile' | 'orders';
 

@@ -318,6 +318,10 @@ const CarouselSection = ({
 
 // Horizontal promotional banner component between carousels
 const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerConfigs }) => {
+  // Feature flag — flip to true to re-enable promotional banners between carousels.
+  const SHOW_PROMO_BANNERS = false;
+  if (!SHOW_PROMO_BANNERS) return null;
+
   const { getHorizontalBanner } = useHomepageSettings();
   const banner = getHorizontalBanner(position);
   

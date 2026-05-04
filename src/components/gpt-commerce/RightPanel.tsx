@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface ProductVariant {
   id: string;
@@ -62,7 +63,7 @@ const CartItemCard = ({
   
   return (
     <div className="flex gap-3">
-      <img
+      <ProductImage
         src={productImage}
         alt={item.name}
         className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
@@ -142,7 +143,7 @@ const FavoritesTab = ({ onAddToCart }: { onAddToCart: (product: Product) => void
             key={product.id} 
             className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 bg-background border border-border/40"
           >
-            <img
+            <ProductImage
               src={productImage}
               alt={product.name}
               className="w-11 h-11 rounded-lg object-cover bg-muted/30 border border-border/30"

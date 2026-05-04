@@ -3,6 +3,7 @@ import { X, ShoppingCart, Star, Truck, Shield, MessageCircle, ChevronLeft, Chevr
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface ProductQuickViewModalProps {
   product: Product | null;
@@ -109,7 +110,7 @@ export const ProductQuickViewModal = ({
               className="w-full aspect-square flex items-center justify-center"
               style={{ background: 'hsl(0 0% 98%)' }}
             >
-              <img
+              <ProductImage
                 src={images[currentImageIndex]}
                 alt={product.name}
                 className="w-full h-full object-cover"

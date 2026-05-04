@@ -372,7 +372,7 @@ export const MobileGPTCommerceShell = () => {
             <>
               {/* RTL: mark first → appears right; logotype second → appears left */}
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden"
+                className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden"
                 style={{
                   background:
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
@@ -383,7 +383,7 @@ export const MobileGPTCommerceShell = () => {
               <img
                 src={flowcartLogotype}
                 alt="Flowcart"
-                style={{ height: "16px", width: "auto" }}
+                style={{ height: "28px", width: "auto" }}
                 draggable={false}
               />
             </>
@@ -460,9 +460,9 @@ export const MobileGPTCommerceShell = () => {
         cartItems={cartItems}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
-        onCheckout={handleCheckout}
+        onCheckout={handleFinalizePurchase}
         onAICheckout={handleFinalizePurchase}
-        showAICheckout={!hasStartedChat}
+        showAICheckout={false}
         baskets={baskets.filter(b => !b.isSaved)}
         activeBasketId={activeBasketId}
         onBasketSelect={handleBasketSelect}

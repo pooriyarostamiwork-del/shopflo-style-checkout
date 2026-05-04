@@ -104,7 +104,7 @@ export const ChatProductCard = ({
         </div>
 
         {/* Price */}
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-3">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-3 mb-4">
           <span className="text-sm font-bold text-foreground">
             {formatPersianPrice(product.price)}
           </span>
@@ -115,8 +115,8 @@ export const ChatProductCard = ({
           )}
         </div>
 
-        {/* Actions - Bottom - vertically centered in their footer zone */}
-        <div className="flex items-center gap-2 pt-3 mt-auto border-t min-h-[48px]" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
+        {/* Actions - Bottom - vertically centered between divider and card bottom */}
+        <div className="flex items-center gap-2 mt-auto py-3 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
           {/* Save Button */}
           <button
             onClick={(e) => {

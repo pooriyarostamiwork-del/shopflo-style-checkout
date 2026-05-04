@@ -7,6 +7,7 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 
 // Rotating placeholder texts
 const placeholderTexts = [
@@ -209,8 +210,8 @@ export const ChatLanding = ({
               <Zap className="w-10 h-10 text-primary" />
             </div>
           )}
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Flowcart</h1>
+          <div className="flex flex-col items-center gap-3">
+            <img src={flowcartLogotype} alt="Flowcart" style={{ height: '40px', width: 'auto' }} draggable={false} />
             <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
           </div>
         </div>

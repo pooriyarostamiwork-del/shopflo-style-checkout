@@ -143,7 +143,7 @@ const FavoritesTab = ({ onAddToCart }: { onAddToCart: (product: Product) => void
             key={product.id} 
             className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 bg-background border border-border/40"
           >
-            <img
+            <ProductImage
               src={productImage}
               alt={product.name}
               className="w-11 h-11 rounded-lg object-cover bg-muted/30 border border-border/30"

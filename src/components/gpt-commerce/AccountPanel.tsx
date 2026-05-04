@@ -136,7 +136,7 @@ const OrderDetailView = ({ order: rawOrder, onBack }: { order: any; onBack: () =
           <div className="p-4 space-y-3">
             {group.items.map((item) => (
               <div key={item.id} className="flex items-center gap-3">
-                <img
+                <ProductImage
                   src={item.image}
                   alt={item.name}
                   className="w-12 h-12 rounded-xl object-cover flex-shrink-0"

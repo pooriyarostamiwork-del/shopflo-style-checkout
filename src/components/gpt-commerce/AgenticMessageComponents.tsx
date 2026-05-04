@@ -163,7 +163,7 @@ export const CartSummaryCard = ({ orderSummary: propOrderSummary, cartItems }: C
             <div className="space-y-2 mb-3">
               {vendor.items.map((item) => (
                 <div key={item.id} className="flex items-center gap-3">
-                  <img 
+                  <ProductImage 
                     src={item.image} 
                     alt={item.name}
                     className="w-10 h-10 rounded-lg object-cover"

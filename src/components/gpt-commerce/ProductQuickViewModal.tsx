@@ -3,6 +3,7 @@ import { X, ShoppingCart, Star, Truck, Shield, MessageCircle, ChevronLeft, Chevr
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { ProductImage } from "./ProductImage";
 
 interface ProductQuickViewModalProps {
   product: Product | null;

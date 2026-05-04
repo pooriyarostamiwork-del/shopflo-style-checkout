@@ -1,5 +1,6 @@
 import { Shield, RefreshCw, Headphones, Truck, CreditCard, Phone } from "lucide-react";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 
 // Social media icons as inline SVGs
 const InstagramIcon = () => (

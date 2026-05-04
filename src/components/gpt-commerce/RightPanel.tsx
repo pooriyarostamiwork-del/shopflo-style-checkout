@@ -63,7 +63,7 @@ const CartItemCard = ({
   
   return (
     <div className="flex gap-3">
-      <img
+      <ProductImage
         src={productImage}
         alt={item.name}
         className="w-14 h-14 rounded-xl object-cover flex-shrink-0"

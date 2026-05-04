@@ -110,7 +110,7 @@ export const ProductQuickViewModal = ({
               className="w-full aspect-square flex items-center justify-center"
               style={{ background: 'hsl(0 0% 98%)' }}
             >
-              <img
+              <ProductImage
                 src={images[currentImageIndex]}
                 alt={product.name}
                 className="w-full h-full object-cover"

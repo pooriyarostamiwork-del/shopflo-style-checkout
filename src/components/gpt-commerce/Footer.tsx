@@ -76,7 +76,7 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
                     <span className="text-primary text-lg">⚡</span>
                   </div>
                 )}
-                <h3 className="text-sm font-semibold text-foreground">فلوکارت</h3>
+                <img src={flowcartLogotype} alt="Flowcart" style={{ height: '18px', width: 'auto' }} draggable={false} />
               </div>
               <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 {footerLogo.subtitle || 'خرید هوشمند با کمک هوش مصنوعی'}

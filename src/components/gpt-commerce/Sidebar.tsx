@@ -113,8 +113,8 @@ export const Sidebar = ({
               <MessageSquare className="w-5 h-5 text-primary-foreground" />
             </div>
           )}
-          <div>
-            <h1 className="font-semibold text-foreground text-base">Flowcart</h1>
+          <div className="flex flex-col gap-1 min-w-0">
+            <img src={flowcartLogotype} alt="Flowcart" style={{ height: '20px', width: 'auto' }} draggable={false} />
             <p className="text-xs text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
           </div>
         </div>

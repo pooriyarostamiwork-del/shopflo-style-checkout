@@ -3,6 +3,7 @@ import { User, Package, Gift, ChevronDown, MessageSquare, Plus, MoreHorizontal, 
 import { toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 
 export interface SavedItem {
   id: string;

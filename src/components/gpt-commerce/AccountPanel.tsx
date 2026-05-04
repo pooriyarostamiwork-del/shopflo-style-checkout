@@ -567,7 +567,7 @@ export const AccountPanel = ({
                         <div className="flex items-center gap-2">
                           <div className="flex -space-x-2 space-x-reverse">
                             {orderItems.slice(0, 3).map((item: any, idx: number) => (
-                              <img
+                              <ProductImage
                                 key={(item.id || idx) + '' + idx}
                                 src={item.image}
                                 alt={item.name}

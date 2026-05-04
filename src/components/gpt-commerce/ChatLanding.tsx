@@ -7,6 +7,7 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 
 // Rotating placeholder texts
 const placeholderTexts = [

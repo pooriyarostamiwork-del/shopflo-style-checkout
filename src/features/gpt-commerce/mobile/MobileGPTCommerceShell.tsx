@@ -460,9 +460,9 @@ export const MobileGPTCommerceShell = () => {
         cartItems={cartItems}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
-        onCheckout={handleCheckout}
+        onCheckout={handleFinalizePurchase}
         onAICheckout={handleFinalizePurchase}
-        showAICheckout={!hasStartedChat}
+        showAICheckout={false}
         baskets={baskets.filter(b => !b.isSaved)}
         activeBasketId={activeBasketId}
         onBasketSelect={handleBasketSelect}

@@ -27,6 +27,7 @@ const App = () => (
 
             {/* Product 2: GPT Commerce */}
             <Route path="/gptcommerce" element={<GPTCommerce />} />
+            <Route path="/gptcommerce/docs/ai" element={<DocsAIPage />} />
             <Route path="/m/gptcommerce" element={<MobileGPTCommerce />} />
 
             {/* Catch-all */}

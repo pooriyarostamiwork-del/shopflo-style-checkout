@@ -160,7 +160,7 @@ export const MobileChatThread = ({
       </div>
 
       {/* Messages — scrolls full height; floating input sits above with extra bottom padding */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-44">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-56">
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">

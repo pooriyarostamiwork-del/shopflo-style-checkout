@@ -452,17 +452,21 @@ export const MobileChatLanding = ({
           dir="rtl"
         >
           {/* Brand block — gradient mark + logotype */}
-          <div className="flex items-center gap-2.5 mb-1">
+          <div className="flex items-center gap-2 mb-1">
             <div
-              className="w-9 h-9 flex items-center justify-center rounded-xl"
-              style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))" }}
+              className="flex items-center justify-center rounded-xl"
+              style={{
+                width: "44px",
+                height: "44px",
+                background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
+              }}
             >
               <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
             </div>
             <img
               src={flowcartLogotype}
               alt="Flowcart"
-              style={{ height: "18px", width: "auto" }}
+              style={{ height: "44px", width: "auto", objectFit: "contain" }}
               draggable={false}
             />
           </div>

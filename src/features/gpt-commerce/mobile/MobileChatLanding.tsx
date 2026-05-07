@@ -437,6 +437,7 @@ export const MobileChatLanding = ({
                       );
                     })}
               </div>
+              </div>
             </div>
           </div>
         )}

@@ -372,8 +372,10 @@ export const MobileGPTCommerceShell = () => {
             <>
               {/* RTL: mark first → appears right; logotype second → appears left */}
               <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden"
+                className="rounded-xl flex items-center justify-center overflow-hidden"
                 style={{
+                  width: "44px",
+                  height: "44px",
                   background:
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                 }}
@@ -383,7 +385,7 @@ export const MobileGPTCommerceShell = () => {
               <img
                 src={flowcartLogotype}
                 alt="Flowcart"
-                style={{ height: "28px", width: "auto" }}
+                style={{ height: "44px", width: "auto", objectFit: "contain" }}
                 draggable={false}
               />
             </>

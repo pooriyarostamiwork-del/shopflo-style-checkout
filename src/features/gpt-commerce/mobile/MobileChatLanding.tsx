@@ -351,14 +351,14 @@ export const MobileChatLanding = ({
                 داغ‌ترین تخفیف‌ها
               </p>
             </div>
-            <div
-              className="overflow-x-auto scrollbar-none snap-x snap-proximity"
-              style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
-            >
+            <div className="px-5">
               <div
-                className="flex gap-2.5 items-stretch"
-                style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}
+                className="-mx-5 overflow-x-auto scrollbar-none snap-x snap-proximity"
+                style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
               >
+                <div
+                  className="flex gap-2.5 items-stretch px-5"
+                >
                 {hotDealsLoading
                   ? Array.from({ length: 4 }).map((_, i) => (
                       <div

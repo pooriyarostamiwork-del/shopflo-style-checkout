@@ -9,7 +9,7 @@ import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/gpt-commerce/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { toPersianNumber, merchants } from "@/data/gptCommerceData";
+import { toPersianNumber, merchants, type Product, type ChatMessage } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
 import { useUserData } from "../hooks/useUserData";

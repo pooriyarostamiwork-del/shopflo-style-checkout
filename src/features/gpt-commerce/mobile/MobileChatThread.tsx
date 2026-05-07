@@ -209,7 +209,7 @@ export const MobileChatThread = ({
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
                   <div className="flex gap-[0.375rem] pl-9 pb-1" style={{ width: "max-content" }}>
                     {msg.products.map((product, index) => (
-                      <div key={product.id} className="w-auto flex-shrink-0">
+                      <div key={product.id} className="w-auto flex-shrink-0 mobile-chat-card-wrap">
                         <ChatProductCard
                           product={product}
                           index={(msg.productIndexStart || 1) + index}

@@ -9,7 +9,7 @@ import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/gpt-commerce/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { toPersianNumber, merchants } from "@/data/gptCommerceData";
+import { toPersianNumber, merchants, type Product, type ChatMessage } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
 import { useUserData } from "../hooks/useUserData";
@@ -206,6 +206,66 @@ export const MobileGPTCommerceShell = () => {
     handleSendMessage(message);
   }, [pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
 
+  // Tap on a landing carousel product card → no AI; render a deterministic PDP reply
+  const handleLandingProductTap = useCallback((product: Product) => {
+    if (isCreatingBasketRef.current) return;
+    isCreatingBasketRef.current = true;
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      role: "user",
+      content: `درباره ${product.name} بیشتر بگو`,
+      timestamp: new Date(),
+    };
+    const assistantMsg: ChatMessage = {
+      id: `a-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      role: "assistant",
+      content: "",
+      inlineProduct: product,
+      timestamp: new Date(),
+    };
+
+    if (pendingNewChat || !hasStartedChat) {
+      const existingNew = baskets.filter(b => b.title.startsWith("سبد جدید") && !b.isSaved);
+      const newTitle = existingNew.length > 0
+        ? `سبد جدید ${toPersianNumber(existingNew.length + 1)}`
+        : "سبد جدید";
+      const newId = crypto.randomUUID();
+      const newBasket: Basket = {
+        id: newId,
+        title: newTitle,
+        itemCount: 0,
+        lastActivity: "الان",
+        savedItems: [],
+        isSaved: false,
+      };
+      setBaskets(prev => [newBasket, ...prev]);
+      setActiveBasketId(newId);
+      setBasketStates(prev => ({
+        ...prev,
+        [newId]: {
+          ...createDefaultBasketState(),
+          hasStartedChat: true,
+          messages: [
+            ...createDefaultBasketState().messages,
+            userMsg,
+            assistantMsg,
+          ],
+          lastRecommendedProducts: [product],
+        },
+      }));
+      setPendingNewChat(false);
+    } else {
+      updateCurrentBasket(prev => ({
+        ...prev,
+        hasStartedChat: true,
+        messages: [...prev.messages, userMsg, assistantMsg],
+        lastRecommendedProducts: [product],
+      }));
+    }
+    setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
+  }, [pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, updateCurrentBasket]);
+
   const handleCreateBasket = useCallback(() => {
     setPendingNewChat(true);
     // After the next message, a new basket will be created
@@ -372,8 +432,10 @@ export const MobileGPTCommerceShell = () => {
             <>
               {/* RTL: mark first → appears right; logotype second → appears left */}
               <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden"
+                className="rounded-xl flex items-center justify-center overflow-hidden"
                 style={{
+                  width: "44px",
+                  height: "44px",
                   background:
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                 }}
@@ -383,7 +445,7 @@ export const MobileGPTCommerceShell = () => {
               <img
                 src={flowcartLogotype}
                 alt="Flowcart"
-                style={{ height: "28px", width: "auto" }}
+                style={{ height: "44px", width: "auto", objectFit: "contain" }}
                 draggable={false}
               />
             </>
@@ -418,6 +480,7 @@ export const MobileGPTCommerceShell = () => {
             onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
             onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
             onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}
+            onProductCardTap={handleLandingProductTap}
           />
         ) : (
           <MobileChatThread

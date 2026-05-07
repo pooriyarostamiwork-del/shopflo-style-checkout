@@ -75,6 +75,7 @@ interface MobileChatLandingProps {
   onOpenBaskets?: () => void;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
+  onProductCardTap?: (product: Product) => void;
 }
 
 export const MobileChatLanding = ({
@@ -91,6 +92,7 @@ export const MobileChatLanding = ({
   onOpenBaskets,
   onOpenCart,
   onOpenAccount,
+  onProductCardTap,
 }: MobileChatLandingProps) => {
   const [inputValue, setInputValue] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -245,49 +247,51 @@ export const MobileChatLanding = ({
 
         {/* Hero slider — slidable, snap-proximity for easy swipe */}
         <div className="pt-3 pb-6">
-          <div
-            ref={sliderRef}
-            onScroll={handleSliderScroll}
-            className="hero-slider-track overflow-x-auto snap-x snap-proximity scroll-smooth"
-            style={{
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              WebkitOverflowScrolling: "touch",
-              scrollPaddingInline: "1.25rem",
-            }}
-          >
-            <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
-            <div className="flex gap-3" style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}>
-              {heroSlides.map((s) => (
-                <div
-                  key={s.id}
-                  data-slide
-                  className="snap-start shrink-0 w-[96%] rounded-2xl overflow-hidden relative"
-                  style={{
-                    border: "1px solid hsl(0 0% 0% / 0.06)",
-                    aspectRatio: "1920 / 1296",
-                    background:
-                      "linear-gradient(110deg, hsl(0 0% 95%) 30%, hsl(0 0% 90%) 50%, hsl(0 0% 95%) 70%)",
-                    backgroundSize: "200% 100%",
-                    animation: "heroShimmer 1.6s linear infinite",
-                  }}
-                >
-                  <style>{`@keyframes heroShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
-                  <img
-                    src={s.image}
-                    alt={s.alt}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover relative z-10"
-                    draggable={false}
-                    onLoad={(e) => {
-                      const parent = e.currentTarget.parentElement as HTMLElement;
-                      parent.style.animation = "none";
-                      parent.style.background = "hsl(0 0% 96%)";
+          <div className="px-5">
+            <div
+              ref={sliderRef}
+              onScroll={handleSliderScroll}
+              className="hero-slider-track -mx-5 overflow-x-auto snap-x snap-proximity scroll-smooth"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                WebkitOverflowScrolling: "touch",
+                scrollPaddingInline: "1.25rem",
+              }}
+            >
+              <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
+              <div className="flex gap-3 px-5">
+                {heroSlides.map((s) => (
+                  <div
+                    key={s.id}
+                    data-slide
+                    className="snap-start shrink-0 w-[88%] rounded-2xl overflow-hidden relative"
+                    style={{
+                      border: "1px solid hsl(0 0% 0% / 0.06)",
+                      aspectRatio: "1920 / 1296",
+                      background:
+                        "linear-gradient(110deg, hsl(0 0% 95%) 30%, hsl(0 0% 90%) 50%, hsl(0 0% 95%) 70%)",
+                      backgroundSize: "200% 100%",
+                      animation: "heroShimmer 1.6s linear infinite",
                     }}
-                  />
-                </div>
-              ))}
+                  >
+                    <style>{`@keyframes heroShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+                    <img
+                      src={s.image}
+                      alt={s.alt}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover relative z-10"
+                      draggable={false}
+                      onLoad={(e) => {
+                        const parent = e.currentTarget.parentElement as HTMLElement;
+                        parent.style.animation = "none";
+                        parent.style.background = "hsl(0 0% 96%)";
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           {/* Dot indicators — clickable */}
@@ -347,14 +351,14 @@ export const MobileChatLanding = ({
                 داغ‌ترین تخفیف‌ها
               </p>
             </div>
-            <div
-              className="overflow-x-auto scrollbar-none snap-x snap-proximity"
-              style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
-            >
+            <div className="px-5">
               <div
-                className="flex gap-2.5 items-stretch"
-                style={{ paddingInlineStart: "1.25rem", paddingInlineEnd: "1.25rem" }}
+                className="-mx-5 overflow-x-auto scrollbar-none snap-x snap-proximity"
+                style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
               >
+                <div
+                  className="flex gap-2.5 items-stretch px-5"
+                >
                 {hotDealsLoading
                   ? Array.from({ length: 4 }).map((_, i) => (
                       <div
@@ -381,7 +385,7 @@ export const MobileChatLanding = ({
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => submit(`درباره ${p.name} بیشتر بگو`)}
+                          onClick={() => onProductCardTap?.(p)}
                           className="snap-start flex-shrink-0 w-[168px] rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
                           style={{
                             background: "hsl(0 0% 100%)",
@@ -433,6 +437,7 @@ export const MobileChatLanding = ({
                       );
                     })}
               </div>
+              </div>
             </div>
           </div>
         )}
@@ -447,17 +452,21 @@ export const MobileChatLanding = ({
           dir="rtl"
         >
           {/* Brand block — gradient mark + logotype */}
-          <div className="flex items-center gap-2.5 mb-1">
+          <div className="flex items-center gap-2 mb-1">
             <div
-              className="w-9 h-9 flex items-center justify-center rounded-xl"
-              style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))" }}
+              className="flex items-center justify-center rounded-xl"
+              style={{
+                width: "44px",
+                height: "44px",
+                background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
+              }}
             >
               <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
             </div>
             <img
               src={flowcartLogotype}
               alt="Flowcart"
-              style={{ height: "18px", width: "auto" }}
+              style={{ height: "44px", width: "auto", objectFit: "contain" }}
               draggable={false}
             />
           </div>

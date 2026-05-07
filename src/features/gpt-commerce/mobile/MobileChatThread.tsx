@@ -132,6 +132,10 @@ export const MobileChatThread = ({
           margin-inline: auto !important;
         }
         .mobile-pdp .w-28 { width: auto !important; min-width: 5.5rem !important; flex-shrink: 0 !important; }
+        /* Chat product card — give action row breathing room above sticky input */
+        .mobile-chat-card-wrap > div {
+          height: 460px !important;
+        }
       `}</style>
 
       {/* Floating bento decorations — match landing */}
@@ -156,7 +160,7 @@ export const MobileChatThread = ({
       </div>
 
       {/* Messages — scrolls full height; floating input sits above with extra bottom padding */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-44">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-56">
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">
@@ -205,7 +209,7 @@ export const MobileChatThread = ({
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
                   <div className="flex gap-[0.375rem] pl-9 pb-1" style={{ width: "max-content" }}>
                     {msg.products.map((product, index) => (
-                      <div key={product.id} className="w-auto flex-shrink-0">
+                      <div key={product.id} className="w-auto flex-shrink-0 mobile-chat-card-wrap">
                         <ChatProductCard
                           product={product}
                           index={(msg.productIndexStart || 1) + index}

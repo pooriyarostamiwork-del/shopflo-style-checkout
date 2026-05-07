@@ -132,6 +132,10 @@ export const MobileChatThread = ({
           margin-inline: auto !important;
         }
         .mobile-pdp .w-28 { width: auto !important; min-width: 5.5rem !important; flex-shrink: 0 !important; }
+        /* Chat product card — give action row breathing room above sticky input */
+        .mobile-chat-card-wrap > div {
+          height: 460px !important;
+        }
       `}</style>
 
       {/* Floating bento decorations — match landing */}

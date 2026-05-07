@@ -480,6 +480,7 @@ export const MobileGPTCommerceShell = () => {
             onOpenBaskets={() => { setSheetTab("baskets"); setSheetOpen(true); }}
             onOpenCart={() => { setSheetTab("cart"); setSheetOpen(true); }}
             onOpenAccount={() => { setSheetTab("account"); setSheetOpen(true); }}
+            onProductCardTap={handleLandingProductTap}
           />
         ) : (
           <MobileChatThread

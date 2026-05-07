@@ -75,6 +75,7 @@ interface MobileChatLandingProps {
   onOpenBaskets?: () => void;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
+  onProductCardTap?: (product: Product) => void;
 }
 
 export const MobileChatLanding = ({

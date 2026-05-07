@@ -385,7 +385,7 @@ export const MobileChatLanding = ({
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => submit(`درباره ${p.name} بیشتر بگو`)}
+                          onClick={() => onProductCardTap?.(p)}
                           className="snap-start flex-shrink-0 w-[168px] rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
                           style={{
                             background: "hsl(0 0% 100%)",

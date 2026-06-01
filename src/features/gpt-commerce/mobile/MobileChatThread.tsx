@@ -235,9 +235,11 @@ export const MobileChatThread = ({
                     isInCart={cartItems.some((i) => i.id === msg.inlineProduct?.id)}
                     onAddToCart={onAddToCart}
                     showContextLabel={false}
+                    enableSwipeGallery={true}
                   />
                 </div>
               )}
+
 
               {msg.addressShipping && onAddressConfirm && onSelectShipping && onAddNewAddress && (
                 <div className="ml-9">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
@@ -14,7 +14,9 @@ interface PDPProductComponentProps {
   showContextLabel?: boolean;
   onOtherSupplierClick?: (supplierName: string) => void;
   showImageNavigation?: boolean; // Enable image navigation for PDP page
+  enableSwipeGallery?: boolean; // Mobile: native swipe + dots
 }
+
 
 // Generate random supplier prices based on product price (±10%)
 const generateSupplierPrices = (productPrice: number) => {
@@ -39,8 +41,11 @@ export const PDPProductComponent = ({
   showContextLabel = true,
   onOtherSupplierClick,
   showImageNavigation = false,
+  enableSwipeGallery = false,
 }: PDPProductComponentProps) => {
   const { getProductImage } = useHomepageSettings();
+  const swipeScrollerRef = useRef<HTMLDivElement>(null);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     description: true, // Open by default (as per requirement)
     comments: false, // Closed by default (as per requirement)
@@ -143,81 +148,138 @@ export const PDPProductComponent = ({
           <div className="flex gap-6">
             {/* Product Image with optional navigation */}
             <div className="w-56 flex-shrink-0">
-              <div 
-                className="aspect-square rounded-xl overflow-hidden relative group cursor-pointer"
-                style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
-                onClick={() => showImageNavigation && setIsLightboxOpen(true)}
-              >
-                <ProductImage
-                  src={productImage}
-                  alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                {/* Discount Badge */}
-                {discountPercent > 0 && (
-                  <div 
-                    className="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+              {enableSwipeGallery ? (
+                <>
+                  <div
+                    className="aspect-square rounded-xl overflow-hidden relative"
+                    style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
                   >
-                    {toPersianNumber(discountPercent)}٪
+                    <div
+                      ref={swipeScrollerRef}
+                      dir="ltr"
+                      onScroll={() => {
+                        const el = swipeScrollerRef.current;
+                        if (!el) return;
+                        const idx = Math.round(el.scrollLeft / el.clientWidth);
+                        if (idx !== currentImageIndex) setCurrentImageIndex(idx);
+                      }}
+                      className="w-full h-full flex overflow-x-auto snap-x snap-mandatory"
+                      style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
+                    >
+                      <style>{`.pdp-swipe::-webkit-scrollbar{display:none}`}</style>
+                      {productImages.map((src, i) => (
+                        <div key={i} className="w-full h-full flex-shrink-0 snap-start">
+                          <ProductImage src={src} alt={product.name} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                    {discountPercent > 0 && (
+                      <div
+                        className="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold text-white z-10"
+                        style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+                      >
+                        {toPersianNumber(discountPercent)}٪
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {/* Expand button - only when navigation is enabled */}
-                {showImageNavigation && (
-                  <button 
-                    className="absolute top-2 left-2 w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: 'hsl(0 0% 0% / 0.5)' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsLightboxOpen(true);
-                    }}
+                  {productImages.length > 1 && (
+                    <div className="flex justify-center gap-1.5 mt-2">
+                      {productImages.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setCurrentImageIndex(idx);
+                            const el = swipeScrollerRef.current;
+                            if (el) el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' });
+                          }}
+                          className={`h-1.5 rounded-full transition-all duration-200 ${
+                            idx === currentImageIndex ? 'bg-primary w-4' : 'bg-muted-foreground/30 w-1.5'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div
+                    className="aspect-square rounded-xl overflow-hidden relative group cursor-pointer"
+                    style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
+                    onClick={() => showImageNavigation && setIsLightboxOpen(true)}
                   >
-                    <Maximize2 className="w-4 h-4 text-white" />
-                  </button>
-                )}
-                
-                {/* Navigation arrows - only when multiple images */}
-                {showImageNavigation && productImages.length > 1 && (
-                  <>
-                    <button 
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: 'hsl(0 0% 100% / 0.9)' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateImage('prev');
-                      }}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                    <button 
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: 'hsl(0 0% 100% / 0.9)' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateImage('next');
-                      }}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-              </div>
-              
-              {/* Image indicators - only when navigation is enabled */}
-              {showImageNavigation && productImages.length > 1 && (
-                <div className="flex justify-center gap-1.5 mt-2">
-                  {productImages.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentImageIndex(idx)}
-                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                        idx === currentImageIndex ? 'bg-primary w-4' : 'bg-muted-foreground/30'
-                      }`}
+                    <ProductImage
+                      src={productImage}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
-                  ))}
-                </div>
+                    {/* Discount Badge */}
+                    {discountPercent > 0 && (
+                      <div
+                        className="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold text-white"
+                        style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+                      >
+                        {toPersianNumber(discountPercent)}٪
+                      </div>
+                    )}
+
+                    {/* Expand button - only when navigation is enabled */}
+                    {showImageNavigation && (
+                      <button
+                        className="absolute top-2 left-2 w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: 'hsl(0 0% 0% / 0.5)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsLightboxOpen(true);
+                        }}
+                      >
+                        <Maximize2 className="w-4 h-4 text-white" />
+                      </button>
+                    )}
+
+                    {/* Navigation arrows - only when multiple images */}
+                    {showImageNavigation && productImages.length > 1 && (
+                      <>
+                        <button
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ background: 'hsl(0 0% 100% / 0.9)' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateImage('prev');
+                          }}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ background: 'hsl(0 0% 100% / 0.9)' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateImage('next');
+                          }}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Image indicators - only when navigation is enabled */}
+                  {showImageNavigation && productImages.length > 1 && (
+                    <div className="flex justify-center gap-1.5 mt-2">
+                      {productImages.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                            idx === currentImageIndex ? 'bg-primary w-4' : 'bg-muted-foreground/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
+
             </div>
 
             {/* Product Info */}

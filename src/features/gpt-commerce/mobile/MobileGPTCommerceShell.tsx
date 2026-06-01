@@ -220,10 +220,11 @@ export const MobileGPTCommerceShell = () => {
     const assistantMsg: ChatMessage = {
       id: `a-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       role: "assistant",
-      content: "",
+      content: `این هم جزئیات «${product.name}». اگه سوالی داری یا خواستی به سبد اضافه کنی، همین‌جا بگو.`,
       inlineProduct: product,
       timestamp: new Date(),
     };
+
 
     if (pendingNewChat || !hasStartedChat) {
       const existingNew = baskets.filter(b => b.title.startsWith("سبد جدید") && !b.isSaved);

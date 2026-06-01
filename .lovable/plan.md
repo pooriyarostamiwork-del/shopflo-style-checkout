@@ -1,93 +1,76 @@
-All changes scoped to `/m/gptcommerce` only. Frontend-only. No backend/edge function/SQL changes. No edits to shared `ChatProductCard.tsx` (mobile-scoped CSS overrides instead).
+All changes are frontend-only and scoped to `/m/gptcommerce`. No backend, edge function, SQL, or shared desktop component behavior is modified.
 
-## 1. Header logotype not fully visible / size mismatch
-**File:** `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx` (header), `MobileChatLanding.tsx` (footer brand block)
+## 1. Prompt template modal — semi static, just like action bars modal background
 
-**Root cause:** `flowcart-logotype.svg` has a 1080×1080 square viewBox with the wordmark drawn as a narrow horizontal band inside it. Setting only `height: 28px` with `width: auto` produces a 28×28 box where the actual text is tiny. So the logotype looks "cut off" because most of the rendered area is empty padding.
+File: `src/features/gpt-commerce/mobile/MobilePromptTemplateModal.tsx`
 
-**Fix:**
-- Render the logotype with an explicit wider `width` (e.g. `width: ~120-140px, height: auto, object-fit: contain`) so the wordmark appears at a visually meaningful size.
-- Slightly bump the adjacent gradient icon square (currently `w-8 h-8` ≈ 32px) to ~`w-11 h-11` (~44px) so the wordmark glyph height visually aligns with the square.
-- Apply the same proportions in the mobile-landing footer brand block.
+- Remove the `slideUp` keyframes, the `animation: "slideUp ..."` inline style, the `animate-fade-in` on the backdrop, and the `animate-slide-in-right` class on the sheet.
+- The sheet just renders in place when `open` is true. Backdrop stays static (semi-transparent, click-to-close).
 
-## 2. Chat product cards — Add/Save/Details buttons hidden behind input gradient
-**File:** `src/features/gpt-commerce/mobile/MobileChatThread.tsx`
+## 2. Prompt template modal — fully visible content + CTA
 
-**Root cause:** The floating input has a tall gradient backdrop and the messages container only reserves `pb-44`. Cards are 420px tall and the action row sits flush against the bottom edge of the card, so it is masked by the gradient.
+Same file. Current problems: sheet uses `max-h: 85vh` and bottom safe-area padding, but with header + preview block + N inputs (some templates have 2 slots) + send button, the CTA gets pushed below the fold on small viewports, and there is no internal scroll because the outer container is the scroll surface — the button can be clipped behind the keyboard or sit at the screen edge with no breathing room.
 
-**Fix (mobile-only, no edit to shared `ChatProductCard.tsx`):**
-- Increase scroll-area bottom padding from `pb-44` to `pb-56` (or ~`pb-60`) so the last visible content clears the input bar.
-- Add scoped CSS in `MobileChatThread.tsx`’s `<style>` block targeting the card wrapper (`.mobile-chat-card-wrap`) to bump card height to ~460-470px and ensure the action row has clearance.
-- Wrap each `ChatProductCard` in a `div.mobile-chat-card-wrap` so the override is scoped.
+Fix:
 
-## 3. Landing product carousel cards must NOT trigger AI
-**Files:** `src/features/gpt-commerce/mobile/MobileChatLanding.tsx`, `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx`
+- Make the sheet a flex column: fixed `max-height: 88vh`, internal regions:
+  - header (drag handle + title row) — non-scrolling.
+  - middle scroll area (`flex-1`, `overflow-y-auto`) containing live preview + slot inputs.
+  - sticky footer holding the send button with a top hairline border and the safe-area bottom padding.
+- Pin the send CTA to the footer so it is always visible regardless of slot count or keyboard.
+- Slight padding tweaks so inputs don't crowd the CTA.
 
-**Current behavior:** Tapping a Hot Deals card calls `submit(\`درباره ${name} بیشتر بگو\`)` which goes through `handleSendMessageWithPending → sendMessageToBasket` and hits the AI agent.
+## 3. Landing product card tap — fill the empty assistant bubble
 
-**Desired behavior:** The same user message bubble appears in the chat, but the assistant reply is a deterministic, locally-rendered PDP for that product (using existing `PDPProductComponent` via `inlineProduct` on a `ChatMessage`). No AI call.
+File: `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx` → `handleLandingProductTap`.
 
-**Fix:**
-- Add a new prop `onProductCardTap(product: Product)` to `MobileChatLanding`.
-- Tap handler in the carousel calls `onProductCardTap(product)` instead of `submit(...)`.
-- Implement `onProductCardTap` in `MobileGPTCommerceShell`:
-  1. Create-or-reuse a basket the same way `handleSendMessageWithPending` does (forceNew when on landing).
-  2. Directly mutate basket state (`setBasketStates`) to push two messages:
-     - user message: `درباره {name} بیشتر بگو`
-     - assistant message with `inlineProduct: product` and `content: ""` (or short fixed copy).
-  3. Set `hasStartedChat: true`. Do NOT call `useAgentMessages.handleSendMessage`.
-- This keeps everything frontend; `MobileChatThread` already renders `msg.inlineProduct` via `PDPProductComponent`.
+Currently the assistant message is created with `content: ""`, so the bubble is empty above the inline PDP. Replace with a short Farsi line, for example:
 
-## 4. Prompt tips become true prompt templates with user-fillable slots
-**Files:** `src/features/gpt-commerce/mobile/MobilePromptTipsCard.tsx` (rework), new `MobilePromptTemplateModal.tsx`
+```
+این هم جزئیات «{product.name}». اگه سوالی داری یا خواستی به سبد اضافه کنی، همین‌جا بگو.
+```
 
-**Current behavior:** Tip card directly calls `onSendMessage(tip.example, true)`.
+Apply in both branches (new basket + existing basket) so the bubble is never empty.
 
-**New behavior:** Each tip is a template with one or more named slots and sensible defaults. Tapping a tip opens a small bottom-sheet/modal where the user edits the slot values, then taps "ارسال" to submit the resolved string via the existing `onSendMessage`.
+## 4. Swipeable photo gallery in `ChatProductCard`
 
-**Implementation:**
-- Restructure each tip to:
-  ```ts
-  {
-    icon, title, gradient, iconBg,
-    template: "بهترین {category} زیر {budget} تومان",
-    slots: [
-      { key: "category", label: "دسته‌بندی", placeholder: "هدفون نویزکنسلینگ", default: "هدفون نویزکنسلینگ" },
-      { key: "budget",   label: "بودجه",      placeholder: "۵ میلیون",         default: "۵ میلیون" },
-    ],
-    preview: "بهترین هدفون نویزکنسلینگ زیر ۵ میلیون"
-  }
-  ```
-- The card visibly shows the template with slot chips highlighted (e.g. `بهترین [هدفون نویزکنسلینگ] زیر [۵ میلیون]`).
-- Tap → open `MobilePromptTemplateModal` (reuses existing `Sheet`/`Drawer` styling) with one input per slot (RTL, Persian numerals where relevant), live preview at top, and a primary "ارسال" button. Cancel closes modal.
-- On submit: build the resolved string by `template.replace("{slot}", value)` and call `onSendMessage(text, true)`.
-- Modal component lives only under `src/features/gpt-commerce/mobile/`.
+File: `src/components/gpt-commerce/ChatProductCard.tsx`
 
-## 5. Landing carousels alignment with title and visible side margins
-**File:** `src/features/gpt-commerce/mobile/MobileChatLanding.tsx` (Hero, Hot Deals), `MobilePromptTipsCard.tsx`
+The card currently renders a single `<ProductImage>`. Add a horizontally-swipeable gallery for `product.imageUrls` while keeping current visual size (square area at top, `aspect-square`, `object-cover`).
 
-**Root cause:** The scroll containers are full-bleed (`overflow-x-auto` with no horizontal margin), and the inner row uses `paddingInlineStart/End: "1.25rem"` to fake alignment. This causes the first card to start visually flush at the viewport edge during scroll because the scroll container itself has no `px-5` offset; padding inside `flex` is consumed by scroll. Result: appears edge-to-edge with no breathing room and inconsistent with title (which is `px-5`).
+Implementation:
 
-**Fix (consistent pattern for all three carousels: hero slider, hot deals, prompt tips):**
-- Wrap each carousel scroll container in a `px-5` parent that uses negative margin trick:
-  ```tsx
-  <div className="px-5">
-    <div className="-mx-5 overflow-x-auto scrollbar-none snap-x snap-proximity">
-      <div className="flex gap-2.5 px-5">{/* cards */}</div>
-    </div>
-  </div>
-  ```
-- Remove the explicit `paddingInlineStart/End: "1.25rem"` style on the inner flex (replaced by `px-5`).
-- Ensures: titles and first card align at `1.25rem`, last card has trailing margin, side gradient mask (optional small fade) can be added later but is not required.
+- Compute `images = product.imageUrls?.length ? product.imageUrls : [getChatProductImage(...)]`.
+- Replace the single image with a horizontal scroll container:
+  - `overflow-x-auto snap-x snap-mandatory scrollbar-none`, `dir="ltr"` on the inner track to keep natural swipe direction, RTL preserved on the card itself.
+  - Each slide is a `flex-shrink-0 w-full aspect-square snap-start` wrapping `<ProductImage>` with `object-cover`.
+- Track active slide via `onScroll` (compute `Math.round(scrollLeft / clientWidth)`) and render small dot indicators bottom-center over the image (only when `images.length > 1`), styled with the existing primary token.
+- Preserve existing badges (number, discount) and `fastDelivery` ribbon — they sit absolutely above the gallery and are unaffected.
+- Stop click propagation on swipe area so it doesn't accidentally trigger card-level handlers; existing button actions stay intact.
+
+This change applies everywhere `ChatProductCard` is used; behavior is identical when a product has only one image (single slide, no dots), so it's backward-compatible. No business logic touched.
+
+## 5. Enable scrollable photos in `PDPProductComponent` on mobile
+
+File: `src/components/gpt-commerce/PDPProductComponent.tsx`
+
+Gallery already exists but is gated behind `showImageNavigation`. On mobile we use the inline PDP without that flag, so multiple `imageUrls` are hidden.
+
+Two-part fix, additive only:
+
+a. Add a new optional prop `enableSwipeGallery?: boolean`. When true:
+
+- Render the existing `productImages` as a touch-swipeable horizontal scroller (same pattern as ChatProductCard: snap-x mandatory, full-width slides, dots indicator under the image).
+- Keep the existing prev/next arrows and lightbox path off (those are for desktop hover); mobile uses native swipe + dots.
+- Tapping a dot scrolls programmatically to that slide and updates `currentImageIndex`.
+
+b. In `src/features/gpt-commerce/mobile/MobileChatThread.tsx`, pass `enableSwipeGallery` when rendering `<PDPProductComponent>` inline. No change to desktop usage.
+
+This keeps desktop PDP untouched while giving mobile the swipeable gallery.  
+  
+currently photos are ready to use database wise. products database > image_urls column
 
 ## Out of scope
-- No changes to `/gptcommerce` desktop, `/farsi`, or any shared component file used by both desktop and mobile.
-- No backend / edge function / SQL / RLS / data schema work.
-- No copy/text rewrites beyond what is required for new prompt-template slot labels.
 
-## Files to be edited
-- `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx` — header logotype sizing, new `onProductCardTap` handler.
-- `src/features/gpt-commerce/mobile/MobileChatLanding.tsx` — logotype/footer sizing, carousel alignment wrappers, hot-deals tap wiring, new prop plumbing.
-- `src/features/gpt-commerce/mobile/MobileChatThread.tsx` — bottom padding bump, scoped CSS to enlarge chat product card and reveal buttons.
-- `src/features/gpt-commerce/mobile/MobilePromptTipsCard.tsx` — convert to template cards + modal trigger, alignment wrapper.
-- `src/features/gpt-commerce/mobile/MobilePromptTemplateModal.tsx` — new file (slot-fill modal).
+- No edits to `/farsi`, desktop `GPTCommerceShell`, hooks, edge functions, SQL, agent logic, or `gptCommerceData.ts`.
+- No new packages; native scroll-snap + a tiny `onScroll` handler is enough.

@@ -1,8 +1,10 @@
+import { useRef, useState } from "react";
 import { Plus, Info, Bookmark, Star, Store } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { ProductImage } from "./ProductImage";
+
 
 interface ChatProductCardProps {
   product: Product;
@@ -30,7 +32,18 @@ export const ChatProductCard = ({
   useInlineDetails = false // Default to modal behavior
 }: ChatProductCardProps) => {
   const { getChatProductImage } = useHomepageSettings();
-  
+  const mainImage = getChatProductImage(product.id, product.image);
+  const images = product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls : [mainImage];
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  const handleScroll = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== activeIdx) setActiveIdx(idx);
+  };
+
   return (
     <div 
       className="w-[240px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col relative"
@@ -64,25 +77,60 @@ export const ChatProductCard = ({
         )}
       </div>
 
-      {/* Image - Square aspect ratio with full fill */}
+      {/* Image gallery - swipeable, square aspect ratio */}
       <div 
         className="relative w-full aspect-square"
         style={{ background: 'hsl(0 0% 98%)' }}
       >
-        <ProductImage
-          src={getChatProductImage(product.id, product.image)}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        <div
+          ref={scrollerRef}
+          onScroll={handleScroll}
+          dir="ltr"
+          className="w-full h-full flex overflow-x-auto snap-x snap-mandatory"
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            WebkitOverflowScrolling: "touch",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <style>{`.chat-card-scroller::-webkit-scrollbar{display:none}`}</style>
+          {images.map((src, i) => (
+            <div key={i} className="w-full h-full flex-shrink-0 snap-start">
+              <ProductImage
+                src={src}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+        {images.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10 pointer-events-none">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className="rounded-full transition-all duration-200"
+                style={{
+                  width: i === activeIdx ? 14 : 5,
+                  height: 5,
+                  background: i === activeIdx ? 'hsl(var(--primary))' : 'hsl(0 0% 100% / 0.7)',
+                  border: '1px solid hsl(0 0% 0% / 0.08)',
+                }}
+              />
+            ))}
+          </div>
+        )}
         {product.fastDelivery && (
           <div 
-            className="absolute bottom-2 left-2 px-2 py-1 rounded-lg text-xs text-white"
+            className="absolute bottom-2 left-2 px-2 py-1 rounded-lg text-xs text-white z-10"
             style={{ background: 'hsl(142 70% 45% / 0.9)' }}
           >
             ارسال سریع
           </div>
         )}
       </div>
+
 
       {/* Divider between image and content */}
       <div className="w-full h-px" style={{ background: 'hsl(0 0% 0% / 0.06)' }} />

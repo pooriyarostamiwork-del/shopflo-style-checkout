@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
@@ -14,7 +14,9 @@ interface PDPProductComponentProps {
   showContextLabel?: boolean;
   onOtherSupplierClick?: (supplierName: string) => void;
   showImageNavigation?: boolean; // Enable image navigation for PDP page
+  enableSwipeGallery?: boolean; // Mobile: native swipe + dots
 }
+
 
 // Generate random supplier prices based on product price (±10%)
 const generateSupplierPrices = (productPrice: number) => {
@@ -39,8 +41,11 @@ export const PDPProductComponent = ({
   showContextLabel = true,
   onOtherSupplierClick,
   showImageNavigation = false,
+  enableSwipeGallery = false,
 }: PDPProductComponentProps) => {
   const { getProductImage } = useHomepageSettings();
+  const swipeScrollerRef = useRef<HTMLDivElement>(null);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     description: true, // Open by default (as per requirement)
     comments: false, // Closed by default (as per requirement)

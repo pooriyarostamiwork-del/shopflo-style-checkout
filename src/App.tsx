@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import GPTCommerce from "./pages/GPTCommerce";
 import MobileGPTCommerce from "./pages/MobileGPTCommerce";
+import MobileVendorDashboard from "./pages/MobileVendorDashboard";
 import DocsAIPage from "./pages/docs/ai/DocsAIPage";
 import IndexFarsi from "./pages/IndexFarsi";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/gptcommerce" element={<GPTCommerce />} />
             <Route path="/gptcommerce/docs/ai" element={<DocsAIPage />} />
             <Route path="/m/gptcommerce" element={<MobileGPTCommerce />} />
+            <Route path="/m/gptcommerce/dash/*" element={<MobileVendorDashboard />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

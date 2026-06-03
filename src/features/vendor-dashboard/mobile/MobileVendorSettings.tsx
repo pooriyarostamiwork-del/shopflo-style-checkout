@@ -57,7 +57,7 @@ export const MobileVendorSettings = () => {
 
         <TabsContent value="returns" className="mt-4 space-y-3">
           <div className="bg-card border border-border rounded-2xl p-4 space-y-4">
-            <PolicyRadioGroup
+            <PolicyRadioGroup<"yes" | "no">
               label="پذیرش بازگشت کالا"
               value={returnsAccepted}
               onChange={setReturnsAccepted}
@@ -66,7 +66,7 @@ export const MobileVendorSettings = () => {
                 { key: "no", label: "خیر" },
               ]}
             />
-            <PolicyRadioGroup
+            <PolicyRadioGroup<"7" | "14" | "30">
               label="بازه زمانی بازگشت"
               value={returnWindow}
               onChange={setReturnWindow}
@@ -76,7 +76,7 @@ export const MobileVendorSettings = () => {
                 { key: "30", label: "۳۰ روز" },
               ]}
             />
-            <PolicyRadioGroup
+            <PolicyRadioGroup<"customer" | "merchant" | "depends">
               label="مسئولیت هزینه ارسال بازگشتی"
               value={shipping}
               onChange={setShipping}

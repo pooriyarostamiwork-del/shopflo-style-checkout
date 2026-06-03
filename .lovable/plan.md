@@ -1,76 +1,146 @@
-All changes are frontend-only and scoped to `/m/gptcommerce`. No backend, edge function, SQL, or shared desktop component behavior is modified.
+# Mobile Vendor Dashboard — `/m/gptcommerce/dash`
 
-## 1. Prompt template modal — semi static, just like action bars modal background
+Frontend-only, mobile-first, RTL Farsi. Mock data only — no backend, no edge functions, no SQL. Structured so the same presentational components can later be reused for the desktop dashboard.
 
-File: `src/features/gpt-commerce/mobile/MobilePromptTemplateModal.tsx`
+## Scope
 
-- Remove the `slideUp` keyframes, the `animation: "slideUp ..."` inline style, the `animate-fade-in` on the backdrop, and the `animate-slide-in-right` class on the sheet.
-- The sheet just renders in place when `open` is true. Backdrop stays static (semi-transparent, click-to-close).
+- New route `/m/gptcommerce/dash` (and nested tabs) in `src/App.tsx`.
+- New folder: `src/features/vendor-dashboard/` with `mobile/`, `shared/`, and `data/` subfolders so the desktop version can later import from `shared/` and `data/` unchanged.
+- Three top-level sections per spec: **Home**, **Finance**, **Vendor Management & Settings**.
+- Bottom tab bar for navigation between the three sections (mobile pattern).
+- All copy in Farsi, Persian digits, BiDi-isolated numbers, 1px strokes, no shadows, palette tokens from `index.css` (per project Core memory).
 
-## 2. Prompt template modal — fully visible content + CTA
+## Routing
 
-Same file. Current problems: sheet uses `max-h: 85vh` and bottom safe-area padding, but with header + preview block + N inputs (some templates have 2 slots) + send button, the CTA gets pushed below the fold on small viewports, and there is no internal scroll because the outer container is the scroll surface — the button can be clipped behind the keyboard or sit at the screen edge with no breathing room.
-
-Fix:
-
-- Make the sheet a flex column: fixed `max-height: 88vh`, internal regions:
-  - header (drag handle + title row) — non-scrolling.
-  - middle scroll area (`flex-1`, `overflow-y-auto`) containing live preview + slot inputs.
-  - sticky footer holding the send button with a top hairline border and the safe-area bottom padding.
-- Pin the send CTA to the footer so it is always visible regardless of slot count or keyboard.
-- Slight padding tweaks so inputs don't crowd the CTA.
-
-## 3. Landing product card tap — fill the empty assistant bubble
-
-File: `src/features/gpt-commerce/mobile/MobileGPTCommerceShell.tsx` → `handleLandingProductTap`.
-
-Currently the assistant message is created with `content: ""`, so the bubble is empty above the inline PDP. Replace with a short Farsi line, for example:
-
-```
-این هم جزئیات «{product.name}». اگه سوالی داری یا خواستی به سبد اضافه کنی، همین‌جا بگو.
+```text
+/m/gptcommerce/dash               → Home
+/m/gptcommerce/dash/finance       → Finance
+/m/gptcommerce/dash/settings      → Vendor Management & Settings (tabs inside)
 ```
 
-Apply in both branches (new basket + existing basket) so the bubble is never empty.
+Single `MobileVendorDashboard` page hosts a sticky top header (store name + avatar) and sticky bottom tab bar; section content swaps via nested `<Routes>`.
 
-## 4. Swipeable photo gallery in `ChatProductCard`
+## File structure
 
-File: `src/components/gpt-commerce/ChatProductCard.tsx`
+```text
+src/pages/MobileVendorDashboard.tsx                       (route entry, providers)
+src/features/vendor-dashboard/
+├── mobile/
+│   ├── MobileVendorShell.tsx                             (header + bottom tabs + outlet)
+│   ├── MobileVendorHome.tsx
+│   ├── MobileVendorFinance.tsx
+│   └── MobileVendorSettings.tsx                          (sub-tabs: Profile / Returns / Account)
+├── shared/
+│   ├── KpiCard.tsx                                       (label, value, sublabel, optional CTA)
+│   ├── SectionTitle.tsx
+│   ├── OnboardingChecklist.tsx
+│   ├── AccountStatusCard.tsx
+│   ├── TimeframeSelector.tsx                             (1D / 1W / 1M segmented)
+│   ├── WithdrawalHistoryList.tsx                         (mobile list, desktop later swaps to table)
+│   ├── FormField.tsx                                     (label + input wrapper, RTL)
+│   ├── MerchantTypeToggle.tsx                            (حقیقی / حقوقی radio)
+│   └── PolicyRadioGroup.tsx
+└── data/
+    └── mockVendor.ts                                     (all mock KPIs, onboarding, withdrawals, profile)
+```
 
-The card currently renders a single `<ProductImage>`. Add a horizontally-swipeable gallery for `product.imageUrls` while keeping current visual size (square area at top, `aspect-square`, `object-cover`).
+Naming convention: `Mobile*` = layout/composition specific to mobile. `shared/` = pure presentational pieces reused on desktop later.
 
-Implementation:
+## Section details
 
-- Compute `images = product.imageUrls?.length ? product.imageUrls : [getChatProductImage(...)]`.
-- Replace the single image with a horizontal scroll container:
-  - `overflow-x-auto snap-x snap-mandatory scrollbar-none`, `dir="ltr"` on the inner track to keep natural swipe direction, RTL preserved on the card itself.
-  - Each slide is a `flex-shrink-0 w-full aspect-square snap-start` wrapping `<ProductImage>` with `object-cover`.
-- Track active slide via `onScroll` (compute `Math.round(scrollLeft / clientWidth)`) and render small dot indicators bottom-center over the image (only when `images.length > 1`), styled with the existing primary token.
-- Preserve existing badges (number, discount) and `fastDelivery` ribbon — they sit absolutely above the gallery and are unaffected.
-- Stop click propagation on swipe area so it doesn't accidentally trigger card-level handlers; existing button actions stay intact.
+### 1. Home (`MobileVendorHome`)
 
-This change applies everywhere `ChatProductCard` is used; behavior is identical when a product has only one image (single slide, no dots), so it's backward-compatible. No business logic touched.
+Vertical stack, single column, `px-4 py-5 space-y-4`:
 
-## 5. Enable scrollable photos in `PDPProductComponent` on mobile
+1. Greeting row: "سلام، {storeName}" + small avatar.
+2. KPI cards (stacked, full-width):
+  - Revenue — `12,500,000 تومان` + sublabel "بازه: ۱ ماه"
+  - Orders Generated — `42 سفارش`
+  - Active Products — `342 محصول`
+  - Pending Settlement — `3,250,000 تومان` + "تسویه بعدی: ۱۴۰۵/۰۳/۱۵"
+  - Withdrawable Balance — `1,800,000 تومان` + sublabel "قابل برداشت" + primary CTA `برداشت وجه`
+3. Conditional block driven by `mockVendor.onboarding.complete`:
+  - `false` → `OnboardingChecklist` (title "شروع کار"، `Progress` 75%، 5 checklist rows, "۲ مرحله باقی‌مانده"، CTA "تکمیل ثبت‌نام").
+  - `true` → `AccountStatusCard` (4 green check rows: فروشگاه فعال / تأیید احراز هویت / حساب بانکی تأیید شده / پرداخت‌ها فعال).
 
-File: `src/components/gpt-commerce/PDPProductComponent.tsx`
+A small dev toggle at the bottom (visible only in this prototype) flips `onboarding.complete` so reviewers can see both states. Removed before backend wiring.
 
-Gallery already exists but is gated behind `showImageNavigation`. On mobile we use the inline PDP without that flag, so multiple `imageUrls` are hidden.
+### 2. Finance (`MobileVendorFinance`)
 
-Two-part fix, additive only:
+Single scroll, sections separated by `SectionTitle`:
 
-a. Add a new optional prop `enableSwipeGallery?: boolean`. When true:
+- **Revenue Overview**
+  - `TimeframeSelector` (segmented control: ۱ روز / ۱ هفته / ۱ ماه) — local `useState`, swaps numbers from `mockVendor.revenueByRange`.
+  - KPI cards: Revenue, Orders, AOV (`297,000 تومان`), Commission Paid (`625,000 تومان`).
+- **Payouts**
+  - Summary KPI cards: Withdrawable Balance (+ CTA `برداشت وجه`), Pending Settlement, Total Withdrawn (`24,500,000 تومان`), Next Settlement (`۱۴۰۵/۰۳/۱۵`).
+- **Withdrawal History**
+  - Mobile: stacked card list. Each item: date (right), amount (left), status chip (Pending/Processing/Completed/Failed → muted/blue/green/red token chips). Desktop version will swap this list for a table by adding a `variant="table"` branch later.
+- **Financial Settings**
+  - `MerchantTypeToggle` (radio: حقیقی / حقوقی) controlling which fields render below.
+  - Identity Information — حقیقی fields (نام کامل، کد ملی، شماره موبایل، تاریخ تولد، آدرس) OR حقوقی fields (نام شرکت، شناسه ملی، شماره ثبت، نماینده، کد ملی نماینده + Contact: تلفن، ایمیل، آدرس شرکت).
+  - Banking Information (both): نام صاحب حساب، نام بانک، شماره حساب، شماره شبا.
+  - Tax Information — branches by merchant type.
+  - Merchant Agreement — text line + `دانلود قرارداد` outline button.
+  - Sticky `ذخیره تغییرات` button at bottom of section.
 
-- Render the existing `productImages` as a touch-swipeable horizontal scroller (same pattern as ChatProductCard: snap-x mandatory, full-width slides, dots indicator under the image).
-- Keep the existing prev/next arrows and lightbox path off (those are for desktop hover); mobile uses native swipe + dots.
-- Tapping a dot scrolls programmatically to that slide and updates `currentImageIndex`.
+All inputs are visual-only (`Input`, `Textarea`, `RadioGroup`, `Select` from shadcn). No submit handlers beyond `toast("ذخیره شد (نمایشی)")`.
 
-b. In `src/features/gpt-commerce/mobile/MobileChatThread.tsx`, pass `enableSwipeGallery` when rendering `<PDPProductComponent>` inline. No change to desktop usage.
+### 3. Vendor Management & Settings (`MobileVendorSettings`)
 
-This keeps desktop PDP untouched while giving mobile the swipeable gallery.  
-  
-currently photos are ready to use database wise. products database > image_urls column
+Top tab bar (shadcn `Tabs`, 3 tabs): **پروفایل کسب‌وکار** / **بازگشت و استرداد** / **حساب کاربری**.
 
-## Out of scope
+- **پروفایل کسب‌وکار**
+  - Business Information: نام کسب‌وکار، لوگوی فروشگاه (image picker stub — visual only), توضیحات.
+  - Contact Information: شماره پشتیبانی.
+  - `ذخیره تغییرات` button.
+- **بازگشت و استرداد**
+  - Returns Accepted (radio بله/خیر).
+  - Return Window (radio ۷ / ۱۴ / ۳۰ روز).
+  - Return Shipping Responsibility (radio مشتری / فروشنده / بسته به دلیل بازگشت).
+  - `ذخیره سیاست` button.
+- **حساب کاربری**
+  - Mobile Number row: `+۹۸ ۹۱۲ XXX XXXX` + outline `تغییر شماره` + helper text listing the three uses.
+  - Password row: `••••••••••••` + outline `تغییر رمز عبور`.
+  - Email row (optional): `merchant@example.com` + outline `به‌روزرسانی ایمیل` + helper "فقط برای فاکتور، پشتیبانی و اطلاع‌رسانی".
+  - `ذخیره تغییرات` button.
 
-- No edits to `/farsi`, desktop `GPTCommerceShell`, hooks, edge functions, SQL, agent logic, or `gptCommerceData.ts`.
-- No new packages; native scroll-snap + a tiny `onScroll` handler is enough.
+## Shell, header, bottom tabs
+
+- Header: sticky top, store name right, avatar left (RTL), 1px bottom border. No back button on root tabs.
+- Bottom tab bar: sticky bottom, 3 items (خانه، مالی، تنظیمات) with lucide icons (`Home`, `Wallet`, `Settings`). Active tab uses `text-primary`; inactive uses `text-muted-foreground`. 1px top border.
+- Page content area: `pb-24` to clear bottom bar, `pt-2` under header.
+
+## Mock data (`data/mockVendor.ts`)
+
+```text
+storeName: "فروشگاه نمونه"
+onboarding: { complete: false, percent: 75, items: [...5 rows with done:boolean] }
+home: { revenue, orders, activeProducts, pendingSettlement, nextSettlement, withdrawableBalance }
+revenueByRange: { day: {...}, week: {...}, month: {...} }    // each {revenue, orders, aov, commission}
+payouts: { withdrawable, pending, totalWithdrawn, nextSettlement }
+withdrawals: [{date, amount, status}, ...]
+profile, returnPolicy, account                                // initial form values
+```
+
+All numbers formatted at render-time with the existing Persian-digit helper (or a local helper if none exists in scope) and BiDi-isolated per the project Core memory.
+
+## Design tokens
+
+- Cards: `bg-card`, `border border-border`, `rounded-2xl`, `p-4`. No shadows.
+- Primary CTA: existing `Button variant="default"` (already uses `--primary` `#696FC7`).
+- Status chips: small `rounded-full px-2 py-0.5 text-xs border`, color tokens only.
+- Typography: existing project body font, no new fonts.
+
+## Desktop reuse (not built now, but accounted for)
+
+- All `shared/*` components are pure and viewport-agnostic.
+- Layout-specific composition lives only in `mobile/Mobile*` files. Desktop later adds `desktop/Desktop*` files importing the same `shared/` + `data/` modules.
+- `WithdrawalHistoryList` exposes an internal switch so the desktop variant can render a table without forking the data layer.
+
+## Out of scope (this step)
+
+- No backend, no Supabase calls, no edge functions, no SQL, no auth gating.
+- No real form submission, validation, or persistence.
+- No desktop view yet.
+- No changes outside `/m/gptcommerce/dash` route and the new `vendor-dashboard` feature folder (plus the single route registration in `App.tsx`).

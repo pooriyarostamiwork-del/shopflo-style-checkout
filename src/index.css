@@ -245,3 +245,27 @@ All colors MUST be HSL.
     margin-right: 0;
   }
 }
+
+/* ============================================================
+   Vendor Dashboard v2 tokens (scoped to .vendor-dash)
+   ============================================================ */
+.vendor-dash {
+  --vd-surface: 0 0% 100%;
+  --vd-surface-2: 240 9% 98%;
+  --vd-surface-ink: 240 20% 7%;
+  --vd-stroke: 240 8% 93%;
+  --vd-accent: 235 43% 60%;
+  --vd-accent-soft: 230 60% 96%;
+  --vd-positive: 150 64% 33%;
+  --vd-positive-soft: 138 41% 93%;
+  --vd-warning: 38 71% 41%;
+  --vd-warning-soft: 42 78% 92%;
+  --vd-danger: 356 57% 45%;
+  --vd-danger-soft: 354 73% 95%;
+}
+
+@keyframes vdFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.vd-anim-in { animation: vdFadeUp 220ms ease-out both; }

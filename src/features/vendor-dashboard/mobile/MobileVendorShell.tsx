@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, NavLink, Outlet, useLocation, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Outlet, Navigate, Route, Routes } from "react-router-dom";
 import { Home, Wallet, Settings, Bell, BadgeCheck } from "lucide-react";
 import { useVendorDashboard } from "../context/VendorDashboardContext";
 import { MobileVendorHome } from "./MobileVendorHome";

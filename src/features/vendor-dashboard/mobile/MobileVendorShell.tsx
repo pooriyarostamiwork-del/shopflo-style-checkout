@@ -1,55 +1,97 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Home, Wallet, Settings } from "lucide-react";
-import { mockVendor } from "../data/mockVendor";
+import { useState } from "react";
+import { NavLink, Outlet, Navigate, Route, Routes } from "react-router-dom";
+import { Home, Wallet, Settings, Bell, BadgeCheck } from "lucide-react";
+import { useVendorDashboard } from "../context/VendorDashboardContext";
+import { MobileVendorHome } from "./MobileVendorHome";
+import { MobileVendorFinance } from "./MobileVendorFinance";
+import { MobileVendorSettings } from "./MobileVendorSettings";
 
 const tabs = [
-  { to: "/m/gptcommerce/dash", label: "خانه", icon: Home, end: true },
-  { to: "/m/gptcommerce/dash/finance", label: "مالی", icon: Wallet, end: false },
-  { to: "/m/gptcommerce/dash/settings", label: "تنظیمات", icon: Settings, end: false },
+  { to: "/m/gptcommerce/dash/home", label: "خانه", icon: Home },
+  { to: "/m/gptcommerce/dash/finance", label: "مالی", icon: Wallet },
+  { to: "/m/gptcommerce/dash/settings", label: "تنظیمات", icon: Settings },
 ];
 
-export const MobileVendorShell = () => {
-  const location = useLocation();
-  const titleMap: Record<string, string> = {
-    "/m/gptcommerce/dash": "داشبورد",
-    "/m/gptcommerce/dash/finance": "مالی",
-    "/m/gptcommerce/dash/settings": "تنظیمات",
-  };
-  const title = titleMap[location.pathname] ?? "داشبورد";
+const Shell = () => {
+  const { vendor, pendingChanges, approvePending } = useVendorDashboard();
+  const [devOpen, setDevOpen] = useState(false);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-20 bg-background border-b border-border">
+    <div dir="rtl" className="vendor-dash min-h-screen bg-[hsl(var(--vd-surface-2))] text-foreground flex flex-col font-sans">
+      <header className="sticky top-0 z-20 bg-[hsl(var(--vd-surface))] border-b border-[hsl(var(--vd-stroke))]">
         <div className="px-4 h-14 flex items-center justify-between">
-          <div className="flex flex-col leading-tight">
-            <span className="text-[11px] text-muted-foreground">{title}</span>
-            <span className="text-sm font-semibold text-foreground">{mockVendor.storeName}</span>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-[hsl(var(--vd-accent-soft))] text-[hsl(var(--vd-accent))] flex items-center justify-center text-sm font-semibold">
+              ن
+            </div>
+            <div className="leading-tight">
+              <div className="text-sm font-semibold text-foreground">{vendor.storeName}</div>
+              <div className="flex items-center gap-1 text-[10px] text-[hsl(var(--vd-positive))]">
+                <BadgeCheck className="w-3 h-3" />
+                فروشنده تأیید شده
+              </div>
+            </div>
           </div>
-          <div className="w-9 h-9 rounded-full bg-primary/10 border border-border flex items-center justify-center text-primary text-sm font-semibold">
-            ن
-          </div>
+          <button className="relative w-9 h-9 rounded-full border border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] flex items-center justify-center">
+            <Bell className="w-4 h-4 text-foreground" />
+            {pendingChanges.length > 0 && (
+              <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-[hsl(var(--vd-danger))]" />
+            )}
+          </button>
         </div>
       </header>
 
       <main className="flex-1 pb-24">
         <Outlet />
+
+        {/* Dev: simulate admin approval */}
+        {pendingChanges.length > 0 && (
+          <div className="px-4 pb-6">
+            <div className="bg-[hsl(var(--vd-warning-soft))] border border-[hsl(var(--vd-stroke))] rounded-2xl p-3">
+              <button onClick={() => setDevOpen((v) => !v)} className="text-[11px] text-[hsl(var(--vd-warning))] font-medium">
+                {devOpen ? "▼" : "◀"} شبیه‌سازی تأیید ادمین ({pendingChanges.length})
+              </button>
+              {devOpen && (
+                <ul className="mt-2 space-y-1.5">
+                  {pendingChanges.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between text-[11px]">
+                      <span className="text-foreground">{p.section}</span>
+                      <button
+                        onClick={() => approvePending(p.id)}
+                        className="rounded-full bg-[hsl(var(--vd-positive))] text-white px-2 py-0.5"
+                      >
+                        تأیید
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border">
+      <nav className="fixed bottom-0 inset-x-0 z-30 bg-[hsl(var(--vd-surface))] border-t border-[hsl(var(--vd-stroke))]">
         <ul className="grid grid-cols-3">
-          {tabs.map(({ to, label, icon: Icon, end }) => (
+          {tabs.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
-                end={end}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] transition-colors ${
-                    isActive ? "text-primary" : "text-muted-foreground"
+                  `relative flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] transition-colors ${
+                    isActive ? "text-[hsl(var(--vd-accent))]" : "text-muted-foreground"
                   }`
                 }
               >
-                <Icon className="w-5 h-5" />
-                {label}
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <span className="absolute top-0 inset-x-6 h-0.5 bg-[hsl(var(--vd-accent))] rounded-full" />
+                    )}
+                    <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                    <span className={isActive ? "font-medium" : ""}>{label}</span>
+                  </>
+                )}
               </NavLink>
             </li>
           ))}
@@ -58,3 +100,14 @@ export const MobileVendorShell = () => {
     </div>
   );
 };
+
+export const MobileVendorShell = () => (
+  <Routes>
+    <Route element={<Shell />}>
+      <Route index element={<Navigate to="home" replace />} />
+      <Route path="home" element={<MobileVendorHome />} />
+      <Route path="finance" element={<MobileVendorFinance />} />
+      <Route path="settings" element={<MobileVendorSettings />} />
+    </Route>
+  </Routes>
+);

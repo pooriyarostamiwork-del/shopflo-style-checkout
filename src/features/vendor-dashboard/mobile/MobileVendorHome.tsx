@@ -1,52 +1,47 @@
 import { useState } from "react";
-import { toast } from "sonner";
 import { KpiCard } from "../shared/KpiCard";
+import { HeroBalanceCard } from "../shared/HeroBalanceCard";
 import { OnboardingChecklist } from "../shared/OnboardingChecklist";
 import { AccountStatusCard } from "../shared/AccountStatusCard";
+import { RevenueSparkChart } from "../shared/RevenueSparkChart";
+import { SectionTitle } from "../shared/SectionTitle";
 import { mockVendor, formatToman, toPersianDigits } from "../data/mockVendor";
+import { useVendorDashboard } from "../context/VendorDashboardContext";
+import { WithdrawSheet } from "./WithdrawSheet";
+import { toast } from "sonner";
 
 export const MobileVendorHome = () => {
-  const [onboardingComplete, setOnboardingComplete] = useState(mockVendor.onboarding.complete);
-  const { home, onboarding, storeName } = mockVendor;
+  const { vendor, onboardingComplete, toggleOnboarding } = useVendorDashboard();
+  const { home, todayLabel, storeName } = vendor;
+  const onboarding = mockVendor.onboarding;
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   return (
-    <div className="px-4 py-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xs text-muted-foreground">سلام،</div>
-          <div className="text-base font-semibold text-foreground">{storeName}</div>
+    <div className="px-4 py-5 space-y-5">
+      <div>
+        <div className="text-xs text-muted-foreground" style={{ unicodeBidi: "isolate" }}>
+          {todayLabel}
         </div>
-        <div className="w-10 h-10 rounded-full bg-primary/10 border border-border flex items-center justify-center text-primary font-semibold">
-          ن
-        </div>
+        <div className="text-lg font-semibold text-foreground mt-0.5">سلام، {storeName} 👋</div>
       </div>
 
-      <div className="space-y-3">
-        <KpiCard
-          label="درآمد"
-          value={formatToman(home.revenue)}
-          sublabel="بازه: ۱ ماه"
-        />
-        <KpiCard
-          label="سفارش‌های ایجاد شده"
-          value={`${toPersianDigits(home.orders)} سفارش`}
-        />
-        <KpiCard
-          label="محصولات فعال"
-          value={`${toPersianDigits(home.activeProducts)} محصول`}
-        />
-        <KpiCard
-          label="در انتظار تسویه"
-          value={formatToman(home.pendingSettlement)}
-          sublabel={`تسویه بعدی: ${home.nextSettlement}`}
-        />
-        <KpiCard
-          label="موجودی قابل برداشت"
-          value={formatToman(home.withdrawableBalance)}
-          sublabel="قابل برداشت"
-          ctaLabel="برداشت وجه"
-          onCtaClick={() => toast.success("درخواست برداشت ثبت شد (نمایشی)")}
-        />
+      <HeroBalanceCard
+        balance={home.withdrawableBalance}
+        pending={home.pendingSettlement}
+        nextSettlement={home.nextSettlement}
+        onWithdraw={() => setWithdrawOpen(true)}
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <KpiCard label="درآمد ماه" value={formatToman(home.revenue)} delta={home.deltas.revenue} />
+        <KpiCard label="سفارش‌ها" value={`${toPersianDigits(home.orders)} سفارش`} delta={home.deltas.orders} />
+        <KpiCard label="محصولات فعال" value={`${toPersianDigits(home.activeProducts)} محصول`} delta={home.deltas.activeProducts} />
+        <KpiCard label="میانگین سفارش" value={formatToman(home.aov)} delta={home.deltas.aov} />
+      </div>
+
+      <div className="bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-3xl p-4">
+        <SectionTitle eyebrow="روند هفتگی">درآمد ۷ روز اخیر</SectionTitle>
+        <RevenueSparkChart data={mockVendor.trendByRange.week} height={100} />
       </div>
 
       {onboardingComplete ? (
@@ -55,16 +50,18 @@ export const MobileVendorHome = () => {
         <OnboardingChecklist
           percent={onboarding.percent}
           items={onboarding.items}
-          onComplete={() => toast.message("به صفحه تکمیل ثبت‌نام بروید (نمایشی)")}
+          onComplete={() => toast.message("به مرحله بعد بروید (نمایشی)")}
         />
       )}
 
       <button
-        onClick={() => setOnboardingComplete((v) => !v)}
-        className="w-full text-[11px] text-muted-foreground border border-dashed border-border rounded-lg py-2"
+        onClick={toggleOnboarding}
+        className="w-full text-[11px] text-muted-foreground border border-dashed border-[hsl(var(--vd-stroke))] rounded-full py-2"
       >
         تغییر وضعیت نمایشی ثبت‌نام
       </button>
+
+      <WithdrawSheet open={withdrawOpen} onOpenChange={setWithdrawOpen} />
     </div>
   );
 };

@@ -12,7 +12,7 @@ interface Props<T extends string> {
 
 export function PolicyRadioGroup<T extends string>({ label, value, options, onChange }: Props<T>) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <label className="text-xs text-muted-foreground">{label}</label>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
@@ -22,10 +22,10 @@ export function PolicyRadioGroup<T extends string>({ label, value, options, onCh
               key={opt.key}
               type="button"
               onClick={() => onChange(opt.key)}
-              className={`border rounded-full px-3 py-1.5 text-xs transition-colors ${
+              className={`rounded-full px-4 py-2 text-xs transition-all border ${
                 active
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-border bg-card text-foreground"
+                  ? "border-[hsl(var(--vd-accent))] bg-[hsl(var(--vd-accent-soft))] text-[hsl(var(--vd-accent))] font-medium"
+                  : "border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] text-foreground"
               }`}
             >
               {opt.label}

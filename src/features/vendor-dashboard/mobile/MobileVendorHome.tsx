@@ -28,9 +28,9 @@ export const MobileVendorHome = () => {
       <HeroBalanceCard
         balance={home.withdrawableBalance}
         pending={home.pendingSettlement}
-        nextSettlement={home.nextSettlement}
         onWithdraw={() => setWithdrawOpen(true)}
       />
+
 
       <div className="grid grid-cols-2 gap-3">
         <KpiCard label="درآمد ماه" value={formatToman(home.revenue)} delta={home.deltas.revenue} />

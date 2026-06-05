@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 
-const items = ["فروشگاه فعال", "تأیید احراز هویت", "حساب بانکی تأیید شده", "پرداخت‌ها فعال"];
+const items = ["فروشگاه فعال", "احراز هویت تکمیل شد", "حساب بانکی ثبت شد", "پرداخت‌ها فعال"];
 
 export const AccountStatusCard = () => (
   <div className="bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-3xl overflow-hidden">

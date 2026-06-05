@@ -13,7 +13,7 @@ export const SettingsListRow = ({ label, value, helper, rightAccessory, onClick 
   <button
     type="button"
     onClick={onClick}
-    className="w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-2xl px-4 py-3 flex items-center gap-3 text-right active:bg-[hsl(var(--vd-surface-2))] transition-colors"
+    className="vd-interactive w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-2xl px-4 py-3 flex items-center gap-3 text-right"
   >
     <div className="flex-1 min-w-0">
       <div className="text-xs text-muted-foreground">{label}</div>
@@ -26,3 +26,4 @@ export const SettingsListRow = ({ label, value, helper, rightAccessory, onClick 
     <ChevronLeft className="w-4 h-4 text-muted-foreground shrink-0" />
   </button>
 );
+

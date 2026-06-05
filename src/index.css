@@ -262,6 +262,27 @@ All colors MUST be HSL.
   --vd-warning-soft: 42 78% 92%;
   --vd-danger: 356 57% 45%;
   --vd-danger-soft: 354 73% 95%;
+
+  font-family: 'Vazirmatn', 'Tahoma', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: 'ss01', 'ss02';
+  letter-spacing: -0.005em;
+}
+.vendor-dash input,
+.vendor-dash textarea,
+.vendor-dash button,
+.vendor-dash select {
+  font-family: inherit;
+}
+
+/* Minimal, polished hover for neutral surfaces */
+.vendor-dash .vd-interactive {
+  transition: background-color 140ms ease;
+}
+.vendor-dash .vd-interactive:hover {
+  background-color: hsl(var(--vd-surface-2));
+}
+.vendor-dash .vd-interactive-ink:hover {
+  background-color: hsl(240 9% 96%);
 }
 
 @keyframes vdFadeUp {
@@ -269,3 +290,4 @@ All colors MUST be HSL.
   to   { opacity: 1; transform: translateY(0); }
 }
 .vd-anim-in { animation: vdFadeUp 220ms ease-out both; }
+

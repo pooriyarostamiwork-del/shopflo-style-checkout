@@ -230,14 +230,16 @@ const ChangeMobileSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface-2))]">
-        <SheetHeader className="text-right"><SheetTitle>تغییر شماره موبایل</SheetTitle></SheetHeader>
+      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),20px)]">
+        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
+        <SheetHeader className="text-right"><SheetTitle className="text-base">تغییر شماره موبایل</SheetTitle></SheetHeader>
         <div className="space-y-4 mt-4">
           {stage === "input" ? (
             <>
               <FormField label="شماره موبایل جدید" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={form.register("mobile")} error={form.formState.errors.mobile?.message as string} />
               <Button className="w-full rounded-full" onClick={submitMobile}>ارسال کد تأیید</Button>
             </>
+
           ) : (
             <>
               <p className="text-xs text-muted-foreground">کد ۶ رقمی ارسال شد به {toPersianDigits(form.getValues("mobile"))}</p>
@@ -278,8 +280,9 @@ const ChangeEmailSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange:
   });
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface-2))]">
-        <SheetHeader className="text-right"><SheetTitle>به‌روزرسانی ایمیل</SheetTitle></SheetHeader>
+      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),20px)]">
+        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
+        <SheetHeader className="text-right"><SheetTitle className="text-base">به‌روزرسانی ایمیل</SheetTitle></SheetHeader>
         <div className="space-y-4 mt-4">
           <FormField label="ایمیل جدید" type="email" placeholder="you@example.com" registerProps={form.register("email")} error={form.formState.errors.email?.message as string} />
           <Button className="w-full rounded-full" onClick={submit}>ارسال درخواست</Button>
@@ -289,6 +292,7 @@ const ChangeEmailSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange:
     </Sheet>
   );
 };
+
 
 const ChangePasswordSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
   const [current, setCurrent] = useState("");
@@ -307,15 +311,17 @@ const ChangePasswordSheet = ({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface-2))]">
-        <SheetHeader className="text-right"><SheetTitle>تغییر رمز عبور</SheetTitle></SheetHeader>
+      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),20px)]">
+        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
+        <SheetHeader className="text-right"><SheetTitle className="text-base">تغییر رمز عبور</SheetTitle></SheetHeader>
         <div className="space-y-3 mt-4">
-          <FormField label="رمز عبور فعلی" type="text" value={current} onChange={(e) => setCurrent(e.target.value)} />
-          <FormField label="رمز عبور جدید" type="text" value={next} onChange={(e) => setNext(e.target.value)} />
-          <FormField label="تکرار رمز جدید" type="text" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={err ?? undefined} />
+          <FormField label="رمز عبور فعلی" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+          <FormField label="رمز عبور جدید" type="password" value={next} onChange={(e) => setNext(e.target.value)} helper="حداقل ۸ کاراکتر" />
+          <FormField label="تکرار رمز جدید" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={err ?? undefined} />
           <Button className="w-full rounded-full" onClick={submit}>تغییر رمز</Button>
         </div>
       </SheetContent>
     </Sheet>
   );
 };
+

@@ -8,7 +8,7 @@ interface FormFieldProps {
   value?: string;
   defaultValue?: string;
   placeholder?: string;
-  type?: "text" | "textarea" | "email" | "tel" | "date" | "number";
+  type?: "text" | "textarea" | "email" | "tel" | "date" | "number" | "password";
   helper?: string;
   error?: string;
   rightSlot?: ReactNode;

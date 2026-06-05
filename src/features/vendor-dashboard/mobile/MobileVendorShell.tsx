@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, Navigate, Route, Routes } from "react-router-dom";
-import { Home, Wallet, Settings, Bell, BadgeCheck } from "lucide-react";
+import { Home, Wallet, Settings } from "lucide-react";
 import { useVendorDashboard } from "../context/VendorDashboardContext";
 import { MobileVendorHome } from "./MobileVendorHome";
 import { MobileVendorFinance } from "./MobileVendorFinance";
@@ -17,29 +17,21 @@ const Shell = () => {
   const [devOpen, setDevOpen] = useState(false);
 
   return (
-    <div dir="rtl" className="vendor-dash min-h-screen bg-[hsl(var(--vd-surface-2))] text-foreground flex flex-col font-sans">
+    <div dir="rtl" className="vendor-dash min-h-screen bg-[hsl(var(--vd-surface-2))] text-foreground flex flex-col">
       <header className="sticky top-0 z-20 bg-[hsl(var(--vd-surface))] border-b border-[hsl(var(--vd-stroke))]">
-        <div className="px-4 h-14 flex items-center justify-between">
+        <div className="px-4 h-14 flex items-center">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-[hsl(var(--vd-accent-soft))] text-[hsl(var(--vd-accent))] flex items-center justify-center text-sm font-semibold">
               ن
             </div>
             <div className="leading-tight">
               <div className="text-sm font-semibold text-foreground">{vendor.storeName}</div>
-              <div className="flex items-center gap-1 text-[10px] text-[hsl(var(--vd-positive))]">
-                <BadgeCheck className="w-3 h-3" />
-                فروشنده تأیید شده
-              </div>
+              <div className="text-[10px] text-muted-foreground">داشبورد فروشنده</div>
             </div>
           </div>
-          <button className="relative w-9 h-9 rounded-full border border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] flex items-center justify-center">
-            <Bell className="w-4 h-4 text-foreground" />
-            {pendingChanges.length > 0 && (
-              <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-[hsl(var(--vd-danger))]" />
-            )}
-          </button>
         </div>
       </header>
+
 
       <main className="flex-1 pb-24">
         <Outlet />

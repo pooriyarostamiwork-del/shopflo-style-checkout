@@ -67,10 +67,10 @@ export const mockVendor = {
     activeProducts: 342,
     aov: 297_000,
     pendingSettlement: 3_250_000,
-    nextSettlement: "۱۴۰۵/۰۳/۱۵",
     withdrawableBalance: 1_800_000,
     deltas: { revenue: 12, orders: 8, activeProducts: 2, aov: -4 },
   },
+
   revenueByRange: {
     day:   { revenue: 420_000,    orders: 2,  aov: 210_000, commission: 21_000,  deltaPct: 6 } as RevenueSnapshot,
     week:  { revenue: 2_900_000,  orders: 11, aov: 263_000, commission: 145_000, deltaPct: 9 } as RevenueSnapshot,
@@ -85,8 +85,8 @@ export const mockVendor = {
     withdrawable: 1_800_000,
     pending: 3_250_000,
     totalWithdrawn: 24_500_000,
-    nextSettlement: "۱۴۰۵/۰۳/۱۵",
   },
+
   withdrawals: [
     { id: "WD-1405-0301", date: "۱۴۰۵/۰۳/۰۱", amount: 2_000_000, status: "completed" as WithdrawalStatus },
     { id: "WD-1405-0220", date: "۱۴۰۵/۰۲/۲۰", amount: 1_500_000, status: "completed" as WithdrawalStatus },

@@ -65,16 +65,19 @@ export const WithdrawSheet = ({ open, onOpenChange }: Props) => {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] p-0 max-h-[92vh] bg-[hsl(var(--vd-surface-2))]"
+        dir="rtl"
+        className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] p-0 max-h-[92vh] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),16px)]"
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] mt-2" />
+        <div className="flex items-center justify-between px-5 pt-3 pb-3">
           <SheetHeader className="text-right space-y-0">
             <SheetTitle className="text-base">برداشت وجه</SheetTitle>
           </SheetHeader>
-          <button onClick={() => onOpenChange(false)} className="w-8 h-8 rounded-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] flex items-center justify-center">
+          <button onClick={() => onOpenChange(false)} className="vd-interactive w-8 h-8 rounded-full border border-[hsl(var(--vd-stroke))] flex items-center justify-center">
             <X className="w-4 h-4" />
           </button>
         </div>
+
 
         {stage === "success" ? (
           <div className="px-5 pb-6 space-y-4 text-center">
@@ -136,12 +139,13 @@ export const WithdrawSheet = ({ open, onOpenChange }: Props) => {
                   key={p}
                   type="button"
                   onClick={() => setPercent(p)}
-                  className="flex-1 text-xs rounded-full border border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] py-2"
+                  className="vd-interactive flex-1 text-xs rounded-full border border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] py-2"
                 >
                   {toPersianDigits(p)}٪
                 </button>
               ))}
             </div>
+
 
             <FormField
               label="یادداشت (اختیاری)"

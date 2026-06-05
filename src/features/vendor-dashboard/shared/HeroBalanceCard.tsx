@@ -4,11 +4,10 @@ import { formatToman } from "../data/mockVendor";
 interface Props {
   balance: number;
   pending: number;
-  nextSettlement: string;
   onWithdraw: () => void;
 }
 
-export const HeroBalanceCard = ({ balance, pending, nextSettlement, onWithdraw }: Props) => (
+export const HeroBalanceCard = ({ balance, pending, onWithdraw }: Props) => (
   <div className="rounded-3xl p-5 bg-[hsl(var(--vd-surface-ink))] text-white relative overflow-hidden">
     <div
       className="absolute inset-0 opacity-20 pointer-events-none"
@@ -36,7 +35,6 @@ export const HeroBalanceCard = ({ balance, pending, nextSettlement, onWithdraw }
         >
           در انتظار تسویه {formatToman(pending)}
         </span>
-        <span style={{ unicodeBidi: "isolate" }}>تسویه بعدی {nextSettlement}</span>
       </div>
 
       <button

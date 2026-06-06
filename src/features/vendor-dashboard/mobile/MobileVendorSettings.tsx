@@ -88,11 +88,16 @@ export const MobileVendorSettings = () => {
 
   return (
     <div className="px-4 py-5 space-y-4">
+      <div className="pb-1">
+        <div className="text-[11px] text-muted-foreground">داشبورد فروشنده</div>
+        <div className="text-base font-semibold text-foreground mt-0.5">تنظیمات</div>
+      </div>
+
       <Tabs value={tab} onValueChange={handleTab} className="w-full">
         <TabsList className="grid grid-cols-3 w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-full p-1 h-auto">
-          <TabsTrigger value="profile" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">پروفایل</TabsTrigger>
-          <TabsTrigger value="returns" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">بازگشت</TabsTrigger>
           <TabsTrigger value="account" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">حساب</TabsTrigger>
+          <TabsTrigger value="returns" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">بازگشت</TabsTrigger>
+          <TabsTrigger value="profile" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">پروفایل</TabsTrigger>
         </TabsList>
 
         {/* PROFILE */}

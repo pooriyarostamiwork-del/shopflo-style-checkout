@@ -109,16 +109,21 @@ export const MobileVendorFinance = () => {
 
   return (
     <div className="px-4 py-5 space-y-4">
+      <div className="pb-1">
+        <div className="text-[11px] text-muted-foreground">داشبورد فروشنده</div>
+        <div className="text-base font-semibold text-foreground mt-0.5">مالی</div>
+      </div>
+
       <Tabs value={sub} onValueChange={handleSub} className="w-full">
         <TabsList className="grid grid-cols-3 w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-full p-1 h-auto">
-          <TabsTrigger value="performance" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">عملکرد</TabsTrigger>
-          <TabsTrigger value="payouts" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تسویه</TabsTrigger>
           <TabsTrigger value="settings" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تنظیمات</TabsTrigger>
+          <TabsTrigger value="payouts" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تسویه</TabsTrigger>
+          <TabsTrigger value="performance" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">عملکرد</TabsTrigger>
         </TabsList>
 
         {/* PERFORMANCE */}
         <TabsContent value="performance" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between gap-3">
             <SectionTitle className="mb-0" eyebrow="عملکرد">مرور درآمد</SectionTitle>
             <TimeframeSelector value={timeframe} onChange={handleTimeframe} />
           </div>
@@ -130,7 +135,7 @@ export const MobileVendorFinance = () => {
           </div>
           <div className="bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-3xl p-4">
             <div className="text-[11px] text-muted-foreground mb-2">روند درآمد</div>
-            <RevenueSparkChart data={trend} height={100} />
+            <RevenueSparkChart data={trend} labels={mockVendor.trendLabelsByRange[timeframe]} height={160} />
           </div>
         </TabsContent>
 

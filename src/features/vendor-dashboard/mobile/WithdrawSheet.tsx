@@ -163,7 +163,8 @@ export const WithdrawSheet = ({ open, onOpenChange }: Props) => {
             </Button>
           </div>
         )}
-      </SheetContent>
+        </SheetPrimitive.Content>
+      </SheetPortal>
     </Sheet>
   );
 };

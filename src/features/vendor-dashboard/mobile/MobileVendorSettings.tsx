@@ -235,7 +235,7 @@ const ChangeMobileSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),20px)]">
+      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),20px)]">
         <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
         <SheetHeader className="text-right"><SheetTitle className="text-base">تغییر شماره موبایل</SheetTitle></SheetHeader>
         <div className="space-y-4 mt-4">
@@ -285,7 +285,7 @@ const ChangeEmailSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange:
   });
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),20px)]">
+      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),20px)]">
         <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
         <SheetHeader className="text-right"><SheetTitle className="text-base">به‌روزرسانی ایمیل</SheetTitle></SheetHeader>
         <div className="space-y-4 mt-4">
@@ -316,7 +316,7 @@ const ChangePasswordSheet = ({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),20px)]">
+      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),20px)]">
         <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
         <SheetHeader className="text-right"><SheetTitle className="text-base">تغییر رمز عبور</SheetTitle></SheetHeader>
         <div className="space-y-3 mt-4">

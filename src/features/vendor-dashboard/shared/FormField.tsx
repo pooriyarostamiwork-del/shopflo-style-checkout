@@ -13,12 +13,13 @@ interface FormFieldProps {
   error?: string;
   rightSlot?: ReactNode;
   inputClassName?: string;
+  dir?: "ltr" | "rtl";
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   registerProps?: Record<string, unknown>;
 }
 
 export const FormField = forwardRef<HTMLInputElement | HTMLTextAreaElement, FormFieldProps>(
-  ({ label, value, defaultValue, placeholder, type = "text", helper, error, rightSlot, inputClassName, onChange, registerProps }, ref) => {
+  ({ label, value, defaultValue, placeholder, type = "text", helper, error, rightSlot, inputClassName, dir, onChange, registerProps }, ref) => {
     const baseInput = "rounded-2xl border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))]";
     const errCls = error ? "border-[hsl(var(--vd-danger))] focus-visible:ring-[hsl(var(--vd-danger))]" : "";
     return (
@@ -33,6 +34,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLTextAreaElement, Form
             value={value}
             defaultValue={defaultValue}
             placeholder={placeholder}
+            dir={dir}
             onChange={onChange as any}
             {...registerProps}
             className={cn("min-h-[80px]", baseInput, errCls, inputClassName)}
@@ -44,15 +46,16 @@ export const FormField = forwardRef<HTMLInputElement | HTMLTextAreaElement, Form
             value={value}
             defaultValue={defaultValue}
             placeholder={placeholder}
+            dir={dir}
             onChange={onChange as any}
             {...registerProps}
             className={cn(baseInput, errCls, inputClassName)}
           />
         )}
         {error ? (
-          <p className="text-[11px] text-[hsl(var(--vd-danger))]">{error}</p>
+          <p className="text-[11px] text-[hsl(var(--vd-danger))]" dir="rtl">{error}</p>
         ) : helper ? (
-          <p className="text-[11px] text-muted-foreground">{helper}</p>
+          <p className="text-[11px] text-muted-foreground" dir="rtl">{helper}</p>
         ) : null}
       </div>
     );

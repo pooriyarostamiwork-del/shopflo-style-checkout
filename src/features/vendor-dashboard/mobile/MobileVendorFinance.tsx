@@ -109,16 +109,21 @@ export const MobileVendorFinance = () => {
 
   return (
     <div className="px-4 py-5 space-y-4">
+      <div className="pb-1">
+        <div className="text-[11px] text-muted-foreground">داشبورد فروشنده</div>
+        <div className="text-base font-semibold text-foreground mt-0.5">مالی</div>
+      </div>
+
       <Tabs value={sub} onValueChange={handleSub} className="w-full">
         <TabsList className="grid grid-cols-3 w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-full p-1 h-auto">
-          <TabsTrigger value="performance" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">عملکرد</TabsTrigger>
-          <TabsTrigger value="payouts" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تسویه</TabsTrigger>
           <TabsTrigger value="settings" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تنظیمات</TabsTrigger>
+          <TabsTrigger value="payouts" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تسویه</TabsTrigger>
+          <TabsTrigger value="performance" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">عملکرد</TabsTrigger>
         </TabsList>
 
         {/* PERFORMANCE */}
         <TabsContent value="performance" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between gap-3">
             <SectionTitle className="mb-0" eyebrow="عملکرد">مرور درآمد</SectionTitle>
             <TimeframeSelector value={timeframe} onChange={handleTimeframe} />
           </div>
@@ -130,7 +135,7 @@ export const MobileVendorFinance = () => {
           </div>
           <div className="bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-3xl p-4">
             <div className="text-[11px] text-muted-foreground mb-2">روند درآمد</div>
-            <RevenueSparkChart data={trend} height={100} />
+            <RevenueSparkChart data={trend} labels={mockVendor.trendLabelsByRange[timeframe]} height={160} />
           </div>
         </TabsContent>
 
@@ -166,8 +171,8 @@ export const MobileVendorFinance = () => {
                 {merchantType === "individual" ? (
                   <>
                     <FormField label="نام کامل" registerProps={idForm.register("fullName")} error={idForm.formState.errors.fullName?.message as string} />
-                    <FormField label="کد ملی" placeholder="۰۰۱۲۳۴۵۶۷۸" registerProps={idForm.register("nationalCode")} error={idForm.formState.errors.nationalCode?.message as string} />
-                    <FormField label="شماره موبایل" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={idForm.register("mobile")} error={idForm.formState.errors.mobile?.message as string} />
+                    <FormField label="کد ملی" placeholder="۰۰۱۲۳۴۵۶۷۸" registerProps={idForm.register("nationalCode")} error={idForm.formState.errors.nationalCode?.message as string} dir="ltr" inputClassName="text-left" />
+                    <FormField label="شماره موبایل" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={idForm.register("mobile")} error={idForm.formState.errors.mobile?.message as string} dir="ltr" inputClassName="text-left" />
                     <FormField label="تاریخ تولد" placeholder="۱۳۷۰/۰۱/۰۱" registerProps={idForm.register("birthDate")} error={idForm.formState.errors.birthDate?.message as string} />
                     <FormField label="آدرس" type="textarea" registerProps={idForm.register("address")} error={idForm.formState.errors.address?.message as string} />
                   </>
@@ -214,8 +219,8 @@ export const MobileVendorFinance = () => {
                     <p className="text-[11px] text-[hsl(var(--vd-danger))]">{bankForm.formState.errors.bank?.message as string}</p>
                   )}
                 </div>
-                <FormField label="شماره حساب" registerProps={bankForm.register("accountNumber")} error={bankForm.formState.errors.accountNumber?.message as string} />
-                <FormField label="شماره شبا" placeholder="شبا با IR شروع می‌شود" registerProps={bankForm.register("iban")} error={bankForm.formState.errors.iban?.message as string} />
+                <FormField label="شماره حساب" registerProps={bankForm.register("accountNumber")} error={bankForm.formState.errors.accountNumber?.message as string} dir="ltr" inputClassName="text-left" />
+                <FormField label="شماره شبا" placeholder="IR000000000000000000000000" registerProps={bankForm.register("iban")} error={bankForm.formState.errors.iban?.message as string} dir="ltr" inputClassName="text-left" />
               </AccordionContent>
             </AccordionItem>
 

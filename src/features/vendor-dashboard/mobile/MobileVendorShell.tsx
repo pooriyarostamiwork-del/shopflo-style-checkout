@@ -13,27 +13,12 @@ const tabs = [
 ];
 
 const Shell = () => {
-  const { vendor, pendingChanges, approvePending } = useVendorDashboard();
+  const { pendingChanges, approvePending } = useVendorDashboard();
   const [devOpen, setDevOpen] = useState(false);
 
   return (
     <div dir="rtl" className="vendor-dash min-h-screen bg-[hsl(var(--vd-surface-2))] text-foreground flex flex-col">
-      <header className="sticky top-0 z-20 bg-[hsl(var(--vd-surface))] border-b border-[hsl(var(--vd-stroke))]">
-        <div className="px-4 h-14 flex items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-[hsl(var(--vd-accent-soft))] text-[hsl(var(--vd-accent))] flex items-center justify-center text-sm font-semibold">
-              ن
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold text-foreground">{vendor.storeName}</div>
-              <div className="text-[10px] text-muted-foreground">داشبورد فروشنده</div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-
-      <main className="flex-1 pb-24">
+      <main className="flex-1 pb-24 pt-2">
         <Outlet />
 
         {/* Dev: simulate admin approval */}

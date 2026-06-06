@@ -41,7 +41,11 @@ export const MobileVendorHome = () => {
 
       <div className="bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-3xl p-4">
         <SectionTitle eyebrow="روند هفتگی">درآمد ۷ روز اخیر</SectionTitle>
-        <RevenueSparkChart data={mockVendor.trendByRange.week} height={100} />
+        <RevenueSparkChart
+          data={mockVendor.trendByRange.week}
+          labels={mockVendor.trendLabelsByRange.week}
+          height={160}
+        />
       </div>
 
       {onboardingComplete ? (

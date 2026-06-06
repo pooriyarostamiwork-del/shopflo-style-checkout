@@ -171,8 +171,8 @@ export const MobileVendorFinance = () => {
                 {merchantType === "individual" ? (
                   <>
                     <FormField label="نام کامل" registerProps={idForm.register("fullName")} error={idForm.formState.errors.fullName?.message as string} />
-                    <FormField label="کد ملی" placeholder="۰۰۱۲۳۴۵۶۷۸" registerProps={idForm.register("nationalCode")} error={idForm.formState.errors.nationalCode?.message as string} />
-                    <FormField label="شماره موبایل" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={idForm.register("mobile")} error={idForm.formState.errors.mobile?.message as string} />
+                    <FormField label="کد ملی" placeholder="۰۰۱۲۳۴۵۶۷۸" registerProps={idForm.register("nationalCode")} error={idForm.formState.errors.nationalCode?.message as string} dir="ltr" inputClassName="text-left" />
+                    <FormField label="شماره موبایل" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={idForm.register("mobile")} error={idForm.formState.errors.mobile?.message as string} dir="ltr" inputClassName="text-left" />
                     <FormField label="تاریخ تولد" placeholder="۱۳۷۰/۰۱/۰۱" registerProps={idForm.register("birthDate")} error={idForm.formState.errors.birthDate?.message as string} />
                     <FormField label="آدرس" type="textarea" registerProps={idForm.register("address")} error={idForm.formState.errors.address?.message as string} />
                   </>
@@ -219,8 +219,8 @@ export const MobileVendorFinance = () => {
                     <p className="text-[11px] text-[hsl(var(--vd-danger))]">{bankForm.formState.errors.bank?.message as string}</p>
                   )}
                 </div>
-                <FormField label="شماره حساب" registerProps={bankForm.register("accountNumber")} error={bankForm.formState.errors.accountNumber?.message as string} />
-                <FormField label="شماره شبا" placeholder="شبا با IR شروع می‌شود" registerProps={bankForm.register("iban")} error={bankForm.formState.errors.iban?.message as string} />
+                <FormField label="شماره حساب" registerProps={bankForm.register("accountNumber")} error={bankForm.formState.errors.accountNumber?.message as string} dir="ltr" inputClassName="text-left" />
+                <FormField label="شماره شبا" placeholder="IR000000000000000000000000" registerProps={bankForm.register("iban")} error={bankForm.formState.errors.iban?.message as string} dir="ltr" inputClassName="text-left" />
               </AccordionContent>
             </AccordionItem>
 

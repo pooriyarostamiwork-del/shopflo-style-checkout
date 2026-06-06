@@ -20,9 +20,8 @@ export const KpiCard = ({ label, value, sublabel, delta, ctaLabel, onCtaClick, a
     <div
       key={animateKey}
       className="text-xl font-semibold text-foreground tracking-tight mt-1.5 vd-anim-in"
-      style={{ unicodeBidi: "isolate" }}
     >
-      {value}
+      <bdi>{value}</bdi>
     </div>
     {sublabel && (
       <div className="text-[11px] text-muted-foreground mt-1" style={{ unicodeBidi: "isolate" }}>

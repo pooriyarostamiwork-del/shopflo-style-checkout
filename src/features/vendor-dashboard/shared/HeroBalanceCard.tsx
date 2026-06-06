@@ -21,19 +21,13 @@ export const HeroBalanceCard = ({ balance, pending, onWithdraw }: Props) => (
         <Wallet className="w-3.5 h-3.5" />
         موجودی قابل برداشت
       </div>
-      <div
-        className="text-3xl font-semibold tracking-tight mt-2"
-        style={{ unicodeBidi: "isolate" }}
-      >
-        {formatToman(balance)}
+      <div className="text-3xl font-semibold tracking-tight mt-2">
+        <bdi>{formatToman(balance)}</bdi>
       </div>
 
       <div className="flex items-center gap-2 mt-3 text-[11px] text-white/70">
-        <span
-          className="rounded-full bg-white/10 px-2 py-0.5"
-          style={{ unicodeBidi: "isolate" }}
-        >
-          در انتظار تسویه {formatToman(pending)}
+        <span className="rounded-full bg-white/10 px-2 py-0.5">
+          در انتظار تسویه <bdi>{formatToman(pending)}</bdi>
         </span>
       </div>
 

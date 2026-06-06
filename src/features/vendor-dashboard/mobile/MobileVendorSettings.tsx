@@ -109,14 +109,14 @@ export const MobileVendorSettings = () => {
             </div>
 
             <div className="flex items-center gap-3 py-2">
-              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--vd-accent-soft))] border border-[hsl(var(--vd-stroke))] flex items-center justify-center text-xs text-[hsl(var(--vd-accent))]">
+              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--vd-accent-soft))] border border-[hsl(var(--vd-stroke))] flex items-center justify-center text-xs text-[hsl(var(--vd-accent))] shrink-0">
                 لوگو
               </div>
-              <div className="flex-1">
+              <div className="flex-1 text-right">
                 <Button variant="outline" size="sm" type="button" className="rounded-full">
                   بارگذاری
                 </Button>
-                <p className="text-[11px] text-muted-foreground mt-1">تأیید توسط ادمین لازم است.</p>
+                <p className="text-[11px] text-muted-foreground mt-1" dir="rtl">تأیید توسط ادمین لازم است.</p>
               </div>
             </div>
 
@@ -126,9 +126,9 @@ export const MobileVendorSettings = () => {
               type="textarea"
               registerProps={profileForm.register("description")}
               error={profileForm.formState.errors.description?.message as string}
-              helper={`${toPersianDigits(profileForm.watch("description")?.length ?? 0)}/۲۵۰`}
+              helper={`${toPersianDigits(profileForm.watch("description")?.length ?? 0)} / ۲۵۰`}
             />
-            <FormField label="تلفن پشتیبانی" type="tel" registerProps={profileForm.register("supportPhone")} error={profileForm.formState.errors.supportPhone?.message as string} />
+            <FormField label="تلفن پشتیبانی" type="tel" registerProps={profileForm.register("supportPhone")} error={profileForm.formState.errors.supportPhone?.message as string} dir="ltr" inputClassName="text-left" />
 
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">نوع کسب‌وکار</label>
@@ -145,7 +145,7 @@ export const MobileVendorSettings = () => {
               </Select>
             </div>
 
-            <FormField label="آدرس وب‌سایت" registerProps={profileForm.register("website")} error={profileForm.formState.errors.website?.message as string} />
+            <FormField label="آدرس وب‌سایت" registerProps={profileForm.register("website")} error={profileForm.formState.errors.website?.message as string} dir="ltr" inputClassName="text-left" />
             <FormField label="ساعات کاری" registerProps={profileForm.register("operatingHours")} error={profileForm.formState.errors.operatingHours?.message as string} />
           </div>
           <StickySaveBar visible={profileForm.formState.isDirty} onSave={saveProfile} onCancel={() => profileForm.reset()} />

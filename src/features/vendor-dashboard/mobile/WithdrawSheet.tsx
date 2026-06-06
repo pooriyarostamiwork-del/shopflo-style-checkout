@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetPortal, SheetOverlay, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { toast } from "sonner";
@@ -63,20 +64,21 @@ export const WithdrawSheet = ({ open, onOpenChange }: Props) => {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        dir="rtl"
-        className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] p-0 max-h-[92vh] bg-[hsl(var(--vd-surface))] pb-[max(env(safe-area-inset-bottom),16px)]"
-      >
-        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] mt-2" />
-        <div className="flex items-center justify-between px-5 pt-3 pb-3">
-          <SheetHeader className="text-right space-y-0">
-            <SheetTitle className="text-base">برداشت وجه</SheetTitle>
-          </SheetHeader>
-          <button onClick={() => onOpenChange(false)} className="vd-interactive w-8 h-8 rounded-full border border-[hsl(var(--vd-stroke))] flex items-center justify-center">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <SheetPortal>
+        <SheetOverlay className="bg-black/50 z-50" />
+        <SheetPrimitive.Content
+          dir="rtl"
+          className="vendor-dash fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] p-0 max-h-[92vh] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),16px)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:duration-300 data-[state=open]:duration-400"
+        >
+          <div className="mx-auto w-10 h-1.5 rounded-full bg-[hsl(var(--vd-stroke))] mt-2" />
+          <div className="flex items-center justify-between px-5 pt-3 pb-3">
+            <SheetHeader className="text-right space-y-0">
+              <SheetTitle className="text-base">برداشت وجه</SheetTitle>
+            </SheetHeader>
+            <button onClick={() => onOpenChange(false)} className="vd-interactive w-8 h-8 rounded-full border border-[hsl(var(--vd-stroke))] flex items-center justify-center">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
 
         {stage === "success" ? (

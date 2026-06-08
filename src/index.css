@@ -285,6 +285,20 @@ All colors MUST be HSL.
   background-color: hsl(240 9% 96%);
 }
 
+/* RTL-first defaults inside the dashboard scope */
+.vendor-dash,
+.vendor-dash * {
+  text-align: start;
+}
+.vendor-dash input,
+.vendor-dash textarea {
+  text-align: start;
+}
+.vendor-dash .vd-num {
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
 @keyframes vdFadeUp {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }

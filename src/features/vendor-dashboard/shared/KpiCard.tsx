@@ -19,15 +19,11 @@ export const KpiCard = ({ label, value, sublabel, delta, ctaLabel, onCtaClick, a
     </div>
     <div
       key={animateKey}
-      className="text-xl font-semibold text-foreground tracking-tight mt-1.5 vd-anim-in"
+      className="text-xl font-semibold text-foreground tracking-tight mt-1.5 vd-anim-in vd-num"
     >
-      <bdi>{value}</bdi>
+      {value}
     </div>
-    {sublabel && (
-      <div className="text-[11px] text-muted-foreground mt-1" style={{ unicodeBidi: "isolate" }}>
-        {sublabel}
-      </div>
-    )}
+    {sublabel && <div className="text-[11px] text-muted-foreground mt-1 vd-num">{sublabel}</div>}
     {ctaLabel && (
       <Button size="sm" className="w-full mt-3 rounded-full" onClick={onCtaClick}>
         {ctaLabel}

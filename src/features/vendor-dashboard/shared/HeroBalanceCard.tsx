@@ -1,4 +1,4 @@
-import { ArrowLeft, Wallet } from "lucide-react";
+import { ArrowRight, Wallet } from "lucide-react";
 import { formatToman } from "../data/mockVendor";
 
 interface Props {
@@ -13,7 +13,7 @@ export const HeroBalanceCard = ({ balance, pending, onWithdraw }: Props) => (
       className="absolute inset-0 opacity-20 pointer-events-none"
       style={{
         background:
-          "radial-gradient(circle at 100% 0%, hsl(var(--vd-accent)) 0%, transparent 60%)",
+          "radial-gradient(circle at 0% 0%, hsl(var(--vd-accent)) 0%, transparent 60%)",
       }}
     />
     <div className="relative">
@@ -21,13 +21,13 @@ export const HeroBalanceCard = ({ balance, pending, onWithdraw }: Props) => (
         <Wallet className="w-3.5 h-3.5" />
         موجودی قابل برداشت
       </div>
-      <div className="text-3xl font-semibold tracking-tight mt-2">
-        <bdi>{formatToman(balance)}</bdi>
+      <div className="text-3xl font-semibold tracking-tight mt-2 vd-num">
+        {formatToman(balance)}
       </div>
 
       <div className="flex items-center gap-2 mt-3 text-[11px] text-white/70">
         <span className="rounded-full bg-white/10 px-2 py-0.5">
-          در انتظار تسویه <bdi>{formatToman(pending)}</bdi>
+          در انتظار تسویه <bdi className="vd-num">{formatToman(pending)}</bdi>
         </span>
       </div>
 
@@ -36,7 +36,7 @@ export const HeroBalanceCard = ({ balance, pending, onWithdraw }: Props) => (
         className="mt-4 w-full bg-white text-[hsl(var(--vd-surface-ink))] rounded-full py-3 text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
       >
         برداشت وجه
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowRight className="w-4 h-4 rtl:rotate-180" />
       </button>
     </div>
   </div>

@@ -59,13 +59,14 @@ export const WithdrawalHistoryList = ({ rows }: { rows: WithdrawalRow[] }) => {
                   }`}
                 >
                   <div>
-                    <div className="text-sm font-medium text-foreground" style={{ unicodeBidi: "isolate" }}>
+                    <div className="text-sm font-medium text-foreground vd-num">
                       {formatToman(r.amount)}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5" style={{ unicodeBidi: "isolate" }}>
+                    <div className="text-[11px] text-muted-foreground mt-0.5 vd-num">
                       {r.date}
                     </div>
                   </div>
+
                   <span className={`rounded-full px-2.5 py-0.5 text-[11px] ${meta.className}`}>{meta.label}</span>
                 </div>
               );

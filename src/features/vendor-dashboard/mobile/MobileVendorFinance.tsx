@@ -114,12 +114,13 @@ export const MobileVendorFinance = () => {
         <div className="text-base font-semibold text-foreground mt-0.5">مالی</div>
       </div>
 
-      <Tabs value={sub} onValueChange={handleSub} className="w-full">
+      <Tabs value={sub} onValueChange={handleSub} className="w-full" dir="rtl">
         <TabsList className="grid grid-cols-3 w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-full p-1 h-auto">
-          <TabsTrigger value="settings" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تنظیمات</TabsTrigger>
-          <TabsTrigger value="payouts" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تسویه</TabsTrigger>
           <TabsTrigger value="performance" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">عملکرد</TabsTrigger>
+          <TabsTrigger value="payouts" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تسویه</TabsTrigger>
+          <TabsTrigger value="settings" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">تنظیمات</TabsTrigger>
         </TabsList>
+
 
         {/* PERFORMANCE */}
         <TabsContent value="performance" className="mt-4 space-y-4">
@@ -205,7 +206,7 @@ export const MobileVendorFinance = () => {
                 <FormField label="نام صاحب حساب" registerProps={bankForm.register("holder")} error={bankForm.formState.errors.holder?.message as string} />
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground">نام بانک</label>
-                  <Select onValueChange={(v) => bankForm.setValue("bank", v, { shouldDirty: true, shouldValidate: true })}>
+                  <Select dir="rtl" onValueChange={(v) => bankForm.setValue("bank", v, { shouldDirty: true, shouldValidate: true })}>
                     <SelectTrigger className="rounded-2xl border-[hsl(var(--vd-stroke))]">
                       <SelectValue placeholder="انتخاب بانک" />
                     </SelectTrigger>
@@ -215,6 +216,7 @@ export const MobileVendorFinance = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
                   {bankForm.formState.errors.bank && (
                     <p className="text-[11px] text-[hsl(var(--vd-danger))]">{bankForm.formState.errors.bank?.message as string}</p>
                   )}

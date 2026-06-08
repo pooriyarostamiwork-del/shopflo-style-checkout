@@ -1,174 +1,197 @@
-## Vendor dashboard polish — RTL, modal, header, charts
+# RTL Refactor, Shared Sheet Wrapper & Chart Tooltips — Mobile Vendor Dashboard
 
-Frontend-only, scoped to `src/features/vendor-dashboard/**`, `src/pages/MobileVendorDashboard.tsx`, and `src/index.css` (`.vendor-dash` scope only). No backend changes.
-
----
-
-### 1. Delete the sticky header entirely
-
-`MobileVendorShell.tsx`:
-- Remove the entire `<header>` block (store icon "ن", store name, "داشبورد فروشنده" subtitle).
-- Remove unused `useVendorDashboard` destructure of `vendor` if no longer needed elsewhere in shell.
-- Keep the dev "شبیه‌سازی تأیید ادمین" panel and bottom nav.
-
-`MobileVendorHome.tsx`:
-- Promote the greeting block ("چهارشنبه، ۱۴ خرداد" + "سلام، فروشگاه نمونه 👋") to be the first thing in the page so users still get context now that the header is gone. Keep same styling.
-
-`MobileVendorFinance.tsx` and `MobileVendorSettings.tsx`:
-- Add a small page header row at top with just the store/page title so layout doesn't feel decapitated. Pattern:
-  ```
-  <div className="pt-4 pb-1">
-    <div className="text-[11px] text-muted-foreground">داشبورد فروشنده</div>
-    <div className="text-base font-semibold">{مالی | تنظیمات}</div>
-  </div>
-  ```
+Scope: **frontend only**, restricted to `src/features/vendor-dashboard/**`, `src/pages/MobileVendorDashboard.tsx`, and the scoped `.vendor-dash` block in `src/index.css`. No backend, no other routes, no business logic changes. Home screen is the RTL reference.
 
 ---
 
-### 2. RTL fixes — section by section
+## 1. Global RTL Foundations
 
-The root cause across the dashboard: relying on `dir="rtl"` is correct, but several components were authored as if LTR (label/value swapped, `flex-row-reverse`, `text-left`, periods at the wrong end, latin punctuation around Farsi). Audit & fixes:
+### 1a. Root attributes
+- `src/pages/MobileVendorDashboard.tsx`: wrap the shell with `<div dir="rtl" lang="fa">` at the page level (today only the shell has `dir="rtl"`; we move it up and add `lang="fa"`).
+- `MobileVendorShell.tsx`: keep `vendor-dash` class, remove redundant `dir="rtl"` from the inner wrapper now that root sets it.
 
-#### 2.1 Finance → sub-tabs (`MobileVendorFinance.tsx`)
-- The visual order in image 2 shows `[عملکرد][تسویه][تنظیمات]` reading **left → right**, but in RTL the natural reading is **right → left**. Reorder `TabsTrigger` JSX to `تنظیمات → تسویه → عملکرد` so the visually-rightmost (first read) tab is "عملکرد". Same fix on Settings tabs (`پروفایل | بازگشت | حساب` should be reordered so `پروفایل` is the rightmost).
-- Indicator pill: shadcn `Tabs` works in RTL via CSS grid; just reorder JSX. Do not use `flex-row-reverse`.
+### 1b. Logical-property CSS utilities (scoped under `.vendor-dash` in `index.css`)
+Add small helpers so we never reach for `left/right`/`ml-/mr-`/`pl-/pr-` again:
+- `.vd-pad-x { padding-inline: 1rem; }`
+- `.vd-ms-auto { margin-inline-start: auto; }`
+- `.vd-me-auto { margin-inline-end: auto; }`
+- `.vd-border-s { border-inline-start: 1px solid hsl(var(--vd-stroke)); }`
+- `.vd-border-e { border-inline-end: 1px solid hsl(var(--vd-stroke)); }`
+- `.vd-num { unicode-bidi: isolate; font-variant-numeric: tabular-nums; }`
 
-#### 2.2 Finance → Performance KPI grid (image 2 issue)
-- "درآمد" card shows the delta chip `↑ ۱۲٪` on the **left** of the label "درآمد" which sits on top-right. That's actually correct RTL — but the order inside `KpiCard.tsx` puts label first and `DeltaChip` second inside a `flex justify-between`, which in RTL places delta on the left. That's fine. **No change for delta placement.**
-- BUT: the value "تومان ۱۲٬۵۰۰٬۰۰۰" in image 2 reads visually as `تومان` then number, which is the wrong logical Farsi order — `formatToman` returns `<digits> تومان` (logical), but because of bidi mixed direction inside an RTL container the unit jumps. **Wrap the numeric portion in an isolated `<bdi>` span and keep "تومان" outside it**, so output stays "۱۲٬۵۰۰٬۰۰۰ تومان" reading right-to-left visually:
-  ```tsx
-  <span><bdi>{toPersianDigits(grouped)}</bdi>{' '}تومان</span>
-  ```
-  Apply in `formatToman` callers that render Farsi context (KpiCard value, HeroBalanceCard, withdrawal rows). Update `formatToman` to optionally return a React node via a new `<TomanAmount value={n} />` shared component to avoid string concatenation pitfalls.
+Also add a global rule inside `.vendor-dash`:
+```css
+.vendor-dash, .vendor-dash * { text-align: start; }
+.vendor-dash input, .vendor-dash textarea { text-align: start; }
+```
+This removes the need for ad-hoc `text-right` on every element.
 
-#### 2.3 Finance → Performance section header (image 2)
-- "مرور درآمد" with eyebrow "عملکرد" — eyebrow is rendered above title; eyebrow `text-[10px] uppercase tracking-widest` for English looks weird for Farsi. Change `SectionTitle` to drop `uppercase` and reduce `tracking-widest` to `tracking-wide` only when the eyebrow contains Farsi (always for vendor dash). Remove `uppercase` for vendor dash.
-- The accent bar in `SectionTitle` sits left of the title in current LTR-authored markup. In RTL with `flex items-center gap-2` it naturally goes right of the title text (correct). Verify visually after font change. No code change beyond eyebrow above.
+### 1c. Replace LTR-biased Tailwind classes
+Sweep the vendor-dashboard tree and replace:
+- `left-*` → `start-*` (Tailwind v3 logical equivalents) or `inset-inline-start`
+- `right-*` → `end-*`
+- `ml-*` → `ms-*`, `mr-*` → `me-*`
+- `pl-*` → `ps-*`, `pr-*` → `pe-*`
+- `border-l` → `border-s`, `border-r` → `border-e`
+- Remove redundant `text-right` once `.vendor-dash` defaults `text-align: start`.
+- Remove ad-hoc `flex-row-reverse` (rely on `dir="rtl"`).
 
-#### 2.4 Finance → Performance TimeframeSelector row
-- Header row uses `flex items-center justify-between` with `SectionTitle` then `TimeframeSelector`. In RTL the selector ends up on the **left**, title on the **right** — correct. But the title block has `mb-0` on `SectionTitle` while eyebrow still pushes height; align with `items-end` so they share baseline.
-
-#### 2.5 Finance → Payouts: HeroBalanceCard
-- "موجودی قابل برداشت" row has `<Wallet />` icon then label using `flex items-center gap-2` — in RTL icon ends up on the right which is fine for a leading icon. Keep.
-- Pending pill: ensure number uses `<bdi>` wrapper (currently `unicodeBidi: isolate` style which works; standardize to `<bdi>`).
-- The "برداشت وجه ←" button uses `<ArrowLeft />` next to the label. In RTL a "forward" arrow should point **left** (since reading is right-to-left, forward = left), so `ArrowLeft` is correct semantically. Keep.
-
-#### 2.6 Finance → Payouts: 2-col KPI ("در انتظار", "مجموع برداشت")
-- Same `<bdi>` fix from 2.2 applies to amounts.
-
-#### 2.7 Finance → Settings (Accordion forms)
-- `AccordionTrigger` already has `text-right`. Verify chevron (lucide) flips correctly — shadcn's accordion chevron is positioned via `data-[state=open]:rotate-180` and sits at the **end** of the row. In RTL "end" is left. Acceptable. No code change.
-- `Select` (نام بانک, نوع کسب‌وکار): currently shows the dropdown caret on the right (image 3 shows it appears at left of "خرده‌فروشی"). In shadcn `SelectTrigger` uses `flex items-center justify-between`, so in RTL the caret naturally moves to the left — that's the right place visually. But the inline `<ChevronDown />` inside the trigger doesn't mirror; leave as-is.
-- Currency/date inputs: ensure `dir="rtl"` is inherited (no `dir="ltr"` overrides in vendor dash inputs except OTP grid).
-- Form labels currently above field — correct.
-
-#### 2.8 Settings → Profile (image 3 fixes)
-- Card header row: `<div>اطلاعات کسب‌وکار</div> {PendingPill}` using `flex justify-between`. In RTL the title moves right, pill moves left — correct.
-- Logo upload row: `<div className="flex items-center gap-3">` with logo box first, then upload button + helper. In RTL the logo ends up on the **right** (good), but image 3 shows the logo on the left and the button "بارگذاری" on the right — meaning the row is **double-reversed** because `flex-row-reverse` is being applied somewhere or because shadcn `Button` default is LTR. Fix: explicitly remove any `flex-row-reverse`; use plain `flex items-center gap-3` and rely on `dir="rtl"` inheritance.
-- The helper text "تأیید توسط ادمین لازم است." in image 3 shows the period on the **left** before the sentence — classic LTR fallback. The text node needs `dir="rtl"` ancestor (it has one) AND the `<p>` must not be inside an LTR-forced parent. Confirm and add explicit `dir="rtl"` to the `<p className="text-[11px] text-muted-foreground mt-1" dir="rtl">…</p>` to lock it. Apply same explicit `dir="rtl"` to every `<p className="text-[11px] ...">` in dashboard sheets/forms where mixed punctuation appears.
-- Description textarea counter "۴۲/۲۵۰" — wrap in `<bdi dir="ltr">{count}/{max}</bdi>` so the slash doesn't flip.
-- "تلفن پشتیبانی" value `02112345678` shows in image 3 with leading `o` (logical `0`) at right — confirm number renders inside `dir="ltr"` `<bdi>`. Add `inputClassName="text-left"` + `dir="ltr"` to phone/IBAN/website/email inputs so digits flow LTR while the label remains RTL.
-  - Apply to: supportPhone, website, mobile (account), iban, accountNumber, email.
-
-#### 2.9 Settings → Returns
-- Already uses `PolicyRadioGroup`. Audit it (`code--view`) and ensure radio options stack with label on the right of the bullet in RTL. Likely needs no change but verify; add `text-right` to option labels.
-
-#### 2.10 Settings → Account (list rows)
-- `SettingsListRow` audit: ensure `flex items-center justify-between` not `flex-row-reverse`. Label on right, value+chevron on left. Confirm chevron used is `ChevronLeft` (forward in RTL) — if currently `ChevronRight` swap to `ChevronLeft`.
-- Masked mobile and masked email: render value inside `<bdi dir="ltr">` so they don't fragment.
-
-#### 2.11 Bottom nav
-- Image 1 shows tabs visually `[تنظیمات][مالی][خانه]` left→right. The natural-reading-first tab in RTL is the rightmost — currently "خانه". Order in array is `[home, finance, settings]` rendered as `grid-cols-3` which in RTL grid auto-reverses → "خانه" ends rightmost. Correct, keep.
-
-#### 2.12 Global RTL CSS guardrails
-- Add to `.vendor-dash` scope in `index.css`:
-  ```css
-  .vendor-dash { unicode-bidi: isolate; }
-  .vendor-dash .ltr-num { direction: ltr; unicode-bidi: isolate; display: inline-block; }
-  ```
-- Replace ad-hoc `style={{ unicodeBidi: 'isolate' }}` usages with `<bdi>` element or `.ltr-num` class for consistency.
+Files swept (no logic changes): `MobileVendorShell.tsx`, `MobileVendorHome.tsx`, `MobileVendorFinance.tsx`, `MobileVendorSettings.tsx`, `WithdrawSheet.tsx`, all `shared/*.tsx`.
 
 ---
 
-### 3. Modal/sheet background fix (image 4)
+## 2. Finance Screen (مالی)
 
-Image 4 shows the WithdrawSheet rendering on top of the page with no dimming overlay and the sheet itself appears semi-transparent (content from underneath bleeds through).
+### 2a. Sub-tab segmented control (`Tabs`)
+- Reorder JSX so DOM order matches Persian reading order **and** `grid-cols-3` lays them out right→left under `dir="rtl"`:
+  DOM order: `عملکرد` → `تسویه` → `تنظیمات`.
+- Active pill animation: rely on `data-[state=active]` background; no `left/right` positioning — already RTL-safe.
 
-Root cause: shadcn `SheetOverlay` uses `bg-black/80` but is being layered behind the sheet content visually because the dashboard page has its own `bg-[hsl(var(--vd-surface-2))]` and the sheet `bg-[hsl(var(--vd-surface))]` — both light, so no contrast. Also the overlay z-index may be conflicting with sticky/fixed nav.
+### 2b. `TimeframeSelector`
+Currently uses an absolutely positioned indicator with `right: calc(...)`. Under `dir="rtl"` this is OK but reading order is wrong because options array is `[day, week, month]` which renders right→left as روز | هفته | ماه. We want **روز | هفته | ماه** to read in Persian order (روز first/right). That's already correct under RTL. The user complaint "هفته | روز" appearing reversed is because the absolutely positioned indicator uses `right` while the buttons flow naturally — fix by:
+- Replacing `right: calc(...)` with `inset-inline-start: calc(...)` and computing `idx` from the right edge, OR simpler: drop the absolute indicator and use `data-[state]`-style background on the active `<button>` directly. We'll take the simpler approach: render buttons with `bg-[hsl(var(--vd-accent))] text-white` when active, transition `background-color`. Removes all `left/right` math.
 
-Fixes (apply to all four sheets: `WithdrawSheet`, `ChangeMobileSheet`, `ChangeEmailSheet`, `ChangePasswordSheet`):
-- Wrap each `<SheetContent>` so the overlay actually shows: do **not** override overlay styles via className on content. Confirm shadcn `SheetOverlay` z-50 is above bottom nav (nav is z-30 — good).
-- Add explicit solid background and shadow to content:
-  ```
-  bg-background  (or bg-white)  + border-t + shadow-2xl + isolate
-  ```
-  Switch from `bg-[hsl(var(--vd-surface))]` (which can be theme-light and identical to page) to `bg-white` for guaranteed contrast in this scoped section.
-- Add an explicit additional overlay div inside the page only if needed; preferred fix is to ensure shadcn's `SheetOverlay` isn't being suppressed by parent `transform` (it uses `position: fixed` on the root, so any ancestor with `transform`/`filter`/`will-change` would break fixed positioning). Inspect `MobileVendorShell` root — it currently has no transform. The dashboard root has `min-h-screen flex flex-col` — safe. The bottom nav uses `fixed` which is fine.
-- Hard guarantee: in `.vendor-dash` scoped CSS, add:
-  ```css
-  .vendor-dash [data-radix-portal] [data-state="open"][data-side="bottom"] { background: hsl(var(--vd-surface)); }
-  ```
-  Actually portals render at body root, **not** inside `.vendor-dash`, so the scope won't match. Instead: pass `className="bg-[hsl(var(--vd-surface))] !opacity-100"` and remove any parent-scoped CSS attempts. Add inline `style={{ background: 'hsl(var(--vd-surface))' }}` as a belt-and-braces fix.
-- Add a manually-rendered overlay div via shadcn's exported `SheetOverlay` if the default isn't visible — replace plain `<SheetContent>` usage with the explicit portal pattern:
-  ```
-  <SheetPortal>
-    <SheetOverlay className="bg-black/50" />
-    <SheetPrimitive.Content …>…</SheetPrimitive.Content>
-  </SheetPortal>
-  ```
-  to remove any chance of overlay being skipped. Use shadcn primitives.
+### 2c. `SectionTitle` accent bar
+Currently the `<span class="w-1 h-4 …">` sits before the text via flex; under RTL it correctly appears on the right. Verify and keep — no change needed beyond removing any `ml-*`.
 
-Sheet content polish:
-- Add `max-h-[92vh] overflow-y-auto` consistently.
-- Drag handle bar at top: `mx-auto w-10 h-1.5 rounded-full bg-[hsl(var(--vd-stroke))] mt-2 mb-1`.
-- Close X: ensure positioned `top-3 left-3` in RTL (it currently auto-renders `right-4 top-4` from shadcn — that ends up on the right which in RTL is the leading side; user is used to close on opposite of where the sheet handles open. Override to `left-4` for RTL).
+### 2d. KPI cards
+- `KpiCard`: header row uses `justify-between` — label on the right, delta chip on the left under RTL. Good.
+- Add `.vd-num` to the value `<bdi>` for tabular numerals.
+- Ensure `delta` chip icon (`ArrowUp/Down`) is not mirrored.
 
----
+### 2e. Revenue chart RTL
+`RevenueSparkChart.tsx`:
+- Already passes `reversed` on `XAxis` and `direction: ltr` on the wrapper (recharts requires LTR internally). Keep wrapper LTR but ensure tooltip content is RTL (already set).
+- Improve tooltip: show **Persian date label + formatted toman value** on two lines, right-aligned, with a colored dot matching the series. Add `cursor` dashed vertical line for better hover affordance.
+- Add `activeDot` ring with accent halo (already partly there).
+- Ensure dates on X-axis render in Persian digits (already via `trendLabelsByRange`).
 
-### 4. Charts — show data points + dates (image 1 + 2)
+### 2f. Payouts sub-tab
+- `HeroBalanceCard`: confirm CTA icon flows correctly; replace any `ArrowLeft` with `ArrowRight` (visually points "forward" in RTL) or use an icon-free CTA.
+- Pending/withdrawn KPI grid: same KPI card fixes apply.
+- `WithdrawalHistoryList` rows: amounts wrapped in `.vd-num`, status pills on the inline-start side.
 
-`RevenueSparkChart.tsx` upgrade:
-- Add a `labels?: string[]` prop with date strings (Farsi, e.g. ["۱ خرداد", "۸ خرداد", …]).
-- Switch from a pure sparkline to a `LineChart` (still recharts) with:
-  - `XAxis dataKey="label"` showing tick labels (`fontSize: 10`, `tick: { fill: 'hsl(var(--muted-foreground))' }`), no axis line.
-  - `YAxis hide={true}` (keep clean look) — values still visible on dots/tooltip.
-  - `<Line>` with `dot={{ r: 3, fill: 'hsl(var(--vd-accent))', stroke: 'white', strokeWidth: 1.5 }}` and `activeDot={{ r: 5 }}`.
-  - Keep the gradient `<Area>` underneath for visual depth, layered as second series.
-  - `<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--vd-stroke))" />` light horizontal grid.
-- Data shape:
-  ```ts
-  series = data.map((v, i) => ({ label: labels?.[i] ?? toPersianDigits(i+1), v }));
-  ```
-- The chart container stays `direction: ltr` (recharts requires it) but tick labels are rendered as plain Persian strings, which still display correctly because each label is its own text node.
-- Add labels in `mockVendor.ts`:
-  ```ts
-  trendLabelsByRange: {
-    day: ["۰۰", "۰۲", "۰۴", "۰۶", "۰۸", "۱۰", "۱۲", "۱۴", "۱۶", "۱۸", "۲۰", "۲۲"], // hours
-    week: ["شنبه","یک","دو","سه","چهار","پنج","جمعه"],
-    month: ["۱","۳","۶","۹","۱۲","۱۵","۱۸","۲۱","۲۴","۲۷","۲۹","۳۱"],
-  }
-  ```
-- Update `MobileVendorHome.tsx` and `MobileVendorFinance.tsx` to pass `labels={mockVendor.trendLabelsByRange[timeframe]}` (Home uses `week`).
-- Container height bumped from 100 → 140 to give room for x-axis ticks.
+### 2g. Finance Settings sub-tab
+- `MerchantTypeToggle`: audit and align with `TimeframeSelector` simplification (no absolute indicator math).
+- Accordion triggers: remove `text-right`, rely on `.vendor-dash` default; chevron stays on inline-end (Radix puts it after content — under RTL it ends up on the left automatically). Verify.
+- All `FormField`s for IBAN/account number/mobile: keep `dir="ltr"` + `text-left` (these are intentionally LTR data).
 
 ---
 
-### Files touched
+## 3. Settings Screen (تنظیمات)
 
-- `src/features/vendor-dashboard/mobile/MobileVendorShell.tsx` (remove header)
-- `src/features/vendor-dashboard/mobile/MobileVendorHome.tsx` (greeting, chart labels)
-- `src/features/vendor-dashboard/mobile/MobileVendorFinance.tsx` (page title, tab JSX order, chart labels)
-- `src/features/vendor-dashboard/mobile/MobileVendorSettings.tsx` (page title, tab JSX order, dir on helpers, LTR inputs)
-- `src/features/vendor-dashboard/mobile/WithdrawSheet.tsx` (overlay/portal, bg, close pos)
-- `src/features/vendor-dashboard/shared/SectionTitle.tsx` (drop uppercase)
-- `src/features/vendor-dashboard/shared/KpiCard.tsx` (TomanAmount / bdi)
-- `src/features/vendor-dashboard/shared/HeroBalanceCard.tsx` (bdi)
-- `src/features/vendor-dashboard/shared/RevenueSparkChart.tsx` (XAxis + dots + grid + labels prop)
-- `src/features/vendor-dashboard/shared/FormField.tsx` (accept `dir` prop, pass through)
-- `src/features/vendor-dashboard/shared/SettingsListRow.tsx` (chevron flip, bdi on values)
-- `src/features/vendor-dashboard/shared/PolicyRadioGroup.tsx` (RTL audit)
-- `src/features/vendor-dashboard/data/mockVendor.ts` (`trendLabelsByRange`, optional `TomanAmount` helper)
-- `src/index.css` (`.vendor-dash` scope: drop uppercase eyebrow, `.ltr-num` helper, drop any global overrides; no global font changes)
+### 3a. Sub-tab nav
+Same fix as Finance: DOM order `پروفایل → بازگشت → حساب`, drop absolute indicators.
 
-### Out of scope
-Backend, desktop view, anything outside `/m/gptcommerce/dash`, business logic, schema, other routes.
+### 3b. Profile — business info card
+- Logo row: remove `flex items-center gap-3` with implicit ordering; restructure as:
+  - Inline-start (right under RTL): logo preview + label "لوگوی کسب‌وکار".
+  - Inline-end (left): "بارگذاری" button + helper text.
+- Helper texts: drop manual `dir="rtl"`, inherit from root.
+
+### 3c. Form fields
+- `FormField`: 
+  - Default `dir` to unset (inherit RTL). Only pass `dir="ltr"` for IBAN/phone/website/email.
+  - Label row already `justify-between`: label on the right, optional `rightSlot` on the left. Good.
+  - Textarea: ensure `min-h-[80px]` and `resize-none`; cursor inherits RTL.
+  - Character counter (`helper`): move to align inline-end (under the field, left side) so it doesn't compete with error message which is inline-start.
+
+### 3d. Select components
+- `Select` (shadcn/Radix): chevron is rendered by `SelectTrigger`. Under `dir="rtl"` Radix places it on the inline-end (left) automatically. Verify by adding `dir="rtl"` to `SelectContent` (Radix Portal sometimes loses dir context).
+- Add `dir="rtl"` on each `<Select>` root in Finance + Settings to be safe.
+- `SelectItem`: text-align inherits, fine.
+
+### 3e. Returns policy
+- `PolicyRadioGroup`: ensure label row is right-aligned, radio chips flow right→left naturally with `flex gap-2` under RTL. Remove any explicit `text-right`/`flex-row-reverse`.
+
+### 3f. Account list
+- `SettingsListRow`: label on the right, value + chevron on the left. Use `ChevronLeft` icon (in RTL it visually points "forward into the row") — verify with reference Home behavior. Mask values wrapped in `<bdi className="vd-num">`.
+
+### 3g. Account change sheets (Mobile, Email, Password)
+Will be migrated to the shared sheet wrapper (section 4).
+
+---
+
+## 4. Shared Bottom-Sheet Wrapper
+
+Create `src/features/vendor-dashboard/shared/VendorBottomSheet.tsx`:
+
+```tsx
+interface VendorBottomSheetProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  title: string;
+  children: React.ReactNode;
+  maxHeight?: string; // default "92vh"
+}
+```
+Internally:
+- Uses `Sheet` + `SheetPortal` + `SheetOverlay` (bg-black/50, z-50).
+- `SheetPrimitive.Content` with: rounded-t-3xl, border-t stroke, solid `bg-white`, `vendor-dash` class, `dir="rtl"`, shadow `0 -8px 32px rgba(0,0,0,0.18)`, safe-area bottom padding, slide-in/out animations.
+- Drag handle bar.
+- Header row: title (right) + close `X` button (left) using `vd-interactive`.
+- Scrollable body wrapper with `overflow-y-auto`, `maxHeight` (default 70vh inner so handle/header stay fixed).
+
+Refactor consumers to drop ~25 lines of duplicate chrome each:
+- `WithdrawSheet.tsx`: keep stage state + body content; wrap in `<VendorBottomSheet title="برداشت وجه">`.
+- `ChangeMobileSheet`, `ChangeEmailSheet`, `ChangePasswordSheet` in `MobileVendorSettings.tsx`: same migration.
+
+Net effect: identical visual chrome everywhere; single place to tweak padding, overlay opacity, animations.
+
+---
+
+## 5. Chart Tooltips (Revenue + Trend)
+
+`RevenueSparkChart.tsx` enhancements:
+- Custom `<Tooltip content={...} />` renderer (small inline component) that returns:
+  ```
+  ┌──────────────────┐
+  │ • روز ۳شنبه       │   ← label, Persian, right-aligned
+  │ ۱۲٬۵۰۰٬۰۰۰ تومان │   ← value with .vd-num, accent color
+  └──────────────────┘
+  ```
+- Background `hsl(var(--vd-surface-ink))` text white, border subtle, rounded-xl, shadow-md.
+- Add `cursor={{ stroke: "hsl(var(--vd-accent))", strokeWidth: 1, strokeDasharray: "4 4", strokeOpacity: 0.5 }}`.
+- `activeDot` r=6 with white stroke ring.
+- For tap-on-mobile: recharts already triggers tooltip on touch; ensure `isAnimationActive={false}` on tooltip for snappy feel.
+- Apply uniformly to both the Home weekly trend chart and Finance performance chart (same component).
+
+---
+
+## 6. Bottom Navigation
+- `MobileVendorShell` bottom nav: order in DOM `خانه → مالی → تنظیمات`; under `grid-cols-3` RTL this places خانه on the right. Confirm visually; keep DOM order intentional (do not mirror).
+- Active indicator (`inset-x-6` top bar) is symmetric, no change needed.
+
+---
+
+## 7. Files Touched
+
+**Modified**
+- `src/pages/MobileVendorDashboard.tsx` — add `dir="rtl" lang="fa"` root.
+- `src/index.css` — add `.vd-num`, logical-property utilities, default `text-align: start` inside `.vendor-dash`.
+- `src/features/vendor-dashboard/mobile/MobileVendorShell.tsx` — sweep classes, confirm tab order.
+- `src/features/vendor-dashboard/mobile/MobileVendorHome.tsx` — class sweep, `.vd-num` on numbers.
+- `src/features/vendor-dashboard/mobile/MobileVendorFinance.tsx` — tab DOM order, sub-section cleanup, Select `dir="rtl"`.
+- `src/features/vendor-dashboard/mobile/MobileVendorSettings.tsx` — tab DOM order, logo row restructure, sheets migrated to wrapper.
+- `src/features/vendor-dashboard/mobile/WithdrawSheet.tsx` — migrate to `VendorBottomSheet`.
+- `src/features/vendor-dashboard/shared/TimeframeSelector.tsx` — drop absolute indicator math.
+- `src/features/vendor-dashboard/shared/MerchantTypeToggle.tsx` — same simplification.
+- `src/features/vendor-dashboard/shared/SectionTitle.tsx` — drop residual `ml/mr`.
+- `src/features/vendor-dashboard/shared/KpiCard.tsx` — `.vd-num`.
+- `src/features/vendor-dashboard/shared/HeroBalanceCard.tsx` — RTL sweep, icon direction.
+- `src/features/vendor-dashboard/shared/SettingsListRow.tsx` — chevron direction, `.vd-num`.
+- `src/features/vendor-dashboard/shared/FormField.tsx` — default dir inherit, helper alignment.
+- `src/features/vendor-dashboard/shared/PolicyRadioGroup.tsx` — RTL sweep.
+- `src/features/vendor-dashboard/shared/WithdrawalHistoryList.tsx` — RTL sweep, `.vd-num`.
+- `src/features/vendor-dashboard/shared/RevenueSparkChart.tsx` — custom tooltip, cursor line, activeDot ring.
+
+**Created**
+- `src/features/vendor-dashboard/shared/VendorBottomSheet.tsx` — shared sheet wrapper.
+
+---
+
+## Out of Scope
+- Any backend code, edge functions, DB, schemas.
+- Desktop vendor dashboard or other routes (`/farsi`, `/gptcommerce` chat, etc.).
+- Mock data structure / business logic changes.
+- Translation strings beyond layout fixes.

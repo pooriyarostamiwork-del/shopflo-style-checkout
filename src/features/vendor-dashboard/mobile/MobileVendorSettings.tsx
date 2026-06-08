@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormField } from "../shared/FormField";
 import { PolicyRadioGroup } from "../shared/PolicyRadioGroup";
@@ -13,6 +12,7 @@ import { StickySaveBar } from "../shared/StickySaveBar";
 import { PendingApprovalPill } from "../shared/PendingApprovalPill";
 import { SettingsListRow } from "../shared/SettingsListRow";
 import { SectionTitle } from "../shared/SectionTitle";
+import { VendorBottomSheet } from "../shared/VendorBottomSheet";
 import {
   profileSchema,
   returnPolicySchema,
@@ -93,11 +93,11 @@ export const MobileVendorSettings = () => {
         <div className="text-base font-semibold text-foreground mt-0.5">تنظیمات</div>
       </div>
 
-      <Tabs value={tab} onValueChange={handleTab} className="w-full">
+      <Tabs value={tab} onValueChange={handleTab} className="w-full" dir="rtl">
         <TabsList className="grid grid-cols-3 w-full bg-[hsl(var(--vd-surface))] border border-[hsl(var(--vd-stroke))] rounded-full p-1 h-auto">
-          <TabsTrigger value="account" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">حساب</TabsTrigger>
-          <TabsTrigger value="returns" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">بازگشت</TabsTrigger>
           <TabsTrigger value="profile" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">پروفایل</TabsTrigger>
+          <TabsTrigger value="returns" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">بازگشت</TabsTrigger>
+          <TabsTrigger value="account" className="rounded-full text-xs data-[state=active]:bg-[hsl(var(--vd-accent))] data-[state=active]:text-white">حساب</TabsTrigger>
         </TabsList>
 
         {/* PROFILE */}
@@ -112,12 +112,13 @@ export const MobileVendorSettings = () => {
               <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--vd-accent-soft))] border border-[hsl(var(--vd-stroke))] flex items-center justify-center text-xs text-[hsl(var(--vd-accent))] shrink-0">
                 لوگو
               </div>
-              <div className="flex-1 text-right">
-                <Button variant="outline" size="sm" type="button" className="rounded-full">
-                  بارگذاری
-                </Button>
-                <p className="text-[11px] text-muted-foreground mt-1" dir="rtl">تأیید توسط ادمین لازم است.</p>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground">لوگوی کسب‌وکار</div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">تأیید توسط ادمین لازم است.</p>
               </div>
+              <Button variant="outline" size="sm" type="button" className="rounded-full shrink-0">
+                بارگذاری
+              </Button>
             </div>
 
             <FormField label="نام کسب‌وکار" registerProps={profileForm.register("businessName")} error={profileForm.formState.errors.businessName?.message as string} />
@@ -133,6 +134,7 @@ export const MobileVendorSettings = () => {
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">نوع کسب‌وکار</label>
               <Select
+                dir="rtl"
                 value={profileForm.watch("businessType")}
                 onValueChange={(v) => profileForm.setValue("businessType", v, { shouldDirty: true, shouldValidate: true })}
               >
@@ -234,43 +236,38 @@ const ChangeMobileSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),20px)]">
-        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
-        <SheetHeader className="text-right"><SheetTitle className="text-base">تغییر شماره موبایل</SheetTitle></SheetHeader>
-        <div className="space-y-4 mt-4">
-          {stage === "input" ? (
-            <>
-              <FormField label="شماره موبایل جدید" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={form.register("mobile")} error={form.formState.errors.mobile?.message as string} />
-              <Button className="w-full rounded-full" onClick={submitMobile}>ارسال کد تأیید</Button>
-            </>
-
-          ) : (
-            <>
-              <p className="text-xs text-muted-foreground">کد ۶ رقمی ارسال شد به {toPersianDigits(form.getValues("mobile"))}</p>
-              <div className="flex gap-2 justify-center" dir="ltr">
-                {otp.map((d, i) => (
-                  <input
-                    key={i}
-                    value={d}
-                    maxLength={1}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, "");
-                      const next = [...otp]; next[i] = v; setOtp(next);
-                      if (v && i < 5) (document.getElementById(`otp-${i+1}`) as HTMLInputElement)?.focus();
-                    }}
-                    id={`otp-${i}`}
-                    className="w-10 h-12 text-center text-lg rounded-xl border border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))]"
-                  />
-                ))}
-              </div>
-              <Button className="w-full rounded-full" onClick={confirmOtp}>تأیید و ارسال درخواست</Button>
-            </>
-          )}
-          <p className="text-[11px] text-muted-foreground text-center">تغییر شماره پس از تأیید ادمین اعمال می‌شود.</p>
-        </div>
-      </SheetContent>
-    </Sheet>
+    <VendorBottomSheet open={open} onOpenChange={onOpenChange} title="تغییر شماره موبایل">
+      <div className="space-y-4">
+        {stage === "input" ? (
+          <>
+            <FormField label="شماره موبایل جدید" type="tel" placeholder="۰۹۱۲۰۰۰۰۰۰۰" registerProps={form.register("mobile")} error={form.formState.errors.mobile?.message as string} dir="ltr" inputClassName="text-left" />
+            <Button className="w-full rounded-full" onClick={submitMobile}>ارسال کد تأیید</Button>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">کد ۶ رقمی ارسال شد به <bdi className="vd-num">{toPersianDigits(form.getValues("mobile"))}</bdi></p>
+            <div className="flex gap-2 justify-center" dir="ltr">
+              {otp.map((d, i) => (
+                <input
+                  key={i}
+                  value={d}
+                  maxLength={1}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    const next = [...otp]; next[i] = v; setOtp(next);
+                    if (v && i < 5) (document.getElementById(`otp-${i+1}`) as HTMLInputElement)?.focus();
+                  }}
+                  id={`otp-${i}`}
+                  className="w-10 h-12 text-center text-lg rounded-xl border border-[hsl(var(--vd-stroke))] bg-[hsl(var(--vd-surface))]"
+                />
+              ))}
+            </div>
+            <Button className="w-full rounded-full" onClick={confirmOtp}>تأیید و ارسال درخواست</Button>
+          </>
+        )}
+        <p className="text-[11px] text-muted-foreground text-center">تغییر شماره پس از تأیید ادمین اعمال می‌شود.</p>
+      </div>
+    </VendorBottomSheet>
   );
 };
 
@@ -284,20 +281,15 @@ const ChangeEmailSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange:
     form.reset();
   });
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),20px)]">
-        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
-        <SheetHeader className="text-right"><SheetTitle className="text-base">به‌روزرسانی ایمیل</SheetTitle></SheetHeader>
-        <div className="space-y-4 mt-4">
-          <FormField label="ایمیل جدید" type="email" placeholder="you@example.com" registerProps={form.register("email")} error={form.formState.errors.email?.message as string} />
-          <Button className="w-full rounded-full" onClick={submit}>ارسال درخواست</Button>
-          <p className="text-[11px] text-muted-foreground text-center">تغییر پس از تأیید ادمین اعمال می‌شود.</p>
-        </div>
-      </SheetContent>
-    </Sheet>
+    <VendorBottomSheet open={open} onOpenChange={onOpenChange} title="به‌روزرسانی ایمیل">
+      <div className="space-y-4">
+        <FormField label="ایمیل جدید" type="email" placeholder="you@example.com" registerProps={form.register("email")} error={form.formState.errors.email?.message as string} dir="ltr" inputClassName="text-left" />
+        <Button className="w-full rounded-full" onClick={submit}>ارسال درخواست</Button>
+        <p className="text-[11px] text-muted-foreground text-center">تغییر پس از تأیید ادمین اعمال می‌شود.</p>
+      </div>
+    </VendorBottomSheet>
   );
 };
-
 
 const ChangePasswordSheet = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
   const [current, setCurrent] = useState("");
@@ -315,18 +307,13 @@ const ChangePasswordSheet = ({ open, onOpenChange }: { open: boolean; onOpenChan
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" dir="rtl" className="rounded-t-3xl border-t border-[hsl(var(--vd-stroke))] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.18)] pb-[max(env(safe-area-inset-bottom),20px)]">
-        <div className="mx-auto w-10 h-1 rounded-full bg-[hsl(var(--vd-stroke))] -mt-2 mb-3" />
-        <SheetHeader className="text-right"><SheetTitle className="text-base">تغییر رمز عبور</SheetTitle></SheetHeader>
-        <div className="space-y-3 mt-4">
-          <FormField label="رمز عبور فعلی" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-          <FormField label="رمز عبور جدید" type="password" value={next} onChange={(e) => setNext(e.target.value)} helper="حداقل ۸ کاراکتر" />
-          <FormField label="تکرار رمز جدید" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={err ?? undefined} />
-          <Button className="w-full rounded-full" onClick={submit}>تغییر رمز</Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+    <VendorBottomSheet open={open} onOpenChange={onOpenChange} title="تغییر رمز عبور">
+      <div className="space-y-3">
+        <FormField label="رمز عبور فعلی" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <FormField label="رمز عبور جدید" type="password" value={next} onChange={(e) => setNext(e.target.value)} helper="حداقل ۸ کاراکتر" />
+        <FormField label="تکرار رمز جدید" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={err ?? undefined} />
+        <Button className="w-full rounded-full" onClick={submit}>تغییر رمز</Button>
+      </div>
+    </VendorBottomSheet>
   );
 };
-

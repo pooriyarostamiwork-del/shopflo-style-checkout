@@ -34,6 +34,12 @@ const App = () => (
             <Route path="/m/gptcommerce" element={<MobileGPTCommerce />} />
             <Route path="/m/gptcommerce/dash/*" element={<MobileVendorDashboard />} />
 
+            {/* Product 3: Shift — single-merchant AI storefront */}
+            <Route path="/shift" element={<Navigate to="/shift/mobile" replace />} />
+            <Route path="/shift/desktop/:instanceSlug?" element={<ShiftDesktop />} />
+            <Route path="/shift/mobile/:instanceSlug?" element={<ShiftMobile />} />
+
+
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>

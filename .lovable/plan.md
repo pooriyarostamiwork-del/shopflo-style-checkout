@@ -1,208 +1,103 @@
+## /shift v2 — clone /gptcommerce as a config-driven single-vendor product
 
-# /shift — Multi-instance AI storefront platform (v1)
+Throw out what I built under `src/features/shift/**` and rebuild `/shift` as a **true clone of /gptcommerce and /m/gptcommerce** with single-vendor changes only. `/gptcommerce` and `/m/gptcommerce` themselves are **not touched** — same files, same routes, same behavior.
 
-Brand-new single-merchant AI storefront product. Persian, RTL. Independent codebase under `src/features/shift/**`. Reuses only platform infrastructure (OTP auth, Lovable AI, UI primitives, RTL/typography). No vendor concept anywhere.
-
-Shift ships as a **platform** that can host multiple store **instances**. v1 ships two instances:
-1. **Raw Shift** — unbranded template store ("Shift Store"), demo catalog you upload.
-2. **PetPlayground** — Iranian pet shop instance, separate catalog you upload.
-
-Each instance has a desktop and a mobile experience.
-
----
-
-## 1. Routes
+### Routing (final)
 
 ```
-/shift/desktop                       → Raw Shift, desktop
-/shift/mobile                        → Raw Shift, mobile
-/shift/desktop/petplayground         → PetPlayground, desktop
-/shift/mobile/petplayground          → PetPlayground, mobile
+/shift            → desktop shell (clone of /gptcommerce)
+/shift/m          → mobile shell (clone of /m/gptcommerce)
 ```
 
-`/shift` and `/shift/desktop` / `/shift/mobile` without an instance suffix resolve to the **raw** instance (slug `raw`). Adding a `/:instanceSlug` segment selects a different store row from the DB.
+No `:instanceSlug` segments. One store per deploy. Brand comes from config (see below).
 
-Routing wiring in `src/App.tsx`:
-```
-<Route path="/shift/desktop/:instanceSlug?" element={<ShiftDesktop />} />
-<Route path="/shift/mobile/:instanceSlug?"  element={<ShiftMobile  />} />
-```
+### What gets cloned (1:1, then edited)
 
-Both pages call the same `ShiftStoreProvider` which loads the active store from `shift_stores` by slug (default `raw`). All branding (name, logo, hero, primary/accent colors, tagline) comes from that row — swapping instances is a slug change, not a code change.
+Every file from these trees gets duplicated under `src/features/shift/` with identical structure, identical UI, identical UX:
 
-No automatic device redirect. Like `/gptcommerce` and `/m/gptcommerce`, the two surfaces are independent URLs.
+- `src/features/gpt-commerce/**`  → `src/features/shift/desktop/**`
+- `src/features/gpt-commerce/mobile/**` → `src/features/shift/mobile/**`
+- `src/components/gpt-commerce/**` → `src/features/shift/components/**`
+- `src/pages/GPTCommerce.tsx` → `src/pages/ShiftDesktop.tsx`
+- `src/pages/MobileGPTCommerce.tsx` → `src/pages/ShiftMobile.tsx`
+- `supabase/functions/gpt-commerce-agent/**` → `supabase/functions/shift-agent/**` (replace existing stub)
 
----
+The clones reuse shared platform code (`@/components/ui/*`, `AuthContext`, `LanguageContext`, OTP modal, `toPersianNumber`, etc.) without copying. No edits to any `/gpt-commerce` file.
 
-## 2. Database (new, isolated, multi-instance ready)
+### Config-driven single store
 
-Same four tables as before, with `store_id` as the multi-instance key.
+New file `src/features/shift/config/store.ts`:
 
-```text
-shift_stores         id, slug (unique), name_fa, tagline_fa, logo_url,
-                     theme_primary, theme_accent, hero_image_url,
-                     currency, is_active, created_at, updated_at
-shift_products       id, store_id (FK), name_fa, description_fa,
-                     price, original_price, image_url, image_urls[],
-                     category, subcategory, species, brand, tags[],
-                     in_stock, stock_qty, rating, review_count,
-                     specs jsonb, search_vector tsvector, embedding vector(768)
-shift_carts          id, user_id, store_id, items jsonb, updated_at
-                     UNIQUE(user_id, store_id)  -- one cart per (user, store)
-shift_orders         id, user_id, store_id, items jsonb, subtotal,
-                     shipping_cost, total, address jsonb, status, created_at
-```
-
-RLS:
-- `shift_stores`, `shift_products`: public SELECT.
-- `shift_carts`, `shift_orders`: `auth.uid() = user_id`.
-- All GRANTs per platform rules.
-
-SQL function `shift_hybrid_search(p_store_id uuid, p_query text, ...)` — clone of `hybrid_product_search`, always scoped to one store.
-
-Trigger: `shift_products_search_vector_update` (mirrors existing pattern, reuses `normalize_persian`).
-
-Seed inserts:
-- 2 rows in `shift_stores`: slug `raw` (name "Shift Store", neutral theme) and slug `petplayground` (name "پت‌پلی‌گراند", warm pet-friendly theme).
-- No products seeded — you upload catalogs (see section 6).
-
----
-
-## 3. Edge function (new, single-store, instance-aware)
-
-`supabase/functions/shift-agent/index.ts`:
-- Request body: `{ messages, storeSlug }`.
-- Server loads the store row, fetches `name_fa` + `tagline_fa`, builds the system prompt:
-  > "You are a sales associate at <store.name_fa>. Only ever recommend products from this store's catalog. Never mention or compare other stores or brands outside this catalog."
-- All tool calls (`search_catalog`, `get_product`, `add_to_cart`, `update_cart`, `remove_from_cart`, `recommend_related`) are scoped to `store_id` derived from the slug — the client cannot leak across instances.
-- Model: `google/gemini-3-flash-preview` via Lovable AI Gateway (`LOVABLE_API_KEY`).
-- Streams via AI SDK `toUIMessageStreamResponse`, `stepCountIs(50)`.
-
-Embeddings: reuse the existing `generate-embeddings` function (same model + dimension) but invoked against `shift_products`.
-
----
-
-## 4. Frontend (`src/features/shift/`)
-
-```
-src/features/shift/
-  context/
-    ShiftStoreContext.tsx        # loads store by slug (route param), exposes branding
-    ShiftCartContext.tsx         # cart scoped to (user, storeId), debounced sync
-    ShiftChatContext.tsx         # useChat → shift-agent, passes storeSlug
-  data/
-    types.ts                     # ShiftStore, ShiftProduct, ShiftCartItem, ShiftOrder
-  hooks/
-    useShiftCatalog.ts
-    useShiftCart.ts
-    useShiftOrders.ts
-
-  shared/                        # surface-agnostic primitives (used by both desktop & mobile)
-    ProductCard.tsx              # image, title, price, +, details. NO vendor anything
-    ProductCarousel.tsx
-    ProductDetailsModal.tsx
-    CategoryChips.tsx
-    HeroBanner.tsx
-    EmptyState.tsx
-    ShiftBottomSheet.tsx         # mobile sheet wrapper (RTL, overlay, safe-area)
-
-  mobile/
-    ShiftMobileShell.tsx
-    ShiftMobileTopBar.tsx
-    ChatHome.tsx                 # landing + thread
-    ChatThread.tsx
-    Composer.tsx
-    CartSheet.tsx
-    CheckoutSheet.tsx            # address → shipping → payment → confirm
-    OrderHistory.tsx
-    AccountPanel.tsx
-
-  desktop/
-    ShiftDesktopShell.tsx        # 3-column: sidebar (categories/account) | chat center | cart panel right
-    ShiftDesktopTopBar.tsx
-    ChatPanel.tsx
-    CartPanel.tsx                # persistent right rail
-    CheckoutDialog.tsx           # modal, multi-step
-    OrderHistoryPage.tsx
-    AccountDialog.tsx
+```ts
+export const SHIFT_STORE = {
+  slug: "shift",            // used in edge function for catalog scoping
+  name_fa: "فروشگاه شیفت",
+  tagline_fa: "...",
+  logo_url: "...",
+  hero_image_url: "...",
+  theme_primary: "...",     // CSS var override
+  theme_accent: "...",
+  suggested_prompts: [...],
+};
 ```
 
-Pages:
-```
-src/pages/ShiftDesktop.tsx       # wraps LanguageProvider(fa) + AuthProvider + ShiftStoreProvider(slug)
-src/pages/ShiftMobile.tsx        # same, mobile shell
-```
+Swap the brand by editing this file. No DB lookup, no provider, no route param.
 
-Reused from platform: `@/integrations/supabase/client`, `AuthContext`, `LanguageContext`, `toPersianNumber`, `components/ui/*`, OTP modal.
+### Single-vendor changes applied to the clones
 
-Nothing reused from `/gptcommerce` commerce code — cart, checkout, product card, chat thread, order summary are all rewritten for single-store.
+UI:
+- Strip every vendor label, vendor logo, "از فروشگاه X"/"merchant" string, vendor avatar, vendor link.
+- Strip per-vendor basket grouping in the sidebar — one flat basket.
+- Strip per-vendor shipping sections and per-vendor order summaries — one shipping block, one total.
+- Remove vendor disambiguation chips and "compare vendors" affordances.
+- Account panel: keep profile + orders; remove any vendor switcher.
+- Product cards: drop the vendor row; everything else (220×420, 1px stroke, square image, `+` and `ℹ️`) identical to /gptcommerce per project memory.
 
----
+Data:
+- Storefront queries `shift_products` scoped by `store_id` resolved from `SHIFT_STORE.slug` at startup (one query, cached).
+- Cart writes to `shift_carts` keyed by `(user_id, store_id)`.
+- Orders write to `shift_orders` with `store_id` set. No `merchant_id` anywhere in cart/order payloads.
+- Existing `shift_stores`, `shift_products`, `shift_carts`, `shift_orders` tables stay as-is — already match this model.
 
-## 5. UX shape
+Agent (`supabase/functions/shift-agent`):
+- Rewrite to mirror `gpt-commerce-agent` architecture (Gemini-3-Flash via Lovable AI Gateway, AI SDK `streamText`, `toUIMessageStreamResponse`, `stepCountIs(50)`).
+- System prompt: "You are a sales associate at <SHIFT_STORE.name_fa>. Only recommend products from this store. Never reference other stores, vendors, marketplaces, or comparisons. Speak as an employee of this store." Persian, warm, no markdown — matches existing agent tone memory.
+- Tools (all `store_id`-scoped server-side, client cannot pass it): `search_catalog`, `get_product`, `add_to_cart`, `update_cart`, `remove_from_cart`, `recommend_related`. Tool results contain no vendor fields.
+- Calls `shift_hybrid_search(store_id, ...)` (already exists in DB) for product search.
+- Embeddings via existing `generate-embeddings` function against `shift_products`.
 
-Chat-first on both surfaces. The difference is layout, not flow:
+Cart/checkout flow:
+- Identical 5-step Farsi flow from `/gptcommerce` (address → shipping → payment → review → success), one of each step (no per-vendor repetition).
+- Real-time cart summary, single CTA enforcement, smart basket naming, auto-finalization, "more results" — all preserved from clones, just collapsed to single-vendor.
 
-- **Mobile**: full-screen chat. Cart pill floats bottom; tapping opens `CartSheet`. Checkout is a stacked bottom sheet.
-- **Desktop**: 3-column. Center = chat thread + composer. Right rail = persistent cart panel. Left rail = category chips + account. Checkout opens as a centered dialog.
+Persistence:
+- Reuse the 1s debounced sync pattern from `useCartPersistence`. Write target = `shift_carts` instead of `baskets`. Same `CURRENT_VERSION` migration discipline. Same logout purge.
 
-Both surfaces:
-- Hero/landing pulls `store.name_fa`, logo, tagline, hero image.
-- Suggested prompts are store-aware (raw store gets generic prompts; PetPlayground gets pet-specific ones — stored in `shift_stores.suggested_prompts jsonb`, nullable).
-- Active store's `theme_primary` / `theme_accent` injected as CSS variables on the shell root (`--shift-primary`, `--shift-accent`). All Shift components consume those tokens.
+### What I'm deleting from the current /shift attempt
 
-No vendor sections, no marketplace widgets, one flat cart, one address, one shipping, one payment, one order.
+- `src/features/shift/views/AdminCatalogView.tsx`, `HomeView.tsx`, `SearchView.tsx`, `CartView.tsx`, `CheckoutView.tsx`, `OrdersView.tsx`, `ChatPanel.tsx`, `ShiftMobileApp.tsx`, `ShiftDesktopApp.tsx`, the context providers, `data/format.ts`, `data/types.ts`, `components/ProductCard.tsx`.
+- `src/pages/ShiftDesktop.tsx` and `src/pages/ShiftMobile.tsx` (rewritten fresh).
+- Routes in `src/App.tsx` with `:instanceSlug?` → replaced with `/shift` and `/shift/m`.
+- `supabase/functions/shift-import-catalog` and `supabase/functions/shift-embed-products` — gone. Catalog gets loaded once by me via a one-off script using the existing `generate-embeddings` function; storefront has no admin surface, ever.
 
----
+DB tables `shift_stores`, `shift_products`, `shift_carts`, `shift_orders` and the `shift_hybrid_search` RPC stay — they already fit the single-store model.
 
-## 6. Catalog upload (your data)
+### Build order
 
-You'll upload one catalog per instance. v1 supports CSV upload via the existing `csv-uploads` storage bucket.
+1. Delete the failed `/shift` files and edge functions listed above.
+2. Add `src/features/shift/config/store.ts`.
+3. Duplicate `src/features/gpt-commerce/**` → `src/features/shift/desktop/**` and mobile equivalents; duplicate component dir; duplicate pages.
+4. Re-register routes: `/shift` and `/shift/m`.
+5. Apply single-vendor strip across the clones (vendor labels, grouping, summaries, shipping, disambiguation).
+6. Wire all data calls to `shift_products` / `shift_carts` / `shift_orders` scoped by resolved `store_id`.
+7. Rewrite `supabase/functions/shift-agent` matching gpt-commerce-agent's structure, with single-store system prompt and store-scoped tools.
+8. Load catalog: you give me a CSV, I run a one-off import (no UI for it).
+9. RTL/Farsi/numeric audit pass against project memory rules.
 
-Flow per instance:
-1. You upload `raw.csv` and `petplayground.csv` to bucket `csv-uploads`.
-2. New edge function `shift-import-catalog`:
-   - Input: `{ store_slug, file_path }`.
-   - Resolves `store_id` from slug, downloads CSV, parses, upserts into `shift_products` with `store_id` set.
-   - Expected columns: `name_fa, description_fa, price, original_price, image_url, image_urls, category, subcategory, species, brand, tags, stock_qty, rating, specs`.
-   - After upsert, batches embedding generation via existing `generate-embeddings` (scoped to the new rows).
-3. I'll trigger the import once you upload each CSV, or you can call the function directly.
+### Out of scope
 
-If you'd rather upload via a different format (JSON, Shopify export, etc.), say so and I'll adjust the parser.
+- Any edit to `/gptcommerce`, `/m/gptcommerce`, or their components/edge function.
+- Multi-instance Shift, instance switcher, admin UI, custom domains, real payments.
+- Touching `/farsi`.
 
----
-
-## 7. Design
-
-- Persian font + global tokens already in `src/index.css`.
-- Per-instance theme via inline CSS variables on shell root, sourced from `shift_stores.theme_primary` / `theme_accent`.
-- RTL: `dir="rtl"` inheritance + logical properties only (`ms-*`, `me-*`, `ps-*`, `pe-*`). No `flex-row-reverse`. Persian digits via existing `toPersianNumber`.
-- Product card: 1px stroke, no shadow, square image, title, price, `+` add, `جزئیات` details. Zero merchant labels.
-
----
-
-## 8. Out of scope (v1)
-
-- Real payments (mock confirmation).
-- Admin UI for editing stores/catalogs (DB + import function only).
-- Per-instance custom domains.
-- Reviews submission.
-- Returns, wishlists, loyalty.
-- Auto device redirect between `/shift/desktop` and `/shift/mobile`.
-
----
-
-## 9. Build order
-
-1. Migration: `shift_stores`, `shift_products`, `shift_carts`, `shift_orders`, GRANTs, RLS, trigger, `shift_hybrid_search`.
-2. Seed: 2 store rows (`raw`, `petplayground`).
-3. Edge functions: `shift-agent`, `shift-import-catalog`. Register in `supabase/config.toml`.
-4. Pages + routes + `ShiftStoreProvider` + types + contexts + hooks.
-5. Shared components (ProductCard, carousel, details, sheet wrapper, hero, empty states).
-6. Mobile shell + ChatHome/Thread/Composer + CartSheet + CheckoutSheet + OrderHistory + AccountPanel.
-7. Desktop shell + ChatPanel + persistent CartPanel + CheckoutDialog + OrderHistoryPage + AccountDialog.
-8. Wire OTP login through existing modal on both surfaces.
-9. You upload `raw.csv` and `petplayground.csv` → I run the importer for each.
-10. Polish: RTL audit, empty states, 429/402 error toasts, theme overrides per instance.
-
-End state: four URLs (`/shift/desktop`, `/shift/mobile`, `/shift/desktop/petplayground`, `/shift/mobile/petplayground`) each render a fully branded, chat-driven Persian single-store experience backed by a clean multi-instance schema, ready for additional instances by adding rows to `shift_stores`.
+Confirm and I'll execute exactly this.

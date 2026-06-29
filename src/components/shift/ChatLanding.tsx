@@ -7,14 +7,9 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
 import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
-// Rotating placeholder texts
-const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
-];
 
 // Bento background cards for soft commerce context
 const BentoCard = ({

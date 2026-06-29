@@ -44,7 +44,7 @@ export const ShiftCartProvider = ({ children }: { children: ReactNode }) => {
     supabase.from("shift_carts").select("items").eq("user_id", user.id).eq("store_id", store.id).maybeSingle()
       .then(({ data }) => {
         if (data?.items && Array.isArray(data.items) && (data.items as any[]).length > 0) {
-          setItems(data.items as ShiftCartItem[]);
+          setItems(data.items as unknown as ShiftCartItem[]);
         }
       });
   }, [user, store]);

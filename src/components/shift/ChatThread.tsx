@@ -179,7 +179,7 @@ export const ChatThread = ({
 
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
-                <div className="flex flex-wrap gap-4 mr-11">
+                <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {msg.products.map((product, index) => (
                     <ChatProductCard
                       key={product.id}

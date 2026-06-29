@@ -172,10 +172,14 @@ export const ChatLanding = ({
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
-            <span className="text-foreground/80">تا صد میلیون خیال جمع — فروشگاه شیفت هست، پول کم؟ کم‌کم!</span>
-            <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
-          </div>
+          {content('home.promo_banner', '') && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
+              <span className="text-foreground/80">{content('home.promo_banner')}</span>
+              {content('home.promo_link_label', '') && (
+                <span className="text-primary font-semibold cursor-pointer hover:underline">{content('home.promo_link_label')}</span>
+              )}
+            </div>
+          )}
           <button
             onClick={onSignIn}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:border-primary/20"

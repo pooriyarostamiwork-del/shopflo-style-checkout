@@ -410,6 +410,53 @@ export type Database = {
           },
         ]
       }
+      shift_store_content: {
+        Row: {
+          content_key: string
+          content_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          sort_order: number
+          store_id: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          content_key: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          sort_order?: number
+          store_id: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          content_key?: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          sort_order?: number
+          store_id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_store_content_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "shift_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_stores: {
         Row: {
           created_at: string

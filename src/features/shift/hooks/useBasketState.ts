@@ -6,7 +6,7 @@ import {
   AgenticState,
   DeliveryAddress,
 } from "@/data/gptCommerceData";
-import { Basket } from "@/components/gpt-commerce/Sidebar";
+import { Basket } from "@/components/shift/Sidebar";
 
 // ========== PER-BASKET STATE ==========
 export interface BasketState {

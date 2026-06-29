@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Sidebar, Basket } from "@/components/gpt-commerce/Sidebar";
-import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
-import { RightPanel } from "@/components/gpt-commerce/RightPanel";
-import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
+import { Sidebar, Basket } from "@/components/shift/Sidebar";
+import { ChatInterface } from "@/components/shift/ChatInterface";
+import { RightPanel } from "@/components/shift/RightPanel";
+import { AccountPanel } from "@/components/shift/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
-import { OTPModal } from "@/components/gpt-commerce/OTPModal";
+import { OTPModal } from "@/components/shift/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { toPersianNumber, merchants } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";

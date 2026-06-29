@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
-import { Basket } from "@/components/gpt-commerce/Sidebar";
+import { Basket } from "@/components/shift/Sidebar";
 import { ChatMessage, CartItem } from "@/data/gptCommerceData";
 
 interface UseCartPersistenceProps {

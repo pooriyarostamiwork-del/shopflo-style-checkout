@@ -11,8 +11,8 @@ import {
   DeliveryAddress,
   CartItem,
 } from "@/data/gptCommerceData";
-import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
-import { PDPProductComponent } from "@/components/gpt-commerce/PDPProductComponent";
+import { ChatProductCard } from "@/components/shift/ChatProductCard";
+import { PDPProductComponent } from "@/components/shift/PDPProductComponent";
 import {
   QuickReplyButtons,
   CTAButton,
@@ -20,11 +20,11 @@ import {
   AddressConfirmation,
   AddressSelector,
   PaymentSelector,
-} from "@/components/gpt-commerce/AgenticMessageComponents";
+} from "@/components/shift/AgenticMessageComponents";
 import {
   AddressShippingSelector,
   MerchantShipping,
-} from "@/components/gpt-commerce/AddressShippingSelector";
+} from "@/components/shift/AddressShippingSelector";
 
 interface MobileChatThreadProps {
   messages: ChatMessage[];

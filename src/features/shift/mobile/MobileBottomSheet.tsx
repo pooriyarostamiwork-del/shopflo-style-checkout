@@ -7,10 +7,10 @@ import {
   toPersianNumber,
   calculateOrderSummary,
 } from "@/data/gptCommerceData";
-import { Basket } from "@/components/gpt-commerce/Sidebar";
+import { Basket } from "@/components/shift/Sidebar";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { ProductImage } from "@/components/shift/ProductImage";
 
 // Stable per-basket pastel hue for the avatar accent
 const BASKET_HUES = [

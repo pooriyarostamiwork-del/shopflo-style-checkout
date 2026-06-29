@@ -8,8 +8,8 @@ import flowcartLogo from "@/assets/flowcart-logo.svg";
 import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
-import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { ChatProductCard } from "@/components/shift/ChatProductCard";
+import { ProductImage } from "@/components/shift/ProductImage";
 import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes

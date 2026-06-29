@@ -337,11 +337,6 @@ export const MobileChatThread = ({
                   border: "1px solid hsl(0 0% 0% / 0.06)",
                 }}
               >
-                <div className="flex gap-1">
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
                 {isPetStore ? (
                   <PawLoader label="در حال جستجو…" />
                 ) : (

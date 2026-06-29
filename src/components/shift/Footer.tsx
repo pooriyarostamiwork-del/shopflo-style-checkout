@@ -1,6 +1,6 @@
 import { Shield, RefreshCw, Headphones, Truck, CreditCard, Phone } from "lucide-react";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
 // Social media icons as inline SVGs
 const InstagramIcon = () => (
@@ -76,7 +76,7 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
                     <span className="text-primary text-lg">⚡</span>
                   </div>
                 )}
-                <img src={flowcartLogotype} alt="Shift" style={{ height: '18px', width: 'auto' }} draggable={false} />
+                <img src={shiftLogotype} alt="Shift" style={{ height: '18px', width: 'auto' }} draggable={false} />
               </div>
               <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 {footerLogo.subtitle || 'خرید هوشمند با کمک هوش مصنوعی'}

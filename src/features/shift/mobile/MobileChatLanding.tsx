@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/features/shift/data/shiftData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogo from "@/features/shift/assets/shift-logo.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/shift/ChatProductCard";
@@ -229,7 +229,7 @@ export const MobileChatLanding = ({
             }}
           >
             <img
-              src={flowcartLogo}
+              src={shiftLogo}
               alt="Shift"
               style={{ width: "77%", height: "77%" }}
               draggable={false}
@@ -461,10 +461,10 @@ export const MobileChatLanding = ({
                 background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
               }}
             >
-              <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
+              <img src={shiftLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
             </div>
             <img
-              src={flowcartLogotype}
+              src={shiftLogotype}
               alt="Shift"
               style={{ height: "44px", width: "auto", objectFit: "contain" }}
               draggable={false}

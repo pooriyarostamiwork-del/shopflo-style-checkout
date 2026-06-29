@@ -7,7 +7,7 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
 // Rotating placeholder texts
 const placeholderTexts = [
@@ -211,7 +211,7 @@ export const ChatLanding = ({
             </div>
           )}
           <div className="flex flex-col items-center gap-3">
-            <img src={flowcartLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
+            <img src={shiftLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
             <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
           </div>
         </div>

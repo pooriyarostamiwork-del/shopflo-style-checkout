@@ -3,7 +3,7 @@ import { User, Package, Gift, ChevronDown, MessageSquare, Plus, MoreHorizontal, 
 import { toPersianNumber } from "@/features/shift/data/shiftData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
 export interface SavedItem {
   id: string;
@@ -114,7 +114,7 @@ export const Sidebar = ({
             </div>
           )}
           <div className="flex flex-col gap-1 min-w-0">
-            <img src={flowcartLogotype} alt="Shift" style={{ height: '20px', width: 'auto' }} draggable={false} />
+            <img src={shiftLogotype} alt="Shift" style={{ height: '20px', width: 'auto' }} draggable={false} />
             <p className="text-xs text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
           </div>
         </div>

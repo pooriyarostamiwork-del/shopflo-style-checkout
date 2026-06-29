@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { SquarePen } from "lucide-react";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogo from "@/features/shift/assets/shift-logo.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 import { CategorySelector } from "@/components/shift/CategorySelector";
 import { Basket } from "@/components/shift/Sidebar";
 import { AccountPanel } from "@/components/shift/AccountPanel";
@@ -441,10 +441,10 @@ export const MobileShiftShell = () => {
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                 }}
               >
-                <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
+                <img src={shiftLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
               </div>
               <img
-                src={flowcartLogotype}
+                src={shiftLogotype}
                 alt="Shift"
                 style={{ height: "44px", width: "auto", objectFit: "contain" }}
                 draggable={false}

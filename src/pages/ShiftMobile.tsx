@@ -1,27 +1,16 @@
-import { useParams, Navigate } from "react-router-dom";
+import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ShiftStoreProvider } from "@/features/shift/context/ShiftStoreContext";
-import { ShiftCartProvider } from "@/features/shift/context/ShiftCartContext";
-import ShiftMobileApp from "@/features/shift/ShiftMobileApp";
+import { HomepageSettingsProvider } from "@/contexts/HomepageSettingsContext";
+import { MobileShiftShell } from "@/features/shift/mobile/MobileShiftShell";
 
-const ALLOWED = new Set(["raw", "petplayground"]);
-
-const ShiftMobile = () => {
-  const { instanceSlug } = useParams();
-  const slug = instanceSlug || "raw";
-  if (!ALLOWED.has(slug)) return <Navigate to="/shift/mobile" replace />;
-
-  return (
+const ShiftMobile = () => (
+  <LanguageProvider defaultLanguage="fa">
     <AuthProvider>
-      <ShiftStoreProvider slug={slug}>
-        <ShiftCartProvider>
-          <div dir="rtl" lang="fa" className={`shift-root shift-theme-${slug} min-h-screen bg-[hsl(var(--shift-bg))] text-[hsl(var(--shift-fg))]`}>
-            <ShiftMobileApp />
-          </div>
-        </ShiftCartProvider>
-      </ShiftStoreProvider>
+      <HomepageSettingsProvider>
+        <MobileShiftShell />
+      </HomepageSettingsProvider>
     </AuthProvider>
-  );
-};
+  </LanguageProvider>
+);
 
 export default ShiftMobile;

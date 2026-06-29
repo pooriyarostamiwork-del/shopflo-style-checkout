@@ -1,27 +1,16 @@
-import { useParams, Navigate } from "react-router-dom";
+import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ShiftStoreProvider } from "@/features/shift/context/ShiftStoreContext";
-import { ShiftCartProvider } from "@/features/shift/context/ShiftCartContext";
-import ShiftDesktopApp from "@/features/shift/ShiftDesktopApp";
+import { HomepageSettingsProvider } from "@/contexts/HomepageSettingsContext";
+import { ShiftShell } from "@/features/shift/ShiftShell";
 
-const ALLOWED = new Set(["raw", "petplayground"]);
-
-const ShiftDesktop = () => {
-  const { instanceSlug } = useParams();
-  const slug = instanceSlug || "raw";
-  if (!ALLOWED.has(slug)) return <Navigate to="/shift/desktop" replace />;
-
-  return (
+const ShiftDesktop = () => (
+  <LanguageProvider defaultLanguage="fa">
     <AuthProvider>
-      <ShiftStoreProvider slug={slug}>
-        <ShiftCartProvider>
-          <div dir="rtl" lang="fa" className={`shift-root shift-theme-${slug} min-h-screen bg-[hsl(var(--shift-bg))] text-[hsl(var(--shift-fg))]`}>
-            <ShiftDesktopApp />
-          </div>
-        </ShiftCartProvider>
-      </ShiftStoreProvider>
+      <HomepageSettingsProvider>
+        <ShiftShell />
+      </HomepageSettingsProvider>
     </AuthProvider>
-  );
-};
+  </LanguageProvider>
+);
 
 export default ShiftDesktop;

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import GPTCommerce from "./pages/GPTCommerce";
 import MobileGPTCommerce from "./pages/MobileGPTCommerce";
@@ -35,9 +35,8 @@ const App = () => (
             <Route path="/m/gptcommerce/dash/*" element={<MobileVendorDashboard />} />
 
             {/* Product 3: Shift — single-merchant AI storefront */}
-            <Route path="/shift" element={<Navigate to="/shift/mobile" replace />} />
-            <Route path="/shift/desktop/:instanceSlug?" element={<ShiftDesktop />} />
-            <Route path="/shift/mobile/:instanceSlug?" element={<ShiftMobile />} />
+            <Route path="/shift" element={<ShiftDesktop />} />
+            <Route path="/shift/m" element={<ShiftMobile />} />
 
 
             {/* Catch-all */}

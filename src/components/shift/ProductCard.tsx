@@ -60,13 +60,10 @@ export const ProductCard = ({ product, onAddToCart, onCompare, isInCart }: Produ
           {product.name}
         </h4>
 
-        {/* Rating & Merchant */}
+        {/* Rating (single-vendor: merchant label hidden) */}
         <div className="flex items-center gap-1">
           <Star className="w-3 h-3 fill-current text-amber-400" />
           <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-          <span className="mx-1 text-xs text-muted-foreground/60">|</span>
-          <Store className="w-3 h-3 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
         </div>
 
         {/* Price */}

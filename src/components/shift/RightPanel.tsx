@@ -338,7 +338,7 @@ export const RightPanel = ({
                             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
                           }}
                         >
-                          {/* Vendor Header */}
+                          {/* Header (single-vendor: merchant name hidden, show item count only) */}
                           <div 
                             className="px-3 py-2 flex items-center gap-2"
                             style={{ 
@@ -347,7 +347,7 @@ export const RightPanel = ({
                             }}
                           >
                             <Store className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
+                            <span className="font-medium text-sm">سبد خرید</span>
                             <span className="text-xs text-muted-foreground mr-auto">
                               {toPersianNumber(vendorSummary.items.length)} کالا
                             </span>

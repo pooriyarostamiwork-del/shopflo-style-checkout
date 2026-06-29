@@ -318,7 +318,7 @@ export const AddressShippingSelector = ({
                   >
                     <div className="flex items-center gap-2">
                       <Store className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium text-sm">{ms.merchant.name}</span>
+                      <span className="font-medium text-sm">ارسال</span>
                     </div>
                     
                     <div className="flex items-center gap-2">

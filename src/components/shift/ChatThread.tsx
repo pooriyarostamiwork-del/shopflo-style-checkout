@@ -86,6 +86,8 @@ export const ChatThread = ({
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const { store, content } = useShiftStore();
+  const isPetStore = store?.slug === 'petplayground';
 
   useEffect(() => {
     if (inputValue) return;

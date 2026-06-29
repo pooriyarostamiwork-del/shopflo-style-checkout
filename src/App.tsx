@@ -10,6 +10,8 @@ import MobileVendorDashboard from "./pages/MobileVendorDashboard";
 import DocsAIPage from "./pages/docs/ai/DocsAIPage";
 import IndexFarsi from "./pages/IndexFarsi";
 import NotFound from "./pages/NotFound";
+import ShiftDesktop from "./pages/ShiftDesktop";
+import ShiftMobile from "./pages/ShiftMobile";
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();

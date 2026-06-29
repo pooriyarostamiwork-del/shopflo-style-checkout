@@ -204,8 +204,8 @@ export const ChatLanding = ({
 
         {/* Logo & Welcome */}
         <div className="relative z-10 flex flex-col items-center gap-6 mb-8">
-          {firstPageLogo.imageUrl ? (
-            <img src={firstPageLogo.imageUrl} alt="فروشگاه شیفت" className="w-20 h-20 rounded-2xl object-cover" />
+          {(content('home.logo_url', '') || firstPageLogo.imageUrl) ? (
+            <img src={content('home.logo_url', firstPageLogo.imageUrl)} alt={store?.name_fa || 'فروشگاه شیفت'} className="w-20 h-20 rounded-2xl object-cover" />
           ) : (
             <div
               className="w-20 h-20 rounded-2xl flex items-center justify-center"
@@ -218,8 +218,12 @@ export const ChatLanding = ({
             </div>
           )}
           <div className="flex flex-col items-center gap-3">
-            <img src={shiftLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
-            <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
+            {store?.name_fa ? (
+              <h1 className="text-3xl font-bold text-foreground">{store.name_fa}</h1>
+            ) : (
+              <img src={shiftLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
+            )}
+            <p className="text-muted-foreground">{content('home.tagline', firstPageLogo.subtitle || 'دستیار خرید هوشمند شما')}</p>
           </div>
         </div>
 

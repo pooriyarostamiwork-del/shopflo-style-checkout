@@ -633,7 +633,7 @@ export const useAgentMessages = ({
         })),
       };
 
-      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', { body });
+      const { data, error } = await supabase.functions.invoke('shift-agent', { body });
       if (error) throw new Error(error.message);
 
       const actions = data?.cart_actions || [];
@@ -698,7 +698,7 @@ export const useAgentMessages = ({
         }));
       }
 
-      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', { body });
+      const { data, error } = await supabase.functions.invoke('shift-agent', { body });
       if (error) throw new Error(error.message);
 
       const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
@@ -757,7 +757,7 @@ export const useAgentMessages = ({
     updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', {
+      const { data, error } = await supabase.functions.invoke('shift-agent', {
         body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true },
       });
 

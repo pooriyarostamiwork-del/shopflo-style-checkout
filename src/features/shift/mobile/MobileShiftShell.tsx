@@ -20,7 +20,7 @@ import { MobileChatLanding } from "./MobileChatLanding";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
 
-export const MobileGPTCommerceShell = () => {
+export const MobileShiftShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
 
   const {

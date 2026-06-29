@@ -15,7 +15,7 @@ import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
 import { useAgentMessages } from "./hooks/useAgentMessages";
 import { useCartPersistence } from "./hooks/useCartPersistence";
 
-export const GPTCommerceShell = () => {
+export const ShiftShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
 
   // ── Layer 2: Business logic hooks ──────────────────────────────────────

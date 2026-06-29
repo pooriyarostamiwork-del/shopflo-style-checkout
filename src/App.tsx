@@ -10,6 +10,8 @@ import MobileVendorDashboard from "./pages/MobileVendorDashboard";
 import DocsAIPage from "./pages/docs/ai/DocsAIPage";
 import IndexFarsi from "./pages/IndexFarsi";
 import NotFound from "./pages/NotFound";
+import ShiftDesktop from "./pages/ShiftDesktop";
+import ShiftMobile from "./pages/ShiftMobile";
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();
@@ -31,6 +33,12 @@ const App = () => (
             <Route path="/gptcommerce/docs/ai" element={<DocsAIPage />} />
             <Route path="/m/gptcommerce" element={<MobileGPTCommerce />} />
             <Route path="/m/gptcommerce/dash/*" element={<MobileVendorDashboard />} />
+
+            {/* Product 3: Shift — single-merchant AI storefront */}
+            <Route path="/shift" element={<Navigate to="/shift/mobile" replace />} />
+            <Route path="/shift/desktop/:instanceSlug?" element={<ShiftDesktop />} />
+            <Route path="/shift/mobile/:instanceSlug?" element={<ShiftMobile />} />
+
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

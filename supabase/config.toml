@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.classify-intent]
 verify_jwt = false
+
+[functions.shift-agent]
+verify_jwt = false
+
+[functions.shift-import-catalog]
+verify_jwt = false
+
+[functions.shift-embed-products]
+verify_jwt = false

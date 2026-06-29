@@ -305,3 +305,35 @@ All colors MUST be HSL.
 }
 .vd-anim-in { animation: vdFadeUp 220ms ease-out both; }
 
+
+/* ============================================================
+   /shift — single-merchant AI storefront tokens
+   Scoped under .shift-root so it never affects other surfaces.
+   ============================================================ */
+.shift-root {
+  --shift-bg: 0 0% 99%;
+  --shift-surface: 0 0% 100%;
+  --shift-fg: 222 22% 14%;
+  --shift-muted: 222 12% 45%;
+  --shift-border: 220 14% 92%;
+  --shift-hover: 220 14% 96%;
+  --shift-primary: 220 70% 50%;
+  --shift-accent: 220 70% 50%;
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+}
+.shift-root, .shift-root * { box-sizing: border-box; }
+.shift-root :where(input, textarea, select) {
+  font-family: inherit;
+}
+.shift-root :where(button) { font-family: inherit; }
+
+@media (prefers-color-scheme: dark) {
+  .shift-root {
+    --shift-bg: 222 18% 8%;
+    --shift-surface: 222 16% 12%;
+    --shift-fg: 0 0% 96%;
+    --shift-muted: 222 10% 60%;
+    --shift-border: 222 14% 18%;
+    --shift-hover: 222 14% 16%;
+  }
+}

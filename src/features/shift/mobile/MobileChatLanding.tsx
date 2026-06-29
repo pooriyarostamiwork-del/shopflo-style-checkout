@@ -479,7 +479,7 @@ export const MobileChatLanding = ({
             />
           </div>
           <p className="text-[11px] text-muted-foreground leading-tight mb-4 mr-[2.875rem]">
-            دستیار خرید هوشمند
+            {content('home.tagline', 'دستیار خرید هوشمند')}
           </p>
 
           {/* Links */}
@@ -568,7 +568,7 @@ export const MobileChatLanding = ({
                   key={placeholderIndex}
                   className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug"
                 >
-                  {placeholderTexts[placeholderIndex]}
+                  {dynamicPlaceholders[placeholderIndex]}
                 </span>
               </div>
             )}

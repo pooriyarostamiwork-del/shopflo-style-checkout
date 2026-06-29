@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut, Store } from "lucide-react";
-import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/gptCommerceData";
+import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/features/shift/data/shiftData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductImage } from "./ProductImage";
@@ -391,7 +391,7 @@ export const AccountPanel = ({
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">{profileData.name}</h3>
-                    <p className="text-sm text-muted-foreground">عضو فلوکارت</p>
+                    <p className="text-sm text-muted-foreground">عضو فروشگاه شیفت</p>
                   </div>
                   {!editingProfile && (
                     <button

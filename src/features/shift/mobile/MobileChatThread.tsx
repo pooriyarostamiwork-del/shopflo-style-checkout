@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
-import { toPersianNumber } from "@/data/gptCommerceData";
+import { toPersianNumber } from "@/features/shift/data/shiftData";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
   AgenticState,
   DeliveryAddress,
   CartItem,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 import { ChatProductCard } from "@/components/shift/ChatProductCard";
 import { PDPProductComponent } from "@/components/shift/PDPProductComponent";
 import {
@@ -394,7 +394,7 @@ export const MobileChatThread = ({
                 dir="rtl"
               >
                 <span className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug">
-                  از فلوکارت بخوا
+                  از فروشگاه شیفت بخوا
                 </span>
               </div>
             )}

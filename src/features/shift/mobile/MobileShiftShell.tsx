@@ -9,7 +9,7 @@ import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/shift/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { toPersianNumber, merchants, type Product, type ChatMessage } from "@/data/gptCommerceData";
+import { toPersianNumber, merchants, type Product, type ChatMessage } from "@/features/shift/data/shiftData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
 import { useUserData } from "../hooks/useUserData";
@@ -445,7 +445,7 @@ export const MobileShiftShell = () => {
               </div>
               <img
                 src={flowcartLogotype}
-                alt="Flowcart"
+                alt="Shift"
                 style={{ height: "44px", width: "auto", objectFit: "contain" }}
                 draggable={false}
               />

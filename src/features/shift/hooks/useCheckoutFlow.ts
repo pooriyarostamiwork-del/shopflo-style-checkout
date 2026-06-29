@@ -10,7 +10,7 @@ import {
   DeliveryAddress,
   paymentOptions,
   calculateOrderSummary,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 
 interface MerchantShippingMethod {

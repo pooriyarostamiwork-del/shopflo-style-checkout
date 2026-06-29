@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ShoppingCart, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Sparkles, Store } from "lucide-react";
-import { CartItem, Product, formatPersianPrice, toPersianNumber, favorites, calculateOrderSummary } from "@/data/gptCommerceData";
+import { CartItem, Product, formatPersianPrice, toPersianNumber, favorites, calculateOrderSummary } from "@/features/shift/data/shiftData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

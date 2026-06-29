@@ -10,9 +10,9 @@ import type {
   CartItem,
   OrderSummary,
   VendorOrderSummary,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 
-export * from "@/data/gptCommerceData";
+export * from "@/features/shift/data/shiftData";
 
 // The single store, masquerading as a Merchant so existing types keep working.
 export const SHIFT_MERCHANT: Merchant = {

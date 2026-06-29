@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, ShoppingCart, Star, Truck, Shield, MessageCircle, ChevronLeft, ChevronRight, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
+import { Product, formatPersianPrice, toPersianNumber } from "@/features/shift/data/shiftData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { ProductImage } from "./ProductImage";
 

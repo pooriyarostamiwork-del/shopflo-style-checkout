@@ -1,4 +1,4 @@
-import { ChatMessage, Product, QuickReply, AgenticState, DeliveryAddress, CartItem } from "@/data/gptCommerceData";
+import { ChatMessage, Product, QuickReply, AgenticState, DeliveryAddress, CartItem } from "@/features/shift/data/shiftData";
 import { MerchantShipping } from "./AddressShippingSelector";
 import { ChatLanding } from "./ChatLanding";
 import { ChatThread } from "./ChatThread";
@@ -6,7 +6,7 @@ import { ChatThread } from "./ChatThread";
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome-pending',
   role: 'assistant',
-  content: 'سلام! 👋 من دستیار خرید هوشمند فلوکارت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
+  content: 'سلام! 👋 من دستیار خرید هوشمند فروشگاه شیفت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
   timestamp: new Date(),
 };
 

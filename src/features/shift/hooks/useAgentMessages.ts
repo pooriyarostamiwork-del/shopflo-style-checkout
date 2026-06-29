@@ -8,7 +8,7 @@ import {
   QuickReplyType,
   paymentOptions,
   merchants,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 
 // Helper: extract a clean basket name from user query + returned products
 const FILLER_WORDS = /\b(می‌خوام|میخوام|خوب|بهترین|نشون بده|نشان بده|پیدا کن|برام|برای من|لطفا|لطفاً|یه|یک|چند|تا|رو|با|از|که|هم|و|ارزان|گران|ارسال سریع|موجود)\b/g;

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound, Star, Store, Instagram, Twitter, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
+import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/features/shift/data/shiftData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import flowcartLogo from "@/assets/flowcart-logo.svg";
@@ -230,7 +230,7 @@ export const MobileChatLanding = ({
           >
             <img
               src={flowcartLogo}
-              alt="Flowcart"
+              alt="Shift"
               style={{ width: "77%", height: "77%" }}
               draggable={false}
             />
@@ -465,7 +465,7 @@ export const MobileChatLanding = ({
             </div>
             <img
               src={flowcartLogotype}
-              alt="Flowcart"
+              alt="Shift"
               style={{ height: "44px", width: "auto", objectFit: "contain" }}
               draggable={false}
             />

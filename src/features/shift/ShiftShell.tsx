@@ -7,7 +7,7 @@ import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/shift/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { toPersianNumber, merchants } from "@/data/gptCommerceData";
+import { toPersianNumber, merchants } from "@/features/shift/data/shiftData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useBasketState, createDefaultBasketState } from "./hooks/useBasketState";
 import { useUserData } from "./hooks/useUserData";

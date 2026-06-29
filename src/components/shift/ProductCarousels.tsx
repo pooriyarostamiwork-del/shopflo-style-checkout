@@ -244,9 +244,6 @@ const CarouselSection = ({
                       <div className="flex items-center gap-1 flex-shrink-0 mt-2">
                         <Star className="w-3 h-3 fill-current text-amber-400" />
                         <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-                        <span className="mx-1 text-xs text-muted-foreground/60">|</span>
-                        <Store className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 mt-2">
                         <span className="text-sm font-bold text-foreground">{formatPersianPrice(product.price)}</span>

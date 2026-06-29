@@ -113,20 +113,19 @@ const OrderDetailView = ({ order: rawOrder, onBack }: { order: any; onBack: () =
         </div>
       </div>
 
-      {/* Items by Merchant */}
+      {/* Items (single-vendor: no merchant header) */}
       {order.merchantGroups.map((group, idx) => (
         <div
           key={group.merchant.id + idx}
           className="rounded-2xl overflow-hidden"
           style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}
         >
-          {/* Merchant Header */}
           <div
             className="px-4 py-3 flex items-center gap-2.5"
             style={{ background: 'hsl(0 0% 0% / 0.02)', borderBottom: '1px solid hsl(0 0% 0% / 0.04)' }}
           >
             <Store className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">{group.merchant.name}</span>
+            <span className="text-sm font-medium text-foreground">اقلام سفارش</span>
             <span className="text-[10px] text-muted-foreground mr-auto">
               {toPersianNumber(group.items.length)} کالا
             </span>

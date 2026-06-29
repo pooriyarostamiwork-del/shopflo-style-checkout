@@ -149,60 +149,49 @@ export const CartSummaryCard = ({ orderSummary: propOrderSummary, cartItems }: C
         </span>
       </div>
 
-      {/* Vendor Summaries */}
-      <div className="divide-y" style={{ borderColor: 'hsl(0 0% 0% / 0.05)' }}>
-        {orderSummary.vendorSummaries.map((vendor) => (
-          <div key={vendor.merchant.id} className="p-4">
-            {/* Vendor Header */}
-            <div className="flex items-center gap-2 mb-3">
-              <Store className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-sm">{vendor.merchant.name}</span>
-            </div>
-
-            {/* Items */}
-            <div className="space-y-2 mb-3">
-              {vendor.items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  <ProductImage 
-                    src={item.image} 
-                    alt={item.name}
-                    className="w-10 h-10 rounded-lg object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground line-clamp-1">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {toPersianNumber(item.quantity)} عدد
-                    </p>
-                  </div>
-                  <span className="text-xs font-medium">
-                    {formatPersianPrice(item.price * item.quantity)}
-                  </span>
+      {/* Single-vendor: flat items list + totals */}
+      {orderSummary.vendorSummaries[0] && (
+        <div className="p-4">
+          <div className="space-y-2 mb-3">
+            {orderSummary.vendorSummaries[0].items.map((item) => (
+              <div key={item.id} className="flex items-center gap-3">
+                <ProductImage
+                  src={item.image}
+                  alt={item.name}
+                  className="w-10 h-10 rounded-lg object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-foreground line-clamp-1">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {toPersianNumber(item.quantity)} عدد
+                  </p>
                 </div>
-              ))}
-            </div>
-
-            {/* Vendor Totals */}
-            <div className="space-y-1 pt-2 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.05)' }}>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">جمع کالاها</span>
-                <span>{formatPersianPrice(vendor.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">هزینه ارسال</span>
-                <span className={vendor.deliveryFee === 0 ? 'text-green-600' : ''}>
-                  {vendor.deliveryFee === 0 ? 'رایگان' : formatPersianPrice(vendor.deliveryFee)}
+                <span className="text-xs font-medium">
+                  {formatPersianPrice(item.price * item.quantity)}
                 </span>
               </div>
-              {vendor.discount > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">تخفیف</span>
-                  <span className="text-red-500">-{formatPersianPrice(vendor.discount)}</span>
-                </div>
-              )}
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+          <div className="space-y-1 pt-2 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.05)' }}>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">جمع کالاها</span>
+              <span>{formatPersianPrice(orderSummary.subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">هزینه ارسال</span>
+              <span className={orderSummary.totalDelivery === 0 ? 'text-green-600' : ''}>
+                {orderSummary.totalDelivery === 0 ? 'رایگان' : formatPersianPrice(orderSummary.totalDelivery)}
+              </span>
+            </div>
+            {orderSummary.totalDiscount > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">تخفیف</span>
+                <span className="text-red-500">-{formatPersianPrice(orderSummary.totalDiscount)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Grand Total */}
       <div 

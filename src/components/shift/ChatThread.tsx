@@ -15,6 +15,8 @@ import {
   PaymentSelector,
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
+import { PawLoader } from "@/features/shift/shared/PawLoader";
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -84,6 +86,8 @@ export const ChatThread = ({
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const { store, content } = useShiftStore();
+  const isPetStore = store?.slug === 'petplayground';
 
   useEffect(() => {
     if (inputValue) return;
@@ -138,10 +142,14 @@ export const ChatThread = ({
         }}
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
-          <span className="text-foreground/80">تا صد میلیون خیال جمع — فروشگاه شیفت هست، پول کم؟ کم‌کم!</span>
-          <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
-        </div>
+        {content('home.promo_banner', '') && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
+            <span className="text-foreground/80">{content('home.promo_banner')}</span>
+            {content('home.promo_link_label', '') && (
+              <span className="text-primary font-semibold cursor-pointer hover:underline">{content('home.promo_link_label')}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Messages Area */}
@@ -179,7 +187,7 @@ export const ChatThread = ({
 
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
-                <div className="flex flex-wrap gap-4 mr-11">
+                <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {msg.products.map((product, index) => (
                     <ChatProductCard
                       key={product.id}
@@ -296,11 +304,15 @@ export const ChatThread = ({
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
+                {isPetStore ? (
+                  <PawLoader label="در حال جستجو…" />
+                ) : (
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                )}
               </div>
             </div>
           )}

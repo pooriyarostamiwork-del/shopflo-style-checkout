@@ -7,14 +7,9 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
 import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
-// Rotating placeholder texts
-const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
-];
 
 // Bento background cards for soft commerce context
 const BentoCard = ({
@@ -105,6 +100,14 @@ export const ChatLanding = ({
   const setInputValue = externalSetInputValue || setInputValueInternal;
   const { getLogoSettings } = useHomepageSettings();
   const firstPageLogo = getLogoSettings('firstPage');
+  const { store, content } = useShiftStore();
+
+  const placeholderTexts = [
+    content('home.suggested_prompt_1', '«محصولات پرفروش رو نشونم بده»'),
+    content('home.suggested_prompt_2', '«بهترین تخفیف‌های امروز چیه؟»'),
+    content('chat.input_placeholder', '«خودت برام خرید کن»'),
+  ];
+
 
   const isIdle = !isFocused && !inputValue;
 
@@ -169,10 +172,14 @@ export const ChatLanding = ({
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
-            <span className="text-foreground/80">تا صد میلیون خیال جمع — فروشگاه شیفت هست، پول کم؟ کم‌کم!</span>
-            <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
-          </div>
+          {content('home.promo_banner', '') && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
+              <span className="text-foreground/80">{content('home.promo_banner')}</span>
+              {content('home.promo_link_label', '') && (
+                <span className="text-primary font-semibold cursor-pointer hover:underline">{content('home.promo_link_label')}</span>
+              )}
+            </div>
+          )}
           <button
             onClick={onSignIn}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:border-primary/20"
@@ -197,8 +204,8 @@ export const ChatLanding = ({
 
         {/* Logo & Welcome */}
         <div className="relative z-10 flex flex-col items-center gap-6 mb-8">
-          {firstPageLogo.imageUrl ? (
-            <img src={firstPageLogo.imageUrl} alt="فروشگاه شیفت" className="w-20 h-20 rounded-2xl object-cover" />
+          {(content('home.logo_url', '') || firstPageLogo.imageUrl) ? (
+            <img src={content('home.logo_url', firstPageLogo.imageUrl)} alt={store?.name_fa || 'فروشگاه شیفت'} className="w-20 h-20 rounded-2xl object-cover" />
           ) : (
             <div
               className="w-20 h-20 rounded-2xl flex items-center justify-center"
@@ -211,8 +218,12 @@ export const ChatLanding = ({
             </div>
           )}
           <div className="flex flex-col items-center gap-3">
-            <img src={shiftLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
-            <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
+            {store?.name_fa ? (
+              <h1 className="text-3xl font-bold text-foreground">{store.name_fa}</h1>
+            ) : (
+              <img src={shiftLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
+            )}
+            <p className="text-muted-foreground">{content('home.tagline', firstPageLogo.subtitle || 'دستیار خرید هوشمند شما')}</p>
           </div>
         </div>
 

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/shift/ChatProductCard";
 import { ProductImage } from "@/components/shift/ProductImage";
 import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
 const merchantMap: Record<string, typeof merchants[0]> = {
@@ -99,14 +100,21 @@ export const MobileChatLanding = ({
   const [activeSlide, setActiveSlide] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const { store, content } = useShiftStore();
+
+  const dynamicPlaceholders = [
+    content('home.suggested_prompt_1', placeholderTexts[0]),
+    content('home.suggested_prompt_2', placeholderTexts[1]),
+    content('chat.input_placeholder', placeholderTexts[2]),
+  ];
 
   useEffect(() => {
     if (inputValue) return;
     const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+      setPlaceholderIndex((prev) => (prev + 1) % dynamicPlaceholders.length);
     }, 3500);
     return () => clearInterval(interval);
-  }, [inputValue]);
+  }, [inputValue, dynamicPlaceholders.length]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -471,7 +479,7 @@ export const MobileChatLanding = ({
             />
           </div>
           <p className="text-[11px] text-muted-foreground leading-tight mb-4 mr-[2.875rem]">
-            دستیار خرید هوشمند
+            {content('home.tagline', 'دستیار خرید هوشمند')}
           </p>
 
           {/* Links */}
@@ -560,7 +568,7 @@ export const MobileChatLanding = ({
                   key={placeholderIndex}
                   className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug"
                 >
-                  {placeholderTexts[placeholderIndex]}
+                  {dynamicPlaceholders[placeholderIndex]}
                 </span>
               </div>
             )}

@@ -13,6 +13,8 @@ import {
 } from "@/features/shift/data/shiftData";
 import { ChatProductCard } from "@/components/shift/ChatProductCard";
 import { PDPProductComponent } from "@/components/shift/PDPProductComponent";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
+import { PawLoader } from "@/features/shift/shared/PawLoader";
 import {
   QuickReplyButtons,
   CTAButton,
@@ -86,6 +88,9 @@ export const MobileChatThread = ({
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { store } = useShiftStore();
+  const isPetStore = store?.slug === 'petplayground';
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -209,7 +214,7 @@ export const MobileChatThread = ({
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
                   <div className="flex gap-[0.375rem] pl-9 pb-1" style={{ width: "max-content" }}>
                     {msg.products.map((product, index) => (
-                      <div key={product.id} className="w-auto flex-shrink-0 mobile-chat-card-wrap">
+                      <div key={product.id} className="w-[240px] flex-shrink-0 mobile-chat-card-wrap">
                         <ChatProductCard
                           product={product}
                           index={(msg.productIndexStart || 1) + index}
@@ -332,20 +337,24 @@ export const MobileChatThread = ({
                   border: "1px solid hsl(0 0% 0% / 0.06)",
                 }}
               >
-                <div className="flex gap-1">
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
-                </div>
+                {isPetStore ? (
+                  <PawLoader label="در حال جستجو…" />
+                ) : (
+                  <div className="flex gap-1">
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -34,9 +34,11 @@ const App = () => (
             <Route path="/m/gptcommerce" element={<MobileGPTCommerce />} />
             <Route path="/m/gptcommerce/dash/*" element={<MobileVendorDashboard />} />
 
-            {/* Product 3: Shift — single-merchant AI storefront */}
+            {/* Product 3: Shift — single-merchant AI storefront (DB-driven, multi-store) */}
             <Route path="/shift" element={<ShiftDesktop />} />
+            <Route path="/shift/:slug" element={<ShiftDesktop />} />
             <Route path="/shift/m" element={<ShiftMobile />} />
+            <Route path="/shift/m/:slug" element={<ShiftMobile />} />
 
 
             {/* Catch-all */}

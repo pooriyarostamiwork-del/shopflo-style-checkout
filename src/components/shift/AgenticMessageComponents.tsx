@@ -11,40 +11,29 @@ import {
 } from "@/features/shift/data/shiftData";
 
 // Helper to calculate order summary from cart items in real-time
-type CartItemInput = { id: string; name: string; price: number; quantity: number; image: string; merchant: { id: string; name: string; logo: string } };
+type CartItemInput = { id: string; name: string; price: number; quantity: number; image: string; merchant?: { id: string; name: string; logo: string } };
 
 const calculateRealtimeSummary = (items: CartItemInput[]): OrderSummary => {
-  const merchantGroups = items.reduce((acc, item) => {
-    const mid = item.merchant.id;
-    if (!acc[mid]) {
-      acc[mid] = { merchant: item.merchant, items: [] };
-    }
-    acc[mid].items.push(item as any); // Cast for compatibility
-    return acc;
-  }, {} as Record<string, { merchant: typeof items[0]['merchant']; items: any[] }>);
-
-  const vendorSummaries = Object.values(merchantGroups).map(group => {
-    const subtotal = group.items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const deliveryFee = subtotal > 500000 ? 0 : 55000;
-    const discount = 0;
-    const total = subtotal + deliveryFee - discount;
-    return {
-      merchant: group.merchant,
-      items: group.items,
-      subtotal,
-      deliveryFee,
-      discount,
-      total,
-    };
-  });
-
+  // Single-vendor: flat aggregation regardless of any incoming merchant ids.
+  const singleMerchant = items[0]?.merchant ?? { id: 'shift-store', name: '', logo: '' };
+  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const deliveryFee = items.length > 0 && subtotal < 500000 ? 55000 : 0;
+  const discount = 0;
+  const grandTotal = subtotal + deliveryFee - discount;
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
-  const subtotal = vendorSummaries.reduce((s, v) => s + v.subtotal, 0);
-  const totalDelivery = vendorSummaries.reduce((s, v) => s + v.deliveryFee, 0);
-  const totalDiscount = vendorSummaries.reduce((s, v) => s + v.discount, 0);
-  const grandTotal = subtotal + totalDelivery - totalDiscount;
 
-  return { vendorSummaries, totalItems, subtotal, totalDelivery, totalDiscount, grandTotal };
+  const vendorSummaries = items.length > 0
+    ? [{
+        merchant: singleMerchant,
+        items: items as any[],
+        subtotal,
+        deliveryFee,
+        discount,
+        total: grandTotal,
+      }]
+    : [];
+
+  return { vendorSummaries, totalItems, subtotal, totalDelivery: deliveryFee, totalDiscount: discount, grandTotal };
 };
 
 // Quick Reply Buttons Component

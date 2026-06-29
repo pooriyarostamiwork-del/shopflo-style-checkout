@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
-import { toPersianNumber } from "@/data/gptCommerceData";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
+import { toPersianNumber } from "@/features/shift/data/shiftData";
+import shiftLogo from "@/features/shift/assets/shift-logo.svg";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -10,7 +10,7 @@ import {
   AgenticState,
   DeliveryAddress,
   CartItem,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 import { ChatProductCard } from "@/components/shift/ChatProductCard";
 import { PDPProductComponent } from "@/components/shift/PDPProductComponent";
 import {
@@ -177,7 +177,7 @@ export const MobileChatThread = ({
                         "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                     }}
                   >
-                    <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
+                    <img src={shiftLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
                   </div>
                 )}
                 <div
@@ -323,7 +323,7 @@ export const MobileChatThread = ({
                     "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
                 }}
               >
-                <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
+                <img src={shiftLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
               </div>
               <div
                 className="rounded-[16px_16px_16px_4px] px-3.5 py-2.5"
@@ -394,7 +394,7 @@ export const MobileChatThread = ({
                 dir="rtl"
               >
                 <span className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug">
-                  از فلوکارت بخوا
+                  از فروشگاه شیفت بخوا
                 </span>
               </div>
             )}

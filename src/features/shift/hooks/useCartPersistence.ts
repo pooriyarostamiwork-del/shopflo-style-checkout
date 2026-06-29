@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 import { Basket } from "@/components/shift/Sidebar";
-import { ChatMessage, CartItem } from "@/data/gptCommerceData";
+import { ChatMessage, CartItem } from "@/features/shift/data/shiftData";
 
 interface UseCartPersistenceProps {
   isAuthenticated: boolean;
@@ -144,10 +144,10 @@ export const useCartPersistence = ({
   useEffect(() => {
     if (!isAuthenticated) {
       hasLoadedFromDb.current = false;
-      localStorage.removeItem('flowcart-baskets');
-      localStorage.removeItem('flowcart-active-basket');
-      localStorage.removeItem('flowcart-basket-states');
-      localStorage.removeItem('flowcart-global-addresses');
+      localStorage.removeItem('shift-baskets');
+      localStorage.removeItem('shift-active-basket');
+      localStorage.removeItem('shift-basket-states');
+      localStorage.removeItem('shift-global-addresses');
     }
   }, [isAuthenticated]);
 

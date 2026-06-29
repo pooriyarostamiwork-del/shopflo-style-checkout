@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Plus, Info, Grid2X2, Star, Store } from "lucide-react";
-import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/data/gptCommerceData";
+import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/features/shift/data/shiftData";
 import { useRef, useState } from "react";
 import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from "@/contexts/HomepageSettingsContext";
 import { useQuery } from "@tanstack/react-query";
@@ -31,12 +31,6 @@ const subcategoryConfig: {
   { subcategory: 'کیبورد و ماوس', title: 'کیبورد و ماوس', emoji: '⌨️', accentColor: 'linear-gradient(135deg, #16a34a, #22c55e)', bannerKey: 'youMayLike' },
 ];
 
-const merchantMap: Record<string, typeof merchants[0]> = {
-  m1: merchants[0],
-  m2: merchants[1],
-  m3: merchants[2] || { id: 'm3', name: 'تکنولایف', logo: '💻' },
-};
-
 function mapDbProduct(row: any): Product {
   return {
     id: row.id,
@@ -46,7 +40,7 @@ function mapDbProduct(row: any): Product {
     image: row.image_url,
     imageUrls: row.image_urls || undefined,
     description: row.description || undefined,
-    merchant: merchantMap[row.merchant_id] || merchants[0],
+    merchant: merchants[0],
     rating: Number(row.rating) || 4.0,
     fastDelivery: row.fast_delivery,
     returnGuarantee: row.return_guarantee,
@@ -244,9 +238,6 @@ const CarouselSection = ({
                       <div className="flex items-center gap-1 flex-shrink-0 mt-2">
                         <Star className="w-3 h-3 fill-current text-amber-400" />
                         <span className="text-xs text-muted-foreground">{toPersianNumber(product.rating)}</span>
-                        <span className="mx-1 text-xs text-muted-foreground/60">|</span>
-                        <Store className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 mt-2">
                         <span className="text-sm font-bold text-foreground">{formatPersianPrice(product.price)}</span>

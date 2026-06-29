@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, CartItem, DeliveryAddress } from "@/data/gptCommerceData";
+import { ChatMessage, Product, CartItem, DeliveryAddress } from "@/features/shift/data/shiftData";
 import { CategorySelector } from "./CategorySelector";
 import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
 // Rotating placeholder texts
 const placeholderTexts = [
@@ -170,7 +170,7 @@ export const ChatLanding = ({
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
-            <span className="text-foreground/80">تا صد میلیون خیال جمع — فلوکارت هست، پول کم؟ کم‌کم!</span>
+            <span className="text-foreground/80">تا صد میلیون خیال جمع — فروشگاه شیفت هست، پول کم؟ کم‌کم!</span>
             <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
           </div>
           <button
@@ -198,7 +198,7 @@ export const ChatLanding = ({
         {/* Logo & Welcome */}
         <div className="relative z-10 flex flex-col items-center gap-6 mb-8">
           {firstPageLogo.imageUrl ? (
-            <img src={firstPageLogo.imageUrl} alt="فلوکارت" className="w-20 h-20 rounded-2xl object-cover" />
+            <img src={firstPageLogo.imageUrl} alt="فروشگاه شیفت" className="w-20 h-20 rounded-2xl object-cover" />
           ) : (
             <div
               className="w-20 h-20 rounded-2xl flex items-center justify-center"
@@ -211,7 +211,7 @@ export const ChatLanding = ({
             </div>
           )}
           <div className="flex flex-col items-center gap-3">
-            <img src={flowcartLogotype} alt="Flowcart" style={{ height: '40px', width: 'auto' }} draggable={false} />
+            <img src={shiftLogotype} alt="Shift" style={{ height: '40px', width: 'auto' }} draggable={false} />
             <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
           </div>
         </div>

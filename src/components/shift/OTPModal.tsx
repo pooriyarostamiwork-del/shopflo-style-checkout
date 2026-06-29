@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toPersianNumber } from "@/data/gptCommerceData";
+import { toPersianNumber } from "@/features/shift/data/shiftData";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -413,7 +413,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  'ذخیره و ورود به فلوکارت'
+                  'ذخیره و ورود به فروشگاه شیفت'
                 )}
               </Button>
               

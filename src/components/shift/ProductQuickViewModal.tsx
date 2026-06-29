@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, ShoppingCart, Star, Truck, Shield, MessageCircle, ChevronLeft, ChevronRight, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
+import { Product, formatPersianPrice, toPersianNumber } from "@/features/shift/data/shiftData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { ProductImage } from "./ProductImage";
 
@@ -174,11 +174,6 @@ export const ProductQuickViewModal = ({
                 <span className="text-sm font-medium text-foreground">
                   {toPersianNumber(product.rating)}
                 </span>
-              </div>
-              <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Store className="w-4 h-4 text-muted-foreground" />
-                <span>{product.merchant.name}</span>
               </div>
             </div>
 

@@ -8,7 +8,7 @@ import {
   QuickReplyType,
   paymentOptions,
   merchants,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 
 // Helper: extract a clean basket name from user query + returned products
 const FILLER_WORDS = /\b(می‌خوام|میخوام|خوب|بهترین|نشون بده|نشان بده|پیدا کن|برام|برای من|لطفا|لطفاً|یه|یک|چند|تا|رو|با|از|که|هم|و|ارزان|گران|ارسال سریع|موجود)\b/g;
@@ -60,20 +60,19 @@ interface UseAgentMessagesProps {
 }
 
 export const mapDbProduct = (dbProduct: any): Product => {
-  const merchantMap: Record<string, typeof merchants[0]> = {
-    m1: merchants[0], m2: merchants[1], m3: merchants[2], m4: merchants[3], m5: merchants[4],
-  };
+  // Single-vendor: every product belongs to the shift store, regardless of
+  // whether the DB row originates from shift_products or products.
   return {
     id: dbProduct.id,
-    name: dbProduct.name,
+    name: dbProduct.name || dbProduct.name_fa,
     price: dbProduct.price,
     originalPrice: dbProduct.original_price || undefined,
     image: dbProduct.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop',
     imageUrls: dbProduct.image_urls?.length > 0 ? dbProduct.image_urls : undefined,
-    description: dbProduct.description || undefined,
+    description: dbProduct.description || dbProduct.description_fa || undefined,
     specs: dbProduct.specs?.length > 0 ? dbProduct.specs : undefined,
     reviewsSummary: dbProduct.reviews_summary || undefined,
-    merchant: merchantMap[dbProduct.merchant_id] || merchants[0],
+    merchant: merchants[0],
     rating: Number(dbProduct.rating) || 4.0,
     fastDelivery: dbProduct.fast_delivery || false,
     returnGuarantee: dbProduct.return_guarantee || true,
@@ -673,7 +672,7 @@ export const useAgentMessages = ({
     }
   }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket]);
 
-  // ── Call the gpt-commerce-agent with a specific mode ──
+  // ── Call the shift-agent with a specific mode ──
   const callAgent = useCallback(async (
     content: string,
     conversationHistory: { role: string; content: string }[],

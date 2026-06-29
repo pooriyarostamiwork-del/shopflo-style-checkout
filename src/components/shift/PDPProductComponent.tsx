@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
+import { Product, formatPersianPrice, toPersianNumber } from "@/features/shift/data/shiftData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { ProductImage } from "./ProductImage";
 
@@ -285,10 +285,6 @@ export const PDPProductComponent = ({
             {/* Product Info */}
             <div className="flex-1 space-y-3">
               <div>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Store className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{product.merchant.name}</span>
-                </div>
                 <h1 className="text-lg font-bold text-foreground">{product.name}</h1>
               </div>
 
@@ -510,52 +506,7 @@ export const PDPProductComponent = ({
               </div>
             </div>
 
-            {/* 4. Other Suppliers */}
-            <div 
-              className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
-            >
-              <button
-                onClick={() => toggleSection('suppliers')}
-                className="w-full px-4 py-3 flex items-center justify-between text-right hover:bg-muted/30 transition-colors"
-                style={{ background: 'hsl(0 0% 99%)' }}
-              >
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Store className="w-4 h-4 text-muted-foreground" />
-                  فروشنده‌های دیگر این محصول
-                </span>
-                {expandedSections.suppliers ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-              <div 
-                className="overflow-hidden transition-all duration-300 ease-out"
-                style={{
-                  maxHeight: expandedSections.suppliers ? '300px' : '0px',
-                  opacity: expandedSections.suppliers ? 1 : 0,
-                }}
-              >
-                <div className="p-3 space-y-2" style={{ borderTop: '1px solid hsl(0 0% 0% / 0.04)' }}>
-                  {otherSuppliers.map((supplier) => (
-                    <button
-                      key={supplier.id}
-                      onClick={() => onOtherSupplierClick?.(supplier.name)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:bg-primary/5 text-right"
-                      style={{ border: '1px solid hsl(0 0% 0% / 0.06)' }}
-                    >
-                      <span className="text-lg">{supplier.logo}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{supplier.name}</p>
-                        <p className="text-xs text-muted-foreground">{supplier.deliverySummary}</p>
-                      </div>
-                      <span className="text-sm font-bold text-primary">{formatPersianPrice(supplier.price)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Single-vendor: "other suppliers" section removed */}
           </div>
         </div>
       )}

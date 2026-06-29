@@ -1,6 +1,6 @@
 import { Shield, RefreshCw, Headphones, Truck, CreditCard, Phone } from "lucide-react";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import shiftLogotype from "@/features/shift/assets/shift-logotype.svg";
 
 // Social media icons as inline SVGs
 const InstagramIcon = () => (
@@ -70,13 +70,13 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-3">
                 {footerLogo.imageUrl ? (
-                  <img src={footerLogo.imageUrl} alt="فلوکارت" className="w-8 h-8 rounded-lg object-cover" />
+                  <img src={footerLogo.imageUrl} alt="فروشگاه شیفت" className="w-8 h-8 rounded-lg object-cover" />
                 ) : (
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <span className="text-primary text-lg">⚡</span>
                   </div>
                 )}
-                <img src={flowcartLogotype} alt="Flowcart" style={{ height: '18px', width: 'auto' }} draggable={false} />
+                <img src={shiftLogotype} alt="Shift" style={{ height: '18px', width: 'auto' }} draggable={false} />
               </div>
               <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 {footerLogo.subtitle || 'خرید هوشمند با کمک هوش مصنوعی'}
@@ -138,7 +138,7 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
       <div className="py-4 border-t border-border/20">
         <div className="max-w-[960px] mx-auto px-4">
           <p className="text-[10px] text-muted-foreground/40 text-center">
-            © ۱۴۰۳ فلوکارت. تمامی حقوق محفوظ است.
+            © ۱۴۰۳ فروشگاه شیفت. تمامی حقوق محفوظ است.
           </p>
         </div>
       </div>

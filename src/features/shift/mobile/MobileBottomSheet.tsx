@@ -6,7 +6,7 @@ import {
   formatPersianPrice,
   toPersianNumber,
   calculateOrderSummary,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 import { Basket } from "@/components/shift/Sidebar";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
@@ -425,7 +425,7 @@ export const MobileBottomSheet = ({
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">
-                        {userFirstName || "کاربر فلوکارت"}
+                        {userFirstName || "کاربر فروشگاه شیفت"}
                       </p>
                       <p className="text-[11px] text-muted-foreground">حساب فعال</p>
                     </div>

@@ -5,7 +5,7 @@ import {
   Product,
   AgenticState,
   DeliveryAddress,
-} from "@/data/gptCommerceData";
+} from "@/features/shift/data/shiftData";
 import { Basket } from "@/components/shift/Sidebar";
 
 // ========== PER-BASKET STATE ==========
@@ -27,7 +27,7 @@ export const createDefaultBasketState = (): BasketState => ({
   messages: [{
     id: `welcome-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     role: 'assistant',
-    content: 'سلام! 👋 من دستیار خرید هوشمند فلوکارت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
+    content: 'سلام! 👋 من دستیار خرید هوشمند فروشگاه شیفت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
     timestamp: new Date(),
   }],
   cartItems: [],
@@ -50,19 +50,19 @@ export const createDefaultBasketState = (): BasketState => ({
 });
 
 // localStorage keys
-export const BASKETS_STORAGE_KEY = 'flowcart-baskets';
-export const ACTIVE_BASKET_KEY = 'flowcart-active-basket';
-export const BASKET_STATES_KEY = 'flowcart-basket-states';
+export const BASKETS_STORAGE_KEY = 'shift-baskets';
+export const ACTIVE_BASKET_KEY = 'shift-active-basket';
+export const BASKET_STATES_KEY = 'shift-basket-states';
 
 // Storage version migration guard (module-level, runs once)
-const STORAGE_VERSION_KEY = 'flowcart-storage-version';
+const STORAGE_VERSION_KEY = 'shift-storage-version';
 const CURRENT_VERSION = '6';
 if (typeof window !== 'undefined') {
   const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
   if (storedVersion !== CURRENT_VERSION) {
-    localStorage.removeItem('flowcart-basket-states');
-    localStorage.removeItem('flowcart-baskets');
-    localStorage.removeItem('flowcart-active-basket');
+    localStorage.removeItem('shift-basket-states');
+    localStorage.removeItem('shift-baskets');
+    localStorage.removeItem('shift-active-basket');
     localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_VERSION);
   }
 }

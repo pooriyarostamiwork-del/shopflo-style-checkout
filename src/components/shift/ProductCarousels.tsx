@@ -31,12 +31,6 @@ const subcategoryConfig: {
   { subcategory: 'کیبورد و ماوس', title: 'کیبورد و ماوس', emoji: '⌨️', accentColor: 'linear-gradient(135deg, #16a34a, #22c55e)', bannerKey: 'youMayLike' },
 ];
 
-const merchantMap: Record<string, typeof merchants[0]> = {
-  m1: merchants[0],
-  m2: merchants[1],
-  m3: merchants[2] || { id: 'm3', name: 'تکنولایف', logo: '💻' },
-};
-
 function mapDbProduct(row: any): Product {
   return {
     id: row.id,
@@ -46,7 +40,7 @@ function mapDbProduct(row: any): Product {
     image: row.image_url,
     imageUrls: row.image_urls || undefined,
     description: row.description || undefined,
-    merchant: merchantMap[row.merchant_id] || merchants[0],
+    merchant: merchants[0],
     rating: Number(row.rating) || 4.0,
     fastDelivery: row.fast_delivery,
     returnGuarantee: row.return_guarantee,

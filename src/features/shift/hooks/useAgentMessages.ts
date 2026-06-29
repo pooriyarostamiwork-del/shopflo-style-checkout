@@ -672,7 +672,7 @@ export const useAgentMessages = ({
     }
   }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket]);
 
-  // ── Call the gpt-commerce-agent with a specific mode ──
+  // ── Call the shift-agent with a specific mode ──
   const callAgent = useCallback(async (
     content: string,
     conversationHistory: { role: string; content: string }[],

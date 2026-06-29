@@ -175,11 +175,6 @@ export const ProductQuickViewModal = ({
                   {toPersianNumber(product.rating)}
                 </span>
               </div>
-              <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Store className="w-4 h-4 text-muted-foreground" />
-                <span>{product.merchant.name}</span>
-              </div>
             </div>
 
             {/* Price */}

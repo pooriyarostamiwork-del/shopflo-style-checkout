@@ -100,6 +100,14 @@ export const ChatLanding = ({
   const setInputValue = externalSetInputValue || setInputValueInternal;
   const { getLogoSettings } = useHomepageSettings();
   const firstPageLogo = getLogoSettings('firstPage');
+  const { store, content } = useShiftStore();
+
+  const placeholderTexts = [
+    content('home.suggested_prompt_1', '«محصولات پرفروش رو نشونم بده»'),
+    content('home.suggested_prompt_2', '«بهترین تخفیف‌های امروز چیه؟»'),
+    content('chat.input_placeholder', '«خودت برام خرید کن»'),
+  ];
+
 
   const isIdle = !isFocused && !inputValue;
 

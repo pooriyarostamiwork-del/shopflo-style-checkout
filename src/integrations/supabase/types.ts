@@ -236,6 +236,228 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_carts: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          store_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items?: Json
+          store_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          store_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_carts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "shift_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_orders: {
+        Row: {
+          address: Json
+          created_at: string
+          id: string
+          items: Json
+          payment_method: string | null
+          shipping_cost: number
+          shipping_method: string | null
+          status: string
+          store_id: string
+          subtotal: number
+          total: number
+          user_id: string
+        }
+        Insert: {
+          address?: Json
+          created_at?: string
+          id?: string
+          items?: Json
+          payment_method?: string | null
+          shipping_cost?: number
+          shipping_method?: string | null
+          status?: string
+          store_id: string
+          subtotal?: number
+          total?: number
+          user_id: string
+        }
+        Update: {
+          address?: Json
+          created_at?: string
+          id?: string
+          items?: Json
+          payment_method?: string | null
+          shipping_cost?: number
+          shipping_method?: string | null
+          status?: string
+          store_id?: string
+          subtotal?: number
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "shift_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          created_at: string
+          description_fa: string | null
+          embedding: string | null
+          external_id: string | null
+          id: string
+          image_url: string | null
+          image_urls: string[] | null
+          in_stock: boolean
+          name_fa: string
+          original_price: number | null
+          price: number
+          rating: number | null
+          review_count: number
+          search_vector: unknown
+          species: string | null
+          specs: Json
+          stock_qty: number
+          store_id: string
+          subcategory: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          description_fa?: string | null
+          embedding?: string | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean
+          name_fa: string
+          original_price?: number | null
+          price?: number
+          rating?: number | null
+          review_count?: number
+          search_vector?: unknown
+          species?: string | null
+          specs?: Json
+          stock_qty?: number
+          store_id: string
+          subcategory?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          description_fa?: string | null
+          embedding?: string | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean
+          name_fa?: string
+          original_price?: number | null
+          price?: number
+          rating?: number | null
+          review_count?: number
+          search_vector?: unknown
+          species?: string | null
+          specs?: Json
+          stock_qty?: number
+          store_id?: string
+          subcategory?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "shift_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_stores: {
+        Row: {
+          created_at: string
+          currency: string
+          hero_image_url: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name_fa: string
+          slug: string
+          suggested_prompts: Json
+          tagline_fa: string | null
+          theme_accent: string
+          theme_primary: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          hero_image_url?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name_fa: string
+          slug: string
+          suggested_prompts?: Json
+          tagline_fa?: string | null
+          theme_accent?: string
+          theme_primary?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          hero_image_url?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name_fa?: string
+          slug?: string
+          suggested_prompts?: Json
+          tagline_fa?: string | null
+          theme_accent?: string
+          theme_primary?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_addresses: {
         Row: {
           created_at: string
@@ -310,6 +532,40 @@ export type Database = {
         }[]
       }
       normalize_persian: { Args: { input: string }; Returns: string }
+      shift_hybrid_search: {
+        Args: {
+          p_category?: string
+          p_embedding?: string
+          p_in_stock?: boolean
+          p_limit?: number
+          p_max_price?: number
+          p_min_price?: number
+          p_query: string
+          p_species?: string
+          p_store_id: string
+          p_subcategory?: string
+        }
+        Returns: {
+          brand: string
+          category: string
+          description_fa: string
+          final_score: number
+          id: string
+          image_url: string
+          image_urls: string[]
+          in_stock: boolean
+          name_fa: string
+          original_price: number
+          price: number
+          rating: number
+          review_count: number
+          species: string
+          specs: Json
+          stock_qty: number
+          subcategory: string
+          tags: string[]
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }

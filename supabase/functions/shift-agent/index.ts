@@ -20,109 +20,107 @@ function normalizePersian(text: string): string {
 // ── No-greeting instruction ──
 const NO_GREETING = `مهم: این یک مکالمه ادامه‌دار است. هرگز با سلام، خوش‌آمدگویی، یا معرفی خودت شروع نکن. مستقیم برو سر اصل مطلب.`;
 
-// ── Mode-specific system prompts ──
-const PROMPTS: Record<string, string> = {
-  discovery: `تو فروشنده و دستیار خرید فروشگاه شیفت هستی. این یک فروشگاه تک‌فروشنده است — فقط محصولات همین فروشگاه رو پیشنهاد بده.
-هرگز از فروشگاه‌های دیگه، فروشنده‌های دیگه، یا مقایسه بین فروشگاه‌ها صحبت نکن. مثل یه کارمند فروشگاه که فقط همین جا کار می‌کنه رفتار کن.
-
-وظایف تو:
-- کمک به کاربران برای پیدا کردن محصولات مورد نظرشون
-- پاسخ‌دهی به سوالات درباره محصولات
-- پیشنهاد محصولات بر اساس نیاز کاربر
-
-قوانین مهم:
-- همیشه فارسی صحبت کن
-- لحن صمیمی و دوستانه داشته باش
-- پاسخ‌ها رو بدون فرمت مارک‌داون بنویس. از ستاره، هشتگ، و علائم مارک‌داون استفاده نکن. متن ساده بنویس.
-- قیمت‌ها به تومان هستن
-
-وقتی کاربر دنبال محصولی می‌گرده، حتماً از ابزار search_products استفاده کن.
-
-نکات مهم برای استخراج نیت:
-- query_text باید حداکثر ۲-۳ کلمه اصلی فارسی باشه (نه جمله کامل)
-- نیازهای ضمنی کاربر رو به semantic_tags تبدیل کن
-- مثال: "گم نشه" → semantic_tags: ["hard_to_lose"]
-- مثال: "برای بچم" → semantic_tags: ["child_safe"]
-- مثال: "برای ورزش" → semantic_tags: ["sport_use", "sweat_resistant"]
-- مهم: هرگز price_min یا price_max رو حدس نزن. فقط وقتی مقدار عددی مشخصی رو ست کن که کاربر عدد دقیق گفته باشه.
-
-زیرمجموعه‌های موجود در فروشگاه:
-- هدفون، هدست و هندزفری
-- دوربین دیجیتال
-- ساعت و مچ‌بند هوشمند
-- هارد اکسترنال
-- لوازم جانبی گوشی موبایل
-- گوشی موبایل
-- لپ تاپ
-- کیبورد و ماوس
-- تبلت
-
-اگه کاربر سوال عمومی پرسید (مثل سلام)، جواب بده و بگو چطور می‌تونی کمکش کنی. از ابزار استفاده نکن.
-
-نکته مهم درباره پاسخ بعد از جستجو:
-- بعد از دریافت نتایج جستجو، بهترین ۳ تا ۶ محصول رو انتخاب کن که بیشترین ارتباط با درخواست کاربر دارن
-- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
-- یه توضیح کوتاه و مفید بنویس
-- در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:
-SELECTED_IDS:["id1","id2","id3"]
-که id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`,
-
-  comparison: `تو متخصص مقایسه محصولات در فروشگاه شیفت هستی.
-
-وظیفه تو: مقایسه دقیق و ساختارمند محصولات بر اساس مشخصات فنی‌شون.
-
-قوانین:
-- فارسی صحبت کن
-- بدون مارک‌داون بنویس - متن ساده
-- روی تفاوت‌های کلیدی تمرکز کن
-- مزایا و معایب هر کدوم رو بگو
-- در نهایت پیشنهادت رو بده
-- قیمت‌ها به تومان هستن`,
-
-  info_retrieval: `تو دستیار اطلاعاتی فروشگاه شیفت هستی.
-
-وظیفه تو: پاسخ دقیق و مختصر به سوالات کاربر درباره محصولات، سفارش‌ها، ارسال، و سیاست‌های فروشگاه.
-
-سیاست‌های فروشگاه:
-- ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان
-- ضمانت بازگشت ۷ روزه
-- ارسال سریع ۱-۳ روز کاری
-- پشتیبانی ۲۴/۷
-
-قوانین:
-- فارسی صحبت کن
-- بدون مارک‌داون - متن ساده
-- مختصر و دقیق باش`,
-
-  conversational: `تو دستیار خرید دوستانه فروشگاه شیفت هستی.
-
-قوانین:
-- فارسی صحبت کن
-- لحن صمیمی و گرم داشته باش
-- بدون مارک‌داون - متن ساده
-- اگه تشکر کرد، خواهش کن و بگو اگه کمکی نیاز داشت در خدمتشی
-- اگه سوالی درباره قابلیت‌هات داشت، توضیح بده می‌تونی محصول جستجو کنی، مقایسه کنی، و کمک به خرید کنی`,
-
-  cart_manipulation: `تو دستیار مدیریت سبد خرید فروشگاه شیفت هستی.
-
-وظیفه تو: تحلیل درخواست کاربر درباره سبد خرید و اجرای عملیات مناسب.
-
-اطلاعاتی که بهت داده میشه:
-- محتویات فعلی سبد خرید (آیتم‌ها، تعداد، قیمت)
-- محصولات پیشنهادی اخیر (با شماره ایندکس)
-- درخواست کاربر
-
-قوانین:
-- فارسی صحبت کن
-- بدون مارک‌داون - متن ساده
-- اگه درخواست مبهمه و نمی‌تونی تشخیص بدی کدوم محصول رو میگه، needs_clarification رو true کن و گزینه‌ها رو بده
-- product_index شماره ایندکس ۱-based از لیست محصولات پیشنهادی هست
-- product_id شناسه UUID از آیتم‌های سبد خرید هست
-- برای "همه رو بخر" → همه محصولات پیشنهادی رو اضافه کن
-- برای "ارزون‌ترین" → محصول با کمترین قیمت رو انتخاب کن
-- برای "عوضش کن" → یکی حذف و یکی اضافه کن
-- همیشه یه پیام تأیید فارسی بنویس`,
+// ── Fallback base prompts (used if DB has no chapters for the store) ──
+const FALLBACK_PROMPTS: Record<string, string> = {
+  discovery: `تو فروشنده و دستیار خرید این فروشگاه هستی. فروشگاه تک‌فروشنده — فقط محصولات همین فروشگاه. همیشه فارسی، بدون مارک‌داون، قیمت به تومان.`,
+  comparison: `تو متخصص مقایسه محصولات همین فروشگاه هستی. فارسی، بدون مارک‌داون، ساختارمند.`,
+  info_retrieval: `تو دستیار اطلاعاتی این فروشگاه هستی. فارسی، مختصر، بدون مارک‌داون.`,
+  conversational: `تو دستیار خرید دوستانه این فروشگاه هستی. فارسی، صمیمی، بدون مارک‌داون.`,
+  cart_manipulation: `تو دستیار مدیریت سبد خرید هستی. فارسی، بدون مارک‌داون.`,
 };
+
+// Mode-specific behavioral rules appended after the DB master prompt.
+const MODE_RULES: Record<string, string> = {
+  discovery: `\n\n# قوانین حالت جستجو
+- وقتی کاربر دنبال محصولی می‌گرده، حتماً از ابزار search_products استفاده کن.
+- query_text حداکثر ۲-۳ کلمه اصلی فارسی.
+- نیت ضمنی رو به semantic_tags تبدیل کن.
+- هرگز price_min/price_max رو حدس نزن؛ فقط با عدد صریح کاربر.
+- بعد از جستجو، ۳ تا ۶ بهترین رو انتخاب کن و در انتها یک خط جدید بنویس:
+SELECTED_IDS:["id1","id2","id3"]`,
+  cart_manipulation: `\n\n# قوانین حالت سبد خرید
+- product_index شماره ۱-based از لیست پیشنهادی؛ product_id UUID آیتم سبد.
+- اگر مبهم بود needs_clarification=true و گزینه‌ها رو بده.
+- پیام تأیید فارسی بنویس.`,
+  comparison: ``,
+  info_retrieval: ``,
+  conversational: ``,
+};
+
+// ── Assemble master prompt from DB (volumes → chapters) ──
+async function assembleStorePrompt(
+  supabase: any,
+  storeId: string,
+): Promise<{ prompt: string; productsTable: string; searchRpc: string } | null> {
+  const { data: store, error: storeErr } = await supabase
+    .from("shift_stores")
+    .select("id, name_fa, currency, vendor_prompt, category_id, master_prompt_id")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (storeErr || !store) {
+    console.error("Store lookup failed:", storeErr);
+    return null;
+  }
+
+  let masterPromptId: string | null = store.master_prompt_id ?? null;
+  let productsTable = "shift_products";
+  let searchRpc = "shift_hybrid_search";
+
+  if (store.category_id) {
+    const { data: cat } = await supabase
+      .from("shift_categories")
+      .select("id, slug, products_table_name")
+      .eq("id", store.category_id)
+      .maybeSingle();
+    if (cat?.products_table_name) {
+      productsTable = cat.products_table_name;
+      searchRpc = cat.slug === "general" ? "shift_hybrid_search" : `shift_hybrid_search_${cat.slug}`;
+    }
+    if (!masterPromptId) {
+      const { data: mp } = await supabase
+        .from("shift_master_prompts")
+        .select("id")
+        .eq("category_id", store.category_id)
+        .eq("is_default", true)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (mp) masterPromptId = mp.id;
+    }
+  }
+
+  let assembled = "";
+  if (masterPromptId) {
+    const { data: volumes } = await supabase
+      .from("shift_prompt_volumes")
+      .select("id, title, order_index")
+      .eq("master_prompt_id", masterPromptId)
+      .eq("is_active", true)
+      .order("order_index", { ascending: true });
+
+    for (const v of volumes ?? []) {
+      const { data: chapters } = await supabase
+        .from("shift_prompt_chapters")
+        .select("title, body, order_index")
+        .eq("volume_id", v.id)
+        .eq("is_active", true)
+        .order("order_index", { ascending: true });
+      if (!chapters?.length) continue;
+      assembled += `\n\n# ${v.title}`;
+      for (const ch of chapters) {
+        assembled += `\n\n## ${ch.title}\n${ch.body}`;
+      }
+    }
+  }
+
+  if (store.vendor_prompt && store.vendor_prompt.trim().length > 0) {
+    assembled += `\n\n# شخصی‌سازی فروشگاه\n${store.vendor_prompt.trim()}`;
+  }
+
+  assembled += `\n\n# اطلاعات فروشگاه\nنام: ${store.name_fa}\nواحد پول: ${store.currency}`;
+
+  return { prompt: assembled.trim(), productsTable, searchRpc };
+}
+
 
 // ── Tool definitions ──
 const SEARCH_TOOL = {

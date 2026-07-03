@@ -805,7 +805,7 @@ export const useAgentMessages = ({
       };
       updateTarget(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [setBasketStates]);
+  }, [setBasketStates, setBaskets, storeId]);
 
   const handleMoreResults = useCallback(() => {
     handleSendMessage('نتایج بیشتر نشون بده');

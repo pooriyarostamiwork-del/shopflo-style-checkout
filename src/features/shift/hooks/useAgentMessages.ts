@@ -140,6 +140,10 @@ export const useAgentMessages = ({
   messages,
   lastRecommendedProducts,
 }: UseAgentMessagesProps) => {
+  const { store } = useShiftStore();
+  const storeId = store?.id;
+
+
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
     updateCurrentBasket(s => {

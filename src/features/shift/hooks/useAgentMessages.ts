@@ -624,6 +624,7 @@ export const useAgentMessages = ({
         messages: [{ role: 'user', content }],
         mode: 'cart_manipulation',
         is_first_message: false,
+        store_id: storeId,
         cart_context: {
           items: cartItems.map(item => ({
             id: item.id, name: item.name, price: item.price,

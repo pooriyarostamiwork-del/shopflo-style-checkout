@@ -327,7 +327,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages, mode = "discovery", products_context, cart_context, is_first_message = false } = await req.json();
+    const { messages: userMessages, mode = "discovery", products_context, cart_context, is_first_message = false, store_id, store_slug } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -335,14 +335,40 @@ serve(async (req) => {
       );
     }
 
-    const effectiveMode = mode in PROMPTS ? mode : "discovery";
-    console.log(`Agent mode: ${effectiveMode}, is_first_message: ${is_first_message}`);
+    const effectiveMode = mode in FALLBACK_PROMPTS ? mode : "discovery";
+    console.log(`Agent mode: ${effectiveMode}, is_first_message: ${is_first_message}, store_id: ${store_id}, store_slug: ${store_slug}`);
 
-    // Build system prompt with greeting control
-    let systemPrompt = PROMPTS[effectiveMode];
+    // Resolve store_id from slug if only slug provided
+    let resolvedStoreId: string | null = store_id ?? null;
+    if (!resolvedStoreId && store_slug) {
+      const { data: s } = await supabase.from("shift_stores").select("id").eq("slug", store_slug).eq("is_active", true).maybeSingle();
+      resolvedStoreId = s?.id ?? null;
+    }
+    if (!resolvedStoreId) {
+      // Fall back to default shift store
+      const { data: s } = await supabase.from("shift_stores").select("id").eq("slug", "shift").maybeSingle();
+      resolvedStoreId = s?.id ?? null;
+    }
+
+    // Assemble DB-driven prompt (with fallback if empty)
+    let systemPrompt = FALLBACK_PROMPTS[effectiveMode];
+    let productsTable = "shift_products";
+    let searchRpc = "shift_hybrid_search";
+    if (resolvedStoreId) {
+      const assembled = await assembleStorePrompt(supabase, resolvedStoreId);
+      if (assembled) {
+        productsTable = assembled.productsTable;
+        searchRpc = assembled.searchRpc;
+        if (assembled.prompt.length > 0) {
+          systemPrompt = assembled.prompt;
+        }
+      }
+    }
+    systemPrompt += MODE_RULES[effectiveMode] || "";
     if (!is_first_message) {
       systemPrompt = NO_GREETING + "\n\n" + systemPrompt;
     }
+
 
     // For comparison mode, inject product data
     if (effectiveMode === "comparison" && products_context) {

@@ -743,7 +743,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [updateCurrentBasket, setBaskets, activeBasketId]);
+  }, [updateCurrentBasket, setBaskets, activeBasketId, storeId]);
 
   // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {

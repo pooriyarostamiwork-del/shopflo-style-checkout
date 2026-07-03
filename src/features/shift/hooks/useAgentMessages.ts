@@ -691,6 +691,7 @@ export const useAgentMessages = ({
         messages: [...conversationHistory, { role: 'user', content }],
         mode,
         is_first_message: isFirstMessage,
+        store_id: storeId,
       };
       if (productsContext) {
         body.products_context = productsContext.map(p => ({

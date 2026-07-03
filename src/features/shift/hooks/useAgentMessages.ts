@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
 import {
   ChatMessage,
   CartItem,
@@ -139,6 +140,10 @@ export const useAgentMessages = ({
   messages,
   lastRecommendedProducts,
 }: UseAgentMessagesProps) => {
+  const { store } = useShiftStore();
+  const storeId = store?.id;
+
+
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
     updateCurrentBasket(s => {
@@ -619,6 +624,7 @@ export const useAgentMessages = ({
         messages: [{ role: 'user', content }],
         mode: 'cart_manipulation',
         is_first_message: false,
+        store_id: storeId,
         cart_context: {
           items: cartItems.map(item => ({
             id: item.id, name: item.name, price: item.price,
@@ -670,7 +676,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket]);
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, storeId]);
 
   // ── Call the shift-agent with a specific mode ──
   const callAgent = useCallback(async (
@@ -685,6 +691,7 @@ export const useAgentMessages = ({
         messages: [...conversationHistory, { role: 'user', content }],
         mode,
         is_first_message: isFirstMessage,
+        store_id: storeId,
       };
       if (productsContext) {
         body.products_context = productsContext.map(p => ({
@@ -736,7 +743,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [updateCurrentBasket, setBaskets, activeBasketId]);
+  }, [updateCurrentBasket, setBaskets, activeBasketId, storeId]);
 
   // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {
@@ -757,7 +764,7 @@ export const useAgentMessages = ({
 
     try {
       const { data, error } = await supabase.functions.invoke('shift-agent', {
-        body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true },
+        body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true, store_id: storeId },
       });
 
       if (error) throw new Error(error.message);
@@ -798,7 +805,7 @@ export const useAgentMessages = ({
       };
       updateTarget(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [setBasketStates]);
+  }, [setBasketStates, setBaskets, storeId]);
 
   const handleMoreResults = useCallback(() => {
     handleSendMessage('نتایج بیشتر نشون بده');

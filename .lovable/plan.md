@@ -1,85 +1,77 @@
-## Scope: /shift only — frontend + new shift_store_content table
 
-### 1. Fix product card grid + clipped action bar
+## Scope
+`/shift` only. Category-scoped AI agents, hierarchical master prompts (volumes → chapters), vendor-level personalization prompt, and per-category product tables. All content managed via direct DB edits.
 
-- `src/components/shift/ProductCarousels.tsx` (and any chat/grid product list): switch grid from 2 cols to **3 cols** on desktop (`grid-cols-2 md:grid-cols-3`), keep 1 col on small.
-- `ChatProductCard.tsx`: card height is fixed `h-[420px]` causing bottom action bar to clip when constrained. Switch to `min-h` + `flex flex-col`, give action bar `mt-auto` with explicit `pb-3`, and reduce title min-height. Verify in 3-col layout.
-- Card width: drop fixed `w-[240px]` in grids, use `w-full` so cards fit the 3-col track.
+## Data model (new tables, all `shift_*`)
 
-### 2. Single-vendor cleanup sweep (/shift only)
+**`shift_categories`**
+- `id`, `slug` (unique, e.g. `pets`, `beauty`), `name_fa`, `products_table_name` (text, e.g. `shift_products_pets`), `is_active`, timestamps.
 
-- Grep `src/components/shift/**` and `src/features/shift/**` for: `merchant`, `vendor`, `vendorSummaries`, `Store` icon, "فروشنده", "دیجی‌کالا", "آرایشی". Remove all merchant chips, "Other suppliers", per-vendor headers, per-vendor shipping breakdowns.
-  - Files to verify: `ProductCard.tsx`, `ChatProductCard.tsx`, `RightPanel.tsx`, `AgenticMessageComponents.tsx`, `AccountPanel.tsx`, `AddressShippingSelector.tsx`, `PDPProductComponent.tsx`, `ProductQuickViewModal.tsx`, `ProductCarousels.tsx`.
-- Cart state: refactor `useBasketState.ts` / `useCartPersistence.ts` (shift copies) so baskets store a flat `items[]` only. Remove any `groupByMerchant` / `vendorSummaries` consumers in shift UI; replace with single-store summary from `shiftData.calculateOrderSummary` (already flat — wire it everywhere).
-- Storage keys: confirm everything in `src/features/shift/**` reads/writes `shift-*` keys only. Audit `useUserData`, `useCheckoutFlow`, `useCartPersistence`, `useAgentMessages`.
-- Order history: queries hit `shift_orders` / `shift_carts` only. Remove any fallback to `orders` / `baskets`.
-- Agent mapping: `useAgentMessages.ts` (shift) — strip `merchant_id` from request/response mapping; force `SHIFT_MERCHANT` on all returned products. Leave edge function as-is per your answer.
+**`shift_master_prompts`**
+- `id`, `category_id` (nullable — nullable = "custom prompt for a multi-category vendor"), `name`, `description`, `is_active`, timestamps.
+- One "default" master prompt per category (enforced by partial unique index on `category_id` where `is_default = true`).
 
-### 3. DB-driven editable content (per-store)
+**`shift_prompt_volumes`**
+- `id`, `master_prompt_id`, `title`, `order_index`, `is_active`, timestamps.
 
-New table `public.shift_store_content` keyed by `store_id` + `content_key` with `is_active` toggle.
+**`shift_prompt_chapters`**
+- `id`, `volume_id`, `title`, `body` (long text — the actual prompt content), `order_index`, `is_active`, timestamps.
 
-```
-shift_store_content(
-  id uuid pk,
-  store_id uuid fk → shift_stores.id,
-  content_key text,           -- e.g. 'home.tagline', 'home.promo_banner', 'home.logo_url'
-  content_type text,          -- 'text' | 'image_url' | 'link'
-  value text,
-  is_active boolean default true,
-  sort_order int default 0,
-  created_at, updated_at
-)
-unique(store_id, content_key)
-```
+**`shift_stores` (extend)**
+- Add `category_id` (nullable, FK to `shift_categories`).
+- Add `master_prompt_id` (nullable, FK to `shift_master_prompts`) — override. If null, resolve to the category's default prompt.
+- Add `vendor_prompt` (text, nullable) — brand-level personalization, single free-text field.
 
-- Public read policy (anon + authenticated SELECT where `is_active = true`).
-- Service role write only (you edit rows directly via backend table editor).
-- Seed default content keys for the existing Shift store:
-  - `home.tagline` → "دستیار خرید هوشمند شما"
-  - `home.promo_banner` → "تا صد میلیون خیال جمع — فلوکارت هست، پول کم؟ کم‌کم!"
-  - `home.promo_link_label` → "دریافت وام فلوپی"
-  - `home.logo_url` → empty (falls back to default svg)
-  - `chat.input_placeholder` → "«خودت برام خرید کن»"
-  - `home.suggested_prompt_1/2/3`
-  - `footer.copyright`
+Resolution rule at runtime:
+1. If `store.master_prompt_id` set → use it (this covers multi-category vendors with a custom prompt).
+2. Else use the default master prompt for `store.category_id`.
+3. Append `store.vendor_prompt` if present.
 
-Frontend:
+All new tables: RLS enabled, `service_role` full access, `authenticated`/`anon` read-only on `is_active = true` rows (agent function uses service role; no admin UI so no write policies needed).
 
-- New hook `useShiftStoreContent(storeId)` — fetches all active rows for store, returns `Map<content_key, value>` with a `get(key, fallback)` helper. Cached via React Query.
-- New `ShiftContentProvider` mounted in `ShiftDesktop.tsx` / `ShiftMobile.tsx` after store resolution.
-- Replace hardcoded copy in: `MobileShiftShell`, `ShiftShell`, `ChatLanding`, `MobileChatLanding`, `Footer`, header promo strip, logo `<img>`, suggested prompt chips. Each uses `content.get('key', defaultFallback)`.
+## Per-category product tables
 
-### 4. Multi-store DB-driven routing
+- Keep `shift_products` as-is for existing store (default category).
+- New categories get their own table via migration, e.g. `shift_products_pets`, cloned from `shift_products` structure (same columns, indexes, triggers, RLS).
+- `shift_categories.products_table_name` tells the agent which table to query.
+- For the initial rollout: create `shift_categories` rows for **general** (points to `shift_products`) and **pets** (points to new `shift_products_pets`). Migrate `petplayground` store to `pets` category.
 
-- Routes: `/shift/:slug?` (desktop) and `/shift/m/:slug?` (mobile). Missing slug → default `shift` store.
-- New `useShiftStore(slug)` hook: queries `shift_stores` by slug, returns `{ id, slug, name_fa, theme_primary, theme_accent, logo_url, hero_image_url, ... }`. While loading → splash.
-- Replace static `SHIFT_STORE` import: `src/features/shift/config/store.ts` becomes a fallback default + types. All shell components consume from new `ShiftStoreProvider` context (store row + content map).
-- Apply theme: inject `--primary` / accent CSS vars from the store row at the shift root via inline style on the root `<div>`.
-- Update `src/App.tsx` routes.
-- Update `shiftData.ts`: `SHIFT_MERCHANT` becomes a factory `makeShiftMerchant(store)` so logo/name come from the active store.
+## Agent runtime (`supabase/functions/shift-agent`)
 
-### 5. /shift/petplayground store (seed only — no new components)
+- On each request, load the active store (already done via slug).
+- Resolve master prompt id (store override → category default).
+- Fetch all active volumes for that master prompt ordered by `order_index`; for each, fetch active chapters ordered by `order_index`.
+- Concatenate as:
+  ```
+  # <Volume title>
+  ## <Chapter title>
+  <chapter body>
+  ...
+  ```
+- Append `\n\n# Brand Personalization\n<vendor_prompt>` if present.
+- Append existing store context (name, currency, etc.).
+- Use `shift_categories.products_table_name` for the hybrid search RPC. Create a parallel `shift_hybrid_search_pets` RPC (or a dynamic-table variant) for the new table; each category gets its own RPC to keep types/indexes clean.
 
-- Insert row in `shift_stores`: `slug='petplayground'`, `name_fa='پت‌پلی‌گراند'`, warm playful theme (`theme_primary='#F59E0B'` warm amber, `theme_accent='#FFF7ED'`), logo placeholder.
-- Seed `shift_store_content` rows for petplayground with pet-themed copy:
-  - tagline: "همراه مهربون حیوانات خانگی"
-  - promo: "غذا، اسباب‌بازی، لوازم — همه‌چی برای کوچولوت"
-  - suggested prompts: "یه اسباب‌بازی برای گربه‌م می‌خوام", "غذای خشک سگ پیشنهاد بده", "تشویقی سالم برای توله‌سگ"
-- Paw loading animation: add `PawLoader.tsx` component (CSS-only walking paw prints). Use it as the loader inside `ChatThread` / search loaders **only when** active store slug === `petplayground`. Default store keeps current loader.
-- No new routes file needed — `/shift/petplayground` and `/shift/m/petplayground` resolve through the dynamic slug route.
+## Files touched
 
-### 6. Verification
+- **Migrations (new):**
+  - Create `shift_categories`, `shift_master_prompts`, `shift_prompt_volumes`, `shift_prompt_chapters` with RLS + grants.
+  - Alter `shift_stores` add `category_id`, `master_prompt_id`, `vendor_prompt`.
+  - Create `shift_products_pets` (clone of `shift_products` shape) + its search vector trigger + hybrid search RPC.
+  - Seed: `general` category → `shift_products`; `pets` category → `shift_products_pets`. Seed a default master prompt with a starter volume+chapter for each. Assign existing Shift default store to `general`, `petplayground` to `pets`.
+- **Edge function:** `supabase/functions/shift-agent/index.ts` — replace hardcoded system prompt with DB-assembled prompt; branch product search RPC by `store.category.products_table_name`.
+- **Types:** regenerated after migration.
+- **No frontend changes required** — chat UI is unchanged; store/category resolution is server-side.
 
-- Manual smoke: load `/shift`, `/shift/petplayground`, `/shift/m`, `/shift/m/petplayground`. Confirm:
-  - 3-col grid on desktop, action bar fully visible.
-  - No "فروشنده" / merchant chip / per-vendor section anywhere.
-  - Cart sidebar shows single flat list + one summary block.
-  - Petplayground shows amber theme, pet copy, paw loader during chat.
-  - Toggling `is_active=false` on a content row removes/falls back in UI on refresh.
+## Out of scope
+- No admin UI (direct DB edits only, per user).
+- No changes to `/gptcommerce`.
+- No product data migration between categories — new category tables start empty; import handled separately by user.
+- No changes to cart/checkout flow.
 
-### Out of scope
-
-- No edge function changes.
-- No admin UI (direct DB edits only).
-- No changes to `/gptcommerce`, `/m/gptcommerce`, vendor dashboard, or marketplace data.
+## Verification
+- Insert a chapter into the pets master prompt, hit `/shift/petplayground`, confirm agent behavior reflects the new chapter.
+- Toggle `is_active=false` on a chapter/volume → agent no longer sees it.
+- Set `store.master_prompt_id` on a store to a custom prompt → confirm override wins over category default.
+- Set `vendor_prompt` on a store → confirm it appears appended in agent behavior.
+- Confirm pets store queries `shift_products_pets` and default store still queries `shift_products`.

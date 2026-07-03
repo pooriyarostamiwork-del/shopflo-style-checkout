@@ -267,24 +267,30 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 }
 
 // ── Execute tool calls ──
-async function executeSearch(supabase: any, args: any, precomputedEmbedding: number[] | null): Promise<any> {
+async function executeSearch(
+  supabase: any,
+  args: any,
+  precomputedEmbedding: number[] | null,
+  searchRpc: string,
+  storeId: string,
+): Promise<any> {
   const { query_text, subcategory, filters, sort_by } = args;
   const normalizedQuery = normalizePersian(query_text);
 
-  const rpcParams: any = { p_query: normalizedQuery, p_in_stock: true };
+  const rpcParams: any = { p_query: normalizedQuery, p_in_stock: true, p_store_id: storeId };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
   if (subcategory) rpcParams.p_subcategory = subcategory;
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
-  if (filters?.brand) rpcParams.p_brand = filters.brand;
 
-  const { data, error } = await supabase.rpc("hybrid_product_search", rpcParams);
+  const { data, error } = await supabase.rpc(searchRpc, rpcParams);
   if (error) {
-    console.error("Hybrid search error:", error);
+    console.error(`Hybrid search error (${searchRpc}):`, error);
     return { products: [], message: "جستجو با مشکل مواجه شد" };
   }
 
-  let results = data || [];
+  // Normalize to legacy `name` field for downstream code that expects it.
+  let results = (data || []).map((r: any) => ({ ...r, name: r.name_fa ?? r.name, description: r.description_fa ?? r.description }));
   if (sort_by === "price_low") results.sort((a: any, b: any) => a.price - b.price);
   else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
   else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
@@ -292,15 +298,16 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   return { products: results };
 }
 
-async function getProductDetails(supabase: any, productId: string): Promise<any> {
+async function getProductDetails(supabase: any, productId: string, productsTable: string): Promise<any> {
   const { data, error } = await supabase
-    .from("products")
+    .from(productsTable)
     .select("*")
     .eq("id", productId)
-    .single();
-  if (error) return { error: "محصول پیدا نشد" };
+    .maybeSingle();
+  if (error || !data) return { error: "محصول پیدا نشد" };
   return { product: data };
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

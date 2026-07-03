@@ -676,7 +676,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket]);
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, storeId]);
 
   // ── Call the shift-agent with a specific mode ──
   const callAgent = useCallback(async (

@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
 import {
   ChatMessage,
   CartItem,

@@ -517,10 +517,10 @@ serve(async (req) => {
       let result: any;
       if (funcName === "search_products") {
         extractedIntent = funcArgs;
-        result = await executeSearch(supabase, funcArgs, precomputedEmbedding);
+        result = await executeSearch(supabase, funcArgs, precomputedEmbedding, searchRpc, resolvedStoreId!);
         if (result.products) allProducts = [...allProducts, ...result.products];
       } else if (funcName === "get_product_details") {
-        result = await getProductDetails(supabase, funcArgs.product_id);
+        result = await getProductDetails(supabase, funcArgs.product_id, productsTable);
       } else {
         result = { error: "Unknown tool" };
       }

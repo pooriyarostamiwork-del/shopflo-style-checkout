@@ -271,6 +271,77 @@ export type Database = {
           },
         ]
       }
+      shift_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name_fa: string
+          products_table_name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_fa: string
+          products_table_name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_fa?: string
+          products_table_name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shift_master_prompts: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_master_prompts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "shift_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_orders: {
         Row: {
           address: Json
@@ -410,6 +481,171 @@ export type Database = {
           },
         ]
       }
+      shift_products_pets: {
+        Row: {
+          brand: string | null
+          category: string | null
+          created_at: string
+          description_fa: string | null
+          embedding: string | null
+          external_id: string | null
+          id: string
+          image_url: string | null
+          image_urls: string[] | null
+          in_stock: boolean
+          name_fa: string
+          original_price: number | null
+          price: number
+          rating: number | null
+          review_count: number
+          search_vector: unknown
+          species: string | null
+          specs: Json
+          stock_qty: number
+          store_id: string
+          subcategory: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          description_fa?: string | null
+          embedding?: string | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean
+          name_fa: string
+          original_price?: number | null
+          price: number
+          rating?: number | null
+          review_count?: number
+          search_vector?: unknown
+          species?: string | null
+          specs?: Json
+          stock_qty?: number
+          store_id: string
+          subcategory?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          description_fa?: string | null
+          embedding?: string | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean
+          name_fa?: string
+          original_price?: number | null
+          price?: number
+          rating?: number | null
+          review_count?: number
+          search_vector?: unknown
+          species?: string | null
+          specs?: Json
+          stock_qty?: number
+          store_id?: string
+          subcategory?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_products_pets_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "shift_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_prompt_chapters: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_active: boolean
+          order_index: number
+          title: string
+          updated_at: string
+          volume_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          title: string
+          updated_at?: string
+          volume_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          title?: string
+          updated_at?: string
+          volume_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_prompt_chapters_volume_id_fkey"
+            columns: ["volume_id"]
+            isOneToOne: false
+            referencedRelation: "shift_prompt_volumes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_prompt_volumes: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          master_prompt_id: string
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          master_prompt_id: string
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          master_prompt_id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_prompt_volumes_master_prompt_id_fkey"
+            columns: ["master_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "shift_master_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_store_content: {
         Row: {
           content_key: string
@@ -459,12 +695,14 @@ export type Database = {
       }
       shift_stores: {
         Row: {
+          category_id: string | null
           created_at: string
           currency: string
           hero_image_url: string | null
           id: string
           is_active: boolean
           logo_url: string | null
+          master_prompt_id: string | null
           name_fa: string
           slug: string
           suggested_prompts: Json
@@ -472,14 +710,17 @@ export type Database = {
           theme_accent: string
           theme_primary: string
           updated_at: string
+          vendor_prompt: string | null
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           currency?: string
           hero_image_url?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
+          master_prompt_id?: string | null
           name_fa: string
           slug: string
           suggested_prompts?: Json
@@ -487,14 +728,17 @@ export type Database = {
           theme_accent?: string
           theme_primary?: string
           updated_at?: string
+          vendor_prompt?: string | null
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           currency?: string
           hero_image_url?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
+          master_prompt_id?: string | null
           name_fa?: string
           slug?: string
           suggested_prompts?: Json
@@ -502,8 +746,24 @@ export type Database = {
           theme_accent?: string
           theme_primary?: string
           updated_at?: string
+          vendor_prompt?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "shift_stores_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "shift_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_stores_master_prompt_id_fkey"
+            columns: ["master_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "shift_master_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_addresses: {
         Row: {
@@ -580,6 +840,40 @@ export type Database = {
       }
       normalize_persian: { Args: { input: string }; Returns: string }
       shift_hybrid_search: {
+        Args: {
+          p_category?: string
+          p_embedding?: string
+          p_in_stock?: boolean
+          p_limit?: number
+          p_max_price?: number
+          p_min_price?: number
+          p_query: string
+          p_species?: string
+          p_store_id: string
+          p_subcategory?: string
+        }
+        Returns: {
+          brand: string
+          category: string
+          description_fa: string
+          final_score: number
+          id: string
+          image_url: string
+          image_urls: string[]
+          in_stock: boolean
+          name_fa: string
+          original_price: number
+          price: number
+          rating: number
+          review_count: number
+          species: string
+          specs: Json
+          stock_qty: number
+          subcategory: string
+          tags: string[]
+        }[]
+      }
+      shift_hybrid_search_pets: {
         Args: {
           p_category?: string
           p_embedding?: string

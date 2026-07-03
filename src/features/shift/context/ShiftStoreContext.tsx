@@ -43,7 +43,7 @@ export const ShiftStoreProvider = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shift_stores")
-        .select("*")
+        .select("id, slug, name_fa, tagline_fa, logo_url, hero_image_url, theme_primary, theme_accent, currency, suggested_prompts, is_active")
         .eq("slug", resolvedSlug)
         .eq("is_active", true)
         .maybeSingle();

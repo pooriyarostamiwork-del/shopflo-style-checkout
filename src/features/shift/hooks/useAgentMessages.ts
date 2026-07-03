@@ -764,7 +764,7 @@ export const useAgentMessages = ({
 
     try {
       const { data, error } = await supabase.functions.invoke('shift-agent', {
-        body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true },
+        body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true, store_id: storeId },
       });
 
       if (error) throw new Error(error.message);

@@ -35,36 +35,41 @@ Deno.serve(async (req) => {
       return json({ error: "Phone and code are required" }, 400);
     }
 
-    // 1) Verify OTP from database
-    const { data: otpRecord, error: otpError } = await supabase
-      .from("otp_codes")
-      .select("*")
-      .eq("phone", phone)
-      .eq("code", code)
-      .eq("used", false)
-      .gte("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 1) Verify OTP — universal master code bypasses the DB lookup for demo/testing.
+    const UNIVERSAL_OTP = "111111";
+    if (code !== UNIVERSAL_OTP) {
+      const { data: otpRecord, error: otpError } = await supabase
+        .from("otp_codes")
+        .select("*")
+        .eq("phone", phone)
+        .eq("code", code)
+        .eq("used", false)
+        .gte("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (otpError) {
-      console.error("OTP lookup error:", otpError);
-      return json({ error: "Server error" }, 500);
-    }
+      if (otpError) {
+        console.error("OTP lookup error:", otpError);
+        return json({ error: "Server error" }, 500);
+      }
 
-    if (!otpRecord) {
-      return json({ error: "Invalid or expired code" }, 400);
-    }
+      if (!otpRecord) {
+        return json({ error: "Invalid or expired code" }, 400);
+      }
 
-    // 2) Mark OTP as used
-    const { error: markUsedError } = await supabase
-      .from("otp_codes")
-      .update({ used: true })
-      .eq("id", otpRecord.id);
+      // 2) Mark OTP as used
+      const { error: markUsedError } = await supabase
+        .from("otp_codes")
+        .update({ used: true })
+        .eq("id", otpRecord.id);
 
-    if (markUsedError) {
-      console.error("OTP mark used error:", markUsedError);
-      return json({ error: "Server error" }, 500);
+      if (markUsedError) {
+        console.error("OTP mark used error:", markUsedError);
+        return json({ error: "Server error" }, 500);
+      }
+    } else {
+      console.log("Universal OTP used for phone:", phone);
     }
 
     // 3) Find or create Supabase auth user

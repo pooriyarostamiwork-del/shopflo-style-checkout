@@ -14,7 +14,7 @@ import {
 import { ChatProductCard } from "@/components/shift/ChatProductCard";
 import { PDPProductComponent } from "@/components/shift/PDPProductComponent";
 import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
-import { PawLoader } from "@/features/shift/shared/PawLoader";
+
 import {
   QuickReplyButtons,
   CTAButton,

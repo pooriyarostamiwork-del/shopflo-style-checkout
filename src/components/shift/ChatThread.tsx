@@ -16,7 +16,7 @@ import {
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 import { useShiftStore } from "@/features/shift/context/ShiftStoreContext";
-import { PawLoader } from "@/features/shift/shared/PawLoader";
+
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",

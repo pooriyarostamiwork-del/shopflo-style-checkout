@@ -387,6 +387,62 @@ export const useAgentMessages = ({
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
+    // ── Fast-path: hardcoded cart-manipulation phrases (no LLM call) ──
+    // Persian digit → Latin
+    const p2l = (s: string) => s.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const norm = p2l(content).trim().toLowerCase();
+
+    // Extract product ref number (#1, شماره ۱, محصول ۱, اولی، دومی…)
+    const ordinalMap: Record<string, number> = {
+      'اول': 1, 'اولی': 1, 'یکم': 1,
+      'دوم': 2, 'دومی': 2,
+      'سوم': 3, 'سومی': 3,
+      'چهارم': 4, 'چهارمی': 4,
+      'پنجم': 5, 'پنجمی': 5,
+      'ششم': 6, 'ششمی': 6,
+    };
+    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*)(\d+)/) || norm.match(/\b(\d+)\s*(?:ام|امی|م)?\b/);
+    let refNum: number | undefined = refMatch ? parseInt(refMatch[1]) : undefined;
+    if (!refNum) {
+      for (const [word, num] of Object.entries(ordinalMap)) {
+        if (norm.includes(word)) { refNum = num; break; }
+      }
+    }
+    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته)/);
+    const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+    // ADD patterns: "اضافه کن", "بذار تو سبد", "بخر", "میخوام بخرم"
+    const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
+    // REMOVE patterns
+    const removeRe = /(حذف|بردار|پاک|خارج|درا?ور|نمی‌?خوام|نخوا)/;
+    // CHECKOUT patterns
+    const checkoutRe = /(نهایی|پرداخت|چک اوت|checkout|تسویه|ثبت سفارش|تموم کن|تمام کن)/;
+    // QUANTITY UPDATE
+    const qtyUpRe = /(زیاد کن|اضافه\s*کن.*تعداد|بیشتر کن)/;
+    const qtyDownRe = /(کم کن|کمتر کن)/;
+
+    if (checkoutRe.test(norm) && cartItems.length > 0) {
+      handleTransactionalCheckout();
+      return;
+    }
+    if (removeRe.test(norm) && (refNum || cartItems.length >= 1)) {
+      handleTransactionalCartRemove(refNum);
+      return;
+    }
+    if (addRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
+      handleTransactionalCartAdd(refNum, qty);
+      return;
+    }
+    if (qtyUpRe.test(norm) && (refNum || cartItems.length === 1)) {
+      handleTransactionalQuantityUpdate(refNum, qty, +qty);
+      return;
+    }
+    if (qtyDownRe.test(norm) && (refNum || cartItems.length === 1)) {
+      handleTransactionalQuantityUpdate(refNum, qty, -qty);
+      return;
+    }
+
+
     // Build conversation history for classifier (lightweight, no products)
     const conversationHistory = messages
       .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))

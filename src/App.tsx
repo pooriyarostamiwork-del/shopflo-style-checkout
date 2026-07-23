@@ -12,6 +12,8 @@ import IndexFarsi from "./pages/IndexFarsi";
 import NotFound from "./pages/NotFound";
 import ShiftDesktop from "./pages/ShiftDesktop";
 import ShiftMobile from "./pages/ShiftMobile";
+import ShiftDashLite from "./pages/ShiftDashLite";
+import ShiftDashPro from "./pages/ShiftDashPro";
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();
@@ -40,6 +42,9 @@ const App = () => (
             <Route path="/shift/m" element={<ShiftMobile />} />
             <Route path="/shift/m/:slug" element={<ShiftMobile />} />
 
+            {/* Shift merchant dashboard (front-end only) */}
+            <Route path="/shift/dash/lite" element={<ShiftDashLite />} />
+            <Route path="/shift/dash/pro" element={<ShiftDashPro />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

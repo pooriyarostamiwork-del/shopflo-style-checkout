@@ -1,77 +1,82 @@
 
-## Scope
-`/shift` only. Category-scoped AI agents, hierarchical master prompts (volumes → chapters), vendor-level personalization prompt, and per-category product tables. All content managed via direct DB edits.
+# Shift Merchant Dashboard — Front-end plan
 
-## Data model (new tables, all `shift_*`)
+Two routes, one shared shell, plan-aware feature gating. All data is mocked in TS files (no backend). Farsi RTL, Vazirmatn, Persian digits, primary `#FF3737` on a light palette.
 
-**`shift_categories`**
-- `id`, `slug` (unique, e.g. `pets`, `beauty`), `name_fa`, `products_table_name` (text, e.g. `shift_products_pets`), `is_active`, timestamps.
+## Routes & shell
 
-**`shift_master_prompts`**
-- `id`, `category_id` (nullable — nullable = "custom prompt for a multi-category vendor"), `name`, `description`, `is_active`, timestamps.
-- One "default" master prompt per category (enforced by partial unique index on `category_id` where `is_default = true`).
+- `/shift/dash/lite` → `<ShiftDashboard plan="lite" />`
+- `/shift/dash/pro`  → `<ShiftDashboard plan="pro" />`
+- Registered in `src/App.tsx`. Wrapped in `LanguageProvider` (fa) + `dir="rtl"` container, scoped `.shift-dash` class so tokens don't leak into `/shift` storefront.
+- Desktop: right-anchored sidebar (RTL) + top strip (plan tag + agent status). Mobile (<768px): collapsible drawer + bottom safe padding. Same components, responsive.
 
-**`shift_prompt_volumes`**
-- `id`, `master_prompt_id`, `title`, `order_index`, `is_active`, timestamps.
+## Design system (scoped `.shift-dash`)
 
-**`shift_prompt_chapters`**
-- `id`, `volume_id`, `title`, `body` (long text — the actual prompt content), `order_index`, `is_active`, timestamps.
+- Font: Vazirmatn (already loaded in project).
+- Tokens in `src/features/shift-dashboard/styles/dashboard.css`:
+  - `--sd-primary: 0 100% 61%` (#FF3737), `--sd-primary-soft`, `--sd-bg: 0 0% 99%`, `--sd-surface: 0 0% 100%`, `--sd-ink: 220 15% 12%`, `--sd-muted: 220 10% 45%`, `--sd-stroke: 220 15% 92%`, `--sd-success`, `--sd-warning`.
+  - Radii 16–24px, 1px strokes, soft shadow only on hero/KPI cards, `.sd-num { font-variant-numeric: tabular-nums }`, Persian digit helper reused from `toPersianNumber`.
+- No hard-coded hex in components — Tailwind arbitrary values reference `hsl(var(--sd-*))`.
 
-**`shift_stores` (extend)**
-- Add `category_id` (nullable, FK to `shift_categories`).
-- Add `master_prompt_id` (nullable, FK to `shift_master_prompts`) — override. If null, resolve to the category's default prompt.
-- Add `vendor_prompt` (text, nullable) — brand-level personalization, single free-text field.
+## File structure
 
-Resolution rule at runtime:
-1. If `store.master_prompt_id` set → use it (this covers multi-category vendors with a custom prompt).
-2. Else use the default master prompt for `store.category_id`.
-3. Append `store.vendor_prompt` if present.
+```text
+src/features/shift-dashboard/
+  ShiftDashboard.tsx                 (shell: sidebar + routed section)
+  context/DashboardContext.tsx       (plan, activeSection, agent status, mock mutations)
+  data/mockDashboard.ts              (KPIs, trends, signals, intents, guardrails, products, plans, billing, team)
+  styles/dashboard.css
+  shared/
+    PlanTag.tsx                      (pulsing pill: Lite / Pro)
+    AgentStatusToggle.tsx            (live dot + one-click Active/Paused/Offline)
+    KpiCard.tsx                      (value, delta chip, optional live-pulse)
+    TrendChart.tsx                   (recharts, 7d/30d/1y toggle)
+    IntentCloud.tsx                  (tag cloud, size = frequency)
+    IndexedProductsBar.tsx           (segmented ring: Indexed / AI-eligible / Errors)
+    GuardrailCard.tsx                (toggle card, lockable)
+    ProLock.tsx                      (grayscale + lock badge + upgrade CTA)
+    MissingChip.tsx                  ("What you're missing" upgrade nudge)
+    SectionTabs.tsx                  (in-section tab bar)
+    Sidebar.tsx / TopBar.tsx / MobileNav.tsx
+  sections/
+    PerformanceHome.tsx
+    AgentControl.tsx                 (tabs: Persona / Guardrails / Automation / Campaigns)
+    VisualCustomization.tsx          (tabs: Branding / Messages / Theme / Loading)
+    Settings.tsx                     (tabs: Team / Integrations / Install)
+    PlansBilling.tsx                 (tabs: AI Conversations / Billing / History)
+    Support.tsx
+  pages/ShiftDashLite.tsx
+  pages/ShiftDashPro.tsx
+```
 
-All new tables: RLS enabled, `service_role` full access, `authenticated`/`anon` read-only on `is_active = true` rows (agent function uses service role; no admin UI so no write policies needed).
+## Sections (with in-section tabs where noted)
 
-## Per-category product tables
+1. **Performance & Home** — banner, 4 KPI cards (Assisted Revenue, Customers Helped w/ live pulse, Product Card Clicks, Conv→Purchase Rate), two-column charts (Revenue vs Customers Helped, Customers Helped vs Conversion) with 7d/30d/1y selector, Signals block (Intent cloud, Failed matches list, Drop-off reasons — Shipping/Fees rows Pro-locked, Top recommended products table with rec#/clicks/CTR). Lite shows a `MissingChip` ("Checkout Funnel — upgrade to Pro").
+2. **Agent Control** — Tabs: **Persona & Tone** (name, preset personas, tone slider) · **Guardrails** (toggle cards; Pro-only ones locked on Lite) · **Automation** (Auto-apply coupons — Pro, Auto-inform offers, Active/Inactive) · **Campaigns** (Featured products/promotions, Seasonal preset chips: Nowruz/Yalda/Black Friday + custom).
+3. **Visual Customization** — Tabs: **Branding** (Logo upload preview, Theme palette picker, Footer) · **Messages** (Home tagline + Chat tagline w/ per-field active toggle, Header message, Welcome message, Quick messages editor, Home placeholder, Chat placeholder) · **Loading** (placeholder text + animation picker with previews).
+4. **Settings** — Tabs: **Team** (members + role dropdowns; RBAC Pro-only) · **Integrations & Catalog** (WooCommerce/API key fields, sync status card, last sync, `IndexedProductsBar`, errors list) · **Install** (copyable embed snippet).
+5. **Plans, Billing & AI Usage** — Tabs: **AI Conversations** (4 model plan cards, per-plan conversation slider with tiered discount preview, Current plan + remaining conversations, Queued plan, Purchase history) · **Billing** (current Shift plan + Upgrade CTA, invoice history w/ price) · **History** (unified log).
+6. **Support & Ticketing** — Ticket list + new-ticket form (mocked).
 
-- Keep `shift_products` as-is for existing store (default category).
-- New categories get their own table via migration, e.g. `shift_products_pets`, cloned from `shift_products` structure (same columns, indexes, triggers, RLS).
-- `shift_categories.products_table_name` tells the agent which table to query.
-- For the initial rollout: create `shift_categories` rows for **general** (points to `shift_products`) and **pets** (points to new `shift_products_pets`). Migrate `petplayground` store to `pets` category.
+## Plan gating
 
-## Agent runtime (`supabase/functions/shift-agent`)
+- `DashboardContext.plan` drives visibility. Lite excludes: Auto-apply coupons, Shipping/Fees drop-off rows, Checkout Funnel widget, Team RBAC beyond owner, some guardrails.
+- Locked Pro items render inside `<ProLock>` (grayscale, lock icon, "ارتقا به Shift Pro" CTA) instead of being hidden — reinforces upsell.
+- Global `<PlanTag>` on top bar pulses; `<AgentStatusToggle>` sits beside it.
 
-- On each request, load the active store (already done via slug).
-- Resolve master prompt id (store override → category default).
-- Fetch all active volumes for that master prompt ordered by `order_index`; for each, fetch active chapters ordered by `order_index`.
-- Concatenate as:
-  ```
-  # <Volume title>
-  ## <Chapter title>
-  <chapter body>
-  ...
-  ```
-- Append `\n\n# Brand Personalization\n<vendor_prompt>` if present.
-- Append existing store context (name, currency, etc.).
-- Use `shift_categories.products_table_name` for the hybrid search RPC. Create a parallel `shift_hybrid_search_pets` RPC (or a dynamic-table variant) for the new table; each category gets its own RPC to keep types/indexes clean.
+## Mock data & interactivity
 
-## Files touched
+- Everything in `data/mockDashboard.ts`; edits go through `DashboardContext` reducer to local state only (no persistence, no API). Forms use `react-hook-form` + inline validation but "save" only toasts + updates in-memory state.
+- Charts via existing `recharts` dependency.
+- Live-pulse and PlanTag pulse via CSS keyframes in `dashboard.css`.
 
-- **Migrations (new):**
-  - Create `shift_categories`, `shift_master_prompts`, `shift_prompt_volumes`, `shift_prompt_chapters` with RLS + grants.
-  - Alter `shift_stores` add `category_id`, `master_prompt_id`, `vendor_prompt`.
-  - Create `shift_products_pets` (clone of `shift_products` shape) + its search vector trigger + hybrid search RPC.
-  - Seed: `general` category → `shift_products`; `pets` category → `shift_products_pets`. Seed a default master prompt with a starter volume+chapter for each. Assign existing Shift default store to `general`, `petplayground` to `pets`.
-- **Edge function:** `supabase/functions/shift-agent/index.ts` — replace hardcoded system prompt with DB-assembled prompt; branch product search RPC by `store.category.products_table_name`.
-- **Types:** regenerated after migration.
-- **No frontend changes required** — chat UI is unchanged; store/category resolution is server-side.
+## Technical notes
 
-## Out of scope
-- No admin UI (direct DB edits only, per user).
-- No changes to `/gptcommerce`.
-- No product data migration between categories — new category tables start empty; import handled separately by user.
-- No changes to cart/checkout flow.
+- Reuse `toPersianNumber` from `src/i18n/LanguageContext.tsx` and existing `Toaster`.
+- No changes to `/shift` storefront, no backend, no edge functions, no DB migrations.
+- Only new deps if needed: none — recharts, react-hook-form, zod, lucide-react already present.
+- Accessibility: keyboard-focusable toggles, `aria-pressed`, RTL-safe icon mirroring where needed.
 
-## Verification
-- Insert a chapter into the pets master prompt, hit `/shift/petplayground`, confirm agent behavior reflects the new chapter.
-- Toggle `is_active=false` on a chapter/volume → agent no longer sees it.
-- Set `store.master_prompt_id` on a store to a custom prompt → confirm override wins over category default.
-- Set `vendor_prompt` on a store → confirm it appears appended in agent behavior.
-- Confirm pets store queries `shift_products_pets` and default store still queries `shift_products`.
+## Out of scope (later)
+
+- Real backend wiring, auth/roles enforcement, real billing, WooCommerce sync, embed script generation, ticket backend.

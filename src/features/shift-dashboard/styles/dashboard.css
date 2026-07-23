@@ -1,0 +1,148 @@
+/* Shift Dashboard scoped tokens */
+.shift-dash {
+  --sd-primary: 0 100% 61%;
+  --sd-primary-ink: 0 100% 45%;
+  --sd-primary-soft: 0 100% 96%;
+  --sd-bg: 220 25% 98%;
+  --sd-surface: 0 0% 100%;
+  --sd-surface-2: 220 20% 97%;
+  --sd-ink: 220 20% 12%;
+  --sd-ink-2: 220 12% 30%;
+  --sd-muted: 220 10% 50%;
+  --sd-stroke: 220 15% 91%;
+  --sd-stroke-strong: 220 15% 84%;
+  --sd-success: 152 60% 40%;
+  --sd-warning: 32 92% 50%;
+  --sd-danger: 0 78% 55%;
+
+  font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+  background: hsl(var(--sd-bg));
+  color: hsl(var(--sd-ink));
+  min-height: 100vh;
+}
+
+.shift-dash * { font-family: inherit; }
+.shift-dash .sd-num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; }
+
+.shift-dash .sd-card {
+  background: hsl(var(--sd-surface));
+  border: 1px solid hsl(var(--sd-stroke));
+  border-radius: 20px;
+}
+.shift-dash .sd-card-hover { transition: border-color .15s ease, transform .15s ease; }
+.shift-dash .sd-card-hover:hover { border-color: hsl(var(--sd-stroke-strong)); }
+
+.shift-dash .sd-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; line-height: 1;
+  background: hsl(var(--sd-surface-2));
+  border: 1px solid hsl(var(--sd-stroke));
+  color: hsl(var(--sd-ink-2));
+}
+.shift-dash .sd-chip-up { background: hsl(152 70% 95%); color: hsl(var(--sd-success)); border-color: hsl(152 60% 85%); }
+.shift-dash .sd-chip-down { background: hsl(0 80% 96%); color: hsl(var(--sd-danger)); border-color: hsl(0 70% 88%); }
+
+@keyframes sd-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--sd-primary) / .45); }
+  50% { box-shadow: 0 0 0 6px hsl(var(--sd-primary) / 0); }
+}
+.shift-dash .sd-pulse { animation: sd-pulse-glow 2s ease-in-out infinite; }
+
+@keyframes sd-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.015); opacity: .96; }
+}
+.shift-dash .sd-breathe { animation: sd-breathe 2.6s ease-in-out infinite; }
+
+@keyframes sd-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.shift-dash .sd-anim-in { animation: sd-fade-up .3s ease-out both; }
+
+.shift-dash .sd-live-dot {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: hsl(var(--sd-success));
+  box-shadow: 0 0 0 3px hsl(152 70% 90%);
+}
+.shift-dash .sd-live-dot.paused { background: hsl(var(--sd-warning)); box-shadow: 0 0 0 3px hsl(32 92% 90%); }
+.shift-dash .sd-live-dot.offline { background: hsl(var(--sd-muted)); box-shadow: 0 0 0 3px hsl(220 15% 90%); }
+
+.shift-dash .sd-btn-primary {
+  background: hsl(var(--sd-primary));
+  color: white;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: background .15s ease;
+}
+.shift-dash .sd-btn-primary:hover { background: hsl(var(--sd-primary-ink)); }
+
+.shift-dash .sd-btn-ghost {
+  background: transparent;
+  color: hsl(var(--sd-ink-2));
+  border: 1px solid hsl(var(--sd-stroke));
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+.shift-dash .sd-btn-ghost:hover { background: hsl(var(--sd-surface-2)); }
+
+.shift-dash .sd-input {
+  width: 100%;
+  background: hsl(var(--sd-surface));
+  border: 1px solid hsl(var(--sd-stroke));
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: hsl(var(--sd-ink));
+}
+.shift-dash .sd-input:focus { outline: none; border-color: hsl(var(--sd-primary)); box-shadow: 0 0 0 3px hsl(var(--sd-primary) / .12); }
+
+.shift-dash .sd-tab {
+  padding: 8px 14px; border-radius: 10px;
+  font-size: 13px; color: hsl(var(--sd-muted));
+  cursor: pointer; transition: all .15s ease;
+}
+.shift-dash .sd-tab:hover { color: hsl(var(--sd-ink)); }
+.shift-dash .sd-tab.active {
+  background: hsl(var(--sd-surface));
+  color: hsl(var(--sd-ink));
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+
+.shift-dash .sd-lock-veil {
+  position: relative;
+}
+.shift-dash .sd-lock-veil > .sd-lock-inner {
+  filter: grayscale(1);
+  opacity: .55;
+  pointer-events: none;
+  user-select: none;
+}
+.shift-dash .sd-lock-badge {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 6px;
+  background: linear-gradient(180deg, transparent, hsl(var(--sd-surface)/.5));
+}
+
+/* Toggle switch */
+.shift-dash .sd-switch {
+  position: relative; width: 36px; height: 20px;
+  background: hsl(var(--sd-stroke-strong));
+  border-radius: 999px; cursor: pointer; transition: background .15s ease;
+}
+.shift-dash .sd-switch::after {
+  content: ""; position: absolute; top: 2px; right: 2px;
+  width: 16px; height: 16px; border-radius: 999px; background: white;
+  transition: transform .18s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.shift-dash .sd-switch.on { background: hsl(var(--sd-primary)); }
+.shift-dash .sd-switch.on::after { transform: translateX(-16px); }
+
+/* Recharts overrides in dashboard */
+.shift-dash .recharts-cartesian-axis-tick text { fill: hsl(var(--sd-muted)); font-size: 10px; }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SectionTabs } from "../shared/SectionTabs";
+import { SectionHeader } from "../shared/SectionHeader";
 import { IndexedProductsBar } from "../shared/IndexedProductsBar";
 import { ProBadge } from "../shared/ProLock";
 import { useDashboard } from "../context/DashboardContext";
@@ -16,10 +17,11 @@ export const Settings = () => {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold">تنظیمات</h1>
-        <p className="text-sm text-[hsl(var(--sd-muted))]">تیم، اتصال‌ها و نصب</p>
-      </div>
+      <SectionHeader
+        eyebrow="تنظیمات"
+        title="تیم، اتصال‌ها و نصب"
+        subtitle="دسترسی اعضا، وضعیت کاتالوگ و کد نصب ویجت"
+      />
 
       <SectionTabs
         tabs={[
@@ -33,28 +35,28 @@ export const Settings = () => {
 
       {tab === "team" && (
         <div className="sd-card overflow-hidden">
-          <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
+          <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
             <div>
-              <div className="text-sm font-semibold flex items-center gap-2">اعضای تیم {!isPro && <ProBadge />}</div>
-              <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-0.5">مدیریت دسترسی سطح‌بندی‌شده {!isPro && "(نقش‌های سفارشی فقط در Pro)"}</div>
+              <div className="text-[14px] font-semibold flex items-center gap-2">اعضای تیم {!isPro && <ProBadge />}</div>
+              <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">مدیریت دسترسی سطح‌بندی‌شده {!isPro && "(نقش‌های سفارشی فقط در Pro)"}</div>
             </div>
             <button className="sd-btn-primary" onClick={() => toast("دعوت عضو (نمایشی)")}>+ افزودن عضو</button>
           </div>
-          <table className="w-full text-[13px]" dir="rtl">
-            <thead className="text-[11px] text-[hsl(var(--sd-muted))]" style={{ background: "hsl(var(--sd-surface-2))" }}>
+          <table className="sd-table" dir="rtl">
+            <thead>
               <tr>
-                <th className="text-right p-3 font-normal">نام</th>
-                <th className="text-right p-3 font-normal">ایمیل</th>
-                <th className="text-right p-3 font-normal">نقش</th>
+                <th>نام</th>
+                <th>ایمیل</th>
+                <th>نقش</th>
               </tr>
             </thead>
             <tbody>
               {teamMembers.map(m => (
-                <tr key={m.id} className="border-t" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-                  <td className="p-3">{m.name}</td>
-                  <td className="p-3 text-[hsl(var(--sd-muted))]">{m.email}</td>
-                  <td className="p-3">
-                    <select disabled={!isPro && m.role !== "owner"} defaultValue={m.role} className="sd-input py-1 text-[12px]" style={{ width: "auto" }}>
+                <tr key={m.id}>
+                  <td className="font-medium">{m.name}</td>
+                  <td className="text-[hsl(var(--sd-muted))]">{m.email}</td>
+                  <td>
+                    <select disabled={!isPro && m.role !== "owner"} defaultValue={m.role} className="sd-input py-1.5 text-[12px]" style={{ width: "auto" }}>
                       <option value="owner">مالک</option>
                       <option value="admin">ادمین</option>
                       <option value="editor">ویرایشگر</option>
@@ -70,11 +72,11 @@ export const Settings = () => {
 
       {tab === "integrations" && (
         <div className="space-y-4">
-          <div className="sd-card p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="sd-card p-5">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-sm font-semibold">وضعیت همگام‌سازی — {integrations.platform}</div>
-                <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-0.5">آخرین همگام‌سازی: <span className="sd-num">{integrations.lastSync}</span></div>
+                <div className="text-[14px] font-semibold">وضعیت همگام‌سازی — {integrations.platform}</div>
+                <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">آخرین همگام‌سازی: <span className="sd-num">{integrations.lastSync}</span></div>
               </div>
               <div className="sd-chip sd-chip-up"><CheckCircle2 className="w-3 h-3" /> سالم</div>
             </div>
@@ -90,11 +92,11 @@ export const Settings = () => {
             </div>
           </div>
 
-          <div className="sd-card p-4">
+          <div className="sd-card p-5">
             <IndexedProductsBar />
             {integrations.indexed.errors > 0 && (
-              <div className="mt-4 p-3 rounded-xl flex items-start gap-2 text-[12px]"
-                style={{ background: "hsl(0 80% 97%)", border: "1px solid hsl(0 70% 88%)", color: "hsl(var(--sd-danger))" }}>
+              <div className="mt-4 p-3.5 rounded-2xl flex items-start gap-2.5 text-[12px]"
+                style={{ background: "hsl(0 80% 97%)", border: "1px solid hsl(0 70% 90%)", color: "hsl(var(--sd-danger))" }}>
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-semibold">۲۴ محصول با خطا</div>
@@ -107,15 +109,15 @@ export const Settings = () => {
       )}
 
       {tab === "install" && (
-        <div className="sd-card p-5">
-          <div className="text-sm font-semibold mb-1">اسکریپت نصب</div>
-          <p className="text-[12px] text-[hsl(var(--sd-muted))] mb-3">این قطعه‌کد را قبل از تگ بسته‌شدن <code>&lt;/body&gt;</code> در فروشگاه خود قرار دهید.</p>
-          <div className="relative rounded-xl p-4 font-mono text-[12px] overflow-x-auto" dir="ltr" style={{ background: "hsl(var(--sd-ink))", color: "hsl(0 0% 92%)" }}>
+        <div className="sd-card p-6">
+          <div className="text-[14px] font-semibold mb-1">اسکریپت نصب</div>
+          <p className="text-[12px] text-[hsl(var(--sd-muted))] mb-4">این قطعه‌کد را قبل از تگ بسته‌شدن <code>&lt;/body&gt;</code> در فروشگاه خود قرار دهید.</p>
+          <div className="relative rounded-2xl p-4 font-mono text-[12px] overflow-x-auto" dir="ltr" style={{ background: "hsl(var(--sd-ink))", color: "hsl(0 0% 92%)" }}>
             <code>{embed}</code>
             <button
               onClick={() => { navigator.clipboard.writeText(embed); setCopied(true); toast.success("کپی شد"); setTimeout(() => setCopied(false), 1200); }}
-              className="absolute top-2 left-2 sd-btn-ghost inline-flex items-center gap-1"
-              style={{ background: "hsl(var(--sd-surface))", color: "hsl(var(--sd-ink))" }}
+              className="absolute top-2 left-2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px]"
+              style={{ background: "hsl(0 0% 15%)", color: "white", border: "1px solid hsl(0 0% 22%)" }}
             >
               <Copy className="w-3 h-3" /> {copied ? "کپی شد" : "کپی"}
             </button>

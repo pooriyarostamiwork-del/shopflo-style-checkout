@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { SectionTabs } from "../shared/SectionTabs";
+import { SectionHeader } from "../shared/SectionHeader";
 import { Switch } from "../shared/Switch";
 import { ProBadge } from "../shared/ProLock";
 import { useDashboard } from "../context/DashboardContext";
 import { personas, campaignPresets } from "../data/mockDashboard";
 import { toast } from "sonner";
+import { Check } from "lucide-react";
 
 export const AgentControl = () => {
   const [tab, setTab] = useState("persona");
@@ -13,10 +15,11 @@ export const AgentControl = () => {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold">کنترل ایجنت</h1>
-        <p className="text-sm text-[hsl(var(--sd-muted))]">شخصیت، محدودیت‌ها، خودکارسازی و کمپین‌های ایجنت</p>
-      </div>
+      <SectionHeader
+        eyebrow="کنترل ایجنت"
+        title="شخصیت و رفتار ایجنت"
+        subtitle="لحن، محدودیت‌ها، خودکارسازی و کمپین‌ها را از یک‌جا مدیریت کنید"
+      />
 
       <SectionTabs
         tabs={[
@@ -31,44 +34,53 @@ export const AgentControl = () => {
 
       {tab === "persona" && (
         <div className="space-y-4">
-          <div className="sd-card p-4">
+          <div className="sd-card p-5">
             <label className="text-[12px] text-[hsl(var(--sd-muted))]">نام ایجنت</label>
-            <input className="sd-input mt-1.5" value={content.agentName} onChange={e => updateContent({ agentName: e.target.value })} />
+            <input className="sd-input mt-2" value={content.agentName} onChange={e => updateContent({ agentName: e.target.value })} />
           </div>
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-3">شخصیت آماده</div>
+          <div className="sd-card p-5">
+            <div className="text-[13px] font-semibold mb-4">شخصیت آماده</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {personas.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => updateContent({ personaId: p.id })}
-                  className={`text-right p-3 rounded-xl border transition ${content.personaId === p.id ? "" : "hover:border-[hsl(var(--sd-stroke-strong))]"}`}
-                  style={{
-                    borderColor: content.personaId === p.id ? "hsl(var(--sd-primary))" : "hsl(var(--sd-stroke))",
-                    background: content.personaId === p.id ? "hsl(var(--sd-primary-soft))" : "hsl(var(--sd-surface))",
-                  }}
-                >
-                  <div className="font-semibold text-[13px]">{p.name}</div>
-                  <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-1">{p.desc}</div>
-                </button>
-              ))}
+              {personas.map(p => {
+                const active = content.personaId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => updateContent({ personaId: p.id })}
+                    className="text-right p-4 rounded-2xl border transition relative"
+                    style={{
+                      borderColor: active ? "hsl(var(--sd-ink))" : "hsl(var(--sd-stroke))",
+                      background: active ? "hsl(var(--sd-ink))" : "hsl(var(--sd-surface))",
+                      color: active ? "white" : "hsl(var(--sd-ink))",
+                    }}
+                  >
+                    <div className="font-semibold text-[13px] flex items-center justify-between">
+                      {p.name}
+                      {active && <span className="w-5 h-5 rounded-full inline-flex items-center justify-center" style={{ background: "hsl(var(--sd-primary))" }}><Check className="w-3 h-3 text-white" /></span>}
+                    </div>
+                    <div className="text-[11.5px] mt-1.5" style={{ opacity: .75 }}>{p.desc}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
       {tab === "guardrails" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {guardrails.map(g => {
+        <div className="sd-card overflow-hidden">
+          {guardrails.map((g, i) => {
             const locked = g.pro && !isPro;
             return (
-              <div key={g.id} className={`sd-card p-4 flex items-start justify-between gap-3 ${locked ? "opacity-70" : ""}`}>
+              <div key={g.id}
+                className={`p-4 flex items-start justify-between gap-4 ${i > 0 ? "border-t" : ""} ${locked ? "opacity-60" : ""}`}
+                style={{ borderColor: "hsl(var(--sd-stroke))" }}>
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="font-semibold text-[13px]">{g.label}</div>
                     {g.pro && <ProBadge />}
                   </div>
-                  <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-1">{g.desc}</div>
+                  <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{g.desc}</div>
                 </div>
                 <Switch checked={g.enabled && !locked} onChange={() => toggleGuardrail(g.id)} disabled={locked} />
               </div>
@@ -78,44 +90,32 @@ export const AgentControl = () => {
       )}
 
       {tab === "auto" && (
-        <div className="space-y-3">
-          <div className={`sd-card p-4 flex items-center justify-between ${!isPro ? "opacity-70" : ""}`}>
-            <div>
-              <div className="flex items-center gap-2 font-semibold text-[13px]">
-                اعمال خودکار کد تخفیف
-                {!isPro && <ProBadge />}
+        <div className="sd-card overflow-hidden">
+          {[
+            { title: "اعمال خودکار کد تخفیف", desc: "ایجنت کدهای تخفیف واجد شرایط را در طول خرید اعمال می‌کند", checked: content.autoApplyCoupons && isPro, onChange: () => updateContent({ autoApplyCoupons: !content.autoApplyCoupons }), disabled: !isPro, pro: true },
+            { title: "اطلاع‌رسانی خودکار پیشنهادها", desc: "ایجنت به‌طور فعالانه پیشنهادها و تخفیف‌های مرتبط را در گفتگو معرفی کند", checked: content.autoInformOffers, onChange: () => updateContent({ autoInformOffers: !content.autoInformOffers }) },
+            { title: "وضعیت ایجنت", desc: "ایجنت را بدون حذف پیکربندی، فعال یا غیرفعال کنید", checked: content.active, onChange: () => updateContent({ active: !content.active }) },
+          ].map((row, i) => (
+            <div key={row.title}
+              className={`p-4 flex items-start justify-between gap-4 ${i > 0 ? "border-t" : ""} ${row.disabled ? "opacity-60" : ""}`}
+              style={{ borderColor: "hsl(var(--sd-stroke))" }}>
+              <div>
+                <div className="flex items-center gap-2 font-semibold text-[13px]">
+                  {row.title}
+                  {row.pro && !isPro && <ProBadge />}
+                </div>
+                <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{row.desc}</div>
               </div>
-              <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-1">
-                ایجنت کدهای تخفیف واجد شرایط را در طول خرید اعمال می‌کند
-              </div>
+              <Switch checked={row.checked} onChange={row.onChange} disabled={row.disabled} />
             </div>
-            <Switch checked={content.autoApplyCoupons && isPro} onChange={() => updateContent({ autoApplyCoupons: !content.autoApplyCoupons })} disabled={!isPro} />
-          </div>
-          <div className="sd-card p-4 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-[13px]">اطلاع‌رسانی خودکار پیشنهادها</div>
-              <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-1">
-                ایجنت به‌طور فعالانه پیشنهادها و تخفیف‌های مرتبط را در گفتگو معرفی کند
-              </div>
-            </div>
-            <Switch checked={content.autoInformOffers} onChange={() => updateContent({ autoInformOffers: !content.autoInformOffers })} />
-          </div>
-          <div className="sd-card p-4 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-[13px]">وضعیت ایجنت</div>
-              <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-1">
-                ایجنت را بدون حذف پیکربندی، فعال یا غیرفعال کنید
-              </div>
-            </div>
-            <Switch checked={content.active} onChange={() => updateContent({ active: !content.active })} />
-          </div>
+          ))}
         </div>
       )}
 
       {tab === "campaigns" && (
         <div className="space-y-4">
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-2">محصولات ویژه و پروموشن‌های اولویت‌دار</div>
+          <div className="sd-card p-5">
+            <div className="text-[13px] font-semibold mb-3">محصولات ویژه و پروموشن‌های اولویت‌دار</div>
             <textarea
               rows={4}
               className="sd-input"
@@ -124,17 +124,17 @@ export const AgentControl = () => {
               placeholder="نام محصولات یا کمپین‌هایی که ایجنت باید در پیشنهادها اولویت دهد"
             />
           </div>
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-3">حالت فصلی</div>
+          <div className="sd-card p-5">
+            <div className="text-[13px] font-semibold mb-3">حالت فصلی</div>
             <div className="flex flex-wrap gap-2">
               {campaignPresets.map(p => (
                 <button key={p} onClick={() => toast.success(`حالت «${p}» فعال شد`)}
-                  className="rounded-full px-3 py-1.5 border text-[12px] sd-card-hover"
+                  className="rounded-full px-3.5 py-1.5 border text-[12px] transition hover:border-[hsl(var(--sd-stroke-strong))] hover:bg-[hsl(var(--sd-surface-2))]"
                   style={{ borderColor: "hsl(var(--sd-stroke))" }}>
                   {p}
                 </button>
               ))}
-              <button className="rounded-full px-3 py-1.5 text-[12px] sd-btn-ghost">+ کمپین سفارشی</button>
+              <button className="rounded-full px-3.5 py-1.5 text-[12px] sd-btn-ghost">+ کمپین سفارشی</button>
             </div>
           </div>
         </div>

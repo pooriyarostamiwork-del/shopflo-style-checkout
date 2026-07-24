@@ -1,130 +1,111 @@
-# Shift Dashboard — UI Refinement (Lite + Pro)
+## Scope
 
-Goal: rebuild the visual layer of `/shift/dash/lite` and `/shift/dash/pro` from scratch, keeping every existing section, tab, feature, and user journey exactly where it is today. Front-end only. Farsi, RTL-first, Vazirmatn.
+Frontend-only polish across `src/features/shift-dashboard/` for both `/shift/dash/lite` and `/shift/dash/pro`. No layout or feature changes — same sections, same controls, same data.
 
-## Benchmark takeaways from the 3 references
+---
 
-- **Kanto (ref 1)** — airy off-white canvas, oversized editorial headline, soft rounded cards with hairline borders, a floating "insight" glass card, ghost bar-chart placeholders, tight sidebar-less top nav.
-- **CreditTB (ref 2)** — punchy accent color (lime) used sparingly on one hero KPI, big arc/gauge, dark inline card as the "focus of the day", generous whitespace, chip tabs with an active pill.
-- **Fleetly (ref 3)** — one filled hero KPI in brand color while siblings stay white, clean left rail with grouped nav, subtle grid dividers, orange used only for CTAs / active states, structured tables with tag chips.
+## 1. Small-screen optimization
 
-Common language we'll adopt: **soft neutral canvas, one saturated accent (`#FF3737` — kept), hairline 1px strokes, 20px card radius, generous padding, one "hero" element per view, tabular numerics, no drop shadows beyond a whisper on floating popovers.**
+**File: `ShiftDashboard.tsx`**
+- Collapse the top bar padding and shrink the welcome text on `<sm`.
+- Convert the desktop sidebar into a swipeable drawer on `<lg` (already exists) but ensure the trigger is a 44×44 tap target and the drawer width caps at `min(300px, 88vw)`.
+- Reduce outer container padding: `px-5 py-6` → `px-3 py-4 sm:px-5 sm:py-6`.
+- Sticky footer safe-area (`env(safe-area-inset-bottom)`) inside the drawer.
 
-## What changes
+**File: `dashboard.css`**
+- Global mobile rules under `@media (max-width: 640px)`:
+  - `.sd-headline` scales `30px → 22px`, tighten leading.
+  - `.sd-card` radius `20px → 16px`, padding trimmed.
+  - `.sd-btn-*`, `.sd-tab`, `.sd-switch`, `.sd-nav-item` → `min-height: 44px`.
+  - `.sd-tab-group` becomes horizontally scrollable (`overflow-x:auto; scroll-snap`) with hidden scrollbar.
+  - `.sd-table` → `display:block; overflow-x:auto` wrapper.
 
-Design system only. No component moves, no route changes, no data changes.
+**Section files** (`PerformanceHome`, `AgentControl`, `VisualCustomization`, `Settings`, `PlansBilling`, `Support`)
+- Audit every `grid-cols-*` and `flex` cluster: enforce `grid-cols-1 sm:grid-cols-2 lg:grid-cols-*` stacking, wrap action clusters with `flex-wrap gap-2`.
+- KPI hero row: single column on mobile with hero card first.
+- Pricing tier cards stack; segmented meters remain 10-cell but shrink cell height.
 
-### 1. Design tokens (`src/features/shift-dashboard/styles/dashboard.css`)
-Rewrite the `.shift-dash` scope:
-- Canvas `#F7F7F5` (warm off-white, Kanto-inspired) instead of cool blue-gray.
-- Surface `#FFFFFF`, surface-2 `#F1F1EE`, stroke `#ECEBE6` / strong `#DCDBD4`.
-- Ink scale: `#111111 / #3A3A38 / #7A7A75`.
-- Primary stays `#FF3737`; add `--sd-primary-hero` for the one filled hero card per section.
-- Retire the pulse-glow + breathe animations on KPIs; replace with a single accent live-dot only where a metric is actually live.
-- Radius scale: 24 (hero), 20 (card), 14 (chip/input), 12 (button). Border everywhere `1px solid stroke`.
-- Typography: Vazirmatn 400/500/600/700; headline uses `-0.03em` tracking at 28–32px; body 13px.
+---
 
-### 2. Shell (`ShiftDashboard.tsx`)
-Same nav items, same order. Visual only:
-- Sidebar: transparent (no card), grouped labels ("داشبورد" / "مدیریت" / "حساب"), active item = filled pill in `--sd-surface-2` with a 3px right accent bar, icons monoline.
-- Top bar: flatten — brand-less on desktop, just plan tag + agent toggle on the right, avatar cluster on the left. Remove backdrop-blur border in favor of a hairline.
-- Store card at sidebar bottom becomes a compact row (store name + plan chip), no filled background.
+## 2. Interaction states (hover / focus / active)
 
-### 3. Section header pattern (all six sections)
-New reusable header block:
-- Small eyebrow label (section name, muted).
-- Oversized Farsi headline (28–32px).
-- One-line subtitle in muted ink.
-- Right-aligned utility cluster (timeframe chips / actions).
-Replace ad-hoc titles currently inside `PerformanceHome`, `AgentControl`, `VisualCustomization`, `Settings`, `PlansBilling`, `Support`.
+**File: `dashboard.css`**
+- Add a shared focus ring token: `--sd-focus: 0 0 0 3px hsl(var(--sd-primary) / .28)`.
+- Apply `:focus-visible` outline on all of: `.sd-btn-primary`, `.sd-btn-ghost`, `.sd-btn-dark`, `.sd-tab`, `.sd-nav-item`, `.sd-switch`, `.sd-seg button`, `.sd-input`, `.sd-chip` (when interactive).
+- Consistent transitions: `transition: background .15s, border-color .15s, transform .15s, box-shadow .15s`.
+- Active/pressed: `transform: translateY(1px) scale(.99)` on primary/dark/ghost buttons and tabs.
+- Hover: hairline strengthens (`--sd-stroke → --sd-stroke-strong`) instead of shadow shifts. Keep hover disabled on `(hover: none)` devices via `@media (hover: hover)` gating.
+- Switch: add pressed halo and `:focus-visible` ring around the track.
 
-### 4. KpiCard redesign
-- Default variant: white, hairline border, label + big tabular number + delta chip on top-right, tiny sparkline strip at the bottom (uses existing trend series when available, else omitted).
-- `hero` variant (one per section, Fleetly-style): filled `--sd-primary-hero` background, white ink, same layout. On `PerformanceHome` this is "درآمد مساعدت‌شده".
-- Retire icon tile; move icon to a subtle monoline glyph next to the label.
-- Remove `sd-breathe`; live state = single 6px accent dot next to the label.
+**Files: `SectionTabs.tsx`, `AgentStatusToggle.tsx`, `Switch.tsx`**
+- Add `aria-selected` / `aria-pressed` where missing so styles hook cleanly; add `role="tablist"` on tab groups.
 
-### 5. Charts (`TrendChart`, `IntentCloud`)
-- Chart card gets an editorial title + right-side legend chips, dashed grid, rounded line caps, single primary color for series A and neutral ink-2 for series B.
-- Custom tooltip: white card, hairline border, tabular Farsi numerics, date on top.
-- IntentCloud → convert to weighted chip grid (chip size scales with volume) instead of raw cloud.
+---
 
-### 6. Signals row on Home
-- Failed matches: list becomes a two-column row per item (query on the right, count chip on the left) with hover state = row tint.
-- Dropoffs: replace flat bars with segmented 10-step meters (Kanto/Fleetly cadence).
-- Top products: table gets zebra removed, hairline dividers only, product name in ink, numerics in `sd-num`, CTR pill uses success/warn/danger by threshold.
+## 3. RTL typography & spacing rhythm
 
-### 7. Pro locking
-Keep gating logic. Visually:
-- Locked cards render at 100% opacity but with a subtle diagonal watermark stripe and a centered "Shift Pro" pill + short reason line. No grayscale. Consistent across every locked block.
-- `MissingChip` becomes an inline banner styled like Kanto's floating insight card (soft tinted background, arrow icon, one CTA "ارتقا به Pro").
+**File: `dashboard.css`**
+- Load Vazirmatn with `wght` axis 300–700 (self-hosted or `@import` — same as current).
+- Establish rhythm tokens:
+  ```
+  --sd-lh-tight: 1.25;
+  --sd-lh-body:  1.7;
+  --sd-lh-num:   1.1;
+  --sd-tracking-fa: 0;      /* Vazirmatn dislikes negative tracking in Farsi */
+  --sd-tracking-num: -0.01em;
+  ```
+- Split rules: Persian text uses `letter-spacing: var(--sd-tracking-fa)`; `.sd-num` uses the numeric tracking. Remove the global `-0.005em` currently on `.shift-dash`.
+- Headline scale: `36 / 28 / 22 / 18 / 15 / 13 / 11.5` — align every `.sd-headline`, `.sd-sublead`, `.sd-eyebrow`, KPI value, KPI label, chip, and table cell to one of these steps.
+- Vertical rhythm: standardize section gaps to `mb-6 sm:mb-8`, card inner padding to `p-4 sm:p-5`.
+- Table row line-height 1.6; chip line-height 1.5; button 1.2.
+- `unicode-bidi: plaintext` on multi-lingual labels that mix Farsi + latin brand names.
 
-### 8. Agent Control
-- Status toggle becomes a 3-state segmented control (فعال / متوقف / آفلاین) at the top of the section, matching CreditTB's chip tabs.
-- Guardrails list: each row = title + one-line description on the right, iOS-style switch on the left, hairline dividers, section grouping headers.
-- Persona/prompt editor card gets a monospace-ish (but still Vazirmatn) editor with soft inner surface `--sd-surface-2`.
+---
 
-### 9. Visual Customization
-- Two-column layout: left = form fields (agent name, greeting, colors, avatar), right = live preview card that mirrors the storefront chat bubble using current tokens.
-- Color picker rows: swatch + hex input + reset, all inline, hairline separated.
+## 4. Skeleton loading states
 
-### 10. Settings (inline sub-tabs already exist)
-- Sub-tabs styled as chip pills with a filled active state (CreditTB pattern), not underline.
-- Form fields: floating label style, 14px radius, 1px stroke, focus ring `--sd-primary / .15`.
-- Section grouping via `SectionTitle` reuse for each sub-tab.
+**New file: `shared/Skeleton.tsx`**
+- Base `<Skeleton />` primitive (`sd-skel` class) with animated shimmer keyframe defined in `dashboard.css` (`@keyframes sd-shimmer`).
+- Preset components:
+  - `KpiCardSkeleton` (matches KPI + hero layouts)
+  - `TrendChartSkeleton` (title bar, timeframe pills, faint chart bars)
+  - `TableRowSkeleton`
+  - `ListItemSkeleton`
+  - `IntentCloudSkeleton`
 
-### 11. Plans & Billing (inline sub-tabs)
-- Plan tab: two cards side by side (Lite / Pro). Current plan card = hero variant (filled primary), other = white. Feature list uses check/lock glyphs. Single CTA per card.
-- Invoices tab: table restyled to match Home top-products table.
-- Payment method tab: single card with saved method row + "افزودن روش پرداخت" ghost button.
+**File: `context/DashboardContext.tsx`**
+- Add a `loading: boolean` flag (defaults to `true` for ~800 ms on mount via `setTimeout`, cleared afterward). Purely for perceived-perf demo — no data source changes.
 
-### 12. Support
-- Left column (tickets): list rows with status chip on the left, title + id/updated on the right, hairline dividers, hover tint.
-- Right column (new ticket): floating-label inputs, primary button full width, helper text under.
-- Status chips get a consistent shape: soft tint background, colored dot, label — matching Fleetly's status tags.
+**Section files**
+- Each section reads `loading` from context; renders the matching `*Skeleton` cluster while true, then swaps to the real content. Same grid so the layout doesn't shift.
 
-### 13. Micro-interactions
-- Replace `sd-breathe` and `sd-pulse-glow` everywhere.
-- Add a single `sd-hover-raise`: `transform: translateY(-1px)` + border darkens to `stroke-strong`. Applied on cards that are clickable only.
-- Keep `sd-anim-in` fade-up for section mount.
-- Buttons: 150ms ease; primary hover = `--sd-primary-ink`; ghost hover = `--sd-surface-2`.
+---
 
-## Files touched (UI only)
+## 5. Chart redesign from the ground up
 
-```
-src/features/shift-dashboard/styles/dashboard.css      (rewrite tokens + utilities)
-src/features/shift-dashboard/ShiftDashboard.tsx        (shell chrome)
-src/features/shift-dashboard/shared/KpiCard.tsx        (default + hero variant)
-src/features/shift-dashboard/shared/DeltaChip.tsx      (restyle)
-src/features/shift-dashboard/shared/PlanTag.tsx        (restyle)
-src/features/shift-dashboard/shared/AgentStatusToggle.tsx (segmented control)
-src/features/shift-dashboard/shared/MissingChip.tsx    (insight-banner style)
-src/features/shift-dashboard/shared/ProLock.tsx        (watermark stripe)
-src/features/shift-dashboard/shared/TrendChart.tsx     (visual only)
-src/features/shift-dashboard/shared/IntentCloud.tsx    (weighted chip grid)
-src/features/shift-dashboard/shared/SectionTabs.tsx    (pill tabs)
-src/features/shift-dashboard/shared/IndexedProductsBar.tsx (restyle)
-src/features/shift-dashboard/shared/Switch.tsx         (iOS style)
-src/features/shift-dashboard/sections/PerformanceHome.tsx
-src/features/shift-dashboard/sections/AgentControl.tsx
-src/features/shift-dashboard/sections/VisualCustomization.tsx
-src/features/shift-dashboard/sections/Settings.tsx
-src/features/shift-dashboard/sections/PlansBilling.tsx
-src/features/shift-dashboard/sections/Support.tsx
-+ new: src/features/shift-dashboard/shared/SectionHeader.tsx
-```
+**File: `shared/TrendChart.tsx` — rewrite**
 
-No changes to routes, data mocks, context, or `plan` gating logic.
+Direction: an editorial split-metric chart, one per card, replacing the current dual-axis area+dashed-line combo.
 
-## Explicitly NOT changing
-- NAV items, section order, or which section owns which feature.
-- Any tab labels or sub-tab structure inside sections.
-- KPI selection or chart data on Home.
-- Pro/Lite gating rules — only how a locked card looks.
-- Any backend or edge functions.
+- **Structure**
+  - Header row (unchanged spot): eyebrow + title on the right, timeframe pill group on the left.
+  - Metric ribbon under the header: primary value (large `.sd-num`), delta chip, muted secondary metric with its own dot legend. This kills the recharts `<Legend>` and gives an at-a-glance answer above the chart.
+- **Primary series (`a`)**: smooth monotone area, single soft gradient (`--sd-primary` at 22% → 0%), 2 px stroke, rounded caps. Dots only on hover.
+- **Secondary series (`b`)**: thin 1.5 px solid line (drop the dashed pattern) in `--sd-ink-2`, opacity 0.55.
+- **Grid**: horizontal hairlines only, 4 evenly-spaced levels; no vertical grid. Y-axis labels shown on the right (RTL), muted, tabular-nums.
+- **X-axis**: 5–7 tick target with auto-thin on mobile; today's tick highlighted with a filled primary dot below the axis.
+- **Peak & trough markers**: small primary/ink dots on the max and min of series A with a floating tag on hover.
+- **Hover**: vertical guide line + a single unified card tooltip (RTL, rounded 12 px, hairline border) that lists both series with color dots and formatted values. Uses `<Tooltip cursor>` custom render.
+- **Empty / loading**: reuses `TrendChartSkeleton`.
+- **Motion**: draw-in animation via `<Area isAnimationActive>` with 400 ms ease-out; disabled when `prefers-reduced-motion`.
 
-## Verification
-After build:
-1. Playwright screenshot `/shift/dash/lite` and `/shift/dash/pro` at 1280 and 390 widths; visually confirm parity of sections and Pro-lock differences.
-2. Check RTL alignment on every section (no `flex-row-reverse` regressions).
-3. Confirm Vazirmatn is applied, Farsi digits render in KPIs and tables.
+Same props (`title`, `seriesA`, `seriesB`, formatters) — drop-in replacement in `PerformanceHome.tsx` (both graphs there) so no consumer changes.
+
+---
+
+## Technical notes
+
+- Recharts stays; no new deps.
+- All new classes are `.sd-*` scoped inside `.shift-dash` — no leakage.
+- No changes to `mockDashboard.ts`, routing, or any section's feature composition.
+- Verify after build: Playwright screenshot at 375×812 and 1440×900 for both `/shift/dash/lite` and `/shift/dash/pro`, plus tab-key focus walk to confirm outlines.

@@ -9,9 +9,10 @@ import { VisualCustomization } from "./sections/VisualCustomization";
 import { Settings } from "./sections/Settings";
 import { PlansBilling } from "./sections/PlansBilling";
 import { Support } from "./sections/Support";
+import { CustomerIntelligence } from "./sections/CustomerIntelligence";
 import { Toaster } from "@/components/ui/sonner";
 import "./styles/dashboard.css";
-import { LayoutDashboard, Bot, Palette, Settings as SettingsIcon, CreditCard, LifeBuoy, Menu, X } from "lucide-react";
+import { LayoutDashboard, Bot, Palette, Settings as SettingsIcon, CreditCard, LifeBuoy, Menu, X, Sparkles } from "lucide-react";
 
 type NavGroup = { label: string; items: { id: string; label: string; icon: any; component: any }[] };
 

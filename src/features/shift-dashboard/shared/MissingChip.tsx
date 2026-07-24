@@ -1,14 +1,20 @@
 import { ArrowLeft, Sparkles } from "lucide-react";
 
 export const MissingChip = ({ text, cta = "ارتقا به Pro" }: { text: string; cta?: string }) => (
-  <div className="sd-card sd-anim-in p-3 flex items-center justify-between gap-3"
-    style={{ background: "linear-gradient(90deg, hsl(var(--sd-primary-soft)), hsl(var(--sd-surface)))",
-      borderColor: "hsl(var(--sd-primary)/.25)" }}>
-    <div className="flex items-center gap-2 text-[13px]">
-      <Sparkles className="w-4 h-4" style={{ color: "hsl(var(--sd-primary))" }} />
+  <div className="sd-anim-in flex items-center justify-between gap-3 px-4 py-3 rounded-2xl"
+    style={{
+      background: "hsl(var(--sd-primary-soft))",
+      border: "1px solid hsl(var(--sd-primary) / .25)",
+    }}>
+    <div className="flex items-center gap-2.5 text-[13px] min-w-0">
+      <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+        style={{ background: "hsl(var(--sd-primary))", color: "white" }}>
+        <Sparkles className="w-3.5 h-3.5" />
+      </span>
       <span className="text-[hsl(var(--sd-ink))]">{text}</span>
     </div>
-    <button className="sd-btn-primary flex items-center gap-1">
+    <button className="inline-flex items-center gap-1 text-[12px] font-semibold px-3 py-1.5 rounded-full shrink-0"
+      style={{ background: "hsl(var(--sd-primary))", color: "white" }}>
       {cta} <ArrowLeft className="w-3.5 h-3.5" />
     </button>
   </div>

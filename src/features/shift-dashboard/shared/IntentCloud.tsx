@@ -5,22 +5,25 @@ export const IntentCloud = () => {
   return (
     <div className="flex flex-wrap gap-2">
       {intents.map(i => {
-        const scale = 0.55 + (i.weight / max) * 0.85;
-        const opacity = 0.5 + (i.weight / max) * 0.5;
+        const ratio = i.weight / max;
+        const isTop = ratio >= 0.75;
+        const isMid = ratio >= 0.45 && ratio < 0.75;
         return (
           <span
             key={i.label}
-            className="rounded-full px-3 py-1.5 border sd-card-hover transition"
+            className="rounded-full border transition inline-flex items-center gap-2"
             style={{
-              fontSize: `${12 * scale + 4}px`,
-              background: "hsl(var(--sd-primary-soft))",
-              color: "hsl(var(--sd-primary-ink))",
-              borderColor: "hsl(var(--sd-primary) / .25)",
-              opacity,
+              padding: isTop ? "8px 14px" : isMid ? "6px 12px" : "5px 10px",
+              fontSize: isTop ? "13.5px" : isMid ? "12.5px" : "11.5px",
+              fontWeight: isTop ? 600 : 500,
+              background: isTop ? "hsl(var(--sd-ink))" : "hsl(var(--sd-surface))",
+              color: isTop ? "white" : "hsl(var(--sd-ink-2))",
+              borderColor: isTop ? "hsl(var(--sd-ink))" : "hsl(var(--sd-stroke))",
             }}
             title={`${fa(i.weight)} گفتگو`}
           >
             {i.label}
+            <span className="sd-num text-[10px]" style={{ opacity: .65 }}>{fa(i.weight)}</span>
           </span>
         );
       })}

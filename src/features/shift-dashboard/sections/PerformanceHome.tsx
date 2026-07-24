@@ -2,64 +2,88 @@ import { KpiCard } from "../shared/KpiCard";
 import { TrendChart } from "../shared/TrendChart";
 import { IntentCloud } from "../shared/IntentCloud";
 import { MissingChip } from "../shared/MissingChip";
-import { ProLock, ProBadge } from "../shared/ProLock";
+import { ProBadge } from "../shared/ProLock";
+import { SectionHeader } from "../shared/SectionHeader";
 import { useDashboard } from "../context/DashboardContext";
 import { kpis, faToman, faNum, faPct, fa, failedMatches, dropoffs, topProducts } from "../data/mockDashboard";
 import { Wallet, Users, MousePointerClick, TrendingUp } from "lucide-react";
+
+const Meter = ({ pct }: { pct: number }) => {
+  const filled = Math.round(pct / 10);
+  return (
+    <div className="sd-meter">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <span key={i} className={i < filled ? "on" : ""} />
+      ))}
+    </div>
+  );
+};
 
 export const PerformanceHome = () => {
   const { plan, content } = useDashboard();
   const isPro = plan === "pro";
 
   return (
-    <div className="space-y-5">
-      {/* Banner */}
-      <div className="sd-card sd-anim-in p-5 flex items-center justify-between gap-4"
-        style={{ background: "linear-gradient(120deg, hsl(var(--sd-primary-soft)), hsl(var(--sd-surface)) 60%)",
-          borderColor: "hsl(var(--sd-primary)/.2)" }}>
-        <div>
-          <div className="text-[11px] text-[hsl(var(--sd-primary-ink))] font-semibold mb-1">امروز</div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {content.agentName} فعال است
-          </h1>
-          <p className="text-sm text-[hsl(var(--sd-muted))] mt-1">
-            نمای کلی عملکرد و سیگنال‌های امروز فروشگاه شما
-          </p>
-        </div>
-        <div className="hidden md:flex items-center gap-2 text-[11px] text-[hsl(var(--sd-muted))]">
-          <span className="sd-live-dot" /> {fa(kpis.customersHelped.liveNow)} گفتگوی زنده
-        </div>
-      </div>
+    <div>
+      <SectionHeader
+        eyebrow="امروز"
+        title={`${content.agentName} فعال است`}
+        subtitle="نمای کلی عملکرد و سیگنال‌های امروز فروشگاه شما"
+        actions={
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11.5px] text-[hsl(var(--sd-ink-2))]"
+            style={{ borderColor: "hsl(var(--sd-stroke))", background: "hsl(var(--sd-surface))" }}>
+            <span className="sd-live-dot" /> {fa(kpis.customersHelped.liveNow)} گفتگوی زنده
+          </div>
+        }
+      />
 
       {!isPro && (
-        <MissingChip text="قیف پرداخت و نرخ ترک سبد در Shift Pro قابل مشاهده است" />
+        <div className="mb-5">
+          <MissingChip text="قیف پرداخت و نرخ ترک سبد در Shift Pro قابل مشاهده است" />
+        </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="درآمد مساعدت‌شده" value={faToman(kpis.assistedRevenue.value)} delta={kpis.assistedRevenue.delta} icon={<Wallet className="w-4 h-4" />} />
+      {/* KPIs — one hero */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <KpiCard
+          hero
+          label="درآمد مساعدت‌شده"
+          value={faToman(kpis.assistedRevenue.value)}
+          delta={kpis.assistedRevenue.delta}
+          icon={<Wallet className="w-4 h-4" strokeWidth={1.75} />}
+        />
         <KpiCard
           label="مشتریان کمک‌گرفته"
           value={faNum(kpis.customersHelped.value)}
           sub={`${faNum(kpis.customersHelped.firstTimers)} تازه‌وارد · ${faNum(kpis.customersHelped.returning)} بازگشتی`}
           delta={kpis.customersHelped.delta}
           live
-          icon={<Users className="w-4 h-4" />}
+          icon={<Users className="w-4 h-4" strokeWidth={1.75} />}
         />
-        <KpiCard label="کلیک روی کارت محصول" value={faNum(kpis.productClicks.value)} delta={kpis.productClicks.delta} icon={<MousePointerClick className="w-4 h-4" />} />
-        <KpiCard label="نرخ تبدیل گفتگو→خرید" value={faPct(kpis.conversion.value)} delta={kpis.conversion.delta} icon={<TrendingUp className="w-4 h-4" />} />
+        <KpiCard
+          label="کلیک روی کارت محصول"
+          value={faNum(kpis.productClicks.value)}
+          delta={kpis.productClicks.delta}
+          icon={<MousePointerClick className="w-4 h-4" strokeWidth={1.75} />}
+        />
+        <KpiCard
+          label="نرخ تبدیل گفتگو→خرید"
+          value={faPct(kpis.conversion.value)}
+          delta={kpis.conversion.delta}
+          icon={<TrendingUp className="w-4 h-4" strokeWidth={1.75} />}
+        />
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
         <TrendChart
-          title="درآمد مساعدت‌شده در برابر مشتریان کمک‌گرفته"
+          title="درآمد در برابر مشتریان"
           seriesA={{ key: "assistedRevenue", name: "درآمد" }}
           seriesB={{ key: "customersHelped", name: "مشتریان" }}
           formatterA={(n) => faToman(n)}
         />
         <TrendChart
-          title="مشتریان کمک‌گرفته در برابر نرخ تبدیل"
+          title="مشتریان در برابر نرخ تبدیل"
           seriesA={{ key: "customersHelped", name: "مشتریان" }}
           seriesB={{ key: "conversion", name: "نرخ تبدیل" }}
           formatterB={(n) => faPct(n)}
@@ -67,72 +91,77 @@ export const PerformanceHome = () => {
       </div>
 
       {/* Signals */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="w-1 h-4 rounded-full" style={{ background: "hsl(var(--sd-primary))" }} />
-          <h2 className="text-base font-semibold">سیگنال‌ها</h2>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="w-1 h-4 rounded-full" style={{ background: "hsl(var(--sd-primary))" }} />
+        <h2 className="text-[15px] font-semibold">سیگنال‌ها</h2>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="sd-card p-5">
+          <div className="text-[13px] font-semibold mb-4">پرتکرارترین نیت‌ها و جست‌وجوها</div>
+          <IntentCloud />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-3">پرتکرارترین نیت‌ها و جست‌وجوهای مشتریان</div>
-            <IntentCloud />
-          </div>
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-3">جست‌وجوهای بدون تطبیق</div>
-            <ul className="space-y-2">
-              {failedMatches.map(f => (
-                <li key={f.q} className="flex items-center justify-between py-1.5 border-b last:border-b-0" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-                  <span className="text-[13px]">{f.q}</span>
-                  <span className="sd-chip sd-num">{fa(f.count)} بار</span>
-                </li>
-              ))}
-            </ul>
-          </div>
 
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-3">دلایل ترک خرید</div>
-            <div className="space-y-2.5">
-              {dropoffs.map(d => {
-                const row = (
-                  <div className="flex items-center gap-3">
-                    <div className="w-28 text-[13px] flex items-center gap-1.5">
+        <div className="sd-card p-5">
+          <div className="text-[13px] font-semibold mb-4">جست‌وجوهای بدون تطبیق</div>
+          <ul>
+            {failedMatches.map(f => (
+              <li key={f.q}
+                className="flex items-center justify-between py-3 border-b last:border-b-0 transition"
+                style={{ borderColor: "hsl(var(--sd-stroke))" }}>
+                <span className="text-[13px] text-[hsl(var(--sd-ink-2))]">{f.q}</span>
+                <span className="sd-chip sd-num shrink-0">{fa(f.count)} بار</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="sd-card p-5">
+          <div className="text-[13px] font-semibold mb-4">دلایل ترک خرید</div>
+          <div className="space-y-3">
+            {dropoffs.map(d => {
+              const locked = d.pro && !isPro;
+              return (
+                <div key={d.reason} className={locked ? "opacity-60" : ""}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[13px] flex items-center gap-1.5">
                       {d.reason}
-                      {d.pro && !isPro && <ProBadge />}
+                      {locked && <ProBadge />}
                     </div>
-                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--sd-surface-2))" }}>
-                      <div style={{ width: `${d.pct}%`, background: "hsl(var(--sd-primary))", height: "100%" }} />
-                    </div>
-                    <div className="w-12 text-left text-[12px] sd-num text-[hsl(var(--sd-muted))]">{faPct(d.pct)}</div>
+                    <div className="text-[12px] sd-num text-[hsl(var(--sd-muted))]">{faPct(d.pct)}</div>
                   </div>
-                );
-                return <div key={d.reason}>{d.pro && !isPro ? <div className="opacity-70">{row}</div> : row}</div>;
-              })}
-            </div>
+                  <Meter pct={d.pct} />
+                </div>
+              );
+            })}
           </div>
+        </div>
 
-          <div className="sd-card p-4">
-            <div className="text-sm font-semibold mb-3">پرپیشنهادترین محصولات</div>
-            <table className="w-full text-[12px]" dir="rtl">
-              <thead className="text-[11px] text-[hsl(var(--sd-muted))]">
-                <tr>
-                  <th className="text-right font-normal pb-2">محصول</th>
-                  <th className="text-left font-normal pb-2">پیشنهاد</th>
-                  <th className="text-left font-normal pb-2">کلیک</th>
-                  <th className="text-left font-normal pb-2">CTR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topProducts.map(p => (
-                  <tr key={p.name} className="border-t" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-                    <td className="py-2">{p.name}</td>
+        <div className="sd-card p-5">
+          <div className="text-[13px] font-semibold mb-3">پرپیشنهادترین محصولات</div>
+          <table className="sd-table" dir="rtl">
+            <thead>
+              <tr>
+                <th>محصول</th>
+                <th className="!text-left">پیشنهاد</th>
+                <th className="!text-left">کلیک</th>
+                <th className="!text-left">CTR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topProducts.map(p => {
+                const ctrColor = p.ctr >= 33 ? "sd-chip-up" : p.ctr >= 30 ? "sd-chip-warn" : "sd-chip";
+                return (
+                  <tr key={p.name}>
+                    <td className="text-[hsl(var(--sd-ink))]">{p.name}</td>
                     <td className="text-left sd-num">{fa(p.recs)}</td>
                     <td className="text-left sd-num">{fa(p.clicks)}</td>
-                    <td className="text-left sd-num">{faPct(p.ctr)}</td>
+                    <td className="text-left"><span className={`sd-chip sd-num ${ctrColor}`}>{faPct(p.ctr)}</span></td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

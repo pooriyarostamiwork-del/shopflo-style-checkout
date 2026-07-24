@@ -1,18 +1,27 @@
 import { useDashboard } from "../context/DashboardContext";
 
-const labels = { active: "فعال", paused: "متوقف", offline: "آفلاین" } as const;
+const options: { id: "active" | "paused" | "offline"; label: string }[] = [
+  { id: "active", label: "فعال" },
+  { id: "paused", label: "متوقف" },
+  { id: "offline", label: "آفلاین" },
+];
 
 export const AgentStatusToggle = () => {
   const { agentStatus, setAgentStatus } = useDashboard();
-  const cycle = () => setAgentStatus(agentStatus === "active" ? "paused" : agentStatus === "paused" ? "offline" : "active");
   return (
-    <button
-      onClick={cycle}
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full sd-card sd-card-hover text-[12px]"
-      title="کلیک برای تغییر وضعیت"
-    >
-      <span className={`sd-live-dot ${agentStatus === "active" ? "" : agentStatus}`} />
-      <span className="text-[hsl(var(--sd-ink-2))]">{labels[agentStatus]}</span>
-    </button>
+    <div className="sd-seg" role="tablist" aria-label="وضعیت ایجنت">
+      {options.map(o => (
+        <button
+          key={o.id}
+          className={agentStatus === o.id ? "active" : ""}
+          onClick={() => setAgentStatus(o.id)}
+          role="tab"
+          aria-selected={agentStatus === o.id}
+        >
+          <span className={`sd-live-dot ${o.id === "active" ? "" : o.id}`} />
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 };

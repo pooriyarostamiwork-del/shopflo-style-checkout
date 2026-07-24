@@ -5,11 +5,11 @@ export const PlanTag = ({ plan }: { plan: Plan }) => {
   const isPro = plan === "pro";
   return (
     <div
-      className="sd-pulse inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
       style={{
-        background: isPro ? "hsl(var(--sd-primary))" : "hsl(var(--sd-surface))",
+        background: isPro ? "hsl(var(--sd-ink))" : "hsl(var(--sd-surface))",
         color: isPro ? "white" : "hsl(var(--sd-ink))",
-        border: isPro ? "none" : "1px solid hsl(var(--sd-stroke))",
+        border: isPro ? "1px solid hsl(var(--sd-ink))" : "1px solid hsl(var(--sd-stroke))",
       }}
     >
       {isPro ? <Sparkles className="w-3 h-3" /> : <Zap className="w-3 h-3" />}

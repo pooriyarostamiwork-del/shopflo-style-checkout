@@ -4,6 +4,7 @@ import { IntentCloud } from "../shared/IntentCloud";
 import { MissingChip } from "../shared/MissingChip";
 import { ProBadge } from "../shared/ProLock";
 import { SectionHeader } from "../shared/SectionHeader";
+import { KpiCardSkeleton, TrendChartSkeleton, ListSkeleton, MeterListSkeleton, IntentCloudSkeleton, TableSkeleton } from "../shared/Skeleton";
 import { useDashboard } from "../context/DashboardContext";
 import { kpis, faToman, faNum, faPct, fa, failedMatches, dropoffs, topProducts } from "../data/mockDashboard";
 import { Wallet, Users, MousePointerClick, TrendingUp } from "lucide-react";

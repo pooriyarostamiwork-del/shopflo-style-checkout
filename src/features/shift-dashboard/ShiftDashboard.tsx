@@ -93,28 +93,43 @@ const ShellInner = () => {
       {/* Top bar */}
       <div className="sticky top-0 z-30 border-b"
         style={{ background: "hsl(var(--sd-bg) / 0.9)", borderColor: "hsl(var(--sd-stroke))", backdropFilter: "blur(10px)" }}>
-        <div className="max-w-[1400px] mx-auto px-5 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button className="lg:hidden sd-btn-ghost !p-2" onClick={() => setMobileOpen(true)}><Menu className="w-4 h-4" /></button>
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              className="lg:hidden sd-btn-ghost !p-0 !min-h-[44px] !w-11 flex items-center justify-center"
+              onClick={() => setMobileOpen(true)}
+              aria-label="باز کردن منو"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
             <AgentStatusToggle />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden md:block text-[12px] text-[hsl(var(--sd-muted))]">
               خوش آمدید، <span className="text-[hsl(var(--sd-ink))] font-semibold">سارا</span>
             </div>
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold border"
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold border shrink-0"
               style={{ background: "hsl(var(--sd-surface))", color: "hsl(var(--sd-ink))", borderColor: "hsl(var(--sd-stroke))" }}>س</div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-5 py-6 flex gap-5">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-5 py-4 sm:py-6 flex gap-4 sm:gap-5">
         <div className="hidden lg:block">{Sidebar}</div>
         {mobileOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-            <div className="absolute top-0 right-0 h-full w-72 py-3" style={{ background: "hsl(var(--sd-bg))" }}>
-              <button className="mb-2 mx-3 sd-btn-ghost !p-2" onClick={() => setMobileOpen(false)}><X className="w-4 h-4" /></button>
+            <div className="absolute inset-0 bg-black/40 sd-anim-in" onClick={() => setMobileOpen(false)} />
+            <div
+              className="absolute top-0 right-0 h-full py-3 shadow-xl"
+              style={{ background: "hsl(var(--sd-bg))", width: "min(300px, 88vw)", paddingBottom: "env(safe-area-inset-bottom)" }}
+            >
+              <button
+                className="mb-2 mx-3 sd-btn-ghost !p-0 !min-h-[44px] !w-11 flex items-center justify-center"
+                onClick={() => setMobileOpen(false)}
+                aria-label="بستن منو"
+              >
+                <X className="w-4 h-4" />
+              </button>
               {Sidebar}
             </div>
           </div>

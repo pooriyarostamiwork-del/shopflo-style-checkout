@@ -27,6 +27,7 @@ const NAV: NavGroup[] = [
     label: "مدیریت",
     items: [
       { id: "agent", label: "کنترل ایجنت", icon: Bot, component: AgentControl },
+      { id: "intelligence", label: "هوش مشتری و بازار", icon: Sparkles, component: CustomerIntelligence },
       { id: "visual", label: "شخصی‌سازی بصری", icon: Palette, component: VisualCustomization },
       { id: "settings", label: "تنظیمات", icon: SettingsIcon, component: Settings },
     ],

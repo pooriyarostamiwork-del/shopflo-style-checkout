@@ -432,3 +432,159 @@
   .shift-dash .sd-seg button { min-height: 36px; }
   .shift-dash .sd-input { padding: 13px 14px; }
 }
+
+/* ------ Customer Intelligence chat workspace ------ */
+.shift-dash .sd-intel-shell {
+  display: flex;
+  gap: 0;
+  height: calc(100vh - 220px);
+  min-height: 560px;
+  background: hsl(var(--sd-surface));
+  border: 1px solid hsl(var(--sd-stroke));
+  border-radius: var(--sd-radius-card);
+  overflow: hidden;
+}
+@media (max-width: 1023px) {
+  .shift-dash .sd-intel-shell { height: calc(100vh - 200px); min-height: 480px; }
+}
+
+.shift-dash .sd-intel-rail-wrap {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid hsl(var(--sd-stroke));
+  background: hsl(var(--sd-surface-2) / .5);
+}
+.shift-dash .sd-intel-rail {
+  display: flex; flex-direction: column;
+  width: 100%; height: 100%;
+}
+
+.shift-dash .sd-intel-thread {
+  position: relative;
+  display: flex; align-items: center;
+  border-radius: 10px;
+  padding: 0 4px 0 6px;
+  min-height: 36px;
+  transition: background .15s ease;
+}
+.shift-dash .sd-intel-thread:hover { background: hsl(var(--sd-surface)); }
+.shift-dash .sd-intel-thread.active { background: hsl(var(--sd-primary-soft)); }
+.shift-dash .sd-intel-thread.active .sd-intel-thread-select { color: hsl(var(--sd-ink)); font-weight: 600; }
+
+.shift-dash .sd-intel-thread-select {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  padding: 8px 8px;
+  font-size: 12.5px;
+  color: hsl(var(--sd-ink-2));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  line-height: 1.4;
+}
+.shift-dash .sd-intel-thread-select > span {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shift-dash .sd-intel-thread-actions {
+  display: flex; gap: 2px;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.shift-dash .sd-intel-thread:hover .sd-intel-thread-actions,
+.shift-dash .sd-intel-thread.active .sd-intel-thread-actions { opacity: 1; }
+.shift-dash .sd-intel-thread-action {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px;
+  background: transparent;
+  color: hsl(var(--sd-muted));
+  border: none;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.shift-dash .sd-intel-thread-action:hover { background: hsl(var(--sd-surface-2)); color: hsl(var(--sd-ink)); }
+.shift-dash .sd-intel-thread-action.danger:hover { background: hsl(0 80% 96%); color: hsl(var(--sd-danger)); }
+.shift-dash .sd-intel-thread-action:focus-visible { outline: none; box-shadow: var(--sd-focus); }
+
+/* Composer */
+.shift-dash .sd-composer {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  background: hsl(var(--sd-surface));
+  border: 1px solid hsl(var(--sd-stroke));
+  border-radius: 20px;
+  padding: 8px 8px 8px 14px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.shift-dash .sd-composer:focus-within {
+  border-color: hsl(var(--sd-primary));
+  box-shadow: 0 0 0 3px hsl(var(--sd-primary) / .12);
+}
+.shift-dash .sd-composer-input {
+  flex: 1;
+  min-height: 24px;
+  max-height: 180px;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: hsl(var(--sd-ink));
+  font-size: 13.5px;
+  line-height: 1.7;
+  padding: 6px 4px;
+  font-family: inherit;
+}
+.shift-dash .sd-composer-input::placeholder { color: hsl(var(--sd-muted)); }
+.shift-dash .sd-composer-send {
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  background: hsl(var(--sd-ink));
+  color: white;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s ease, transform .12s ease, opacity .15s ease;
+}
+.shift-dash .sd-composer-send:hover:not(:disabled) { background: hsl(var(--sd-primary)); }
+.shift-dash .sd-composer-send:active:not(:disabled) { transform: scale(.95); }
+.shift-dash .sd-composer-send:disabled { opacity: .35; cursor: not-allowed; }
+.shift-dash .sd-composer-send:focus-visible { outline: none; box-shadow: var(--sd-focus); }
+
+/* Suggestion chips */
+.shift-dash .sd-suggestion-chip {
+  background: hsl(var(--sd-surface));
+  border: 1px solid hsl(var(--sd-stroke));
+  cursor: pointer;
+}
+.shift-dash .sd-suggestion-chip:hover {
+  border-color: hsl(var(--sd-primary) / .5);
+  background: hsl(var(--sd-primary-soft) / .5);
+}
+.shift-dash .sd-suggestion-chip:focus-visible { outline: none; box-shadow: var(--sd-focus); }
+
+/* Typing dots */
+.shift-dash .sd-typing-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: hsl(var(--sd-muted));
+  animation: sd-typing 1.1s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes sd-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .shift-dash .sd-intel-shell { height: calc(100vh - 180px); border-radius: 16px; }
+  .shift-dash .sd-composer { border-radius: 18px; }
+}

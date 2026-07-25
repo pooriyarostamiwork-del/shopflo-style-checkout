@@ -135,7 +135,7 @@ const ShellInner = () => {
       </div>
 
       {/* Desktop slim rail (right side in RTL) */}
-      <div className="hidden lg:block">{Rail}</div>
+      <div className="hidden lg:block sd-rail-fixed">{Rail}</div>
 
       {/* Mobile drawer */}
       {mobileOpen && (

@@ -230,37 +230,53 @@
 /* ------ Nav item (sidebar) ------ */
 .shift-dash .sd-nav-item {
   position: relative;
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 12px;
   min-height: 40px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 13px;
   color: hsl(var(--sd-ink-2));
-  transition: background .15s ease, color .15s ease;
+  transition: background .18s ease, color .18s ease;
   cursor: pointer;
   text-align: right;
   width: 100%;
   border: none;
   background: transparent;
 }
+.shift-dash .sd-nav-item .sd-nav-icon {
+  color: hsl(var(--sd-muted));
+  transition: color .18s ease;
+}
 @media (hover: hover) {
-  .shift-dash .sd-nav-item:hover { background: hsl(var(--sd-surface-2)); color: hsl(var(--sd-ink)); }
+  .shift-dash .sd-nav-item:hover {
+    background: hsl(var(--sd-surface-2) / .7);
+    color: hsl(var(--sd-ink));
+  }
+  .shift-dash .sd-nav-item:hover .sd-nav-icon { color: hsl(var(--sd-ink)); }
 }
 .shift-dash .sd-nav-item.active {
-  background: hsl(var(--sd-surface-2));
+  background: hsl(var(--sd-surface));
   color: hsl(var(--sd-ink));
   font-weight: 600;
+  box-shadow: inset 0 0 0 1px hsl(var(--sd-stroke));
 }
+.shift-dash .sd-nav-item.active .sd-nav-icon { color: hsl(var(--sd-primary)); }
 .shift-dash .sd-nav-item.active::before {
   content: "";
-  position: absolute; right: 0; top: 8px; bottom: 8px; width: 3px;
+  position: absolute; right: 0; top: 9px; bottom: 9px; width: 2.5px;
   background: hsl(var(--sd-primary));
   border-radius: 999px;
 }
 .shift-dash .sd-nav-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
   color: hsl(var(--sd-muted));
-  padding: 12px 12px 6px;
+  padding: 14px 12px 8px;
+  font-weight: 600;
+}
+.shift-dash .sd-nav-group-sep {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid hsl(var(--sd-stroke) / .7);
 }
 
 /* ------ Pro lock ------ */

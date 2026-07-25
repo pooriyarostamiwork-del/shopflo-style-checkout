@@ -1,31 +1,40 @@
 import { Plan } from "../data/mockDashboard";
-import { Sparkles, Zap } from "lucide-react";
 
 export const PlanTag = ({ plan, size = "md" }: { plan: Plan; size?: "sm" | "md" }) => {
   const isPro = plan === "pro";
   const isSm = size === "sm";
+
+  const dot = (
+    <span
+      className="inline-block rounded-full"
+      style={{
+        width: isSm ? 5 : 6,
+        height: isSm ? 5 : 6,
+        background: isPro ? "hsl(var(--sd-primary))" : "hsl(var(--sd-ink-2))",
+        boxShadow: isPro ? "0 0 0 3px hsl(var(--sd-primary) / .18)" : "none",
+      }}
+    />
+  );
+
   return (
     <div
-      className={`inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap ${
-        isSm ? "px-2 py-[3px] text-[10.5px]" : "px-2.5 py-1 text-[11px]"
+      className={`inline-flex items-center gap-2 whitespace-nowrap font-semibold ${
+        isSm ? "px-2 py-[3px] text-[10.5px]" : "px-2.5 py-[5px] text-[11.5px]"
       }`}
       style={{
-        background: isPro
-          ? "linear-gradient(135deg, hsl(var(--sd-ink)) 0%, hsl(var(--sd-ink-2)) 100%)"
-          : "hsl(var(--sd-surface))",
-        color: isPro ? "white" : "hsl(var(--sd-ink))",
-        border: isPro
-          ? "1px solid hsl(var(--sd-ink))"
-          : "1px solid hsl(var(--sd-stroke-strong))",
-        letterSpacing: "0.01em",
+        background: "hsl(var(--sd-surface))",
+        color: "hsl(var(--sd-ink))",
+        border: "1px solid hsl(var(--sd-stroke-strong))",
+        borderRadius: 8,
+        letterSpacing: "0.02em",
       }}
     >
-      {isPro ? (
-        <Sparkles className={isSm ? "w-2.5 h-2.5" : "w-3 h-3"} />
-      ) : (
-        <Zap className={isSm ? "w-2.5 h-2.5" : "w-3 h-3"} />
-      )}
-      {isPro ? "Shift Pro" : "Shift Lite"}
+      {dot}
+      <span className="tracking-[0.06em] uppercase text-[10.5px]" style={{ color: "hsl(var(--sd-muted))" }}>
+        Shift
+      </span>
+      <span className="w-px h-3" style={{ background: "hsl(var(--sd-stroke))" }} />
+      <span>{isPro ? "Pro" : "Lite"}</span>
     </div>
   );
 };

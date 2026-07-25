@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Plan } from "./data/mockDashboard";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import { PlanTag } from "./shared/PlanTag";
-import { AgentStatusToggle } from "./shared/AgentStatusToggle";
 import { PerformanceHome } from "./sections/PerformanceHome";
 import { AgentControl } from "./sections/AgentControl";
 import { VisualCustomization } from "./sections/VisualCustomization";
@@ -42,50 +41,47 @@ const NAV: NavGroup[] = [
 ];
 
 const FLAT = NAV.flatMap(g => g.items);
+const USER_NAME = "سارا";
 
 const ShellInner = () => {
   const { activeSection, setActiveSection, plan } = useDashboard();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const Section = FLAT.find(n => n.id === activeSection)?.component ?? PerformanceHome;
+  const active = FLAT.find(n => n.id === activeSection);
+  const Section = active?.component ?? PerformanceHome;
 
   const Sidebar = (
-    <aside className="w-64 shrink-0 flex flex-col h-full py-4 px-3 sticky top-4">
-      <div className="px-3 pb-6">
-        <div className="text-[22px] font-bold tracking-tight leading-none">
+    <aside className="w-64 shrink-0 flex flex-col h-full py-5 px-3 sticky top-4">
+      <div className="px-3 pb-7">
+        <div className="text-[22px] font-bold tracking-[-0.02em] leading-none">
           Shift<span className="text-[hsl(var(--sd-primary))]">.</span>
         </div>
-        <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-1.5">داشبورد فروشنده</div>
+        <div className="text-[10.5px] text-[hsl(var(--sd-muted))] mt-2 tracking-[0.08em] uppercase">
+          Merchant Console
+        </div>
       </div>
 
-      <div className="flex-1 flex flex-col gap-1">
-        {NAV.map(group => (
-          <div key={group.label}>
+      <div className="flex-1 flex flex-col">
+        {NAV.map((group, gi) => (
+          <div key={group.label} className={gi > 0 ? "sd-nav-group-sep" : ""}>
             <div className="sd-nav-label">{group.label}</div>
-            {group.items.map(n => {
-              const Icon = n.icon;
-              const active = activeSection === n.id;
-              return (
-                <button
-                  key={n.id}
-                  onClick={() => { setActiveSection(n.id); setMobileOpen(false); }}
-                  className={`sd-nav-item ${active ? "active" : ""}`}
-                >
-                  <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-                  {n.label}
-                </button>
-              );
-            })}
+            <div className="flex flex-col gap-0.5">
+              {group.items.map(n => {
+                const Icon = n.icon;
+                const isActive = activeSection === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => { setActiveSection(n.id); setMobileOpen(false); }}
+                    className={`sd-nav-item ${isActive ? "active" : ""}`}
+                  >
+                    <Icon className="w-[15px] h-[15px] shrink-0 sd-nav-icon" strokeWidth={1.75} />
+                    <span className="truncate">{n.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ))}
-      </div>
-
-      <div className="mt-4 px-3 pt-4 border-t flex items-center justify-between gap-2"
-        style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-        <div className="min-w-0">
-          <div className="text-[11px] text-[hsl(var(--sd-muted))]">فروشگاه</div>
-          <div className="text-[13px] font-semibold mt-0.5 truncate">پت‌پلی‌گراند</div>
-        </div>
-        <PlanTag plan={plan} />
       </div>
     </aside>
   );
@@ -94,24 +90,40 @@ const ShellInner = () => {
     <div className="shift-dash" dir="rtl" lang="fa">
       {/* Top bar */}
       <div className="sticky top-0 z-30 border-b"
-        style={{ background: "hsl(var(--sd-bg) / 0.9)", borderColor: "hsl(var(--sd-stroke))", backdropFilter: "blur(10px)" }}>
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 sm:gap-3">
+        style={{ background: "hsl(var(--sd-bg) / 0.85)", borderColor: "hsl(var(--sd-stroke))", backdropFilter: "blur(14px)" }}>
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-5 h-14 flex items-center justify-between gap-2 sm:gap-3">
+          {/* Left: mobile menu + breadcrumb */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
-              className="lg:hidden sd-btn-ghost !p-0 !min-h-[44px] !w-11 flex items-center justify-center"
+              className="lg:hidden sd-btn-ghost !p-0 !min-h-[40px] !w-10 flex items-center justify-center"
               onClick={() => setMobileOpen(true)}
               aria-label="باز کردن منو"
             >
               <Menu className="w-4 h-4" />
             </button>
-            <AgentStatusToggle />
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:block text-[12px] text-[hsl(var(--sd-muted))]">
-              خوش آمدید، <span className="text-[hsl(var(--sd-ink))] font-semibold">سارا</span>
+            <div className="min-w-0 hidden sm:block">
+              <div className="text-[10px] text-[hsl(var(--sd-muted))] tracking-[0.14em] uppercase leading-none">
+                داشبورد شیفت
+              </div>
+              <div className="text-[14px] font-semibold text-[hsl(var(--sd-ink))] mt-1 leading-none truncate">
+                {active?.label ?? ""}
+              </div>
             </div>
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold border shrink-0"
-              style={{ background: "hsl(var(--sd-surface))", color: "hsl(var(--sd-ink))", borderColor: "hsl(var(--sd-stroke))" }}>س</div>
+          </div>
+
+          {/* Right: plan chip + greeting + avatar */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <PlanTag plan={plan} />
+            <div className="hidden md:block text-[12.5px] text-[hsl(var(--sd-muted))]">
+              خوش آمدید،{" "}
+              <span className="text-[hsl(var(--sd-ink))] font-semibold">{USER_NAME}</span>
+            </div>
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold border shrink-0 transition-shadow hover:ring-2 hover:ring-[hsl(var(--sd-primary)/0.18)]"
+              style={{ background: "hsl(var(--sd-surface))", color: "hsl(var(--sd-ink))", borderColor: "hsl(var(--sd-stroke-strong))" }}
+            >
+              {USER_NAME.charAt(0)}
+            </div>
           </div>
         </div>
       </div>
@@ -126,7 +138,7 @@ const ShellInner = () => {
               style={{ background: "hsl(var(--sd-bg))", width: "min(300px, 88vw)", paddingBottom: "env(safe-area-inset-bottom)" }}
             >
               <button
-                className="mb-2 mx-3 sd-btn-ghost !p-0 !min-h-[44px] !w-11 flex items-center justify-center"
+                className="mb-2 mx-3 sd-btn-ghost !p-0 !min-h-[40px] !w-10 flex items-center justify-center"
                 onClick={() => setMobileOpen(false)}
                 aria-label="بستن منو"
               >

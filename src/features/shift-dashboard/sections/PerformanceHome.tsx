@@ -48,7 +48,7 @@ export const PerformanceHome = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {loading ? (
           <>
-            <KpiCardSkeleton hero />
+            <KpiCardSkeleton />
             <KpiCardSkeleton />
             <KpiCardSkeleton />
             <KpiCardSkeleton />
@@ -56,11 +56,10 @@ export const PerformanceHome = () => {
         ) : (
           <>
             <KpiCard
-              hero
               label="درآمد مساعدت‌شده"
               value={faToman(kpis.assistedRevenue.value)}
               delta={kpis.assistedRevenue.delta}
-              icon={<Wallet className="w-4 h-4" strokeWidth={1.75} />}
+              icon={<Wallet className="w-5 h-5" strokeWidth={1.75} />}
             />
             <KpiCard
               label="مشتریان کمک‌گرفته"
@@ -68,19 +67,19 @@ export const PerformanceHome = () => {
               sub={`${faNum(kpis.customersHelped.firstTimers)} تازه‌وارد · ${faNum(kpis.customersHelped.returning)} بازگشتی`}
               delta={kpis.customersHelped.delta}
               live
-              icon={<Users className="w-4 h-4" strokeWidth={1.75} />}
+              icon={<Users className="w-5 h-5" strokeWidth={1.75} />}
             />
             <KpiCard
               label="کلیک روی کارت محصول"
               value={faNum(kpis.productClicks.value)}
               delta={kpis.productClicks.delta}
-              icon={<MousePointerClick className="w-4 h-4" strokeWidth={1.75} />}
+              icon={<MousePointerClick className="w-5 h-5" strokeWidth={1.75} />}
             />
             <KpiCard
               label="نرخ تبدیل گفتگو→خرید"
               value={faPct(kpis.conversion.value)}
               delta={kpis.conversion.delta}
-              icon={<TrendingUp className="w-4 h-4" strokeWidth={1.75} />}
+              icon={<TrendingUp className="w-5 h-5" strokeWidth={1.75} />}
             />
           </>
         )}

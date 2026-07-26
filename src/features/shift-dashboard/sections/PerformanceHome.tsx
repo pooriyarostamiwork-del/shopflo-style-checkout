@@ -100,14 +100,14 @@ export const PerformanceHome = () => {
           <><KpiCardSkeleton /><KpiCardSkeleton /><KpiCardSkeleton /><KpiCardSkeleton /></>
         ) : (
           <>
-            <KpiCard label="درآمد مساعدت‌شده" value={faToman(kpis.assistedRevenue.value)} delta={kpis.assistedRevenue.delta}
+            <KpiCard hero label="درآمد مساعدت‌شده" value={faNum(kpis.assistedRevenue.value)} unit="تومان" delta={kpis.assistedRevenue.delta}
               icon={<Wallet className="w-5 h-5" strokeWidth={1.75} />} />
             <KpiCard label="مشتریان کمک‌گرفته" value={faNum(kpis.customersHelped.value)}
               sub={`${faNum(kpis.customersHelped.firstTimers)} تازه‌وارد · ${faNum(kpis.customersHelped.returning)} بازگشتی`}
               delta={kpis.customersHelped.delta} live icon={<Users className="w-5 h-5" strokeWidth={1.75} />} />
             <KpiCard label="کلیک روی کارت محصول" value={faNum(kpis.productClicks.value)} delta={kpis.productClicks.delta}
               icon={<MousePointerClick className="w-5 h-5" strokeWidth={1.75} />} />
-            <KpiCard label="نرخ تبدیل گفتگو→خرید" value={faPct(kpis.conversion.value)} delta={kpis.conversion.delta}
+            <KpiCard label="نرخ تبدیل گفت‌وگو به خرید" value={faPct(kpis.conversion.value)} delta={kpis.conversion.delta}
               icon={<TrendingUp className="w-5 h-5" strokeWidth={1.75} />} />
           </>
         )}

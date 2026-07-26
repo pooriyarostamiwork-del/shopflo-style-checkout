@@ -1,13 +1,12 @@
 import { useState, useMemo } from "react";
 import {
-  Area, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Label,
+  Area, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { trends, fa, faNum } from "../data/mockDashboard";
 import { DeltaChip } from "./DeltaChip";
 
 type Tf = "7d" | "30d" | "1y";
 const tfLabels: Record<Tf, string> = { "7d": "۷ روز", "30d": "۳۰ روز", "1y": "۱ سال" };
-const tfXLabel: Record<Tf, string> = { "7d": "روز هفته", "30d": "روز ماه", "1y": "ماه" };
 
 interface Props {
   title: string;
@@ -47,11 +46,8 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
   return (
     <div className="sd-card sd-anim-in p-4 sm:p-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-        <div className="min-w-0">
-          <div className="sd-eyebrow text-[10px]">روند</div>
-          <h3 className="text-[15px] font-semibold mt-1 leading-tight">{title}</h3>
-        </div>
+      <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
+        <h3 className="text-[15px] font-semibold leading-tight">{title}</h3>
         <div className="sd-seg" role="tablist" aria-label="بازه زمانی">
           {(["7d", "30d", "1y"] as Tf[]).map(k => (
             <button key={k} role="tab" aria-selected={tf === k}
@@ -62,34 +58,39 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
         </div>
       </div>
 
-      {/* Metric ribbon */}
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
-        <div className="flex items-center gap-3">
-          <div className="text-[24px] font-bold sd-num leading-none">{formatterA(headlineValue)}</div>
-          <DeltaChip value={headlineDelta} />
+      {/* Metric ribbon — two side-by-side metrics with clear separation */}
+      <div className="flex items-stretch gap-5 mb-5">
+        {/* Metric A (primary) */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-2 h-2 rounded-full" style={{ background: "hsl(var(--sd-primary))" }} />
+            <span className="text-[11px] text-[hsl(var(--sd-muted))]">{seriesA.name}</span>
+          </div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="text-[22px] font-bold sd-num leading-none text-[hsl(var(--sd-ink))]">{formatterA(headlineValue)}</div>
+            <DeltaChip value={headlineDelta} />
+          </div>
         </div>
-        <div className="text-[11.5px] text-[hsl(var(--sd-muted))]">
-          <span className="sd-num text-[hsl(var(--sd-ink-2))] font-medium">{formatterB(secondaryValue)}</span>
-          <span className="mx-1.5">·</span>{seriesB.name}
-        </div>
-      </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-2 text-[11.5px]">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "hsl(var(--sd-primary))" }} />
-          <span className="text-[hsl(var(--sd-ink-2))]">{seriesA.name}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "hsl(var(--sd-ink-2) / .55)" }} />
-          <span className="text-[hsl(var(--sd-ink-2))]">{seriesB.name}</span>
+        {/* Divider */}
+        <div className="w-px self-stretch" style={{ background: "hsl(var(--sd-stroke))" }} />
+
+        {/* Metric B (secondary) */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-2 h-2 rounded-full" style={{ background: "hsl(var(--sd-ink-2) / .55)" }} />
+            <span className="text-[11px] text-[hsl(var(--sd-muted))]">{seriesB.name}</span>
+          </div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="text-[22px] font-bold sd-num leading-none text-[hsl(var(--sd-ink-2))]">{formatterB(secondaryValue)}</div>
+          </div>
         </div>
       </div>
 
       {/* Chart */}
       <div style={{ width: "100%", height: 220, direction: "ltr" }}>
         <ResponsiveContainer>
-          <ComposedChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 24 }}>
+          <ComposedChart data={data} margin={{ top: 10, right: 8, left: 8, bottom: 8 }}>
             <defs>
               <linearGradient id={gidA} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="hsl(var(--sd-primary))" stopOpacity={0.28} />
@@ -100,20 +101,16 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
                 <stop offset="100%" stopColor="hsl(var(--sd-ink-2))" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} stroke="hsl(var(--sd-stroke))" strokeDasharray="3 4" />
+            <CartesianGrid vertical={false} stroke="hsl(var(--sd-stroke))" strokeOpacity={0.9} />
             <XAxis
               dataKey="label"
               tickLine={false}
               axisLine={false}
-              reversed
               tick={{ fontSize: 10, fill: "hsl(var(--sd-muted))" }}
-              tickMargin={8}
+              tickMargin={10}
               padding={{ left: 10, right: 10 }}
               minTickGap={12}
-            >
-              <Label value={tfXLabel[tf]} position="insideBottom" offset={-14}
-                style={{ fontSize: 10, fill: "hsl(var(--sd-muted))" }} />
-            </XAxis>
+            />
             <YAxis
               yAxisId="left"
               orientation="right"

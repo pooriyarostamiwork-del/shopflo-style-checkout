@@ -11,19 +11,13 @@ export const IntentCloud = () => {
         return (
           <span
             key={i.label}
-            className="rounded-full border transition inline-flex items-center gap-2"
-            style={{
-              padding: isTop ? "8px 14px" : isMid ? "6px 12px" : "5px 10px",
-              fontSize: isTop ? "13.5px" : isMid ? "12.5px" : "11.5px",
-              fontWeight: isTop ? 600 : 500,
-              background: isTop ? "hsl(var(--sd-ink))" : "hsl(var(--sd-surface))",
-              color: isTop ? "white" : "hsl(var(--sd-ink-2))",
-              borderColor: isTop ? "hsl(var(--sd-ink))" : "hsl(var(--sd-stroke))",
-            }}
+            className="sd-badge-group"
+            data-tone={isTop ? "brand" : isMid ? "neutral" : "muted"}
             title={`${fa(i.weight)} گفتگو`}
           >
-            {i.label}
-            <span className="sd-num text-[10px]" style={{ opacity: .65 }}>{fa(i.weight)}</span>
+            <span className="sd-badge-dot" aria-hidden />
+            <span className="sd-badge-label">{i.label}</span>
+            <span className="sd-badge-trail sd-num">{fa(i.weight)}</span>
           </span>
         );
       })}

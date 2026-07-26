@@ -728,3 +728,107 @@
 @media (max-width: 1023px) {
   .shift-dash .sd-rail-tip { display: none; }
 }
+
+/* ------ Badge group (leading dot + label + trail) ------ */
+.shift-dash .sd-badge-group {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 500;
+  border: 1px solid;
+  transition: background .15s ease, border-color .15s ease;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.shift-dash .sd-badge-group .sd-badge-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  flex-shrink: 0;
+}
+.shift-dash .sd-badge-group .sd-badge-label {
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.shift-dash .sd-badge-group .sd-badge-trail {
+  font-size: 10.5px;
+  opacity: .75;
+  padding-inline-start: 4px;
+  border-inline-start: 1px solid currentColor;
+  border-color: hsl(var(--sd-stroke));
+  margin-inline-start: 2px;
+}
+.shift-dash .sd-badge-group[data-tone="brand"] {
+  background: hsl(var(--sd-primary-soft));
+  border-color: hsl(var(--sd-primary) / .3);
+  color: hsl(var(--sd-primary-ink));
+}
+.shift-dash .sd-badge-group[data-tone="brand"] .sd-badge-dot { background: hsl(var(--sd-primary)); }
+.shift-dash .sd-badge-group[data-tone="neutral"] {
+  background: hsl(var(--sd-surface-2));
+  border-color: hsl(var(--sd-stroke));
+  color: hsl(var(--sd-ink-2));
+}
+.shift-dash .sd-badge-group[data-tone="neutral"] .sd-badge-dot { background: hsl(var(--sd-ink-2) / .55); }
+.shift-dash .sd-badge-group[data-tone="muted"] {
+  background: hsl(var(--sd-surface));
+  border-color: hsl(var(--sd-stroke));
+  color: hsl(var(--sd-muted));
+}
+.shift-dash .sd-badge-group[data-tone="muted"] .sd-badge-dot { background: hsl(var(--sd-muted) / .55); }
+.shift-dash .sd-badge-group[data-tone="success"] {
+  background: hsl(152 60% 96%);
+  border-color: hsl(152 45% 82%);
+  color: hsl(var(--sd-success));
+}
+.shift-dash .sd-badge-group[data-tone="success"] .sd-badge-dot { background: hsl(var(--sd-success)); }
+.shift-dash .sd-badge-group[data-tone="warn"] {
+  background: hsl(32 92% 96%);
+  border-color: hsl(32 80% 85%);
+  color: hsl(var(--sd-warning));
+}
+.shift-dash .sd-badge-group[data-tone="warn"] .sd-badge-dot { background: hsl(var(--sd-warning)); }
+.shift-dash .sd-badge-inline { padding: 3px 9px; font-size: 11px; gap: 5px; }
+
+/* ------ Count pill (table header) ------ */
+.shift-dash .sd-count-pill {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: hsl(var(--sd-surface-2));
+  border: 1px solid hsl(var(--sd-stroke));
+  color: hsl(var(--sd-ink-2));
+  line-height: 1.5;
+}
+
+/* ------ Rank chip ------ */
+.shift-dash .sd-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: hsl(var(--sd-surface-2));
+  border: 1px solid hsl(var(--sd-stroke));
+  color: hsl(var(--sd-muted));
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* ------ Sortable th button ------ */
+.shift-dash .sd-th-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; border: none; padding: 0;
+  color: hsl(var(--sd-muted));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .15s ease;
+}
+.shift-dash .sd-th-sort:hover { color: hsl(var(--sd-ink)); }
+.shift-dash .sd-th-sort[data-active] { color: hsl(var(--sd-ink)); font-weight: 600; }
+
+/* ------ Tight table variant ------ */
+.shift-dash .sd-table-tight thead th { padding: 8px 10px; }
+.shift-dash .sd-table-tight tbody td { padding: 10px; }

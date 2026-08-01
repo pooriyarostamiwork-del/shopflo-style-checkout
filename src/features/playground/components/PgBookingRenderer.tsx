@@ -53,7 +53,6 @@ export const PgBookingRenderer = ({
           service={service}
           selectedId={chat.bookingProvider?.id}
           onPick={chat.pickBookingProvider}
-          onDetails={(p) => chat.send(`درباره ${p.name} بیشتر بگو`)}
         />
       );
 

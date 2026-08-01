@@ -23,6 +23,7 @@ import {
   faTime,
   toFa,
 } from "../data/mockBooking";
+import { PgProviderProfileDrawer } from "./PgProviderProfileDrawer";
 
 /* ---------- shared shell ---------- */
 
@@ -149,7 +150,6 @@ export const PgProviderCards = ({
   service,
   selectedId,
   onPick,
-  onDetails,
   title = "کدوم متخصص رو ترجیح می‌دی؟",
   hint,
 }: {
@@ -157,10 +157,12 @@ export const PgProviderCards = ({
   service?: PgService;
   selectedId?: string | null;
   onPick: (p: PgProvider) => void;
-  onDetails?: (p: PgProvider) => void;
   title?: string;
   hint?: string;
-}) => (
+}) => {
+  const [profile, setProfile] = useState<PgProvider | null>(null);
+
+  return (
   <PgBookingCard
     icon={<User className="w-4 h-4" />}
     title={title}
@@ -236,21 +238,27 @@ export const PgProviderCards = ({
               >
                 انتخاب وقت
               </button>
-              {onDetails && (
-                <button
-                  onClick={() => onDetails(p)}
-                  className="h-9 px-3 rounded-lg border border-border text-xs text-muted-foreground"
-                >
-                  جزئیات
-                </button>
-              )}
+              <button
+                onClick={() => setProfile(p)}
+                className="h-9 px-3 rounded-lg border border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+              >
+                توضیحات
+              </button>
             </div>
           </div>
         );
       })}
     </div>
+
+    <PgProviderProfileDrawer
+      provider={profile}
+      service={service}
+      onClose={() => setProfile(null)}
+      onPick={onPick}
+    />
   </PgBookingCard>
-);
+  );
+};
 
 /* ---------- 3. availability calendar rail ---------- */
 

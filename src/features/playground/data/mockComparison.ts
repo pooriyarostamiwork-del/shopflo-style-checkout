@@ -700,6 +700,7 @@ export type PgComparePreset =
   | "external"
   | "mixed"
   | "incomplete"
+  | "duplicate"
   | "low-confidence"
   | "single"
   | "overflow";
@@ -725,6 +726,6 @@ export const buildPreset = (preset: PgComparePreset): PgComparison => {
     case "single":
       return buildComparison([p(0)], {});
     case "overflow":
-      return buildComparison([p(0), p(2), p(1), p(4), p(5)], {});
+      return buildComparison([p(0), p(2), p(6), p(1), p(4)], {});
   }
 };

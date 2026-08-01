@@ -43,41 +43,40 @@ const CrossSellCard = ({
 
   return (
     <div
-      className={`min-w-[212px] max-w-[212px] shrink-0 rounded-2xl border bg-background p-3 flex flex-col transition-colors ${
+      className={`min-w-[176px] max-w-[176px] shrink-0 rounded-xl border bg-background p-2.5 flex flex-col transition-colors ${
         inCart ? "border-primary/50 bg-primary/[0.03]" : "border-border"
       }`}
     >
-      <div className="relative aspect-square rounded-xl overflow-hidden bg-muted/40 mb-2.5">
+      <div className="relative aspect-square rounded-lg overflow-hidden bg-muted/40 mb-2">
         <img
           src={item.product.image}
           alt={item.product.name}
           loading="lazy"
           className="w-full h-full object-cover"
         />
-        <span className="absolute top-1.5 start-1.5 px-1.5 py-0.5 rounded-md bg-foreground text-background text-[10px] font-medium">
-          {toFa(item.discountPercent)}٪ تخفیف
+        <span className="absolute top-1.5 start-1.5 px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums">
+          {toFa(item.discountPercent)}٪−
         </span>
       </div>
 
-      <h4 className="text-[13px] leading-5 font-medium line-clamp-2 h-10">
+      <h4 className="text-[12px] leading-[18px] font-medium line-clamp-2 h-9">
         {item.product.name}
       </h4>
 
-      {item.tag && <div className="mt-1.5"><Pill>{item.tag}</Pill></div>}
+      {item.tag && (
+        <p className="text-[10px] text-muted-foreground truncate mt-1">{item.tag}</p>
+      )}
 
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-[13px] font-semibold">{faPrice(final)}</span>
-        <span className="text-[11px] text-muted-foreground line-through">
+      <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+        <span className="text-[13px] font-semibold tabular-nums">{faPrice(final)}</span>
+        <span className="text-[10px] text-muted-foreground line-through tabular-nums">
           {toFa(item.product.price.toLocaleString("en-US"))}
         </span>
       </div>
-      <p className="text-[10px] text-primary mt-0.5">
-        {toFa(csItemSaving(item).toLocaleString("en-US"))} تومان صرفه‌جویی
-      </p>
 
       <button
         onClick={() => setOpenWhy((v) => !v)}
-        className="mt-2.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+        className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors self-start"
         aria-expanded={openWhy}
       >
         <Info className="w-3 h-3" />
@@ -87,7 +86,7 @@ const CrossSellCard = ({
         />
       </button>
       {openWhy && (
-        <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground bg-muted/50 rounded-lg p-2">
+        <p className="mt-1.5 text-[10px] leading-[17px] text-muted-foreground bg-muted/50 rounded-lg p-2">
           {item.why}
         </p>
       )}
@@ -95,7 +94,7 @@ const CrossSellCard = ({
       <button
         onClick={() => !inCart && onAdd({ ...item.product, price: final })}
         disabled={inCart}
-        className={`mt-3 h-9 rounded-xl text-xs inline-flex items-center justify-center gap-1.5 transition-colors ${
+        className={`mt-2.5 h-8 rounded-lg text-[11px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors ${
           inCart
             ? "bg-muted text-muted-foreground"
             : "bg-foreground text-background hover:opacity-90"
@@ -118,17 +117,19 @@ export const PgCrossSellCarousel = ({ bundle, cartIds, onAdd, onAddAll }: Props)
   return (
     <div className="rounded-2xl border border-border bg-background overflow-hidden">
       {/* Header */}
-      <div className="p-3.5">
-        <div className="flex items-start gap-2.5">
+      <div className="p-3">
+        <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold">{bundle.title}</h3>
+              <h3 className="text-sm font-semibold truncate">{bundle.title}</h3>
               <Pill>پیشنهاد شخصی‌سازی‌شده</Pill>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{bundle.basis}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+              {bundle.basis}
+            </p>
           </div>
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -142,24 +143,29 @@ export const PgCrossSellCarousel = ({ bundle, cartIds, onAdd, onAddAll }: Props)
           </button>
         </div>
 
-        {/* Bundle why */}
-        <p className="text-xs leading-6 text-muted-foreground mt-2.5">{bundle.why}</p>
+        {/* Promo strip — always visible */}
+        <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-primary/[0.06] px-2.5 py-2">
+          <TicketPercent className="w-3.5 h-3.5 text-primary shrink-0" />
+          <p className="text-[11px] font-medium text-primary tabular-nums">
+            تا {toFa(math.totalPercent)}٪ تخفیف روی کل لیست
+          </p>
+          <span className="ms-auto text-[10px] text-muted-foreground tabular-nums">
+            {toFa(bundle.items.length)} مورد
+          </span>
+        </div>
 
-        {/* Collapsed teaser */}
-        {!expanded && (
-          <div className="mt-2.5 flex items-center gap-2 text-[11px] text-primary">
-            <TicketPercent className="w-3.5 h-3.5" />
-            {toFa(bundle.items.length)} مورد · تا {toFa(math.totalPercent)}٪ تخفیف روی کل
-            لیست
-          </div>
+        {expanded && (
+          <p className="text-[11px] leading-5 text-muted-foreground mt-2.5">
+            {bundle.why}
+          </p>
         )}
       </div>
 
       {expanded && (
         <>
           {/* Carousel */}
-          <div className="px-3.5 pb-3.5">
-            <div className="flex gap-3 overflow-x-auto pg-scroll-hidden pb-1">
+          <div className="px-3 pb-3">
+            <div className="flex gap-2.5 overflow-x-auto pg-scroll-hidden pb-1">
               {bundle.items.map((i) => (
                 <CrossSellCard
                   key={i.product.id}
@@ -172,60 +178,22 @@ export const PgCrossSellCarousel = ({ bundle, cartIds, onAdd, onAddAll }: Props)
           </div>
 
           {/* Bundle economics */}
-          <div className="border-t border-border bg-muted/30 p-3.5">
-            <button
-              onClick={() => setOpenMath((v) => !v)}
-              className="w-full flex items-center gap-2 text-start"
-              aria-expanded={openMath}
-            >
-              <TicketPercent className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-xs font-medium">
-                با کل لیست {toFa(math.totalPercent)}٪ تخفیف می‌گیری
-              </span>
-              <span className="ms-auto text-[11px] text-muted-foreground">
-                جزئیات
-              </span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${
-                  openMath ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openMath && (
-              <div className="mt-3 space-y-2 text-[11px]">
-                {bundle.items.map((i) => (
-                  <div key={i.product.id} className="flex items-center gap-2">
-                    <span className="truncate text-muted-foreground flex-1">
-                      {i.product.name}
-                    </span>
-                    <span className="text-primary shrink-0">
-                      {toFa(i.discountPercent)}٪−
-                      {toFa(csItemSaving(i).toLocaleString("en-US"))}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <span className="text-muted-foreground flex-1">
-                    پاداش خرید کل لیست ({toFa(bundle.bundleBonusPercent)}٪)
+          <div className="border-t border-border bg-muted/25 p-3">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-sm font-semibold tabular-nums">
+                    {faPrice(math.finalPrice)}
                   </span>
-                  <span className="text-primary shrink-0">
-                    −{toFa(math.bonusSaving.toLocaleString("en-US"))}
+                  <span className="text-[10px] text-muted-foreground line-through tabular-nums">
+                    {toFa(math.listPrice.toLocaleString("en-US"))}
                   </span>
                 </div>
+                <p className="text-[10px] text-primary mt-0.5 tabular-nums">
+                  صرفه‌جویی {toFa(math.totalSaving.toLocaleString("en-US"))} تومان
+                </p>
               </div>
-            )}
 
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-[11px] text-muted-foreground line-through">
-                  {toFa(math.listPrice.toLocaleString("en-US"))} تومان
-                </p>
-                <p className="text-sm font-semibold">{faPrice(math.finalPrice)}</p>
-                <p className="text-[11px] text-primary mt-0.5">
-                  مجموع صرفه‌جویی {toFa(math.totalSaving.toLocaleString("en-US"))} تومان
-                </p>
-              </div>
               <button
                 onClick={() =>
                   !allAdded &&
@@ -234,7 +202,7 @@ export const PgCrossSellCarousel = ({ bundle, cartIds, onAdd, onAddAll }: Props)
                   )
                 }
                 disabled={allAdded}
-                className={`h-10 px-4 rounded-xl text-xs inline-flex items-center gap-1.5 transition-colors ${
+                className={`ms-auto h-10 px-3.5 rounded-xl text-[11px] font-medium inline-flex items-center justify-center gap-1.5 shrink-0 transition-colors ${
                   allAdded
                     ? "bg-muted text-muted-foreground"
                     : "bg-primary text-primary-foreground hover:opacity-90"
@@ -243,9 +211,44 @@ export const PgCrossSellCarousel = ({ bundle, cartIds, onAdd, onAddAll }: Props)
                 {allAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 {allAdded
                   ? "کل لیست در سبد است"
-                  : `افزودن کل لیست (${toFa(remaining.length)} مورد)`}
+                  : `افزودن کل لیست (${toFa(remaining.length)})`}
               </button>
             </div>
+
+            <button
+              onClick={() => setOpenMath((v) => !v)}
+              className="mt-2.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              aria-expanded={openMath}
+            >
+              جزئیات تخفیف‌ها
+              <ChevronDown
+                className={`w-3 h-3 transition-transform ${openMath ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {openMath && (
+              <div className="mt-2 space-y-1.5 text-[10px] rounded-xl bg-background border border-border p-2.5">
+                {bundle.items.map((i) => (
+                  <div key={i.product.id} className="flex items-center gap-2">
+                    <span className="truncate text-muted-foreground flex-1">
+                      {i.product.name}
+                    </span>
+                    <span className="text-primary shrink-0 tabular-nums">
+                      {toFa(i.discountPercent)}٪−
+                      {toFa(csItemSaving(i).toLocaleString("en-US"))}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2 pt-1.5 border-t border-border">
+                  <span className="text-muted-foreground flex-1">
+                    پاداش خرید کل لیست ({toFa(bundle.bundleBonusPercent)}٪)
+                  </span>
+                  <span className="text-primary shrink-0 tabular-nums">
+                    −{toFa(math.bonusSaving.toLocaleString("en-US"))}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

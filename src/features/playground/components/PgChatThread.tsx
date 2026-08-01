@@ -19,6 +19,7 @@ import {
 } from "./PgDiscoveryBlocks";
 import { PgCrossSellCarousel } from "./PgCrossSellCarousel";
 import { PG_CROSS_SELL } from "../data/mockCrossSell";
+import { PgComparisonBlock } from "./PgComparison";
 
 interface Props {
   chat: PgChat;
@@ -83,6 +84,7 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
                       onAddToCart={chat.addToCart}
                       onSave={chat.toggleSave}
                       onDetails={chat.showInlineDetails}
+                      onCompare={chat.compareFromChip}
                     />
                   ))}
                 </div>
@@ -109,6 +111,17 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
                   {m.interactive === "budget" && (
                     <PgBudgetSlider onConfirm={chat.send} onSkip={chat.send} />
                   )}
+                </div>
+              )}
+
+              {m.comparison && (
+                <div className="md:mr-11 max-w-[680px]">
+                  <PgComparisonBlock
+                    comparison={m.comparison}
+                    cartIds={chat.cart.map((c) => c.id)}
+                    onAddToCart={chat.addToCart}
+                    onSend={chat.send}
+                  />
                 </div>
               )}
 

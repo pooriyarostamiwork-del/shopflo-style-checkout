@@ -16,6 +16,14 @@ import {
   pgId,
 } from "../data/mockJourney";
 import { PgInteractive } from "../data/mockDiscovery";
+import {
+  PgCompareChip,
+  PgComparePreset,
+  CHIP_LABELS,
+  buildComparison,
+  buildPreset,
+  resolveChipTarget,
+} from "../data/mockComparison";
 
 export type PgCartSeed = "empty" | "single" | "multi" | "out-of-stock";
 export type PgAuthState = "guest" | "signed-in";
@@ -155,6 +163,57 @@ export const usePlaygroundChat = () => {
     ]);
   }, []);
 
+  /** Lab: render a comparison preset (2/3 columns, external, edge states). */
+  const showComparison = useCallback((preset: PgComparePreset) => {
+    const cmp = buildPreset(preset);
+    setMessages((m) => [
+      ...m,
+      {
+        id: pgId(),
+        role: "assistant",
+        content:
+          cmp.mode === "single"
+            ? "برای مقایسه به گزینه دوم نیاز دارم:"
+            : cmp.mode === "usecase-only"
+              ? "این گزینه‌ها هم‌رده نیستند؛ بر اساس کاربرد کنار هم گذاشتمشان:"
+              : "این مقایسه را برایت چیدم؛ نتیجه اول، جزئیات بعد از آن:",
+        comparison: cmp,
+      },
+    ]);
+  }, []);
+
+  /** Product-card chip: compare this product against a resolved counterpart. */
+  const compareFromChip = useCallback(
+    (product: PgProduct, chip: PgCompareChip) => {
+      const target = resolveChipTarget(product, chip);
+      const label = CHIP_LABELS[chip];
+      setMessages((m) => [...m, userMessage(`${product.name} — ${label}`)]);
+      setIsProcessing(true);
+      window.setTimeout(() => {
+        const cmp = buildComparison(target ? [product, target] : [product], {
+          currentId: product.id,
+          scope: `${label} — انتخاب‌شده از کارت محصول`,
+        });
+        setMessages((m) => [
+          ...m,
+          {
+            id: pgId(),
+            role: "assistant",
+            content:
+              cmp.mode === "usecase-only"
+                ? "نزدیک‌ترین گزینه هم‌قیمت در دسته دیگری بود؛ بر اساس کاربرد مقایسه کردم:"
+                : cmp.mode === "single"
+                  ? "گزینه‌ای برای این مقایسه پیدا نکردم:"
+                  : "نتیجه مقایسه:",
+            comparison: cmp,
+          },
+        ]);
+        setIsProcessing(false);
+      }, 450);
+    },
+    [],
+  );
+
   /** Show the AI cross-sell bundle carousel. */
   const showCrossSell = useCallback(() => {
     setMessages((m) => [
@@ -230,6 +289,8 @@ export const usePlaygroundChat = () => {
     showInlineDetails,
     showInteractive,
     showCrossSell,
+    showComparison,
+    compareFromChip,
     addManyToCart,
     jumpTo,
     applySeed,

@@ -1,7 +1,7 @@
 // Conversational product comparison — playground mock engine.
 // Front-end only: pure builders that emit the shape an AI agent would produce
 // when the user asks "کدوم بهتره؟" inside chat. No network, no AI, no Supabase.
-import { PgProduct, PG_PRODUCTS } from "./mockStore";
+import { PgProduct, PG_PRODUCTS, toFa } from "./mockStore";
 
 /* ---------------- Types ---------------- */
 
@@ -267,7 +267,7 @@ const buildRows = (
     note: "یکی از گزینه‌ها الان قابل ارسال نیست",
   });
 
-  if (opts.shared) return rows;
+  if (opts.shared) return rows.map((r) => ({ ...r, winner: null }));
 
   rows.push({
     key: "category",
@@ -404,7 +404,7 @@ export const buildComparison = (
   if (dropped > 0)
     issues.push({
       kind: "dropped-columns",
-      message: `فقط ${dropped === 1 ? "یک" : dropped} مورد جا نشد؛ ${kept.length} گزینه اصلی را مقایسه کردم.`,
+      message: `فقط ${dropped === 1 ? "یک" : toFa(dropped)} مورد جا نشد؛ ${toFa(kept.length)} گزینه اصلی را مقایسه کردم.`,
       hint: "می‌تونی بگی کدوم ستون جایگزین شود.",
     });
 
@@ -464,7 +464,7 @@ export const buildComparison = (
   if (missingCells > 0)
     issues.push({
       kind: "missing-specs",
-      message: `${missingCells} خانه داده کافی نداشت و از محاسبه برنده کنار گذاشته شد.`,
+      message: `${toFa(missingCells)} خانه داده کافی نداشت و از محاسبه برنده کنار گذاشته شد.`,
     });
 
   if (hasExternal)

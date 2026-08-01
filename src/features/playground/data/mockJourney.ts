@@ -25,6 +25,26 @@ export const PG_JOURNEY_STEPS: { id: PgJourneyStep; label: string }[] = [
 
 export type PgBlock = "address" | "shipping" | "payment" | "summary" | "success";
 
+export type PgBookingBlockKind =
+  | "services"
+  | "providers"
+  | "calendar"
+  | "slots"
+  | "form"
+  | "summary"
+  | "confirmation"
+  | "notice";
+
+export interface PgBookingPayload {
+  kind: PgBookingBlockKind;
+  serviceId?: string;
+  providerId?: string;
+  dayKey?: string;
+  slotId?: string;
+  code?: string;
+  notice?: "no-availability" | "slot-taken" | "provider-full" | "waitlist";
+}
+
 export interface PgQuickReply {
   id: string;
   label: string;
@@ -45,9 +65,12 @@ export interface PgMessage {
   crossSell?: boolean;
   /** Conversational product comparison (verdict + differences + use cases). */
   comparison?: PgComparison;
+  /** In-chat service booking step. */
+  booking?: PgBookingPayload;
   quickReplies?: PgQuickReply[];
   cta?: { label: string; disabled?: boolean; disabledReason?: string };
 }
+
 
 let seq = 0;
 export const pgId = (p = "m") => `${p}-${++seq}-${Date.now().toString(36)}`;

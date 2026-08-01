@@ -1,6 +1,7 @@
 // Scripted mock journey for the playground. No AI call — keyword matched replies
 // plus one-click jumps to any step of the storefront flow.
 import { PgProduct, PG_PRODUCTS } from "./mockStore";
+import { PgInteractive } from "./mockDiscovery";
 
 export type PgJourneyStep =
   | "discovery"
@@ -37,6 +38,8 @@ export interface PgMessage {
   productIndexStart?: number;
   inlineProduct?: PgProduct;
   block?: PgBlock;
+  /** Conversational discovery components (quiz / wizard / budget). */
+  interactive?: PgInteractive;
   quickReplies?: PgQuickReply[];
   cta?: { label: string; disabled?: boolean; disabledReason?: string };
 }

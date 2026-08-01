@@ -12,6 +12,11 @@ import {
   PgSuccessBlock,
   PgSummaryBlock,
 } from "./PgCheckoutBlocks";
+import {
+  PgBudgetSlider,
+  PgMultiStepSelector,
+  PgQuizCard,
+} from "./PgDiscoveryBlocks";
 
 interface Props {
   chat: PgChat;
@@ -88,6 +93,16 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
                     isInCart={chat.cart.some((c) => c.id === m.inlineProduct!.id)}
                     onAddToCart={chat.addToCart}
                   />
+                </div>
+              )}
+
+              {m.interactive && (
+                <div className="md:mr-11 max-w-[440px]">
+                  {m.interactive === "quiz" && <PgQuizCard onAnswer={chat.send} />}
+                  {m.interactive === "wizard" && (
+                    <PgMultiStepSelector onComplete={chat.send} />
+                  )}
+                  {m.interactive === "budget" && <PgBudgetSlider onConfirm={chat.send} />}
                 </div>
               )}
 

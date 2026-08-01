@@ -1,6 +1,7 @@
 // Scripted mock journey for the playground. No AI call — keyword matched replies
 // plus one-click jumps to any step of the storefront flow.
 import { PgProduct, PG_PRODUCTS } from "./mockStore";
+import { PgInteractive } from "./mockDiscovery";
 
 export type PgJourneyStep =
   | "discovery"
@@ -37,6 +38,8 @@ export interface PgMessage {
   productIndexStart?: number;
   inlineProduct?: PgProduct;
   block?: PgBlock;
+  /** Conversational discovery components (quiz / wizard / budget). */
+  interactive?: PgInteractive;
   quickReplies?: PgQuickReply[];
   cta?: { label: string; disabled?: boolean; disabledReason?: string };
 }
@@ -58,7 +61,8 @@ export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
           quickReplies: [
             { id: "q1", label: "پرفروش‌ها", send: "پرفروش‌ترین‌ها رو نشون بده" },
             { id: "q2", label: "تخفیف‌دارها", send: "تخفیف‌های امروز" },
-            { id: "q3", label: "خودت انتخاب کن", send: "خودت برام انتخاب کن" },
+            { id: "q3", label: "کمکم کن انتخاب کنم", send: "کمکم کن انتخاب کنم" },
+            { id: "q4", label: "بودجه‌م رو بگم", send: "بودجه‌م رو مشخص کنم" },
           ],
         }),
       ];
@@ -136,6 +140,27 @@ export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
 export const mockRespond = (text: string): PgMessage => {
   const t = text.trim();
 
+  if (/بودجه|سقف قیمت|چقدر پول/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "بذار محدوده قیمتت رو دقیق کنیم:",
+      interactive: "budget",
+    });
+  }
+  if (/کمکم کن|راهنما|قدم به قدم|فیلتر|انتخاب کن/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "چند سؤال کوتاه می‌پرسم تا دقیق‌ترین گزینه رو پیدا کنم:",
+      interactive: "wizard",
+    });
+  }
+  if (/حیوان|پت|سگ|گربه|پرنده|خرگوش/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "برای اینکه دقیق پیشنهاد بدم، یه سؤال دارم:",
+      interactive: "quiz",
+    });
+  }
   if (/تخفیف|ارزان|حراج/.test(t)) {
     return msg({
       role: "assistant",

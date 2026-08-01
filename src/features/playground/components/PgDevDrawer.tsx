@@ -126,8 +126,26 @@ export const PgDevDrawer = ({ chat, active, onToggleExperiment }: Props) => {
 
               <section>
                 <h3 className="text-xs text-muted-foreground mb-2">
+                  سؤال‌های پویا در گفتگو
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <Chip active={false} onClick={() => chat.showInteractive("quiz")}>
+                    کارت کوییز
+                  </Chip>
+                  <Chip active={false} onClick={() => chat.showInteractive("wizard")}>
+                    انتخابگر چندمرحله‌ای
+                  </Chip>
+                  <Chip active={false} onClick={() => chat.showInteractive("budget")}>
+                    اسلایدر بودجه
+                  </Chip>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs text-muted-foreground mb-2">
                   کامپوننت‌های آزمایشی
                 </h3>
+
                 <div className="space-y-2">
                   {PG_EXPERIMENTS.map((e) => {
                     const isOn = active[e.slot] === e.id;

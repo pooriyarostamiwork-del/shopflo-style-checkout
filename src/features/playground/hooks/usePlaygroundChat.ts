@@ -288,7 +288,271 @@ export const usePlaygroundChat = () => {
     ]);
   }, []);
 
+  /* ---------------- in-chat service booking ---------------- */
+
+  const pushAssistant = useCallback((m: Omit<PgMessage, "id" | "role">) => {
+    setMessages((prev) => [...prev, { id: pgId(), role: "assistant", ...m }]);
+  }, []);
+
+  const startBooking = useCallback(() => {
+    setBookingService(null);
+    setBookingProvider(null);
+    setBookingDayKey(null);
+    setBookingSlotId(null);
+    setRescheduleCode(null);
+    pushAssistant({
+      content: "می‌تونم همین‌جا نوبتت رو رزرو کنم. اول بگو چه خدمتی می‌خوای:",
+      booking: { kind: "services" },
+    });
+  }, [pushAssistant]);
+
+  const pickBookingService = useCallback(
+    (service: PgService) => {
+      setBookingService(service);
+      setBookingProvider(null);
+      setBookingDayKey(null);
+      setBookingSlotId(null);
+      const providers = providersForService(service.id);
+      setMessages((m) => [...m, userMessage(service.name)]);
+      setIsProcessing(true);
+      window.setTimeout(() => {
+        setIsProcessing(false);
+        pushAssistant({
+          content: `برای «${service.name}» این متخصص‌ها در دسترس‌اند:`,
+          booking: { kind: "providers", serviceId: service.id },
+        });
+        if (!providers.length)
+          pushAssistant({
+            content: "در این خدمت فعلاً ظرفیتی نیست.",
+            booking: { kind: "notice", notice: "provider-full" },
+          });
+      }, 420);
+    },
+    [pushAssistant],
+  );
+
+  const pickBookingProvider = useCallback(
+    (provider: PgProvider) => {
+      setBookingProvider(provider);
+      setBookingDayKey(null);
+      setBookingSlotId(null);
+      setMessages((m) => [...m, userMessage(provider.name)]);
+      if (provider.nextOpenIn === 99) {
+        pushAssistant({
+          content: "ظرفیت این متخصص پر است:",
+          booking: { kind: "notice", notice: "provider-full" },
+        });
+        return;
+      }
+      pushAssistant({
+        content: `تقویم ${provider.name} را آوردم؛ روز مناسب را انتخاب کن:`,
+        booking: { kind: "calendar", providerId: provider.id },
+      });
+    },
+    [pushAssistant],
+  );
+
+  const pickBookingDay = useCallback(
+    (day: PgDay) => {
+      setBookingDayKey(day.key);
+      setBookingSlotId(null);
+      const free = buildSlots(day.key).filter((s) => !s.taken);
+      setMessages((m) => [...m, userMessage(faDayLabel(day))]);
+      if (!free.length) {
+        pushAssistant({
+          content: "این روز پر شد:",
+          booking: { kind: "notice", notice: "no-availability" },
+        });
+        return;
+      }
+      pushAssistant({
+        content: `${free.length ? "" : ""}ساعت‌های آزاد این روز:`,
+        booking: { kind: "slots", dayKey: day.key },
+      });
+    },
+    [pushAssistant],
+  );
+
+  const pickBookingSlot = useCallback(
+    (slot: PgSlot) => {
+      setBookingSlotId(slot.id);
+      setMessages((m) => [...m, userMessage(`ساعت ${faTime(slot.time)}`)]);
+
+      if (rescheduleCode) {
+        const code = rescheduleCode;
+        setRescheduleCode(null);
+        setBookings((list) =>
+          list.map((b) =>
+            b.code === code
+              ? {
+                  ...b,
+                  previous: { dayKey: b.dayKey, slotId: b.slotId },
+                  dayKey: bookingDayKey ?? b.dayKey,
+                  slotId: slot.id,
+                  status: "rescheduled" as PgBookingStatus,
+                }
+              : b,
+          ),
+        );
+        pushAssistant({
+          content: "زمان نوبتت را جابه‌جا کردم:",
+          booking: { kind: "confirmation", code },
+        });
+        return;
+      }
+
+      pushAssistant({
+        content: "مشخصات مراجع را کامل کن تا نوبت را ثبت کنم:",
+        booking: { kind: "form" },
+      });
+    },
+    [pushAssistant, rescheduleCode, bookingDayKey],
+  );
+
+  const submitBookingForm = useCallback(
+    (values: PgBookingFormValues) => {
+      setBookingForm(values);
+      pushAssistant({
+        content: "این خلاصه نوبت است؛ تأیید کن تا ثبت شود:",
+        booking: { kind: "summary" },
+      });
+    },
+    [pushAssistant],
+  );
+
+  const confirmBooking = useCallback(() => {
+    if (!bookingService || !bookingProvider || !bookingDayKey || !bookingSlotId) return;
+    const code = bookingCode(bookings.length * 137 + bookingSlotId.length * 41 + 613);
+    const booking: PgBooking = {
+      code,
+      serviceId: bookingService.id,
+      providerId: bookingProvider.id,
+      dayKey: bookingDayKey,
+      slotId: bookingSlotId,
+      attendee: bookingForm?.attendee ?? "",
+      phone: bookingForm?.phone ?? "",
+      mode: bookingForm?.mode ?? "in-person",
+      note: bookingForm?.note,
+      insurance: bookingForm?.insurance,
+      status: "confirmed",
+    };
+    setBookings((l) => [...l, booking]);
+    pushAssistant({
+      content: "نوبتت ثبت شد. جزئیاتش را برایت آوردم:",
+      booking: { kind: "confirmation", code },
+    });
+  }, [
+    bookingService,
+    bookingProvider,
+    bookingDayKey,
+    bookingSlotId,
+    bookingForm,
+    bookings.length,
+    pushAssistant,
+  ]);
+
+  const editBookingForm = useCallback(() => {
+    pushAssistant({
+      content: "بی‌خیال، اطلاعات را اصلاح کن:",
+      booking: { kind: "form" },
+    });
+  }, [pushAssistant]);
+
+  const rescheduleBooking = useCallback(
+    (code: string) => {
+      const booking = bookings.find((b) => b.code === code);
+      if (!booking) return;
+      setRescheduleCode(code);
+      setBookingService(findService(booking.serviceId) ?? null);
+      setBookingProvider(findProvider(booking.providerId) ?? null);
+      setMessages((m) => [...m, userMessage("تغییر زمان نوبت")]);
+      pushAssistant({
+        content: "روز جدید را انتخاب کن؛ نوبت قبلی تا تأیید نگه داشته می‌شود:",
+        booking: { kind: "calendar", providerId: booking.providerId },
+      });
+    },
+    [bookings, pushAssistant],
+  );
+
+  const cancelBooking = useCallback(
+    (code: string) => {
+      setBookings((l) =>
+        l.map((b) => (b.code === code ? { ...b, status: "cancelled" as PgBookingStatus } : b)),
+      );
+      setMessages((m) => [...m, userMessage("لغو نوبت")]);
+      pushAssistant({
+        content: "نوبتت لغو شد. بیعانه طی ۴۸ ساعت برمی‌گردد.",
+        booking: { kind: "confirmation", code },
+        quickReplies: [
+          { id: pgId("q"), label: "رزرو نوبت جدید", send: "می‌خوام نوبت بگیرم" },
+        ],
+      });
+    },
+    [pushAssistant],
+  );
+
+  const addBookingToCalendar = useCallback(() => {
+    pushAssistant({
+      content: "فایل تقویم (ics) برایت ساخته شد و به شماره‌ات پیامک شد.",
+    });
+  }, [pushAssistant]);
+
+  const showBookingBlock = useCallback(
+    (payload: NonNullable<PgMessage["booking"]>, content: string) => {
+      if (payload.kind === "providers" && !bookingService)
+        setBookingService(PG_SERVICES[0]);
+      if ((payload.kind === "calendar" || payload.kind === "slots") && !bookingProvider) {
+        setBookingService((s) => s ?? PG_SERVICES[0]);
+        setBookingProvider(PG_PROVIDERS[0]);
+        if (payload.kind === "slots")
+          setBookingDayKey(buildDays(PG_PROVIDERS[0].id).find((d) => !d.closed)?.key ?? null);
+      }
+      if (payload.kind === "form" || payload.kind === "summary") {
+        setBookingService((s) => s ?? PG_SERVICES[0]);
+        setBookingProvider((p) => p ?? PG_PROVIDERS[0]);
+        const day = buildDays(PG_PROVIDERS[0].id).find((d) => !d.closed);
+        setBookingDayKey((k) => k ?? day?.key ?? null);
+        setBookingSlotId(
+          (s) => s ?? (day ? buildSlots(day.key).find((x) => !x.taken)?.id ?? null : null),
+        );
+        if (payload.kind === "summary")
+          setBookingForm(
+            (f) =>
+              f ?? {
+                attendee: "سارا محمدی",
+                phone: "09123456789",
+                mode: "in-person",
+                note: "",
+                insurance: "تأمین اجتماعی",
+              },
+          );
+      }
+      pushAssistant({ content, booking: payload });
+    },
+    [bookingService, bookingProvider, pushAssistant],
+  );
+
   return {
+    bookings,
+    bookingService,
+    bookingProvider,
+    bookingDayKey,
+    bookingSlotId,
+    bookingForm,
+    rescheduleCode,
+    startBooking,
+    pickBookingService,
+    pickBookingProvider,
+    pickBookingDay,
+    pickBookingSlot,
+    submitBookingForm,
+    confirmBooking,
+    editBookingForm,
+    rescheduleBooking,
+    cancelBooking,
+    addBookingToCalendar,
+    showBookingBlock,
+
     messages,
     cart,
     summary,

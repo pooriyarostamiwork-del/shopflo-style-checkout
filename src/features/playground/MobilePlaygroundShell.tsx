@@ -18,7 +18,7 @@ export const MobilePlaygroundShell = () => {
   return (
     <PgSlotsProvider slots={slots}>
       <div
-        className="playground-root h-[100dvh] w-full flex flex-col bg-background text-foreground"
+        className="playground playground-root h-[100dvh] w-full flex flex-col bg-background text-foreground"
         dir="rtl"
         lang="fa"
       >

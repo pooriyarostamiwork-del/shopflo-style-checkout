@@ -16,7 +16,7 @@ export const PlaygroundShell = () => {
   return (
     <PgSlotsProvider slots={slots}>
       <div
-        className="playground-root h-screen w-full flex flex-col bg-background text-foreground"
+        className="playground playground-root h-screen w-full flex flex-col bg-background text-foreground"
         dir="rtl"
         lang="fa"
       >

@@ -55,3 +55,7 @@
   border-radius: 999px;
   background: hsl(var(--primary));
 }
+
+.playground .pg-dev-fab {
+  box-shadow: 0 6px 20px hsl(0 0% 0% / 0.18);
+}

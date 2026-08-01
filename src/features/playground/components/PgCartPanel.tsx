@@ -46,15 +46,18 @@ interface Props {
   summary: PgOrderSummary;
   onRemove: (id: string) => void;
   onQuantity: (id: string, q: number) => void;
+  fullWidth?: boolean;
 }
 
-export const PgCartPanel = ({ items, summary, onRemove, onQuantity }: Props) => {
+export const PgCartPanel = ({ items, summary, onRemove, onQuantity, fullWidth }: Props) => {
   const slots = usePgSlots();
   const Row = slots.cartRow ?? DefaultRow;
 
   return (
     <aside
-      className="w-[320px] shrink-0 h-full border-s border-border bg-background flex flex-col"
+      className={`h-full bg-background flex flex-col ${
+        fullWidth ? "w-full" : "w-[320px] shrink-0 border-s border-border"
+      }`}
       dir="rtl"
     >
       <div className="px-4 py-3.5 border-b border-border flex items-center gap-2">

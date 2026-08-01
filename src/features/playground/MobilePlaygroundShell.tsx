@@ -70,6 +70,7 @@ export const MobilePlaygroundShell = () => {
                     summary={chat.summary}
                     onRemove={chat.removeFromCart}
                     onQuantity={chat.setQuantity}
+                    fullWidth
                   />
                 </div>
               </div>

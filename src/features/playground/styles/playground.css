@@ -1,0 +1,57 @@
+/* Scoped playground styles. Imported only by the playground shells.
+   Experimental tokens live here so nothing leaks into the core products. */
+
+.playground {
+  --pg-canvas: 0 0% 99%;
+  --pg-surface: 0 0% 100%;
+  --pg-stroke: 0 0% 0% / 0.08;
+  --pg-stroke-soft: 0 0% 0% / 0.05;
+  --pg-ink: 0 0% 12%;
+  --pg-muted: 0 0% 45%;
+
+  font-family: Vazirmatn, ui-sans-serif, system-ui, sans-serif;
+  background: hsl(var(--pg-canvas));
+  color: hsl(var(--pg-ink));
+}
+
+.playground .pg-card {
+  background: hsl(var(--pg-surface));
+  border: 1px solid hsl(var(--pg-stroke));
+  border-radius: 12px;
+}
+
+.playground .pg-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+.playground .pg-scroll-hidden {
+  scrollbar-width: none;
+}
+
+.playground .pg-frame {
+  border: 1px solid hsl(var(--pg-stroke));
+  border-radius: 14px;
+  overflow: hidden;
+  background: hsl(var(--pg-surface));
+}
+
+.playground .pg-anim-in {
+  animation: pg-fade-up 0.28s ease-out both;
+}
+
+@keyframes pg-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.playground .pg-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+}

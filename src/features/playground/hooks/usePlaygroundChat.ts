@@ -191,6 +191,7 @@ export const usePlaygroundChat = () => {
     setQuantity,
     toggleSave,
     showInlineDetails,
+    showInteractive,
     jumpTo,
     applySeed,
     reset,

@@ -131,6 +131,43 @@ export const usePlaygroundChat = () => {
     setMessages((m) => [...m, { id: pgId(), role: "assistant", content, interactive: kind }]);
   }, []);
 
+  const addManyToCart = useCallback((products: PgProduct[]) => {
+    setCart((c) => {
+      let next = [...c];
+      products.forEach((p) => {
+        const i = next.findIndex((x) => x.id === p.id);
+        if (i >= 0) next[i] = { ...next[i], quantity: next[i].quantity + 1 };
+        else next = [...next, { ...p, quantity: 1 }];
+      });
+      return next;
+    });
+    setMessages((m) => [
+      ...m,
+      {
+        id: pgId(),
+        role: "assistant",
+        content: `کل لیست (${products.length} مورد) با تخفیف ست به سبدت اضافه شد.`,
+        quickReplies: [
+          { id: pgId("q"), label: "سبدم", send: "سبدم رو نشون بده" },
+          { id: pgId("q"), label: "ثبت آدرس", send: "بریم مرحله آدرس" },
+        ],
+      },
+    ]);
+  }, []);
+
+  /** Show the AI cross-sell bundle carousel. */
+  const showCrossSell = useCallback(() => {
+    setMessages((m) => [
+      ...m,
+      {
+        id: pgId(),
+        role: "assistant",
+        content: "بر اساس انتخابت این ست رو چیدم؛ با هم گرفتنشون تخفیف بیشتری داره:",
+        crossSell: true,
+      },
+    ]);
+  }, []);
+
   /** Dev-drawer: jump straight to any journey step. */
   const jumpTo = useCallback(
     (next: PgJourneyStep) => {
@@ -192,6 +229,8 @@ export const usePlaygroundChat = () => {
     toggleSave,
     showInlineDetails,
     showInteractive,
+    showCrossSell,
+    addManyToCart,
     jumpTo,
     applySeed,
     reset,

@@ -40,6 +40,8 @@ export interface PgMessage {
   block?: PgBlock;
   /** Conversational discovery components (quiz / wizard / budget). */
   interactive?: PgInteractive;
+  /** Cross-sell bundle carousel (why + per-item discount + add full list). */
+  crossSell?: boolean;
   quickReplies?: PgQuickReply[];
   cta?: { label: string; disabled?: boolean; disabledReason?: string };
 }
@@ -91,7 +93,7 @@ export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
           content: "این سبد فعلی توئه. هر وقت آماده بودی ادامه بدیم.",
           block: "summary",
           quickReplies: [
-            { id: "c1", label: "ادامه خرید", send: "چیز دیگه‌ای پیشنهاد بده" },
+            { id: "c1", label: "مکمل‌های پیشنهادی", send: "مکمل‌ها رو پیشنهاد بده" },
             { id: "c2", label: "ثبت آدرس", send: "بریم مرحله آدرس" },
           ],
         }),
@@ -140,6 +142,14 @@ export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
 export const mockRespond = (text: string): PgMessage => {
   const t = text.trim();
 
+  if (/مکمل|با هم|باندل|ست |ست\u200cکامل|تکمیل|چی دیگه|پیشنهاد بده/.test(t)) {
+    return msg({
+      role: "assistant",
+      content:
+        "بر اساس انتخابت این ست رو چیدم؛ با هم گرفتنشون تخفیف بیشتری داره:",
+      crossSell: true,
+    });
+  }
   if (/بودجه|سقف قیمت|چقدر پول/.test(t)) {
     return msg({
       role: "assistant",

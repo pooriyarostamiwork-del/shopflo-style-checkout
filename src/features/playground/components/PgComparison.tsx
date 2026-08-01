@@ -89,7 +89,11 @@ export const PgComparisonBlock = ({ comparison, cartIds, onAddToCart, onSend }: 
           <Sparkle className="w-3.5 h-3.5 text-primary" />
           {c.scope}
         </div>
-        <div className={`grid gap-2 ${cols.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div
+          className={`grid gap-2 ${
+            cols.length === 3 ? "grid-cols-3" : cols.length === 2 ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
           {cols.map((col, i) => (
             <div
               key={col.id}

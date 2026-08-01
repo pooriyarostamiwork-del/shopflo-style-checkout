@@ -20,6 +20,8 @@ import {
 import { PgCrossSellCarousel } from "./PgCrossSellCarousel";
 import { PG_CROSS_SELL } from "../data/mockCrossSell";
 import { PgComparisonBlock } from "./PgComparison";
+import { PgBookingRenderer } from "./PgBookingRenderer";
+
 
 interface Props {
   chat: PgChat;
@@ -136,7 +138,14 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
                 </div>
               )}
 
+              {m.booking && (
+                <div className="md:mr-11 max-w-[600px]">
+                  <PgBookingRenderer chat={chat} payload={m.booking} />
+                </div>
+              )}
+
               {m.block && (
+
                 <div className="md:mr-11 max-w-[520px]">
                   {m.block === "address" && (
                     <PgAddressBlock

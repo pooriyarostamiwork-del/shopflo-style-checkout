@@ -171,6 +171,77 @@ export const PgDevDrawer = ({ chat, active, onToggleExperiment }: Props) => {
 
               <section>
                 <h3 className="text-xs text-muted-foreground mb-2">
+                  رزرو خدمات در گفتگو
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <Chip active={false} onClick={chat.startBooking}>
+                    شروع رزرو
+                  </Chip>
+                  <Chip
+                    active={false}
+                    onClick={() =>
+                      chat.showBookingBlock({ kind: "providers" }, "متخصص‌های در دسترس:")
+                    }
+                  >
+                    کارت متخصص‌ها
+                  </Chip>
+                  <Chip
+                    active={false}
+                    onClick={() =>
+                      chat.showBookingBlock({ kind: "calendar" }, "تقویم نوبت‌های آزاد:")
+                    }
+                  >
+                    تقویم
+                  </Chip>
+                  <Chip
+                    active={false}
+                    onClick={() =>
+                      chat.showBookingBlock({ kind: "slots" }, "ساعت‌های آزاد:")
+                    }
+                  >
+                    انتخاب ساعت
+                  </Chip>
+                  <Chip
+                    active={false}
+                    onClick={() => chat.showBookingBlock({ kind: "form" }, "مشخصات نوبت:")}
+                  >
+                    فرم مراجع
+                  </Chip>
+                  <Chip
+                    active={false}
+                    onClick={() =>
+                      chat.showBookingBlock({ kind: "summary" }, "خلاصه نوبت:")
+                    }
+                  >
+                    خلاصه و تأیید
+                  </Chip>
+                  {(
+                    [
+                      ["no-availability", "روز پر"],
+                      ["slot-taken", "ساعت رزرو شد"],
+                      ["provider-full", "ظرفیت تکمیل"],
+                      ["waitlist", "لیست انتظار"],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <Chip
+                      key={id}
+                      active={false}
+                      onClick={() =>
+                        chat.showBookingBlock(
+                          { kind: "notice", notice: id },
+                          "وضعیت رزرو:",
+                        )
+                      }
+                    >
+                      {label}
+                    </Chip>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+
+                <h3 className="text-xs text-muted-foreground mb-2">
                   کامپوننت‌های آزمایشی
                 </h3>
 

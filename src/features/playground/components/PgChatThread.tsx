@@ -136,7 +136,14 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
                 </div>
               )}
 
+              {m.booking && (
+                <div className="md:mr-11 max-w-[600px]">
+                  <PgBookingRenderer chat={chat} payload={m.booking} />
+                </div>
+              )}
+
               {m.block && (
+
                 <div className="md:mr-11 max-w-[520px]">
                   {m.block === "address" && (
                     <PgAddressBlock

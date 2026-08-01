@@ -344,6 +344,17 @@ export const usePlaygroundChat = () => {
     [pushAssistant],
   );
 
+  const showProviderProfile = useCallback(
+    (provider: PgProvider) => {
+      setMessages((m) => [...m, userMessage(`توضیحات ${provider.name}`)]);
+      pushAssistant({
+        content: `این پروفایل کامل ${provider.name} است؛ اگر مناسب بود، وقت بگیریم:`,
+        booking: { kind: "profile", providerId: provider.id },
+      });
+    },
+    [pushAssistant],
+  );
+
   const pickBookingProvider = useCallback(
     (provider: PgProvider) => {
       setBookingProvider(provider);
@@ -514,6 +525,10 @@ export const usePlaygroundChat = () => {
     (payload: NonNullable<PgMessage["booking"]>, content: string) => {
       if (payload.kind === "providers" && !bookingService)
         setBookingService(PG_SERVICES[0]);
+      if (payload.kind === "profile") {
+        setBookingService((s) => s ?? PG_SERVICES[0]);
+        setBookingProvider((p) => p ?? PG_PROVIDERS[0]);
+      }
       if ((payload.kind === "calendar" || payload.kind === "slots") && !bookingProvider) {
         setBookingService((s) => s ?? PG_SERVICES[0]);
         setBookingProvider(PG_PROVIDERS[0]);
@@ -556,6 +571,7 @@ export const usePlaygroundChat = () => {
     startBooking,
     pickBookingService,
     pickBookingProvider,
+    showProviderProfile,
     pickBookingDay,
     pickBookingSlot,
     submitBookingForm,

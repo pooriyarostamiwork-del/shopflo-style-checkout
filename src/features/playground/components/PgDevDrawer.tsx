@@ -188,6 +188,17 @@ export const PgDevDrawer = ({ chat, active, onToggleExperiment }: Props) => {
                   <Chip
                     active={false}
                     onClick={() =>
+                      chat.showBookingBlock(
+                        { kind: "profile" },
+                        "پروفایل کامل متخصص:",
+                      )
+                    }
+                  >
+                    پروفایل متخصص
+                  </Chip>
+                  <Chip
+                    active={false}
+                    onClick={() =>
                       chat.showBookingBlock({ kind: "calendar" }, "تقویم نوبت‌های آزاد:")
                     }
                   >

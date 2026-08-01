@@ -24,6 +24,7 @@ import {
   PgBookingNotice,
   PgBookingSummary,
 } from "./PgBookingFlow";
+import { PgProviderProfile } from "./PgProviderProfile";
 
 export const PgBookingRenderer = ({
   chat,
@@ -53,8 +54,21 @@ export const PgBookingRenderer = ({
           service={service}
           selectedId={chat.bookingProvider?.id}
           onPick={chat.pickBookingProvider}
+          onDetails={chat.showProviderProfile}
         />
       );
+
+    case "profile": {
+      const p = provider ?? findProvider(payload.providerId);
+      if (!p) return null;
+      return (
+        <PgProviderProfile
+          provider={p}
+          service={service}
+          onPick={chat.pickBookingProvider}
+        />
+      );
+    }
 
     case "calendar":
       return (

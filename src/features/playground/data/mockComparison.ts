@@ -596,18 +596,22 @@ export const buildComparison = (
             .slice(0, 3)
             .map(
               (d) =>
-                `${Math.round(
-                  (((d.scores[winnerIndex] ?? 0) - (d.scores[currentIndex] ?? 0)) /
-                    Math.max(1, d.scores[currentIndex] ?? 1)) *
-                    100,
+                `${toFa(
+                  Math.round(
+                    (((d.scores[winnerIndex] ?? 0) - (d.scores[currentIndex] ?? 0)) /
+                      Math.max(1, d.scores[currentIndex] ?? 1)) *
+                      100,
+                  ),
                 )}٪ ${d.label} بهتر`,
             ),
           costs: [
             ...(winner.price && columns[currentIndex].price
               ? winner.price > columns[currentIndex].price!
                 ? [
-                    `${Math.round(
-                      (winner.price - columns[currentIndex].price!) / 1000,
+                    `${toFa(
+                      Math.round(
+                        (winner.price - columns[currentIndex].price!) / 1000,
+                      ),
                     )} هزار تومان گران‌تر`,
                   ]
                 : []

@@ -661,37 +661,39 @@ export const resolveChipTarget = (
   product: PgProduct,
   chip: PgCompareChip,
 ): PgProduct | null => {
-  const sameCat = PG_PRODUCTS.filter(
-    (p) => p.id !== product.id && p.category === product.category,
-  );
+  const others = PG_PRODUCTS.filter((p) => p.id !== product.id);
+  const sameCat = others.filter((p) => p.category === product.category);
+  /** Same-category candidates first; only fall back when the category has none. */
+  const pick = (
+    filter: (p: PgProduct) => boolean,
+    sort: (a: PgProduct, b: PgProduct) => number,
+  ) => sameCat.filter(filter).sort(sort)[0] ?? others.filter(filter).sort(sort)[0] ?? null;
+
   switch (chip) {
     case "similar":
-      return (
-        sameCat.sort(
-          (a, b) =>
-            Math.abs(a.price - product.price) - Math.abs(b.price - product.price),
-        )[0] ?? null
+      return pick(
+        () => true,
+        (a, b) =>
+          Math.abs(a.price - product.price) - Math.abs(b.price - product.price),
       );
     case "cheaper":
-      return (
-        [...sameCat, ...PG_PRODUCTS.filter((p) => p.id !== product.id)]
-          .filter((p) => p.price < product.price)
-          .sort((a, b) => b.price - a.price)[0] ?? null
+      return pick(
+        (p) => p.price < product.price,
+        (a, b) => b.price - a.price,
       );
     case "premium":
-      return (
-        [...sameCat, ...PG_PRODUCTS.filter((p) => p.id !== product.id)]
-          .filter((p) => p.price > product.price)
-          .sort((a, b) => a.price - b.price)[0] ?? null
+      return pick(
+        (p) => p.price > product.price,
+        (a, b) => a.price - b.price,
       );
     case "bestseller":
-      return (
-        PG_PRODUCTS.filter((p) => p.id !== product.id).sort(
-          (a, b) => b.rating - a.rating,
-        )[0] ?? null
+      return pick(
+        () => true,
+        (a, b) => b.rating - a.rating,
       );
   }
 };
+
 
 export const availableChips = (product: PgProduct): PgCompareChip[] =>
   (Object.keys(CHIP_LABELS) as PgCompareChip[]).filter(

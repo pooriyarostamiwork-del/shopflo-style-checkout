@@ -168,6 +168,17 @@ export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
 export const mockRespond = (text: string): PgMessage => {
   const t = text.trim();
 
+  if (/نوبت|رزرو|وقت بگیر|ویزیت|دکتر|مشاوره|جلسه|دام‌پزشک|دامپزشک|گرومینگ/.test(t)) {
+    return msg({
+      role: "assistant",
+      content:
+        "می‌تونم همین‌جا نوبتت رو رزرو کنم. اول بگو چه خدمتی می‌خوای:",
+      booking: { kind: "services" },
+    });
+  }
+
+
+
   if (/مقایسه|بهتره|بهتر است|کدوم رو بگیرم|کدام را بگیرم|در برابر|vs/i.test(t)) {
     const mixed = /ناهمگون|دسته‌های مختلف|دسته های مختلف|کیبورد|دوربین/.test(t);
     const external = /رقیب|فروشگاه دیگر|خارجی|دیجی/.test(t);

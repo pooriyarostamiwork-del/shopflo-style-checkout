@@ -15,6 +15,7 @@ import {
   userMessage,
   pgId,
 } from "../data/mockJourney";
+import { PgInteractive } from "../data/mockDiscovery";
 
 export type PgCartSeed = "empty" | "single" | "multi" | "out-of-stock";
 export type PgAuthState = "guest" | "signed-in";
@@ -117,6 +118,17 @@ export const usePlaygroundChat = () => {
         inlineProduct: product,
       },
     ]);
+  }, []);
+
+  /** Ask a dynamic, context-aware question via an interactive component. */
+  const showInteractive = useCallback((kind: PgInteractive) => {
+    const content =
+      kind === "quiz"
+        ? "برای اینکه دقیق پیشنهاد بدم، یه سؤال دارم:"
+        : kind === "wizard"
+          ? "چند سؤال کوتاه می‌پرسم تا دقیق‌ترین گزینه رو پیدا کنم:"
+          : "بذار محدوده قیمتت رو دقیق کنیم:";
+    setMessages((m) => [...m, { id: pgId(), role: "assistant", content, interactive: kind }]);
   }, []);
 
   /** Dev-drawer: jump straight to any journey step. */

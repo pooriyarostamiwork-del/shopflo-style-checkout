@@ -1,46 +1,62 @@
-# Playground: isolated UI/UX lab
+# Playground: isolated storefront replica for UI/UX experiments
 
-A self-contained sandbox for designing and testing new components without touching Farsi, GPT Commerce, or Shift. Front-end only, no backend, no shared state.
+A sandbox that looks and behaves like the agentic storefront (Shift / GPT Commerce), so new components can be tested inside a real shopping journey — chat, product cards, cart sidebar, checkout steps — without touching the core products.
+
+Front-end only. No backend, no edge functions, no database.
 
 ## Routes
 
-- `/playground` — index: grid of experiment cards (title, description, status chip: draft / review / shipped)
-- `/playground/:experimentId` — full-screen canvas rendering one experiment
-
-Nothing outside `src/features/playground/` and two lines in `App.tsx` gets touched.
+- `/playground` — desktop storefront replica (mirrors `/shift`)
+- `/playground/m` — mobile storefront replica (mirrors `/shift/m`)
+- Optional dev drawer inside both, toggled by a small floating button
 
 ## Structure
 
 ```text
 src/features/playground/
-  PlaygroundShell.tsx      layout: slim rail of experiments + canvas
-  registry.ts              single list of experiments (id, title, desc, status, component)
-  styles/playground.css    scoped --pg-* tokens, imported only by the shell
-  experiments/
-    _template.tsx          copy-paste starter for a new experiment
-    example-card.tsx       one seed experiment to prove the harness
+  PlaygroundShell.tsx        desktop shell: sidebar + chat thread + right panel
+  MobilePlaygroundShell.tsx  mobile shell: chat + bottom sheet
+  data/mockStore.ts          store branding, products, coupons, addresses
+  data/mockJourney.ts        scripted conversation turns for each journey step
+  hooks/usePlaygroundChat.ts local-only chat/cart state (no network)
+  devtools/DevDrawer.tsx     journey jumper + experiment switcher
+  experiments/               new components under test
+  registry.ts               experiment list (id, title, status, component)
+  styles/playground.css     scoped --pg-* tokens
 ```
 
-## Canvas features (design-focused)
+## Storefront replica
 
-- Viewport switcher: mobile 390 / tablet 768 / desktop full, rendered inside a bordered frame
-- Direction toggle: RTL / LTR (scoped to the canvas only, does not touch `document.documentElement`)
-- Background toggle: canvas / surface / dark, to check contrast
-- Optional prop knobs per experiment (simple declarative controls: toggle, select, text) so variants can be compared without editing code
+The shell is a copy of the Shift storefront layout (RTL Farsi, same density and component slots), rewired to local state:
+
+- Chat thread with assistant/user messages, quick replies, product cards, inline PDP
+- Cart sidebar with flat single-vendor cart
+- Address + shipping selector, payment selector, order summary, success state
+- Agent replies come from a scripted mock responder (keyword matched, instant or with a fake delay) — no AI call
+
+## Journey testing
+
+The dev drawer lets any state be reached in one click instead of chatting through it:
+
+- Jump to a journey step: discovery, product details, cart, address, shipping, payment, confirmation
+- Seed cart: empty / 1 item / multiple items / out-of-stock item
+- Auth state: guest / logged in
+- Viewport frame: mobile 390 / tablet / full
+- Slot override: render an experiment in place of the real product card, cart row, or checkout step, so a new component is tested inside the actual flow
 
 ## Isolation rules
 
-- Playground never imports from `features/shift`, `features/gpt-commerce`, `features/shift-dashboard`, or `features/vendor-dashboard`; it may import shadcn primitives from `@/components/ui`
+- Playground never imports from `features/shift`, `features/gpt-commerce`, `features/shift-dashboard`, or `features/vendor-dashboard`; components are copied in, not referenced, so edits can't break core products
 - Core products never import from `features/playground`
-- All playground styling lives under a `.playground` scope so tokens can be experimental without leaking
-- No Supabase calls, no localStorage writes outside a `pg-*` prefix; mock data lives beside each experiment
+- Styling scoped under `.playground`; no changes to `tailwind.config.ts` or global `index.css`
+- No Supabase client usage; `localStorage` keys prefixed `pg-*` only
 
 ## Promotion flow
 
-When an experiment is approved, its file is copied into the target product folder and adapted to that product's tokens; the playground copy stays as reference with status `shipped`.
+When an experiment is approved, its file is copied into the target product folder and adapted to that product's tokens and data types; the playground copy remains with status `shipped`.
 
 ## Technical notes
 
-- Two new routes in `src/App.tsx`, lazily imported so the playground adds nothing to the main bundle path
+- Two lazy routes added to `src/App.tsx`; nothing else outside `src/features/playground/`
+- Mock data mirrors the shape of the real product/cart types so promoted components need minimal rewiring
 - `registry.ts` is the only file to edit when adding an experiment
-- Reuses existing Tailwind config; new experimental tokens are defined as CSS vars inside `playground.css`, not in `tailwind.config.ts`

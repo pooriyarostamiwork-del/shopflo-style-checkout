@@ -2,7 +2,6 @@
 // plus one-click jumps to any step of the storefront flow.
 import { PgProduct, PG_PRODUCTS } from "./mockStore";
 import { PgInteractive } from "./mockDiscovery";
-import { PG_CROSS_SELL } from "./mockCrossSell";
 
 export type PgJourneyStep =
   | "discovery"

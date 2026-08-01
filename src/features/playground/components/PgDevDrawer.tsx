@@ -146,6 +146,31 @@ export const PgDevDrawer = ({ chat, active, onToggleExperiment }: Props) => {
 
               <section>
                 <h3 className="text-xs text-muted-foreground mb-2">
+                  مقایسه محصولات در گفتگو
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["two", "۲ ستونه"],
+                      ["three", "۳ ستونه"],
+                      ["external", "داخلی/خارجی"],
+                      ["mixed", "دسته‌های ناهمگون"],
+                      ["incomplete", "داده ناقص"],
+                      ["low-confidence", "اعتماد پایین"],
+                      ["single", "تک محصول"],
+                      ["duplicate", "تکراری"],
+                      ["overflow", "بیش از ۳ مورد"],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <Chip key={id} active={false} onClick={() => chat.showComparison(id)}>
+                      {label}
+                    </Chip>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs text-muted-foreground mb-2">
                   کامپوننت‌های آزمایشی
                 </h3>
 

@@ -17,6 +17,8 @@ import {
   PgMultiStepSelector,
   PgQuizCard,
 } from "./PgDiscoveryBlocks";
+import { PgCrossSellCarousel } from "./PgCrossSellCarousel";
+import { PG_CROSS_SELL } from "../data/mockCrossSell";
 
 interface Props {
   chat: PgChat;
@@ -103,6 +105,17 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
                     <PgMultiStepSelector onComplete={chat.send} />
                   )}
                   {m.interactive === "budget" && <PgBudgetSlider onConfirm={chat.send} />}
+                </div>
+              )}
+
+              {m.crossSell && (
+                <div className="md:mr-11 max-w-[680px]">
+                  <PgCrossSellCarousel
+                    bundle={PG_CROSS_SELL}
+                    cartIds={chat.cart.map((c) => c.id)}
+                    onAdd={chat.addToCart}
+                    onAddAll={chat.addManyToCart}
+                  />
                 </div>
               )}
 

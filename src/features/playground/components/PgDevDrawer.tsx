@@ -138,6 +138,9 @@ export const PgDevDrawer = ({ chat, active, onToggleExperiment }: Props) => {
                   <Chip active={false} onClick={() => chat.showInteractive("budget")}>
                     اسلایدر بودجه
                   </Chip>
+                  <Chip active={false} onClick={chat.showCrossSell}>
+                    کاروسل فروش مکمل
+                  </Chip>
                 </div>
               </section>
 

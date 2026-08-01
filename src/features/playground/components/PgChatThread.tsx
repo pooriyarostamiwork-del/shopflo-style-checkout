@@ -20,6 +20,8 @@ import {
 import { PgCrossSellCarousel } from "./PgCrossSellCarousel";
 import { PG_CROSS_SELL } from "../data/mockCrossSell";
 import { PgComparisonBlock } from "./PgComparison";
+import { PgBookingRenderer } from "./PgBookingRenderer";
+
 
 interface Props {
   chat: PgChat;

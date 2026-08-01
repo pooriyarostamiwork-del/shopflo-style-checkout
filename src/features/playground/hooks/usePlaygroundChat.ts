@@ -83,6 +83,16 @@ export const usePlaygroundChat = () => {
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
+  /* booking state */
+  const [bookings, setBookings] = useState<PgBooking[]>([]);
+  const [bookingService, setBookingService] = useState<PgService | null>(null);
+  const [bookingProvider, setBookingProvider] = useState<PgProvider | null>(null);
+  const [bookingDayKey, setBookingDayKey] = useState<string | null>(null);
+  const [bookingSlotId, setBookingSlotId] = useState<string | null>(null);
+  const [bookingForm, setBookingForm] = useState<PgBookingFormValues | null>(null);
+  const [rescheduleCode, setRescheduleCode] = useState<string | null>(null);
+
+
   const shippingPrice =
     PG_SHIPPING.find((s) => s.id === selectedShippingId)?.price ?? 0;
   const summary = pgOrderSummary(cart, shippingPrice);

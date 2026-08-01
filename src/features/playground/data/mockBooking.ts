@@ -30,6 +30,14 @@ export interface PgProvider {
   modes: PgServiceMode[];
   /** relative day offset of the first open day; 99 = fully booked */
   nextOpenIn: number;
+  /** profile drawer content */
+  bio: string;
+  specialties: string[];
+  languages: string[];
+  education: string[];
+  ratingBreakdown: { stars: number; share: number }[];
+  reviewHighlights: { author: string; text: string; rating: number }[];
+  policies: { title: string; text: string }[];
 }
 
 export interface PgSlot {
@@ -153,6 +161,28 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "کلینیک مرکزی، ولیعصر",
     modes: ["in-person", "online"],
     nextOpenIn: 0,
+    bio: "یازده سال سابقه ویزیت سرپایی و پیگیری بیماری‌های مزمن. تمرکز روی آموزش بیمار و درمان مرحله‌به‌مرحله بدون تجویز اضافه.",
+    specialties: ["پزشکی خانواده", "کنترل فشار خون", "دیابت", "چکاپ دوره‌ای"],
+    languages: ["فارسی", "انگلیسی"],
+    education: ["دکترای پزشکی، دانشگاه تهران", "دوره تکمیلی طب خانواده"],
+    ratingBreakdown: [
+      { stars: 5, share: 78 },
+      { stars: 4, share: 15 },
+      { stars: 3, share: 5 },
+      { stars: 2, share: 1 },
+      { stars: 1, share: 1 },
+    ],
+    reviewHighlights: [
+      { author: "مریم ط.", text: "دقیق و حوصله‌مند بود، همه سوال‌هام رو جواب داد.", rating: 5 },
+      { author: "رضا ک.", text: "سر وقت ویزیت شدم و توضیح داروها کامل بود.", rating: 5 },
+      { author: "سحر ن.", text: "انتظار کوتاه، برخورد خیلی خوب.", rating: 4 },
+    ],
+    policies: [
+      { title: "لغو و بازپرداخت", text: "تا ۱۲ ساعت قبل از نوبت لغو رایگان است؛ بعد از آن ۳۰٪ بیعانه کسر می‌شود." },
+      { title: "تغییر زمان", text: "یک بار جابه‌جایی نوبت تا ۶ ساعت قبل بدون هزینه امکان‌پذیر است." },
+      { title: "تأخیر", text: "بیش از ۱۰ دقیقه تأخیر ممکن است به لغو نوبت منجر شود." },
+      { title: "پرداخت", text: "پرداخت بیعانه هنگام رزرو و مابقی در محل یا پیش از جلسه آنلاین." },
+    ],
   },
   {
     id: "prv-2",
@@ -167,6 +197,27 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "کلینیک شمال، میرداماد",
     modes: ["in-person"],
     nextOpenIn: 2,
+    bio: "متخصص داخلی با تمرکز بر بیماری‌های گوارش و کبد؛ تفسیر آزمایش و آندوسکوپی و برنامه درمان بلندمدت.",
+    specialties: ["گوارش", "کبد چرب", "آندوسکوپی", "تفسیر آزمایش"],
+    languages: ["فارسی", "انگلیسی", "عربی"],
+    education: ["تخصص بیماری‌های داخلی، دانشگاه شهید بهشتی", "فلوشیپ گوارش"],
+    ratingBreakdown: [
+      { stars: 5, share: 78 },
+      { stars: 4, share: 15 },
+      { stars: 3, share: 5 },
+      { stars: 2, share: 1 },
+      { stars: 1, share: 1 },
+    ],
+    reviewHighlights: [
+      { author: "امیر ح.", text: "تشخیصش درست بود و بعد از دو هفته بهتر شدم.", rating: 5 },
+      { author: "لیلا ص.", text: "ویزیت کمی طول کشید ولی کامل بررسی کرد.", rating: 4 },
+    ],
+    policies: [
+      { title: "لغو و بازپرداخت", text: "تا ۱۲ ساعت قبل از نوبت لغو رایگان است؛ بعد از آن ۳۰٪ بیعانه کسر می‌شود." },
+      { title: "تغییر زمان", text: "یک بار جابه‌جایی نوبت تا ۶ ساعت قبل بدون هزینه امکان‌پذیر است." },
+      { title: "تأخیر", text: "بیش از ۱۰ دقیقه تأخیر ممکن است به لغو نوبت منجر شود." },
+      { title: "پرداخت", text: "پرداخت بیعانه هنگام رزرو و مابقی در محل یا پیش از جلسه آنلاین." },
+    ],
   },
   {
     id: "prv-3",
@@ -181,6 +232,27 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "جلسه تصویری",
     modes: ["online"],
     nextOpenIn: 0,
+    bio: "کارشناس تغذیه با برنامه‌های غذایی شخصی‌سازی‌شده و پیگیری هفتگی آنلاین؛ بدون رژیم‌های سخت و کوتاه‌مدت.",
+    specialties: ["رژیم درمانی", "کاهش وزن", "تغذیه ورزشی", "اختلال گوارشی"],
+    languages: ["فارسی"],
+    education: ["کارشناسی ارشد علوم تغذیه", "گواهی تغذیه ورزشی"],
+    ratingBreakdown: [
+      { stars: 5, share: 78 },
+      { stars: 4, share: 15 },
+      { stars: 3, share: 5 },
+      { stars: 2, share: 1 },
+      { stars: 1, share: 1 },
+    ],
+    reviewHighlights: [
+      { author: "نگار م.", text: "برنامه‌ش قابل اجرا بود، سه کیلو کم کردم.", rating: 5 },
+      { author: "سعید ر.", text: "پیگیری هفتگی خیلی کمک کرد.", rating: 5 },
+    ],
+    policies: [
+      { title: "لغو و بازپرداخت", text: "تا ۱۲ ساعت قبل از نوبت لغو رایگان است؛ بعد از آن ۳۰٪ بیعانه کسر می‌شود." },
+      { title: "تغییر زمان", text: "یک بار جابه‌جایی نوبت تا ۶ ساعت قبل بدون هزینه امکان‌پذیر است." },
+      { title: "تأخیر", text: "بیش از ۱۰ دقیقه تأخیر ممکن است به لغو نوبت منجر شود." },
+      { title: "پرداخت", text: "پرداخت بیعانه هنگام رزرو و مابقی در محل یا پیش از جلسه آنلاین." },
+    ],
   },
   {
     id: "prv-4",
@@ -195,6 +267,27 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "مطب سعادت‌آباد",
     modes: ["in-person", "online"],
     nextOpenIn: 1,
+    bio: "روان‌شناس با رویکرد شناختی‌رفتاری برای اضطراب، وسواس و مدیریت استرس شغلی؛ جلسات حضوری و آنلاین.",
+    specialties: ["اضطراب", "وسواس", "مدیریت استرس", "زوج‌درمانی"],
+    languages: ["فارسی", "انگلیسی"],
+    education: ["کارشناسی ارشد روان‌شناسی بالینی", "دوره تخصصی CBT"],
+    ratingBreakdown: [
+      { stars: 5, share: 78 },
+      { stars: 4, share: 15 },
+      { stars: 3, share: 5 },
+      { stars: 2, share: 1 },
+      { stars: 1, share: 1 },
+    ],
+    reviewHighlights: [
+      { author: "بی‌نام", text: "فضای جلسه امن بود و بدون قضاوت.", rating: 5 },
+      { author: "ه. ج.", text: "تمرین‌های بین جلسه‌ها واقعاً مؤثر بود.", rating: 4 },
+    ],
+    policies: [
+      { title: "لغو و بازپرداخت", text: "تا ۱۲ ساعت قبل از نوبت لغو رایگان است؛ بعد از آن ۳۰٪ بیعانه کسر می‌شود." },
+      { title: "تغییر زمان", text: "یک بار جابه‌جایی نوبت تا ۶ ساعت قبل بدون هزینه امکان‌پذیر است." },
+      { title: "تأخیر", text: "بیش از ۱۰ دقیقه تأخیر ممکن است به لغو نوبت منجر شود." },
+      { title: "پرداخت", text: "پرداخت بیعانه هنگام رزرو و مابقی در محل یا پیش از جلسه آنلاین." },
+    ],
   },
   {
     id: "prv-5",
@@ -209,6 +302,27 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "درمانگاه پت‌پلی‌گراند",
     modes: ["in-person"],
     nextOpenIn: 99,
+    bio: "دام‌پزشک حیوانات خانگی کوچک؛ معاینه، واکسیناسیون و مشاوره تغذیه سگ و گربه.",
+    specialties: ["سگ و گربه", "واکسیناسیون", "تغذیه", "دندان‌پزشکی دامی"],
+    languages: ["فارسی"],
+    education: ["دکترای دام‌پزشکی، دانشگاه تهران"],
+    ratingBreakdown: [
+      { stars: 5, share: 78 },
+      { stars: 4, share: 15 },
+      { stars: 3, share: 5 },
+      { stars: 2, share: 1 },
+      { stars: 1, share: 1 },
+    ],
+    reviewHighlights: [
+      { author: "پریسا و.", text: "با گربه‌ام خیلی آرام رفتار کرد.", rating: 5 },
+      { author: "محمد ا.", text: "ظرفیتش زود پر می‌شه ولی ارزش صبر کردن داره.", rating: 5 },
+    ],
+    policies: [
+      { title: "لغو و بازپرداخت", text: "تا ۱۲ ساعت قبل از نوبت لغو رایگان است؛ بعد از آن ۳۰٪ بیعانه کسر می‌شود." },
+      { title: "تغییر زمان", text: "یک بار جابه‌جایی نوبت تا ۶ ساعت قبل بدون هزینه امکان‌پذیر است." },
+      { title: "تأخیر", text: "بیش از ۱۰ دقیقه تأخیر ممکن است به لغو نوبت منجر شود." },
+      { title: "پرداخت", text: "پرداخت بیعانه هنگام رزرو و مابقی در محل یا پیش از جلسه آنلاین." },
+    ],
   },
 ];
 

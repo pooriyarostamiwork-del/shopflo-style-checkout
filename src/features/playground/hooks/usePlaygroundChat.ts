@@ -525,6 +525,10 @@ export const usePlaygroundChat = () => {
     (payload: NonNullable<PgMessage["booking"]>, content: string) => {
       if (payload.kind === "providers" && !bookingService)
         setBookingService(PG_SERVICES[0]);
+      if (payload.kind === "profile") {
+        setBookingService((s) => s ?? PG_SERVICES[0]);
+        setBookingProvider((p) => p ?? PG_PROVIDERS[0]);
+      }
       if ((payload.kind === "calendar" || payload.kind === "slots") && !bookingProvider) {
         setBookingService((s) => s ?? PG_SERVICES[0]);
         setBookingProvider(PG_PROVIDERS[0]);

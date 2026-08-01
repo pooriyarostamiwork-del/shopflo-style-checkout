@@ -28,6 +28,7 @@ export type PgBlock = "address" | "shipping" | "payment" | "summary" | "success"
 export type PgBookingBlockKind =
   | "services"
   | "providers"
+  | "profile"
   | "calendar"
   | "slots"
   | "form"

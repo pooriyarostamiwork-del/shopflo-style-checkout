@@ -1,6 +1,7 @@
-import { Plus, Info, Bookmark, Star } from "lucide-react";
+import { Plus, Info, Bookmark, Star, GitCompare } from "lucide-react";
 import { PgProductCardProps } from "../slots";
 import { faPrice, toFa } from "../data/mockStore";
+import { CHIP_LABELS, availableChips } from "../data/mockComparison";
 
 /** Default product card — mirrors the storefront card language. */
 export const PgProductCard = ({
@@ -11,6 +12,7 @@ export const PgProductCard = ({
   onAddToCart,
   onSave,
   onDetails,
+  onCompare,
 }: PgProductCardProps) => (
   <div className="pg-card pg-anim-in relative flex flex-col overflow-hidden" dir="rtl">
     <div className="absolute top-3 right-3 left-3 z-10 flex items-center justify-between">
@@ -96,6 +98,26 @@ export const PgProductCard = ({
           جزئیات
         </button>
       </div>
+
+      {onCompare && (
+        <div className="mt-2.5 pt-2.5 border-t border-border">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1.5">
+            <GitCompare className="w-3 h-3" />
+            مقایسه
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {availableChips(product).map((chip) => (
+              <button
+                key={chip}
+                onClick={() => onCompare(product, chip)}
+                className="px-2 py-1 rounded-lg text-[10px] border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+              >
+                {CHIP_LABELS[chip]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   </div>
 );

@@ -2,6 +2,7 @@
 // plus one-click jumps to any step of the storefront flow.
 import { PgProduct, PG_PRODUCTS } from "./mockStore";
 import { PgInteractive } from "./mockDiscovery";
+import { PgComparison, buildPreset } from "./mockComparison";
 
 export type PgJourneyStep =
   | "discovery"
@@ -42,6 +43,8 @@ export interface PgMessage {
   interactive?: PgInteractive;
   /** Cross-sell bundle carousel (why + per-item discount + add full list). */
   crossSell?: boolean;
+  /** Conversational product comparison (verdict + differences + use cases). */
+  comparison?: PgComparison;
   quickReplies?: PgQuickReply[];
   cta?: { label: string; disabled?: boolean; disabledReason?: string };
 }
@@ -142,6 +145,18 @@ export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
 export const mockRespond = (text: string): PgMessage => {
   const t = text.trim();
 
+  if (/مقایسه|بهتره|بهتر است|کدوم رو بگیرم|کدام را بگیرم|در برابر|vs/i.test(t)) {
+    const mixed = /ناهمگون|دسته‌های مختلف|دسته های مختلف|کیبورد|دوربین/.test(t);
+    const external = /رقیب|فروشگاه دیگر|خارجی|دیجی/.test(t);
+    const preset = mixed ? "mixed" : external ? "external" : "two";
+    return msg({
+      role: "assistant",
+      content: mixed
+        ? "این دو گزینه هم‌رده نیستند، ولی بر اساس کاربرد کنار هم گذاشتمشان:"
+        : "این مقایسه را برایت چیدم؛ نتیجه اول، جزئیات بعد از آن:",
+      comparison: buildPreset(preset),
+    });
+  }
   if (/مکمل|با هم|باندل|ست |ست\u200cکامل|تکمیل|چی دیگه|پیشنهاد بده/.test(t)) {
     return msg({
       role: "assistant",

@@ -1,5 +1,6 @@
 import { ComponentType, ReactNode, createContext, useContext } from "react";
 import { PgCartItem, PgProduct } from "./data/mockStore";
+import { PgCompareChip } from "./data/mockComparison";
 
 /* ---------- Slot contracts ----------
    An experiment can replace one of these slots inside the real flow,
@@ -13,6 +14,8 @@ export interface PgProductCardProps {
   onAddToCart: (p: PgProduct) => void;
   onSave: (p: PgProduct) => void;
   onDetails: (p: PgProduct) => void;
+  /** Smart comparison chips (optional for experimental cards). */
+  onCompare?: (p: PgProduct, chip: PgCompareChip) => void;
 }
 
 export interface PgCartRowProps {

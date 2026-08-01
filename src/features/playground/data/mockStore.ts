@@ -159,7 +159,25 @@ export const PG_PRODUCTS: PgProduct[] = [
     description: "ثبت ویدیو ۴K۶۰، لرزشگیر الکترونیکی و بدنه ضدآب بدون کاور.",
     specs: [{ label: "رزولوشن", value: "۴K ۶۰fps" }],
   },
+  {
+    id: "pg-7",
+    name: "ایرباد بی‌سیم فشرده مدل نوا",
+    price: 1_950_000,
+    originalPrice: 2_300_000,
+    image: img("1590658268037-6bf12165a8df"),
+    rating: 4.4,
+    category: "صوتی",
+    fastDelivery: true,
+    inStock: true,
+    description: "ایرباد سبک با حذف نویز نیمه‌فعال و ۲۴ ساعت شارژ با کیس.",
+    specs: [
+      { label: "نوع اتصال", value: "بلوتوث ۵.۳" },
+      { label: "شارژدهی", value: "۲۴ ساعت با کیس" },
+      { label: "وزن", value: "۴۸ گرم" },
+    ],
+  },
 ];
+
 
 export const PG_ADDRESSES: PgAddress[] = [
   {

@@ -710,7 +710,10 @@ export const buildPreset = (preset: PgComparePreset): PgComparison => {
     case "two":
       return buildComparison([p(0), p(2)], { currentId: p(2).id });
     case "three":
-      return buildComparison([p(0), p(2), p(2)], {});
+      return buildComparison([p(0), p(2), p(6)], { currentId: p(2).id });
+    case "duplicate":
+      return buildComparison([p(0), p(0), p(2)], {});
+
     case "external":
       return buildComparison([p(0)], { external: true });
     case "mixed":

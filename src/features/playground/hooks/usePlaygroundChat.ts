@@ -17,15 +17,6 @@ import {
 } from "../data/mockJourney";
 import { PgInteractive } from "../data/mockDiscovery";
 import {
-  PgJourneyStep,
-  PgMessage,
-  mockRespond,
-  stepMessages,
-  userMessage,
-  pgId,
-} from "../data/mockJourney";
-import { PgInteractive } from "../data/mockDiscovery";
-import {
   PgCompareChip,
   PgComparePreset,
   CHIP_LABELS,

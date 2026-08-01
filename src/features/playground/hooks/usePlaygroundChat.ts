@@ -25,6 +25,9 @@ import {
   resolveChipTarget,
 } from "../data/mockComparison";
 import {
+  PG_PROVIDERS,
+  PG_SERVICES,
+
   PgBooking,
   PgBookingStatus,
   PgDay,

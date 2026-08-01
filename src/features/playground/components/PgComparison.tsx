@@ -71,7 +71,7 @@ const Chip = ({
   </button>
 );
 
-export const PgComparison = ({ comparison, cartIds, onAddToCart, onSend }: Props) => {
+export const PgComparisonBlock = ({ comparison, cartIds, onAddToCart, onSend }: Props) => {
   const [showAll, setShowAll] = useState(false);
   const c = comparison;
   const conf = CONF[c.verdict.confidence];

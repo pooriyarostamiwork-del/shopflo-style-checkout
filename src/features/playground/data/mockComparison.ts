@@ -298,7 +298,7 @@ const buildRows = (
     rows.push({ key: `spec-${label}`, label, values, winner: winnerOf(values) });
   });
 
-  EXTRA_ATTRS.forEach((attr) => {
+  EXTRA_ATTRS.filter((attr) => !labels.has(attr)).forEach((attr) => {
     const values = cols.map((c) =>
       opts.dropSpecs && c.external ? null : attrValue(c, attr),
     );
@@ -565,8 +565,14 @@ export const buildComparison = (
       message: "اعتماد این نتیجه پایین است.",
     });
 
+  const NON_DECISION = ["کد فنی", "کشور سازنده", "رنگ‌بندی", "بازگشت کالا"];
   const topDifferences = rows
-    .filter((r) => r.winner !== null && r.values.every((v) => v !== null))
+    .filter(
+      (r) =>
+        r.winner !== null &&
+        r.values.every((v) => v !== null) &&
+        !NON_DECISION.includes(r.label),
+    )
     .sort((a, b) => {
       const spread = (r: PgCompareRow) => {
         const n = r.values.map(numOf).filter((x): x is number => x !== null);

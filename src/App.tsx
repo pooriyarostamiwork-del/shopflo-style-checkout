@@ -14,6 +14,8 @@ import ShiftDesktop from "./pages/ShiftDesktop";
 import ShiftMobile from "./pages/ShiftMobile";
 import ShiftDashLite from "./pages/ShiftDashLite";
 import ShiftDashPro from "./pages/ShiftDashPro";
+import Playground from "./pages/Playground";
+import PlaygroundMobile from "./pages/PlaygroundMobile";
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();
@@ -47,6 +49,10 @@ const App = () => (
             <Route path="/shift/dash/pro" element={<ShiftDashPro />} />
 
             {/* Catch-all */}
+            {/* Component playground (isolated testing environment) */}
+            <Route path="/playground" element={<Playground />} />
+            <Route path="/playground/m" element={<PlaygroundMobile />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

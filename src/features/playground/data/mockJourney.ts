@@ -1,0 +1,191 @@
+// Scripted mock journey for the playground. No AI call — keyword matched replies
+// plus one-click jumps to any step of the storefront flow.
+import { PgProduct, PG_PRODUCTS } from "./mockStore";
+
+export type PgJourneyStep =
+  | "discovery"
+  | "details"
+  | "cart"
+  | "address"
+  | "shipping"
+  | "payment"
+  | "confirmation";
+
+export const PG_JOURNEY_STEPS: { id: PgJourneyStep; label: string }[] = [
+  { id: "discovery", label: "کشف محصول" },
+  { id: "details", label: "جزئیات محصول" },
+  { id: "cart", label: "سبد خرید" },
+  { id: "address", label: "آدرس" },
+  { id: "shipping", label: "ارسال" },
+  { id: "payment", label: "پرداخت" },
+  { id: "confirmation", label: "تأیید سفارش" },
+];
+
+export type PgBlock = "address" | "shipping" | "payment" | "summary" | "success";
+
+export interface PgQuickReply {
+  id: string;
+  label: string;
+  send?: string;
+}
+
+export interface PgMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  products?: PgProduct[];
+  productIndexStart?: number;
+  inlineProduct?: PgProduct;
+  block?: PgBlock;
+  quickReplies?: PgQuickReply[];
+  cta?: { label: string; disabled?: boolean; disabledReason?: string };
+}
+
+let seq = 0;
+export const pgId = (p = "m") => `${p}-${++seq}-${Date.now().toString(36)}`;
+
+const msg = (m: Omit<PgMessage, "id">): PgMessage => ({ id: pgId(), ...m });
+
+/** Assistant turns that represent each step of the journey. */
+export const stepMessages = (step: PgJourneyStep): PgMessage[] => {
+  switch (step) {
+    case "discovery":
+      return [
+        msg({
+          role: "assistant",
+          content:
+            "سلام! چی دنبالش هستی؟ می‌تونم بر اساس بودجه و کاربردت چند گزینه خوب بیارم.",
+          quickReplies: [
+            { id: "q1", label: "پرفروش‌ها", send: "پرفروش‌ترین‌ها رو نشون بده" },
+            { id: "q2", label: "تخفیف‌دارها", send: "تخفیف‌های امروز" },
+            { id: "q3", label: "خودت انتخاب کن", send: "خودت برام انتخاب کن" },
+          ],
+        }),
+      ];
+    case "details":
+      return [
+        msg({
+          role: "user",
+          content: "جزئیات هدفون آرام‌X رو بگو",
+        }),
+        msg({
+          role: "assistant",
+          content:
+            "این گزینه بین مدل‌های این محدوده قیمت بهترین حذف نویز رو داره. مشخصات کاملش رو ببین:",
+          inlineProduct: PG_PRODUCTS[0],
+          quickReplies: [
+            { id: "d1", label: "اضافه کن به سبد", send: "اضافه کن به سبد" },
+            { id: "d2", label: "گزینه‌های مشابه", send: "مشابهش رو نشون بده" },
+          ],
+        }),
+      ];
+    case "cart":
+      return [
+        msg({ role: "user", content: "سبدم رو نشون بده" }),
+        msg({
+          role: "assistant",
+          content: "این سبد فعلی توئه. هر وقت آماده بودی ادامه بدیم.",
+          block: "summary",
+          quickReplies: [
+            { id: "c1", label: "ادامه خرید", send: "چیز دیگه‌ای پیشنهاد بده" },
+            { id: "c2", label: "ثبت آدرس", send: "بریم مرحله آدرس" },
+          ],
+        }),
+      ];
+    case "address":
+      return [
+        msg({ role: "user", content: "بریم مرحله آدرس" }),
+        msg({
+          role: "assistant",
+          content: "کدوم آدرس رو برای ارسال ثبت کنم؟",
+          block: "address",
+        }),
+      ];
+    case "shipping":
+      return [
+        msg({ role: "user", content: "آدرس خانه" }),
+        msg({
+          role: "assistant",
+          content: "روش ارسال رو انتخاب کن تا زمان تحویل رو نهایی کنم.",
+          block: "shipping",
+        }),
+      ];
+    case "payment":
+      return [
+        msg({ role: "user", content: "ارسال سریع" }),
+        msg({
+          role: "assistant",
+          content: "فقط مونده روش پرداخت. بعدش سفارش رو نهایی می‌کنم.",
+          block: "payment",
+          cta: { label: "نهایی‌کردن خرید" },
+        }),
+      ];
+    case "confirmation":
+      return [
+        msg({ role: "user", content: "پرداخت آنلاین" }),
+        msg({
+          role: "assistant",
+          content: "سفارشت ثبت شد. جزئیاتش رو برات آوردم:",
+          block: "success",
+        }),
+      ];
+  }
+};
+
+/** Very small keyword responder so the chat feels alive without a backend. */
+export const mockRespond = (text: string): PgMessage => {
+  const t = text.trim();
+
+  if (/تخفیف|ارزان|حراج/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "این‌ها بیشترین تخفیف امروز رو دارن:",
+      products: PG_PRODUCTS.filter((p) => p.originalPrice),
+      productIndexStart: 1,
+    });
+  }
+  if (/سبد|خلاصه|جمع/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "خلاصه سبد خریدت:",
+      block: "summary",
+    });
+  }
+  if (/آدرس/.test(t)) {
+    return msg({ role: "assistant", content: "آدرس ارسال رو انتخاب کن:", block: "address" });
+  }
+  if (/ارسال|تحویل/.test(t)) {
+    return msg({ role: "assistant", content: "روش ارسال:", block: "shipping" });
+  }
+  if (/پرداخت|قسط/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "روش پرداخت رو انتخاب کن:",
+      block: "payment",
+      cta: { label: "نهایی‌کردن خرید" },
+    });
+  }
+  if (/هدفون|صوتی|اسپیکر/.test(t)) {
+    return msg({
+      role: "assistant",
+      content: "بین گزینه‌های صوتی این سه مدل بهترین بازخورد رو دارن:",
+      products: PG_PRODUCTS.filter((p) => p.category === "صوتی"),
+      productIndexStart: 1,
+    });
+  }
+
+  return msg({
+    role: "assistant",
+    content:
+      "چند گزینه خوب برات پیدا کردم. اگر بودجه یا کاربرد خاصی داری بگو تا دقیق‌ترش کنم.",
+    products: PG_PRODUCTS.slice(0, 3),
+    productIndexStart: 1,
+    quickReplies: [
+      { id: "r1", label: "ارزان‌تر", send: "ارزان‌تر داری؟" },
+      { id: "r2", label: "سبدم", send: "سبدم رو نشون بده" },
+    ],
+  });
+};
+
+export const userMessage = (content: string): PgMessage =>
+  msg({ role: "user", content });

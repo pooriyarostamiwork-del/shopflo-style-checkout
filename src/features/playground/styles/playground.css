@@ -59,3 +59,39 @@
 .playground .pg-dev-fab {
   box-shadow: 0 6px 20px hsl(0 0% 0% / 0.18);
 }
+
+/* Budget slider (RTL-aware fill) */
+.playground .pg-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to left,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary)) var(--pg-range-fill, 50%),
+    hsl(var(--muted)) var(--pg-range-fill, 50%),
+    hsl(var(--muted)) 100%
+  );
+  outline: none;
+}
+
+.playground .pg-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: hsl(var(--background));
+  border: 2px solid hsl(var(--primary));
+  cursor: pointer;
+}
+
+.playground .pg-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: hsl(var(--background));
+  border: 2px solid hsl(var(--primary));
+  cursor: pointer;
+}

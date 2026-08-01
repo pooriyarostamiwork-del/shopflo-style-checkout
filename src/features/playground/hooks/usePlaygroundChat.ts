@@ -344,6 +344,17 @@ export const usePlaygroundChat = () => {
     [pushAssistant],
   );
 
+  const showProviderProfile = useCallback(
+    (provider: PgProvider) => {
+      setMessages((m) => [...m, userMessage(`توضیحات ${provider.name}`)]);
+      pushAssistant({
+        content: `این پروفایل کامل ${provider.name} است؛ اگر مناسب بود، وقت بگیریم:`,
+        booking: { kind: "profile", providerId: provider.id },
+      });
+    },
+    [pushAssistant],
+  );
+
   const pickBookingProvider = useCallback(
     (provider: PgProvider) => {
       setBookingProvider(provider);
@@ -556,6 +567,7 @@ export const usePlaygroundChat = () => {
     startBooking,
     pickBookingService,
     pickBookingProvider,
+    showProviderProfile,
     pickBookingDay,
     pickBookingSlot,
     submitBookingForm,

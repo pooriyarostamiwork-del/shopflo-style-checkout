@@ -17,6 +17,15 @@ import {
 } from "../data/mockJourney";
 import { PgInteractive } from "../data/mockDiscovery";
 import {
+  PgJourneyStep,
+  PgMessage,
+  mockRespond,
+  stepMessages,
+  userMessage,
+  pgId,
+} from "../data/mockJourney";
+import { PgInteractive } from "../data/mockDiscovery";
+import {
   PgCompareChip,
   PgComparePreset,
   CHIP_LABELS,
@@ -24,6 +33,25 @@ import {
   buildPreset,
   resolveChipTarget,
 } from "../data/mockComparison";
+import {
+  PgBooking,
+  PgBookingStatus,
+  PgDay,
+  PgProvider,
+  PgService,
+  PgSlot,
+  bookingCode,
+  buildDays,
+  buildSlots,
+  faDayLabel,
+  faTime,
+  findDay,
+  findProvider,
+  findService,
+  providersForService,
+} from "../data/mockBooking";
+import { PgBookingFormValues } from "../components/PgBookingFlow";
+
 
 export type PgCartSeed = "empty" | "single" | "multi" | "out-of-stock";
 export type PgAuthState = "guest" | "signed-in";

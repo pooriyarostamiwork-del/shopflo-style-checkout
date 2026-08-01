@@ -1,48 +1,46 @@
-## Shift Dashboard — Shell Refinement (Phase 1: Shared Chrome)
+# Playground: isolated UI/UX lab
 
-Scope: `/shift/dash/lite` and `/shift/dash/pro`. Only the shared shell — header (top bar), sidebar, and nav. Section bodies untouched in this pass.
+A self-contained sandbox for designing and testing new components without touching Farsi, GPT Commerce, or Shift. Front-end only, no backend, no shared state.
 
-### 1. Top bar redesign
+## Routes
 
-Rebuild the top bar in `ShiftDashboard.tsx` as a lighter, more editorial strip:
+- `/playground` — index: grid of experiment cards (title, description, status chip: draft / review / shipped)
+- `/playground/:experimentId` — full-screen canvas rendering one experiment
 
-- **Left cluster**: mobile menu button + a slim breadcrumb showing the active section title (derived from `FLAT.find(activeSection).label`) with a subtle eyebrow ("Shift Dashboard / …"). This replaces the tri-state agent toggle that currently sits there.
-- **Right cluster**: a modern **plan chip** (Lite/Pro) + user greeting "خوش آمدید، سارا" + avatar. The chip becomes the primary status signal in the top bar.
-- Refined visuals: taller bar (56px), hairline bottom border only, no shadow, softer blur, tighter type scale. Avatar gets a subtle ring on hover.
-- Remove: `AgentStatusToggle` from the top bar entirely (component file stays — it's still used inside Agent Control section).
+Nothing outside `src/features/playground/` and two lines in `App.tsx` gets touched.
 
-### 2. Sidebar redesign
+## Structure
 
-Rework the sidebar in `ShiftDashboard.tsx` for a more elegant, professional feel:
+```text
+src/features/playground/
+  PlaygroundShell.tsx      layout: slim rail of experiments + canvas
+  registry.ts              single list of experiments (id, title, desc, status, component)
+  styles/playground.css    scoped --pg-* tokens, imported only by the shell
+  experiments/
+    _template.tsx          copy-paste starter for a new experiment
+    example-card.tsx       one seed experiment to prove the harness
+```
 
-- **Top**: refined wordmark (`Shift.`) with tighter tracking and a subtle version/plan micro-label under it.
-- **Groups**: keep the 3 groups (داشبورد / مدیریت / حساب) but restyle labels as uppercase micro-eyebrows with more breathing room; add 1px hairline dividers between groups instead of just spacing.
-- **Nav items**: taller rows (40px), softer active state (filled pill in `--sd-surface` with primary-tinted left border in RTL = right border), animated icon color transition, hover uses a very light tint instead of the current stronger fill.
-- **Bottom section**: **delete entirely** — remove the store-name + PlanTag block at the bottom of the sidebar. Sidebar ends at the nav list. `PlanTag` import stays (still used in `PlansBilling`), but the bottom `<div>` block is removed.
+## Canvas features (design-focused)
 
-### 3. Plan chip (moved to top bar)
+- Viewport switcher: mobile 390 / tablet 768 / desktop full, rendered inside a bordered frame
+- Direction toggle: RTL / LTR (scoped to the canvas only, does not touch `document.documentElement`)
+- Background toggle: canvas / surface / dark, to check contrast
+- Optional prop knobs per experiment (simple declarative controls: toggle, select, text) so variants can be compared without editing code
 
-- Reuse the existing `PlanTag` styling as the base, but slightly refined: smaller radius (`rounded-md` → keep pill), subtle gradient for Pro, monochrome outline for Lite, and it sits inline with the greeting.
-- Plan is read from `useDashboard().plan` (already available).
+## Isolation rules
 
-### 4. Mobile shell
+- Playground never imports from `features/shift`, `features/gpt-commerce`, `features/shift-dashboard`, or `features/vendor-dashboard`; it may import shadcn primitives from `@/components/ui`
+- Core products never import from `features/playground`
+- All playground styling lives under a `.playground` scope so tokens can be experimental without leaking
+- No Supabase calls, no localStorage writes outside a `pg-*` prefix; mock data lives beside each experiment
 
-- Same changes propagate to the mobile drawer: no bottom store block; drawer header shows the wordmark only.
-- Top bar on mobile: hamburger + section title on the left, plan chip + avatar on the right (greeting text hidden < md, already the pattern).
+## Promotion flow
 
-### Files touched
+When an experiment is approved, its file is copied into the target product folder and adapted to that product's tokens; the playground copy stays as reference with status `shipped`.
 
-- `src/features/shift-dashboard/ShiftDashboard.tsx` — top bar + sidebar rebuild.
-- `src/features/shift-dashboard/shared/PlanTag.tsx` — minor visual polish for inline use.
-- `src/features/shift-dashboard/styles/dashboard.css` — refine `.sd-nav-item`, `.sd-nav-label`, add top-bar breadcrumb + greeting styles, tighten hover/active tokens.
+## Technical notes
 
-### Not in this pass
-
-- Section content (Performance Home, Agent Control, etc.) — refined in later phases, one by one as you go.
-- `AgentStatusToggle` component itself — kept in place inside Agent Control where it belongs.
-- Footer — the dashboard has no footer today; not adding one unless you want it.
-
-### Confirm before I build
-
-- OK that the agent status tri-toggle disappears from the top bar and only lives inside the Agent Control section going forward?
-- OK to hardcode the greeting name as "سارا" (current mock) until real auth data is wired?
+- Two new routes in `src/App.tsx`, lazily imported so the playground adds nothing to the main bundle path
+- `registry.ts` is the only file to edit when adding an experiment
+- Reuses existing Tailwind config; new experimental tokens are defined as CSS vars inside `playground.css`, not in `tailwind.config.ts`

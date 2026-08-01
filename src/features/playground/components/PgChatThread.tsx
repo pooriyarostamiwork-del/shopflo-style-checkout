@@ -100,11 +100,15 @@ export const PgChatThread = ({ chat, columns = 3 }: Props) => {
 
               {m.interactive && (
                 <div className="md:mr-11 max-w-[440px]">
-                  {m.interactive === "quiz" && <PgQuizCard onAnswer={chat.send} />}
-                  {m.interactive === "wizard" && (
-                    <PgMultiStepSelector onComplete={chat.send} />
+                  {m.interactive === "quiz" && (
+                    <PgQuizCard onAnswer={chat.send} onSkip={chat.send} />
                   )}
-                  {m.interactive === "budget" && <PgBudgetSlider onConfirm={chat.send} />}
+                  {m.interactive === "wizard" && (
+                    <PgMultiStepSelector onComplete={chat.send} onSkip={chat.send} />
+                  )}
+                  {m.interactive === "budget" && (
+                    <PgBudgetSlider onConfirm={chat.send} onSkip={chat.send} />
+                  )}
                 </div>
               )}
 

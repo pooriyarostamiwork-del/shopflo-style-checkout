@@ -232,8 +232,8 @@ export const PgBudgetSlider = ({ onConfirm }: { onConfirm: (text: string) => voi
       />
 
       <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-        <span>{faPrice(PG_BUDGET.max)}</span>
         <span>{faPrice(PG_BUDGET.min)}</span>
+        <span>{faPrice(PG_BUDGET.max)}</span>
       </div>
 
       <div className="flex flex-wrap gap-2 mt-3">

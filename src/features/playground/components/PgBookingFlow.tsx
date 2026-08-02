@@ -204,13 +204,6 @@ export const PgBookingForm = ({
 
 /* ---------- 6. review summary ---------- */
 
-const Row = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-center justify-between gap-3 text-[12px]">
-    <span className="text-muted-foreground">{label}</span>
-    <span className="font-medium">{value}</span>
-  </div>
-);
-
 export const PgBookingSummary = ({
   service,
   provider,
@@ -231,60 +224,115 @@ export const PgBookingSummary = ({
   const day = provider ? findDay(provider.id, dayKey) : undefined;
   const slot = findSlot(dayKey, slotId);
   const p = bookingPricing(service);
+  const online = values.mode === "online";
 
   return (
-    <PgBookingCard
-      icon={<CalendarClock className="w-4 h-4" />}
-      title="تأیید نهایی نوبت"
-      hint="اگر چیزی درست نیست قبل از پرداخت اصلاحش کن"
-    >
-      <div className="space-y-2 pb-3 border-b border-border">
-        <Row label="خدمت" value={service?.name ?? "—"} />
-        <Row label="متخصص" value={provider?.name ?? "—"} />
-        <Row label="تاریخ" value={faDayLabel(day)} />
-        <Row label="ساعت" value={faTime(slot?.time)} />
-        <Row label="مدت" value={faDuration(service?.duration ?? 0)} />
-        <Row label="نوع جلسه" value={MODE_LABELS[values.mode]} />
-        <Row
-          label={values.mode === "online" ? "لینک جلسه" : "محل مراجعه"}
-          value={values.mode === "online" ? "پس از تأیید ارسال می‌شود" : provider?.location ?? "—"}
-        />
-        <Row label="مراجع" value={values.attendee} />
-        {values.insurance && <Row label="بیمه" value={values.insurance} />}
+    <div className="rounded-2xl border border-border bg-background overflow-hidden">
+      {/* header */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+          یک قدم تا ثبت نوبت
+        </div>
+        <p className="text-[15px] font-semibold mt-1.5 leading-tight">
+          {service?.name ?? "نوبت"}
+        </p>
       </div>
 
-      <div className="space-y-2 py-3 border-b border-border">
+      {/* hero time block */}
+      <div className="mx-4 rounded-xl bg-muted/60 border border-border px-4 py-3.5">
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground mb-1">زمان نوبت</p>
+            <p className="text-[13px] font-medium truncate">{faDayLabel(day)}</p>
+          </div>
+          <div className="text-left shrink-0">
+            <p className="text-xl font-semibold leading-none tabular-nums">
+              {faTime(slot?.time)}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {faDuration(service?.duration ?? 0)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
+          <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-border bg-background text-[11px]">
+            {online ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+            {MODE_LABELS[values.mode]}
+          </span>
+          {online && (
+            <span className="text-[11px] text-muted-foreground">
+              لینک جلسه پیش از نوبت پیامک می‌شود
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* people */}
+      <div className="px-4 pt-4 space-y-2.5">
+        {provider && (
+          <div className="flex items-center gap-2.5">
+            <img
+              src={provider.avatar}
+              alt={provider.name}
+              className="w-9 h-9 rounded-full object-cover border border-border"
+            />
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-medium truncate">{provider.name}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {provider.title}
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-2.5">
+          <span className="w-9 h-9 rounded-full border border-border flex items-center justify-center">
+            <User className="w-4 h-4 text-muted-foreground" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[12.5px] font-medium truncate">{values.attendee}</p>
+            <p className="text-[11px] text-muted-foreground">مراجع</p>
+          </div>
+        </div>
+      </div>
+
+      {/* price */}
+      <div className="mt-4 px-4 py-3.5 border-t border-border">
         <Row label="هزینه خدمت" value={faPrice(p.fee)} />
-        <Row label="مالیات و کارمزد" value={faPrice(p.tax)} />
-        <Row label="بیعانه لازم برای رزرو" value={faPrice(p.deposit)} />
+        <div className="mt-1.5">
+          <Row label="مالیات و کارمزد" value={faPrice(p.tax)} />
+        </div>
+        <div className="flex items-baseline justify-between mt-3 pt-3 border-t border-border">
+          <span className="text-[12px] text-muted-foreground">مبلغ قابل پرداخت</span>
+          <span className="text-lg font-semibold tabular-nums">{faPrice(p.total)}</span>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between pt-3">
-        <span className="text-[12px] text-muted-foreground">مبلغ کل</span>
-        <span className="text-base font-semibold">{faPrice(p.total)}</span>
+      {/* actions */}
+      <div className="px-4 pb-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onConfirm}
+            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium transition-opacity hover:opacity-90"
+          >
+            ثبت و پرداخت
+          </button>
+          <button
+            onClick={onEdit}
+            className="h-11 px-4 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-muted"
+          >
+            ویرایش
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2.5 leading-relaxed">
+          لغو تا ۲۴ ساعت قبل از نوبت رایگان است.
+        </p>
       </div>
-
-      <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-        لغو تا ۲۴ ساعت قبل از نوبت رایگان است؛ بعد از آن بیعانه بازگردانده نمی‌شود.
-      </p>
-
-      <div className="flex items-center gap-2 mt-3">
-        <button
-          onClick={onConfirm}
-          className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-[13px]"
-        >
-          ثبت و پرداخت بیعانه
-        </button>
-        <button
-          onClick={onEdit}
-          className="h-10 px-3 rounded-lg border border-border text-xs text-muted-foreground"
-        >
-          ویرایش
-        </button>
-      </div>
-    </PgBookingCard>
+    </div>
   );
 };
+
 
 /* ---------- 7. confirmation ---------- */
 

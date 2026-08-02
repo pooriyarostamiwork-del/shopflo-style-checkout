@@ -340,9 +340,6 @@ export const PgBookingSummary = ({
       </div>
     </PgBookingCard>
   );
-
-    </div>
-  );
 };
 
 

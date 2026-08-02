@@ -30,6 +30,8 @@ export interface PgProvider {
   modes: PgServiceMode[];
   /** relative day offset of the first open day; 99 = fully booked */
   nextOpenIn: number;
+  /** promotional / commercial chips shown on the card */
+  tags?: string[];
   /** profile drawer content */
   bio: string;
   specialties: string[];
@@ -150,7 +152,7 @@ const avatar = (seed: string) =>
 export const PG_PROVIDERS: PgProvider[] = [
   {
     id: "prv-1",
-    name: "دکتر سارا کریمی",
+    name: "دکتر سارینا کریمی",
     title: "پزشک عمومی",
     specialty: "پزشکی خانواده",
     rating: 4.9,
@@ -161,6 +163,7 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "کلینیک مرکزی، ولیعصر",
     modes: ["in-person", "online"],
     nextOpenIn: 0,
+    tags: ["محبوب", "نوبت امروز"],
     bio: "یازده سال سابقه ویزیت سرپایی و پیگیری بیماری‌های مزمن. تمرکز روی آموزش بیمار و درمان مرحله‌به‌مرحله بدون تجویز اضافه.",
     specialties: ["پزشکی خانواده", "کنترل فشار خون", "دیابت", "چکاپ دوره‌ای"],
     languages: ["فارسی", "انگلیسی"],
@@ -197,6 +200,7 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "کلینیک شمال، میرداماد",
     modes: ["in-person"],
     nextOpenIn: 2,
+    tags: ["با سابقه"],
     bio: "متخصص داخلی با تمرکز بر بیماری‌های گوارش و کبد؛ تفسیر آزمایش و آندوسکوپی و برنامه درمان بلندمدت.",
     specialties: ["گوارش", "کبد چرب", "آندوسکوپی", "تفسیر آزمایش"],
     languages: ["فارسی", "انگلیسی", "عربی"],
@@ -232,6 +236,7 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "جلسه تصویری",
     modes: ["online"],
     nextOpenIn: 0,
+    tags: ["پاسخ سریع", "اقتصادی"],
     bio: "کارشناس تغذیه با برنامه‌های غذایی شخصی‌سازی‌شده و پیگیری هفتگی آنلاین؛ بدون رژیم‌های سخت و کوتاه‌مدت.",
     specialties: ["رژیم درمانی", "کاهش وزن", "تغذیه ورزشی", "اختلال گوارشی"],
     languages: ["فارسی"],
@@ -267,6 +272,7 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "مطب سعادت‌آباد",
     modes: ["in-person", "online"],
     nextOpenIn: 1,
+    tags: ["محبوب"],
     bio: "روان‌شناس با رویکرد شناختی‌رفتاری برای اضطراب، وسواس و مدیریت استرس شغلی؛ جلسات حضوری و آنلاین.",
     specialties: ["اضطراب", "وسواس", "مدیریت استرس", "زوج‌درمانی"],
     languages: ["فارسی", "انگلیسی"],
@@ -302,6 +308,7 @@ export const PG_PROVIDERS: PgProvider[] = [
     location: "درمانگاه پت‌پلی‌گراند",
     modes: ["in-person"],
     nextOpenIn: 99,
+    tags: ["با سابقه"],
     bio: "دام‌پزشک حیوانات خانگی کوچک؛ معاینه، واکسیناسیون و مشاوره تغذیه سگ و گربه.",
     specialties: ["سگ و گربه", "واکسیناسیون", "تغذیه", "دندان‌پزشکی دامی"],
     languages: ["فارسی"],
@@ -470,3 +477,9 @@ export const bookingCode = (seed: number) =>
   `BK-${(1000 + (seed % 9000)).toString()}`;
 
 export { faPrice, toFa };
+
+/** First day with free slots for a provider (used by the scheduler hints). */
+export const nearestOpenDay = (providerId: string, afterOffset = -1) =>
+  buildDays(providerId, 14).find(
+    (d) => d.offset > afterOffset && !d.closed && buildSlots(d.key).some((s) => !s.taken),
+  );

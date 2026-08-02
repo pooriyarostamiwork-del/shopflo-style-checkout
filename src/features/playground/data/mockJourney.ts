@@ -29,7 +29,9 @@ export type PgBookingBlockKind =
   | "services"
   | "providers"
   | "profile"
+  | "scheduler"
   | "calendar"
+
   | "slots"
   | "form"
   | "summary"

@@ -9,9 +9,12 @@ import {
   CheckCircle2,
   ClipboardList,
   MapPin,
+  ShieldCheck,
+  User,
   Video,
   XCircle,
 } from "lucide-react";
+
 import { PgBookingCard } from "./PgBookingBlocks";
 import {
   MODE_LABELS,

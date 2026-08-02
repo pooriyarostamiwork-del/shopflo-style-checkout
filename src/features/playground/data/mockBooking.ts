@@ -483,3 +483,44 @@ export const nearestOpenDay = (providerId: string, afterOffset = -1) =>
   buildDays(providerId, 14).find(
     (d) => d.offset > afterOffset && !d.closed && buildSlots(d.key).some((s) => !s.taken),
   );
+
+/* ---------- saved attendee profiles (mock) ---------- */
+
+export interface PgAttendeeProfile {
+  id: string;
+  label: string;
+  name: string;
+  phone: string;
+  relation: string;
+  insurance?: string;
+  isDefault?: boolean;
+}
+
+export const PG_ATTENDEES: PgAttendeeProfile[] = [
+  {
+    id: "att-self",
+    label: "خودم",
+    name: "سارا محمدی",
+    phone: "09123456789",
+    relation: "خودم",
+    insurance: "تأمین اجتماعی",
+    isDefault: true,
+  },
+  {
+    id: "att-mother",
+    label: "مادر",
+    name: "فرشته محمدی",
+    phone: "09121112233",
+    relation: "مادر",
+    insurance: "سلامت ایران",
+  },
+  {
+    id: "att-son",
+    label: "پسرم",
+    name: "امیرعلی محمدی",
+    phone: "09359998877",
+    relation: "فرزند",
+  },
+];
+
+export const faPhone = (phone: string) => `\u2068${toFa(phone)}\u2069`;

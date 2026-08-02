@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   CalendarDays,
   ChevronLeft,
+  ChevronRight,
   Clock,
   MapPin,
   Star,

@@ -12,12 +12,8 @@ import {
   findService,
   providersForService,
 } from "../data/mockBooking";
-import {
-  PgAvailabilityCalendar,
-  PgProviderCards,
-  PgServicePicker,
-  PgSlotPicker,
-} from "./PgBookingBlocks";
+import { PgProviderCards, PgScheduler, PgServicePicker } from "./PgBookingBlocks";
+
 import {
   PgBookingConfirmation,
   PgBookingForm,

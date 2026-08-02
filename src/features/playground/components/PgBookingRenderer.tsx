@@ -66,33 +66,25 @@ export const PgBookingRenderer = ({
       );
     }
 
+    case "scheduler":
     case "calendar":
+    case "slots":
       return (
-        <PgAvailabilityCalendar
+        <PgScheduler
           providerId={provider?.id ?? PG_PROVIDERS[0].id}
-          selectedKey={chat.bookingDayKey}
-          onPick={chat.pickBookingDay}
+          duration={service?.duration ?? 30}
+          initialDayKey={payload.dayKey ?? chat.bookingDayKey}
+          initialSlotId={chat.bookingSlotId}
+          onDayChange={chat.pickBookingDay}
+          onSlotChange={chat.pickBookingSlot}
+          onConfirm={chat.confirmSchedule}
+          onAskOther={() => chat.send("زمان دیگری پیشنهاد بده")}
           title={
-            chat.rescheduleCode ? "روز جدید نوبت را انتخاب کن" : "کدوم روز برات مناسبه؟"
+            chat.rescheduleCode ? "زمان جدید نوبت را انتخاب کن" : "زمان نوبت را انتخاب کن"
           }
         />
       );
 
-    case "slots": {
-      const dayKey = payload.dayKey ?? chat.bookingDayKey;
-      if (!dayKey) return null;
-      const day = provider ? findDay(provider.id, dayKey) : undefined;
-      return (
-        <PgSlotPicker
-          dayKey={dayKey}
-          dayLabel={faDayLabel(day)}
-          duration={service?.duration ?? 30}
-          selectedId={chat.bookingSlotId}
-          onPick={chat.pickBookingSlot}
-          onAskOther={() => chat.send("زمان دیگری پیشنهاد بده")}
-        />
-      );
-    }
 
     case "form":
       return <PgBookingForm service={service} onSubmit={chat.submitBookingForm} />;

@@ -288,6 +288,9 @@ export const PgProviderCards = ({
 
 /* ---------- 3. unified scheduler (date + time in one card) ---------- */
 
+const WINDOW = 5;
+const MAX_DAYS = 20;
+
 export const PgScheduler = ({
   providerId,
   duration,
@@ -309,19 +312,24 @@ export const PgScheduler = ({
   onAskOther?: () => void;
   title?: string;
 }) => {
-  const [count, setCount] = useState(7);
-  const days = buildDays(providerId, count);
+  const days = buildDays(providerId, MAX_DAYS);
   const firstOpen = days.find((d) => !d.closed);
   const [dayKey, setDayKey] = useState<string | null>(
     initialDayKey ?? firstOpen?.key ?? null,
   );
   const [slotId, setSlotId] = useState<string | null>(initialSlotId ?? null);
+  const initialPage = Math.floor(
+    (days.find((d) => d.key === (initialDayKey ?? firstOpen?.key))?.offset ?? 0) / WINDOW,
+  );
+  const [page, setPage] = useState(initialPage);
+
+  const pageCount = Math.ceil(days.length / WINDOW);
+  const visible = days.slice(page * WINDOW, page * WINDOW + WINDOW);
 
   const day = days.find((d) => d.key === dayKey) ?? firstOpen;
   const slots = day ? buildSlots(day.key) : [];
   const free = slots.filter((s) => !s.taken);
   const slot = slots.find((s) => s.id === slotId) ?? null;
-  const parts: PgSlot["part"][] = ["morning", "afternoon", "evening"];
 
   const suggestion = days.find(
     (d) => !d.closed && d.key !== day?.key && buildSlots(d.key).some((s) => !s.taken),
@@ -333,46 +341,105 @@ export const PgScheduler = ({
     onDayChange?.(d);
   };
 
+  const goto = (next: number) => {
+    if (next < 0 || next >= pageCount) return;
+    setPage(next);
+  };
+
   return (
     <PgBookingCard
       icon={<CalendarDays className="w-4 h-4" />}
       title={title}
-      hint={`${days[0]?.monthLabel ?? ""} · هر نوبت ${faDuration(duration)} · به وقت تهران`}
+      hint={`هر نوبت ${faDuration(duration)} · به وقت تهران`}
     >
-      {/* date rail */}
-      <div className="flex gap-2 overflow-x-auto pg-scroll-hidden pb-1">
-        {days.map((d) => (
+      {/* pagination header */}
+      <div className="flex items-center justify-between mb-2.5">
+        <p className="text-[12px] font-medium">
+          {visible[0]?.monthLabel}
+          {visible[visible.length - 1]?.monthLabel !== visible[0]?.monthLabel && (
+            <span className="text-muted-foreground">
+              {" – "}
+              {visible[visible.length - 1]?.monthLabel}
+            </span>
+          )}
+        </p>
+        <div className="flex items-center gap-1.5">
           <button
-            key={d.key}
-            onClick={() => !d.closed && selectDay(d)}
-            disabled={d.closed}
-            className={`shrink-0 w-[64px] py-2.5 rounded-xl border text-center transition-colors ${
-              day?.key === d.key
-                ? "border-primary bg-primary text-primary-foreground"
-                : d.closed
-                  ? "border-border/60 text-muted-foreground/50 cursor-not-allowed"
-                  : "border-border hover:border-primary/50"
-            }`}
+            onClick={() => goto(page - 1)}
+            disabled={page === 0}
+            aria-label="روزهای قبل"
+            className="w-8 h-8 rounded-lg border border-border inline-flex items-center justify-center text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
           >
-            <span className="block text-[10px] opacity-80">{d.weekday}</span>
-            <span className="block text-base font-medium leading-tight mt-0.5">
-              {d.dayLabel}
-            </span>
-            <span className="block text-[10px] mt-1 opacity-80">
-              {d.closed ? "تعطیل" : `${toFa(d.openCount)} نوبت`}
-            </span>
+            <ChevronRight className="w-4 h-4" />
           </button>
-        ))}
+          <button
+            onClick={() => goto(page + 1)}
+            disabled={page >= pageCount - 1}
+            aria-label="روزهای بعد"
+            className="w-8 h-8 rounded-lg border border-border inline-flex items-center justify-center text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {count === 7 && (
-        <button onClick={() => setCount(14)} className="mt-2.5 text-[11px] text-primary">
-          روزهای بیشتر
-        </button>
-      )}
+      {/* day cards */}
+      <div key={page} className="grid grid-cols-5 gap-2 pg-anim-in">
+        {visible.map((d) => {
+          const selected = day?.key === d.key;
+          const open = !d.closed && d.openCount > 0;
+          return (
+            <button
+              key={d.key}
+              onClick={() => open && selectDay(d)}
+              disabled={!open}
+              className={`rounded-xl border py-2.5 text-center transition-colors ${
+                selected
+                  ? "border-primary bg-primary/5"
+                  : open
+                    ? "border-border hover:border-primary/40"
+                    : "border-border/60 bg-muted/40 cursor-not-allowed"
+              }`}
+            >
+              <span
+                className={`block text-[11px] ${
+                  selected
+                    ? "text-primary"
+                    : open
+                      ? "text-muted-foreground"
+                      : "text-muted-foreground/50"
+                }`}
+              >
+                {d.weekday}
+              </span>
+              <span
+                className={`block text-lg font-semibold leading-tight mt-0.5 tabular-nums ${
+                  selected ? "text-primary" : open ? "" : "text-muted-foreground/50"
+                }`}
+              >
+                {d.dayLabel}
+              </span>
+              <span className="flex items-center justify-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                {open ? (
+                  <>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        d.openCount > 3 ? "bg-primary" : "bg-amber-500"
+                      }`}
+                    />
+                    {toFa(d.openCount)} نوبت
+                  </>
+                ) : (
+                  "-"
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* slots for selected day */}
-      <div key={day?.key} className="mt-3 pt-3 border-t border-border pg-anim-in">
+      {/* slots for selected day — flat grid, timeframe tagged */}
+      <div key={day?.key} className="mt-3.5 pt-3.5 border-t border-border pg-anim-in">
         {!day || !free.length ? (
           <div className="text-center py-4">
             <p className="text-[12px] text-muted-foreground">
@@ -380,7 +447,10 @@ export const PgScheduler = ({
             </p>
             {suggestion && (
               <button
-                onClick={() => selectDay(suggestion)}
+                onClick={() => {
+                  selectDay(suggestion);
+                  setPage(Math.floor(suggestion.offset / WINDOW));
+                }}
                 className="mt-2 text-[11px] px-3 py-1.5 rounded-full border border-primary/40 text-primary"
               >
                 نزدیک‌ترین روز آزاد: {suggestion.weekday} {suggestion.dayLabel}{" "}
@@ -389,38 +459,37 @@ export const PgScheduler = ({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {parts.map((part) => {
-              const list = slots.filter((s) => s.part === part);
-              if (!list.length) return null;
+          <div className="grid grid-cols-3 gap-2">
+            {slots.map((s) => {
+              const active = slotId === s.id;
               return (
-                <div key={part} className="flex items-start gap-3">
-                  <p className="text-[11px] text-muted-foreground w-14 pt-2.5 shrink-0">
-                    {PART_LABELS[part]}
-                  </p>
-                  <div className="grid grid-cols-4 gap-2 flex-1">
-                    {list.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          if (s.taken) return;
-                          setSlotId(s.id);
-                          onSlotChange?.(s);
-                        }}
-                        disabled={s.taken}
-                        className={`h-9 rounded-xl border text-xs transition-colors ${
-                          slotId === s.id
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : s.taken
-                              ? "border-border/60 text-muted-foreground/50 line-through cursor-not-allowed"
-                              : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        {faTime(s.time)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    if (s.taken) return;
+                    setSlotId(s.id);
+                    onSlotChange?.(s);
+                  }}
+                  disabled={s.taken}
+                  className={`h-12 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : s.taken
+                        ? "border-border/60 bg-muted/40 text-muted-foreground/50 cursor-not-allowed"
+                        : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <span className="text-[13px] font-medium tabular-nums leading-none">
+                    {faTime(s.time)}
+                  </span>
+                  <span
+                    className={`text-[9.5px] leading-none ${
+                      active ? "opacity-80" : "text-muted-foreground"
+                    }`}
+                  >
+                    {PART_LABELS[s.part]}
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -428,7 +497,7 @@ export const PgScheduler = ({
       </div>
 
       {/* footer summary + single CTA */}
-      <div className="mt-3 pt-3 border-t border-border flex items-center gap-3">
+      <div className="mt-3.5 pt-3.5 border-t border-border flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[12px] truncate">
             {day && slot
@@ -458,4 +527,5 @@ export const PgScheduler = ({
     </PgBookingCard>
   );
 };
+
 

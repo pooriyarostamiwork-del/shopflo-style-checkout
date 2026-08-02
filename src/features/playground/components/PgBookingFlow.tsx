@@ -244,52 +244,45 @@ export const PgBookingSummary = ({
   const online = values.mode === "online";
 
   return (
-    <div className="rounded-2xl border border-border bg-background overflow-hidden">
-      {/* header */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-          یک قدم تا ثبت نوبت
-        </div>
-        <p className="text-[15px] font-semibold mt-1.5 leading-tight">
-          {service?.name ?? "نوبت"}
-        </p>
-      </div>
-
-      {/* hero time block */}
-      <div className="mx-4 rounded-xl bg-muted/60 border border-border px-4 py-3.5">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground mb-1">زمان نوبت</p>
-            <p className="text-[13px] font-medium truncate">{faDayLabel(day)}</p>
+    <PgBookingCard
+      icon={<ShieldCheck className="w-4 h-4" />}
+      title="تأیید نهایی نوبت"
+      hint={service?.name ?? "یک قدم تا ثبت نوبت"}
+    >
+      {/* unified detail card: time + people */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        {/* time */}
+        <div className="px-3.5 py-3 bg-muted/50">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground mb-1">زمان نوبت</p>
+              <p className="text-[13px] font-medium truncate">{faDayLabel(day)}</p>
+            </div>
+            <div className="text-left shrink-0">
+              <p className="text-xl font-semibold leading-none tabular-nums">
+                {faTime(slot?.time)}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {faDuration(service?.duration ?? 0)}
+              </p>
+            </div>
           </div>
-          <div className="text-left shrink-0">
-            <p className="text-xl font-semibold leading-none tabular-nums">
-              {faTime(slot?.time)}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {faDuration(service?.duration ?? 0)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
-          <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-border bg-background text-[11px]">
-            {online ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
-            {MODE_LABELS[values.mode]}
-          </span>
-          {online && (
-            <span className="text-[11px] text-muted-foreground">
-              لینک جلسه پیش از نوبت پیامک می‌شود
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-border bg-background text-[11px]">
+              {online ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+              {MODE_LABELS[values.mode]}
             </span>
-          )}
+            {online && (
+              <span className="text-[11px] text-muted-foreground">
+                لینک جلسه پیش از نوبت پیامک می‌شود
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* people */}
-      <div className="px-4 pt-4 space-y-2.5">
+        {/* provider */}
         {provider && (
-          <div className="flex items-center gap-2.5">
+          <div className="px-3.5 py-3 border-t border-border flex items-center gap-2.5">
             <img
               src={provider.avatar}
               alt={provider.name}
@@ -303,19 +296,23 @@ export const PgBookingSummary = ({
             </div>
           </div>
         )}
-        <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-full border border-border flex items-center justify-center">
-            <User className="w-4 h-4 text-muted-foreground" />
-          </span>
-          <div className="min-w-0">
+
+        {/* attendee — no avatar */}
+        <div className="px-3.5 py-3 border-t border-border flex items-center justify-between gap-3">
+          <span className="text-[11px] text-muted-foreground shrink-0">مراجع</span>
+          <div className="min-w-0 text-left">
             <p className="text-[12.5px] font-medium truncate">{values.attendee}</p>
-            <p className="text-[11px] text-muted-foreground">مراجع</p>
+            {values.phone && (
+              <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                {faPhone(values.phone)}
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {/* price */}
-      <div className="mt-4 px-4 py-3.5 border-t border-border">
+      <div className="mt-3.5 pt-3.5 border-t border-border">
         <Row label="هزینه خدمت" value={faPrice(p.fee)} />
         <div className="mt-1.5">
           <Row label="مالیات و کارمزد" value={faPrice(p.tax)} />
@@ -327,25 +324,23 @@ export const PgBookingSummary = ({
       </div>
 
       {/* actions */}
-      <div className="px-4 pb-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onConfirm}
-            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium transition-opacity hover:opacity-90"
-          >
-            ثبت و پرداخت
-          </button>
-          <button
-            onClick={onEdit}
-            className="h-11 px-4 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-muted"
-          >
-            ویرایش
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-2.5 leading-relaxed">
-          لغو تا ۲۴ ساعت قبل از نوبت رایگان است.
-        </p>
+      <div className="flex items-center gap-2 mt-3.5">
+        <button
+          onClick={onConfirm}
+          className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium transition-opacity hover:opacity-90"
+        >
+          ثبت و پرداخت
+        </button>
+        <button
+          onClick={onEdit}
+          className="h-11 px-4 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-muted"
+        >
+          ویرایش
+        </button>
       </div>
+    </PgBookingCard>
+  );
+
     </div>
   );
 };

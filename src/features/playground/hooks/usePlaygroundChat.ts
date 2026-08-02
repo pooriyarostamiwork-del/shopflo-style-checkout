@@ -369,38 +369,31 @@ export const usePlaygroundChat = () => {
         return;
       }
       pushAssistant({
-        content: `تقویم ${provider.name} را آوردم؛ روز مناسب را انتخاب کن:`,
-        booking: { kind: "calendar", providerId: provider.id },
+        content: `تقویم ${provider.name} را آوردم؛ روز و ساعت مناسب را انتخاب کن:`,
+        booking: { kind: "scheduler", providerId: provider.id },
       });
     },
     [pushAssistant],
   );
 
-  const pickBookingDay = useCallback(
-    (day: PgDay) => {
+  /** silent state setters — the scheduler keeps day/time in one interaction */
+  const pickBookingDay = useCallback((day: PgDay) => {
+    setBookingDayKey(day.key);
+    setBookingSlotId(null);
+  }, []);
+
+  const pickBookingSlot = useCallback((slot: PgSlot) => {
+    setBookingSlotId(slot.id);
+  }, []);
+
+  const confirmSchedule = useCallback(
+    (day: PgDay, slot: PgSlot) => {
       setBookingDayKey(day.key);
-      setBookingSlotId(null);
-      const free = buildSlots(day.key).filter((s) => !s.taken);
-      setMessages((m) => [...m, userMessage(faDayLabel(day))]);
-      if (!free.length) {
-        pushAssistant({
-          content: "این روز پر شد:",
-          booking: { kind: "notice", notice: "no-availability" },
-        });
-        return;
-      }
-      pushAssistant({
-        content: `${free.length ? "" : ""}ساعت‌های آزاد این روز:`,
-        booking: { kind: "slots", dayKey: day.key },
-      });
-    },
-    [pushAssistant],
-  );
-
-  const pickBookingSlot = useCallback(
-    (slot: PgSlot) => {
       setBookingSlotId(slot.id);
-      setMessages((m) => [...m, userMessage(`ساعت ${faTime(slot.time)}`)]);
+      setMessages((m) => [
+        ...m,
+        userMessage(`${faDayLabel(day)} · ساعت ${faTime(slot.time)}`),
+      ]);
 
       if (rescheduleCode) {
         const code = rescheduleCode;
@@ -411,7 +404,7 @@ export const usePlaygroundChat = () => {
               ? {
                   ...b,
                   previous: { dayKey: b.dayKey, slotId: b.slotId },
-                  dayKey: bookingDayKey ?? b.dayKey,
+                  dayKey: day.key,
                   slotId: slot.id,
                   status: "rescheduled" as PgBookingStatus,
                 }
@@ -430,8 +423,9 @@ export const usePlaygroundChat = () => {
         booking: { kind: "form" },
       });
     },
-    [pushAssistant, rescheduleCode, bookingDayKey],
+    [pushAssistant, rescheduleCode],
   );
+
 
   const submitBookingForm = useCallback(
     (values: PgBookingFormValues) => {
@@ -492,7 +486,7 @@ export const usePlaygroundChat = () => {
       setMessages((m) => [...m, userMessage("تغییر زمان نوبت")]);
       pushAssistant({
         content: "روز جدید را انتخاب کن؛ نوبت قبلی تا تأیید نگه داشته می‌شود:",
-        booking: { kind: "calendar", providerId: booking.providerId },
+        booking: { kind: "scheduler", providerId: booking.providerId },
       });
     },
     [bookings, pushAssistant],
@@ -574,6 +568,7 @@ export const usePlaygroundChat = () => {
     showProviderProfile,
     pickBookingDay,
     pickBookingSlot,
+    confirmSchedule,
     submitBookingForm,
     confirmBooking,
     editBookingForm,

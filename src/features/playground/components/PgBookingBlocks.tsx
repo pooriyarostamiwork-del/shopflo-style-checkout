@@ -144,6 +144,23 @@ export const PgServicePicker = ({
 
 /* ---------- 2. provider cards ---------- */
 
+const ProviderModeChips = ({ modes }: { modes: PgProvider["modes"] }) => (
+  <>
+    {modes.includes("in-person") && (
+      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
+        <MapPin className="w-3 h-3" />
+        حضوری
+      </span>
+    )}
+    {modes.includes("online") && (
+      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
+        <Video className="w-3 h-3" />
+        آنلاین
+      </span>
+    )}
+  </>
+);
+
 export const PgProviderCards = ({
   providers,
   service,
@@ -172,44 +189,58 @@ export const PgProviderCards = ({
         return (
           <div
             key={p.id}
-            className={`p-3 rounded-xl border transition-colors ${
-              selectedId === p.id ? "border-primary bg-primary/5" : "border-border"
+            className={`p-3.5 rounded-2xl border transition-colors ${
+              selectedId === p.id
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30"
             }`}
           >
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-3">
               <img
                 src={p.avatar}
                 alt={p.name}
                 loading="lazy"
-                className="w-11 h-11 rounded-full object-cover border border-border shrink-0"
+                className="w-[50px] h-[50px] rounded-full object-cover border border-border shrink-0"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium truncate">{p.name}</p>
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-[13.5px] font-medium truncate">{p.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                   {p.title} · {p.specialty}
                 </p>
-                <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
-                  <Star className="w-3 h-3 text-primary" />
-                  <span className="text-foreground">{toFa(p.rating)}</span>
-                  <span>({toFa(p.reviews)})</span>
-                  <span>·</span>
-                  <span>{toFa(p.years)} سال تجربه</span>
-                </p>
+                {!!p.tags?.length && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {p.tags.slice(0, 2).map((t) => (
+                      <span
+                        key={t}
+                        className="text-[10px] px-2 py-0.5 rounded-full border border-primary/30 text-primary bg-primary/5"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-muted-foreground">
-              {p.modes.includes("online") ? (
-                <Video className="w-3 h-3" />
-              ) : (
-                <MapPin className="w-3 h-3" />
-              )}
+            <div className="flex items-center gap-2 mt-3 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Star className="w-3 h-3 text-primary" />
+                <span className="text-foreground">{toFa(p.rating)}</span>
+                <span>({toFa(p.reviews)})</span>
+              </span>
+              <span className="opacity-40">·</span>
+              <span>{toFa(p.years)} سال تجربه</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted-foreground">
+              <MapPin className="w-3 h-3 shrink-0" />
               <span className="truncate">{p.location}</span>
             </div>
 
-            <div className="flex items-center gap-2 mt-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+              <ProviderModeChips modes={p.modes} />
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-md border ${
+                className={`text-[10px] px-2 py-0.5 rounded-full border ${
                   full
                     ? "border-border text-muted-foreground"
                     : "border-primary/40 text-primary"
@@ -221,26 +252,31 @@ export const PgProviderCards = ({
                     ? "نوبت خالی امروز"
                     : `اولین نوبت ${toFa(p.nextOpenIn)} روز دیگر`}
               </span>
-              {service && (
-                <span className="text-[11px] text-muted-foreground ms-auto">
-                  {faPrice(service.price)}
-                </span>
-              )}
             </div>
+
+            {service && (
+              <div className="flex items-baseline gap-2 mt-3 pt-3 border-t border-border">
+                <span className="text-[13px] font-medium">{faPrice(service.price)}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  · {faDuration(service.duration)} جلسه
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center gap-2 mt-3">
               <button
                 onClick={() => onPick(p)}
                 disabled={full}
-                className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs disabled:opacity-40"
+                className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:hover:opacity-40"
               >
                 انتخاب وقت
               </button>
               <button
                 onClick={() => onDetails?.(p)}
-                className="h-9 px-3 rounded-lg border border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+                className="h-10 px-3 rounded-xl border border-border text-xs text-muted-foreground inline-flex items-center gap-1 transition-colors hover:border-primary/40 hover:text-foreground"
               >
                 توضیحات
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -250,39 +286,68 @@ export const PgProviderCards = ({
   </PgBookingCard>
 );
 
-/* ---------- 3. availability calendar rail ---------- */
+/* ---------- 3. unified scheduler (date + time in one card) ---------- */
 
-export const PgAvailabilityCalendar = ({
+export const PgScheduler = ({
   providerId,
-  selectedKey,
-  onPick,
-  title = "کدوم روز برات مناسبه؟",
-  hint,
+  duration,
+  initialDayKey,
+  initialSlotId,
+  onDayChange,
+  onSlotChange,
+  onConfirm,
+  onAskOther,
+  title = "زمان نوبت را انتخاب کن",
 }: {
   providerId: string;
-  selectedKey?: string | null;
-  onPick: (day: PgDay) => void;
+  duration: number;
+  initialDayKey?: string | null;
+  initialSlotId?: string | null;
+  onDayChange?: (day: PgDay) => void;
+  onSlotChange?: (slot: PgSlot) => void;
+  onConfirm: (day: PgDay, slot: PgSlot) => void;
+  onAskOther?: () => void;
   title?: string;
-  hint?: string;
 }) => {
   const [count, setCount] = useState(7);
   const days = buildDays(providerId, count);
-  const month = days[0]?.monthLabel;
+  const firstOpen = days.find((d) => !d.closed);
+  const [dayKey, setDayKey] = useState<string | null>(
+    initialDayKey ?? firstOpen?.key ?? null,
+  );
+  const [slotId, setSlotId] = useState<string | null>(initialSlotId ?? null);
+
+  const day = days.find((d) => d.key === dayKey) ?? firstOpen;
+  const slots = day ? buildSlots(day.key) : [];
+  const free = slots.filter((s) => !s.taken);
+  const slot = slots.find((s) => s.id === slotId) ?? null;
+  const parts: PgSlot["part"][] = ["morning", "afternoon", "evening"];
+
+  const suggestion = days.find(
+    (d) => !d.closed && d.key !== day?.key && buildSlots(d.key).some((s) => !s.taken),
+  );
+
+  const selectDay = (d: PgDay) => {
+    setDayKey(d.key);
+    setSlotId(null);
+    onDayChange?.(d);
+  };
 
   return (
     <PgBookingCard
       icon={<CalendarDays className="w-4 h-4" />}
       title={title}
-      hint={hint ?? `${month} — روزهای خاکستری تعطیل یا پرشده‌اند`}
+      hint={`${days[0]?.monthLabel ?? ""} · هر نوبت ${faDuration(duration)} · به وقت تهران`}
     >
+      {/* date rail */}
       <div className="flex gap-2 overflow-x-auto pg-scroll-hidden pb-1">
         {days.map((d) => (
           <button
             key={d.key}
-            onClick={() => !d.closed && onPick(d)}
+            onClick={() => !d.closed && selectDay(d)}
             disabled={d.closed}
-            className={`shrink-0 w-[62px] py-2.5 rounded-xl border text-center transition-colors ${
-              selectedKey === d.key
+            className={`shrink-0 w-[64px] py-2.5 rounded-xl border text-center transition-colors ${
+              day?.key === d.key
                 ? "border-primary bg-primary text-primary-foreground"
                 : d.closed
                   ? "border-border/60 text-muted-foreground/50 cursor-not-allowed"
@@ -301,79 +366,96 @@ export const PgAvailabilityCalendar = ({
       </div>
 
       {count === 7 && (
-        <button onClick={() => setCount(14)} className="mt-3 text-[11px] text-primary">
+        <button onClick={() => setCount(14)} className="mt-2.5 text-[11px] text-primary">
           روزهای بیشتر
         </button>
       )}
-    </PgBookingCard>
-  );
-};
 
-/* ---------- 4. time-slot picker ---------- */
-
-export const PgSlotPicker = ({
-  dayKey,
-  dayLabel,
-  duration,
-  selectedId,
-  onPick,
-  onAskOther,
-  title = "ساعت مراجعه رو انتخاب کن",
-}: {
-  dayKey: string;
-  dayLabel: string;
-  duration: number;
-  selectedId?: string | null;
-  onPick: (slot: PgSlot) => void;
-  onAskOther?: () => void;
-  title?: string;
-}) => {
-  const slots = buildSlots(dayKey);
-  const parts: PgSlot["part"][] = ["morning", "afternoon", "evening"];
-
-  return (
-    <PgBookingCard
-      icon={<Clock className="w-4 h-4" />}
-      title={title}
-      hint={`${dayLabel} · هر نوبت ${faDuration(duration)} · به وقت تهران`}
-    >
-      <div className="space-y-3">
-        {parts.map((part) => {
-          const list = slots.filter((s) => s.part === part);
-          if (!list.length) return null;
-          return (
-            <div key={part}>
-              <p className="text-[11px] text-muted-foreground mb-1.5">
-                {PART_LABELS[part]}
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {list.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => !s.taken && onPick(s)}
-                    disabled={s.taken}
-                    className={`h-9 rounded-lg border text-xs transition-colors ${
-                      selectedId === s.id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : s.taken
-                          ? "border-border/60 text-muted-foreground/50 line-through cursor-not-allowed"
-                          : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    {faTime(s.time)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      {/* slots for selected day */}
+      <div key={day?.key} className="mt-3 pt-3 border-t border-border pg-anim-in">
+        {!day || !free.length ? (
+          <div className="text-center py-4">
+            <p className="text-[12px] text-muted-foreground">
+              این روز ظرفیت خالی ندارد.
+            </p>
+            {suggestion && (
+              <button
+                onClick={() => selectDay(suggestion)}
+                className="mt-2 text-[11px] px-3 py-1.5 rounded-full border border-primary/40 text-primary"
+              >
+                نزدیک‌ترین روز آزاد: {suggestion.weekday} {suggestion.dayLabel}{" "}
+                {suggestion.monthLabel}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {parts.map((part) => {
+              const list = slots.filter((s) => s.part === part);
+              if (!list.length) return null;
+              return (
+                <div key={part} className="flex items-start gap-3">
+                  <p className="text-[11px] text-muted-foreground w-14 pt-2.5 shrink-0">
+                    {PART_LABELS[part]}
+                  </p>
+                  <div className="grid grid-cols-4 gap-2 flex-1">
+                    {list.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          if (s.taken) return;
+                          setSlotId(s.id);
+                          onSlotChange?.(s);
+                        }}
+                        disabled={s.taken}
+                        className={`h-9 rounded-xl border text-xs transition-colors ${
+                          slotId === s.id
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : s.taken
+                              ? "border-border/60 text-muted-foreground/50 line-through cursor-not-allowed"
+                              : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {faTime(s.time)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {onAskOther && (
-        <button onClick={onAskOther} className="mt-3 text-[11px] text-primary">
-          زمان دیگری پیشنهاد بده
+      {/* footer summary + single CTA */}
+      <div className="mt-3 pt-3 border-t border-border flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] truncate">
+            {day && slot
+              ? `${day.weekday} ${day.dayLabel} ${day.monthLabel} · ${faTime(slot.time)}`
+              : "روز و ساعت را انتخاب کن"}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {faDuration(duration)}
+            {onAskOther && (
+              <>
+                {" · "}
+                <button onClick={onAskOther} className="text-primary">
+                  زمان دیگری پیشنهاد بده
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => day && slot && onConfirm(day, slot)}
+          disabled={!day || !slot}
+          className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:hover:opacity-40 shrink-0"
+        >
+          تأیید زمان
         </button>
-      )}
+      </div>
     </PgBookingCard>
   );
 };
+

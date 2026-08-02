@@ -486,7 +486,7 @@ export const usePlaygroundChat = () => {
       setMessages((m) => [...m, userMessage("تغییر زمان نوبت")]);
       pushAssistant({
         content: "روز جدید را انتخاب کن؛ نوبت قبلی تا تأیید نگه داشته می‌شود:",
-        booking: { kind: "calendar", providerId: booking.providerId },
+        booking: { kind: "scheduler", providerId: booking.providerId },
       });
     },
     [bookings, pushAssistant],
@@ -568,6 +568,7 @@ export const usePlaygroundChat = () => {
     showProviderProfile,
     pickBookingDay,
     pickBookingSlot,
+    confirmSchedule,
     submitBookingForm,
     confirmBooking,
     editBookingForm,

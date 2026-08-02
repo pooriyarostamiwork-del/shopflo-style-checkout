@@ -199,18 +199,24 @@ export const PgDevDrawer = ({ chat, active, onToggleExperiment }: Props) => {
                   <Chip
                     active={false}
                     onClick={() =>
-                      chat.showBookingBlock({ kind: "calendar" }, "تقویم نوبت‌های آزاد:")
+                      chat.showBookingBlock(
+                        { kind: "scheduler" },
+                        "روز و ساعت نوبت را انتخاب کن:",
+                      )
                     }
                   >
-                    تقویم
+                    زمان‌بندی
                   </Chip>
                   <Chip
                     active={false}
                     onClick={() =>
-                      chat.showBookingBlock({ kind: "slots" }, "ساعت‌های آزاد:")
+                      chat.showBookingBlock(
+                        { kind: "scheduler", providerId: "prv-5" },
+                        "زمان‌بندی متخصص پرظرفیت:",
+                      )
                     }
                   >
-                    انتخاب ساعت
+                    زمان‌بندی پر
                   </Chip>
                   <Chip
                     active={false}

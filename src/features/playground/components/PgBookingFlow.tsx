@@ -6,11 +6,12 @@ import {
   BadgeCheck,
   CalendarClock,
   CalendarX,
+  Check,
   CheckCircle2,
   ClipboardList,
   MapPin,
+  Plus,
   ShieldCheck,
-  User,
   Video,
   XCircle,
 } from "lucide-react";
@@ -18,12 +19,15 @@ import {
 import { PgBookingCard } from "./PgBookingBlocks";
 import {
   MODE_LABELS,
+  PG_ATTENDEES,
+  PgAttendeeProfile,
   PgBooking,
   PgProvider,
   PgService,
   bookingPricing,
   faDayLabel,
   faDuration,
+  faPhone,
   faPrice,
   faTime,
   findDay,
@@ -38,6 +42,7 @@ export interface PgBookingFormValues {
   note: string;
   insurance: string;
 }
+
 
 /* ---------- 5. attendee form ---------- */
 

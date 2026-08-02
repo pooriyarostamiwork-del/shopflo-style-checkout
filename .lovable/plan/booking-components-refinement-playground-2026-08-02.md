@@ -5,7 +5,11 @@ Three playground booking blocks get reworked: the appointment summary, the atten
 ## 1. خلاصه نوبت (summary card)
 
 - Remove the مراجع avatar circle; show the attendee as a labeled text row.
-- Merge doctor and attendee into a single card block at the top of the component (one bordered block, doctor row + attendee row separated by a hairline), placed above the time block.
+- Merge doctor and attendee into a single card block at the top of the component where we have these details too: زمان نوبت
+  **دوشنبه ۱۲ تیر**
+  **⁨۱۴:۱۵⁩**
+  ⁨۲۰ دقیقه⁩
+  حضوری
 - Delete the line «لغو تا ۲۴ ساعت قبل از نوبت رایگان است.»
 - Rebuild the header to match the shared block header used by the other booking components (icon + title + hint, bottom border, same paddings/type sizes), so borders and titles are consistent across the booking journey.
 

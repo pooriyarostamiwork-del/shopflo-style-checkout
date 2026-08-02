@@ -6,11 +6,12 @@ import {
   BadgeCheck,
   CalendarClock,
   CalendarX,
+  Check,
   CheckCircle2,
   ClipboardList,
   MapPin,
+  Plus,
   ShieldCheck,
-  User,
   Video,
   XCircle,
 } from "lucide-react";
@@ -18,12 +19,15 @@ import {
 import { PgBookingCard } from "./PgBookingBlocks";
 import {
   MODE_LABELS,
+  PG_ATTENDEES,
+  PgAttendeeProfile,
   PgBooking,
   PgProvider,
   PgService,
   bookingPricing,
   faDayLabel,
   faDuration,
+  faPhone,
   faPrice,
   faTime,
   findDay,
@@ -39,7 +43,8 @@ export interface PgBookingFormValues {
   insurance: string;
 }
 
-/* ---------- 5. attendee form ---------- */
+
+/* ---------- 5. attendee selection (saved profiles + add new) ---------- */
 
 export const PgBookingForm = ({
   service,
@@ -50,71 +55,197 @@ export const PgBookingForm = ({
 }) => {
   const modes: ("in-person" | "online")[] =
     service?.mode === "both" ? ["in-person", "online"] : [service?.mode ?? "in-person"];
-  const [values, setValues] = useState<PgBookingFormValues>({
-    attendee: "",
-    phone: "",
-    mode: modes[0],
-    note: "",
-    insurance: "",
-  });
-  const [errors, setErrors] = useState<Partial<Record<keyof PgBookingFormValues, string>>>(
+
+  const [profiles, setProfiles] = useState<PgAttendeeProfile[]>(PG_ATTENDEES);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    profiles.find((p) => p.isDefault)?.id ?? profiles[0]?.id ?? null,
+  );
+  const [mode, setMode] = useState<"in-person" | "online">(modes[0]);
+  const [note, setNote] = useState("");
+  const [showForm, setShowForm] = useState(profiles.length === 0);
+  const [draft, setDraft] = useState({ name: "", phone: "", insurance: "" });
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; note?: string }>(
     {},
   );
 
-  const set = (k: keyof PgBookingFormValues, v: string) =>
-    setValues((s) => ({ ...s, [k]: v }));
+  const selected = profiles.find((p) => p.id === selectedId) ?? null;
+  const field = "w-full h-10 rounded-lg border bg-background px-3 text-[13px] outline-none";
 
-  const submit = () => {
+  const addProfile = () => {
     const next: typeof errors = {};
-    if (values.attendee.trim().length < 3) next.attendee = "نام و نام خانوادگی را کامل بنویس";
-    if (!/^09\d{9}$/.test(values.phone.replace(/[^\d]/g, "")))
+    if (draft.name.trim().length < 3) next.name = "نام و نام خانوادگی را کامل بنویس";
+    if (!/^09\d{9}$/.test(draft.phone.replace(/[^\d]/g, "")))
       next.phone = "شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود";
-    if (values.note.trim().length > 300) next.note = "توضیح خیلی طولانی است";
     setErrors(next);
-    if (Object.keys(next).length === 0) onSubmit(values);
+    if (Object.keys(next).length) return;
+
+    const created: PgAttendeeProfile = {
+      id: `att-${Date.now()}`,
+      label: draft.name.trim().split(" ")[0],
+      name: draft.name.trim(),
+      phone: draft.phone.replace(/[^\d]/g, ""),
+      relation: "مراجع",
+      insurance: draft.insurance.trim() || undefined,
+    };
+    setProfiles((s) => [created, ...s]);
+    setSelectedId(created.id);
+    setDraft({ name: "", phone: "", insurance: "" });
+    setShowForm(false);
   };
 
-  const field = "w-full h-10 rounded-lg border bg-background px-3 text-[13px] outline-none";
+  const submit = () => {
+    if (!selected) return;
+    if (note.trim().length > 300) {
+      setErrors({ note: "توضیح خیلی طولانی است" });
+      return;
+    }
+    setErrors({});
+    onSubmit({
+      attendee: selected.name,
+      phone: selected.phone,
+      mode,
+      note,
+      insurance: selected.insurance ?? "",
+    });
+  };
 
   return (
     <PgBookingCard
       icon={<ClipboardList className="w-4 h-4" />}
       title="مشخصات نوبت"
-      hint="این اطلاعات برای ثبت نوبت لازم است"
+      hint="مراجع را انتخاب کن یا مراجع جدید اضافه کن"
     >
       <div className="space-y-3">
-        <div>
-          <label className="block text-[11px] text-muted-foreground mb-1">
-            نام مراجع
-          </label>
-          <input
-            value={values.attendee}
-            onChange={(e) => set("attendee", e.target.value)}
-            maxLength={60}
-            placeholder="مثلاً سارا محمدی"
-            className={`${field} ${errors.attendee ? "border-destructive" : "border-border"}`}
-          />
-          {errors.attendee && (
-            <p className="text-[11px] text-destructive mt-1">{errors.attendee}</p>
-          )}
-        </div>
+        {/* add-new trigger */}
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="w-full h-10 rounded-lg border border-dashed border-border text-[12px] text-primary inline-flex items-center justify-center gap-1.5 transition-colors hover:border-primary/50"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            افزودن مراجع جدید
+          </button>
+        )}
 
-        <div>
-          <label className="block text-[11px] text-muted-foreground mb-1">
-            شماره موبایل
-          </label>
-          <input
-            value={values.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            inputMode="numeric"
-            maxLength={14}
-            placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-            dir="ltr"
-            className={`${field} text-right ${errors.phone ? "border-destructive" : "border-border"}`}
-          />
-          {errors.phone && (
-            <p className="text-[11px] text-destructive mt-1">{errors.phone}</p>
-          )}
+        {/* new profile form */}
+        {showForm && (
+          <div className="rounded-xl border border-primary/30 bg-primary/[0.03] p-3 space-y-3 pg-anim-in">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-medium">مراجع جدید</p>
+              {profiles.length > 0 && (
+                <button
+                  onClick={() => {
+                    setShowForm(false);
+                    setErrors({});
+                  }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  انصراف
+                </button>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">
+                نام مراجع
+              </label>
+              <input
+                value={draft.name}
+                onChange={(e) => setDraft((s) => ({ ...s, name: e.target.value }))}
+                maxLength={60}
+                placeholder="مثلاً سارا محمدی"
+                className={`${field} ${errors.name ? "border-destructive" : "border-border"}`}
+              />
+              {errors.name && (
+                <p className="text-[11px] text-destructive mt-1">{errors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">
+                شماره موبایل
+              </label>
+              <input
+                value={draft.phone}
+                onChange={(e) => setDraft((s) => ({ ...s, phone: e.target.value }))}
+                inputMode="numeric"
+                maxLength={14}
+                placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                dir="ltr"
+                className={`${field} text-right ${errors.phone ? "border-destructive" : "border-border"}`}
+              />
+              {errors.phone && (
+                <p className="text-[11px] text-destructive mt-1">{errors.phone}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-muted-foreground mb-1">
+                بیمه (اختیاری)
+              </label>
+              <input
+                value={draft.insurance}
+                onChange={(e) => setDraft((s) => ({ ...s, insurance: e.target.value }))}
+                maxLength={40}
+                placeholder="مثلاً تأمین اجتماعی"
+                className={`${field} border-border`}
+              />
+            </div>
+
+            <button
+              onClick={addProfile}
+              className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-[13px]"
+            >
+              ذخیره مراجع
+            </button>
+          </div>
+        )}
+
+        {/* saved profiles */}
+        <div className="space-y-2">
+          {profiles.map((p) => {
+            const active = selectedId === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedId(p.id)}
+                className={`w-full text-right rounded-xl border p-3 transition-colors ${
+                  active
+                    ? "border-primary bg-primary/[0.04]"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-4 h-4 rounded-full border shrink-0 inline-flex items-center justify-center ${
+                      active ? "border-primary bg-primary" : "border-border"
+                    }`}
+                  >
+                    {active && (
+                      <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                    )}
+                  </span>
+                  <p className="text-[12.5px] font-medium truncate">{p.name}</p>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md border border-border text-muted-foreground shrink-0">
+                    {p.relation}
+                  </span>
+                  {p.isDefault && (
+                    <span className="text-[10px] text-primary shrink-0">پیش‌فرض</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1.5 ps-6">
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {faPhone(p.phone)}
+                  </span>
+                  {p.insurance && (
+                    <span className="text-[11px] text-muted-foreground">
+                      · {p.insurance}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {modes.length > 1 && (
@@ -126,9 +257,9 @@ export const PgBookingForm = ({
               {modes.map((m) => (
                 <button
                   key={m}
-                  onClick={() => set("mode", m)}
+                  onClick={() => setMode(m)}
                   className={`flex-1 h-10 rounded-lg border text-xs flex items-center justify-center gap-1.5 transition-colors ${
-                    values.mode === m
+                    mode === m
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border text-muted-foreground"
                   }`}
@@ -147,24 +278,11 @@ export const PgBookingForm = ({
 
         <div>
           <label className="block text-[11px] text-muted-foreground mb-1">
-            بیمه (اختیاری)
-          </label>
-          <input
-            value={values.insurance}
-            onChange={(e) => set("insurance", e.target.value)}
-            maxLength={40}
-            placeholder="مثلاً تأمین اجتماعی"
-            className={`${field} border-border`}
-          />
-        </div>
-
-        <div>
-          <label className="block text-[11px] text-muted-foreground mb-1">
             علت مراجعه (اختیاری)
           </label>
           <textarea
-            value={values.note}
-            onChange={(e) => set("note", e.target.value)}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
             rows={3}
             maxLength={320}
             placeholder="کوتاه بنویس تا متخصص آماده باشد"
@@ -181,13 +299,13 @@ export const PgBookingForm = ({
           <div className="rounded-xl border border-border p-3">
             <p className="text-[11px] font-medium mb-1.5">آماده‌سازی پیش از جلسه</p>
             <ul className="space-y-1">
-              {service.prep.map((p) => (
+              {service.prep.map((pr) => (
                 <li
-                  key={p}
+                  key={pr}
                   className="text-[11px] text-muted-foreground flex items-start gap-1.5"
                 >
                   <BadgeCheck className="w-3 h-3 mt-0.5 text-primary shrink-0" />
-                  {p}
+                  {pr}
                 </li>
               ))}
             </ul>
@@ -196,7 +314,8 @@ export const PgBookingForm = ({
 
         <button
           onClick={submit}
-          className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-[13px]"
+          disabled={!selected}
+          className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-[13px] transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           بررسی نهایی نوبت
         </button>
@@ -204,6 +323,7 @@ export const PgBookingForm = ({
     </PgBookingCard>
   );
 };
+
 
 /* ---------- 6. review summary ---------- */
 
@@ -239,52 +359,45 @@ export const PgBookingSummary = ({
   const online = values.mode === "online";
 
   return (
-    <div className="rounded-2xl border border-border bg-background overflow-hidden">
-      {/* header */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-          یک قدم تا ثبت نوبت
-        </div>
-        <p className="text-[15px] font-semibold mt-1.5 leading-tight">
-          {service?.name ?? "نوبت"}
-        </p>
-      </div>
-
-      {/* hero time block */}
-      <div className="mx-4 rounded-xl bg-muted/60 border border-border px-4 py-3.5">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground mb-1">زمان نوبت</p>
-            <p className="text-[13px] font-medium truncate">{faDayLabel(day)}</p>
+    <PgBookingCard
+      icon={<ShieldCheck className="w-4 h-4" />}
+      title="تأیید نهایی نوبت"
+      hint={service?.name ?? "یک قدم تا ثبت نوبت"}
+    >
+      {/* unified detail card: time + people */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        {/* time */}
+        <div className="px-3.5 py-3 bg-muted/50">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground mb-1">زمان نوبت</p>
+              <p className="text-[13px] font-medium truncate">{faDayLabel(day)}</p>
+            </div>
+            <div className="text-left shrink-0">
+              <p className="text-xl font-semibold leading-none tabular-nums">
+                {faTime(slot?.time)}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {faDuration(service?.duration ?? 0)}
+              </p>
+            </div>
           </div>
-          <div className="text-left shrink-0">
-            <p className="text-xl font-semibold leading-none tabular-nums">
-              {faTime(slot?.time)}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {faDuration(service?.duration ?? 0)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
-          <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-border bg-background text-[11px]">
-            {online ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
-            {MODE_LABELS[values.mode]}
-          </span>
-          {online && (
-            <span className="text-[11px] text-muted-foreground">
-              لینک جلسه پیش از نوبت پیامک می‌شود
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-border bg-background text-[11px]">
+              {online ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+              {MODE_LABELS[values.mode]}
             </span>
-          )}
+            {online && (
+              <span className="text-[11px] text-muted-foreground">
+                لینک جلسه پیش از نوبت پیامک می‌شود
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* people */}
-      <div className="px-4 pt-4 space-y-2.5">
+        {/* provider */}
         {provider && (
-          <div className="flex items-center gap-2.5">
+          <div className="px-3.5 py-3 border-t border-border flex items-center gap-2.5">
             <img
               src={provider.avatar}
               alt={provider.name}
@@ -298,19 +411,23 @@ export const PgBookingSummary = ({
             </div>
           </div>
         )}
-        <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-full border border-border flex items-center justify-center">
-            <User className="w-4 h-4 text-muted-foreground" />
-          </span>
-          <div className="min-w-0">
+
+        {/* attendee — no avatar */}
+        <div className="px-3.5 py-3 border-t border-border flex items-center justify-between gap-3">
+          <span className="text-[11px] text-muted-foreground shrink-0">مراجع</span>
+          <div className="min-w-0 text-left">
             <p className="text-[12.5px] font-medium truncate">{values.attendee}</p>
-            <p className="text-[11px] text-muted-foreground">مراجع</p>
+            {values.phone && (
+              <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                {faPhone(values.phone)}
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {/* price */}
-      <div className="mt-4 px-4 py-3.5 border-t border-border">
+      <div className="mt-3.5 pt-3.5 border-t border-border">
         <Row label="هزینه خدمت" value={faPrice(p.fee)} />
         <div className="mt-1.5">
           <Row label="مالیات و کارمزد" value={faPrice(p.tax)} />
@@ -322,26 +439,21 @@ export const PgBookingSummary = ({
       </div>
 
       {/* actions */}
-      <div className="px-4 pb-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onConfirm}
-            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium transition-opacity hover:opacity-90"
-          >
-            ثبت و پرداخت
-          </button>
-          <button
-            onClick={onEdit}
-            className="h-11 px-4 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-muted"
-          >
-            ویرایش
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-2.5 leading-relaxed">
-          لغو تا ۲۴ ساعت قبل از نوبت رایگان است.
-        </p>
+      <div className="flex items-center gap-2 mt-3.5">
+        <button
+          onClick={onConfirm}
+          className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium transition-opacity hover:opacity-90"
+        >
+          ثبت و پرداخت
+        </button>
+        <button
+          onClick={onEdit}
+          className="h-11 px-4 rounded-xl border border-border text-xs text-muted-foreground transition-colors hover:bg-muted"
+        >
+          ویرایش
+        </button>
       </div>
-    </div>
+    </PgBookingCard>
   );
 };
 

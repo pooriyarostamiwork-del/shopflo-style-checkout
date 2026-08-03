@@ -189,25 +189,25 @@ export const ChatLanding = ({
       </div>
 
       {/* Hero Section - Centered Chat */}
-      <div className="relative flex flex-col items-center justify-center min-h-[50vh] py-12 px-6">
+      <div className="relative flex flex-col items-center justify-center py-8 xl:py-12 px-6">
         <BentoCard type="product" className="top-8 right-[10%] animate-float-slow" style={{ animationDelay: '0s', animationDuration: '25s' }} />
         <BentoCard type="discount" className="top-24 left-[12%] animate-float-slow" style={{ animationDelay: '2s', animationDuration: '22s', transform: 'rotate(-2deg)' }} />
         <BentoCard type="cart" className="bottom-16 right-[8%] animate-float-slow" style={{ animationDelay: '4s', animationDuration: '28s', transform: 'rotate(1deg)' }} />
         <BentoCard type="product" className="bottom-24 left-[10%] animate-float-slow" style={{ animationDelay: '6s', animationDuration: '24s', transform: 'rotate(2deg)' }} />
 
         {/* Logo & Welcome */}
-        <div className="relative z-10 flex flex-col items-center gap-6 mb-8">
+        <div className="relative z-10 flex flex-col items-center gap-4 xl:gap-6 mb-6 xl:mb-8">
           {firstPageLogo.imageUrl ? (
-            <img src={firstPageLogo.imageUrl} alt="فلوکارت" className="w-20 h-20 rounded-2xl object-cover" />
+            <img src={firstPageLogo.imageUrl} alt="فلوکارت" className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl object-cover" />
           ) : (
             <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center"
+              className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl flex items-center justify-center"
               style={{
                 background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.08))',
                 border: '1px solid hsl(0 0% 0% / 0.06)',
               }}
             >
-              <Zap className="w-10 h-10 text-primary" />
+              <Zap className="w-8 h-8 xl:w-10 xl:h-10 text-primary" />
             </div>
           )}
           <div className="flex flex-col items-center gap-3">

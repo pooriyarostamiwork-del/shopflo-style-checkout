@@ -46,7 +46,7 @@ export const ChatProductCard = ({
 
   return (
     <div 
-      className="w-[240px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col relative"
+      className="w-full max-w-full min-h-[420px] rounded-xl overflow-hidden transition-all duration-200 group flex flex-col relative"
       style={{
         background: 'hsl(0 0% 100%)',
         border: '1px solid hsl(0 0% 0% / 0.08)',

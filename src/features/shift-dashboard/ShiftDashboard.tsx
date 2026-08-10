@@ -40,7 +40,6 @@ const FOOTER_ITEMS: NavItem[] = [
 ];
 
 const FLAT = [...NAV.flatMap(g => g.items), ...FOOTER_ITEMS];
-const USER_NAME = "سارا";
 
 const RailButton = ({
   item, isActive, onClick,

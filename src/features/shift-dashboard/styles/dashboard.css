@@ -1,36 +1,37 @@
-/* Shift Dashboard scoped tokens — editorial, hairline, one hero */
+/* Shift Dashboard scoped tokens — quiet neutral canvas, hairline structure, one accent */
 .shift-dash {
-  --sd-primary: 0 100% 61%;
-  --sd-primary-ink: 0 92% 48%;
-  --sd-primary-soft: 8 100% 96%;
-  --sd-primary-hero: 0 88% 58%;
+  --sd-primary: 0 84% 55%;
+  --sd-primary-ink: 0 74% 44%;
+  --sd-primary-soft: 0 88% 97%;
+  --sd-primary-hero: 0 80% 52%;
 
-  --sd-bg: 48 20% 97%;
+  --sd-bg: 220 18% 98%;
   --sd-surface: 0 0% 100%;
-  --sd-surface-2: 40 12% 95%;
-  --sd-surface-3: 40 10% 92%;
-  --sd-ink: 0 0% 7%;
-  --sd-ink-2: 30 4% 22%;
-  --sd-muted: 30 5% 48%;
-  --sd-stroke: 40 10% 90%;
-  --sd-stroke-strong: 40 8% 80%;
+  --sd-surface-2: 220 16% 96.5%;
+  --sd-surface-3: 220 14% 93%;
+  --sd-ink: 222 22% 11%;
+  --sd-ink-2: 220 12% 28%;
+  --sd-muted: 220 9% 52%;
+  --sd-stroke: 220 14% 91.5%;
+  --sd-stroke-strong: 220 12% 84%;
 
-  --sd-success: 152 55% 38%;
-  --sd-warning: 32 92% 50%;
-  --sd-danger: 0 78% 55%;
+  --sd-success: 156 52% 34%;
+  --sd-warning: 30 88% 45%;
+  --sd-danger: 0 72% 51%;
 
-  --sd-radius-hero: 26px;
-  --sd-radius-card: 20px;
-  --sd-radius-chip: 14px;
-  --sd-radius-btn: 12px;
+  --sd-radius-hero: 18px;
+  --sd-radius-card: 14px;
+  --sd-radius-chip: 10px;
+  --sd-radius-btn: 10px;
 
-  --sd-focus: 0 0 0 3px hsl(var(--sd-primary) / .28);
+  --sd-focus: 0 0 0 3px hsl(var(--sd-primary) / .2);
 
   --sd-lh-tight: 1.25;
-  --sd-lh-body: 1.7;
+  --sd-lh-body: 1.65;
   --sd-lh-num: 1.1;
   --sd-tracking-fa: 0;
   --sd-tracking-num: -0.01em;
+
 
   font-family: 'Vazirmatn', 'Tahoma', sans-serif;
   background: hsl(var(--sd-bg));

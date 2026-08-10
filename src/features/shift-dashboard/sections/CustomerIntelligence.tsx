@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MessagesSquare, X, Lock } from "lucide-react";
 import { SectionHeader } from "../shared/SectionHeader";
 import { useDashboard } from "../context/DashboardContext";
+import { faNum } from "../data/mockDashboard";
 import { useIntelligenceChat } from "../intelligence/useIntelligenceChat";
 import { ThreadsRail } from "../intelligence/ThreadsRail";
 import { ChatTranscript } from "../intelligence/ChatTranscript";
@@ -80,7 +81,7 @@ export const CustomerIntelligence = () => {
               <span>سهمیه پلن Lite تمام شد — برای گفتگوی نامحدود به Shift Pro ارتقا بده.</span>
             ) : (
               <span className="sd-num">
-                پلن Lite: {remaining} پیام از {LITE_LIMIT} پیام باقی مانده.
+                پلن Lite: {faNum(remaining)} پیام از {faNum(LITE_LIMIT)} پیام باقی مانده.
               </span>
             )}
           </div>

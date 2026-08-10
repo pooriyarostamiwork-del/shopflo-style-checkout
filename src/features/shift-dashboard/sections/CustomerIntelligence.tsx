@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessagesSquare, X, Lock } from "lucide-react";
+import { MessagesSquare, X, Lock, Zap } from "lucide-react";
 import { SectionHeader } from "../shared/SectionHeader";
 import { useDashboard } from "../context/DashboardContext";
 import { faNum } from "../data/mockDashboard";

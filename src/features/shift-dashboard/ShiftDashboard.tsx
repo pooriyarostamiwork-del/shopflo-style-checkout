@@ -121,16 +121,11 @@ const ShellInner = () => {
             <AgentStatusToggle />
           </div>
 
-          {/* Right: plan chip + avatar */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Right: plan chip */}
+          <div className="flex items-center shrink-0">
             <PlanTag plan={plan} />
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold border shrink-0 transition-shadow hover:ring-2 hover:ring-[hsl(var(--sd-primary)/0.18)]"
-              style={{ background: "hsl(var(--sd-surface))", color: "hsl(var(--sd-ink))", borderColor: "hsl(var(--sd-stroke-strong))" }}
-            >
-              {USER_NAME.charAt(0)}
-            </div>
           </div>
+
         </div>
       </div>
 

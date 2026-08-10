@@ -22,7 +22,6 @@ export const PlansBilling = () => {
         tabs={[
           { id: "ai", label: "گفتگوهای هوش مصنوعی" },
           { id: "billing", label: "صورتحساب و پلن Shift" },
-          { id: "history", label: "تاریخچه" },
         ]}
         active={tab}
         onChange={setTab}
@@ -30,7 +29,6 @@ export const PlansBilling = () => {
 
       {tab === "ai" && <AITab />}
       {tab === "billing" && <BillingTab plan={plan} />}
-      {tab === "history" && <HistoryTab />}
     </div>
   );
 };
@@ -115,6 +113,8 @@ const AITab = () => {
           );
         })}
       </div>
+
+      <HistoryTable />
     </div>
   );
 };
@@ -162,7 +162,7 @@ const BillingTab = ({ plan }: { plan: string }) => (
   </div>
 );
 
-const HistoryTab = () => (
+const HistoryTable = () => (
   <div className="sd-card overflow-hidden">
     <div className="p-5 border-b text-[14px] font-semibold" style={{ borderColor: "hsl(var(--sd-stroke))" }}>تاریخچه پلن‌های گفتگو</div>
     <table className="sd-table" dir="rtl">

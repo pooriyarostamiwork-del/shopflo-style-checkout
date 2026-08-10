@@ -17,7 +17,7 @@ const Block = ({
       {icon && (
         <span
           className="w-8 h-8 rounded-xl inline-flex items-center justify-center shrink-0"
-          style={{ background: "hsl(var(--sd-primary-soft))", color: "hsl(var(--sd-primary-ink))" }}
+          style={{ background: "hsl(var(--sd-surface-2))", color: "hsl(var(--sd-ink-2))" }}
         >
           {icon}
         </span>
@@ -40,7 +40,7 @@ const Field = ({ label, children }: { label: string; children: any }) => (
 
 const FieldWithToggle = ({ label, value, active, onChange, onToggle, placeholder }: any) => (
   <div
-    className="rounded-2xl border p-3.5 transition-colors"
+    className="rounded-xl border p-3.5 transition-colors"
     style={{
       borderColor: active ? "hsl(var(--sd-stroke-strong))" : "hsl(var(--sd-stroke))",
       background: active ? "hsl(var(--sd-surface))" : "hsl(var(--sd-surface-2) / .5)",
@@ -113,24 +113,24 @@ export const VisualCustomization = () => {
       {tab === "identity" && (
         <div className="space-y-4 sd-anim-in">
           {/* live preview strip */}
-          <div className="sd-card-hero p-5 flex items-center gap-4 flex-wrap">
+          <div className="sd-card p-4 flex items-center gap-3.5 flex-wrap">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0"
-              style={{ background: "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.22)" }}
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0 border"
+              style={{ background: "hsl(var(--sd-surface-2))", borderColor: "hsl(var(--sd-stroke))" }}
             >
               پ
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[11px]" style={{ color: "rgba(255,255,255,.7)" }}>پیش‌نمایش هویت</div>
-              <div className="text-[17px] font-bold mt-1 truncate">{content.agentName}</div>
-              <div className="text-[11.5px] mt-1 truncate" style={{ color: "rgba(255,255,255,.72)" }}>
-                تم فعال: {activeTheme?.name}
-              </div>
+              <div className="sd-eyebrow">پیش‌نمایش هویت</div>
+              <div className="text-[14.5px] font-semibold mt-1 truncate">{content.agentName}</div>
             </div>
-            <div className="flex gap-1.5 shrink-0">
-              {activeTheme?.colors.map(c => (
-                <span key={c} className="w-8 h-8 rounded-xl" style={{ background: c, border: "1px solid rgba(255,255,255,.25)" }} />
-              ))}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="text-[11.5px] text-[hsl(var(--sd-muted))]">تم {activeTheme?.name}</span>
+              <span className="flex gap-1">
+                {activeTheme?.colors.map(c => (
+                  <span key={c} className="w-5 h-5 rounded-full border" style={{ background: c, borderColor: "hsl(var(--sd-stroke-strong))" }} />
+                ))}
+              </span>
             </div>
           </div>
 
@@ -139,7 +139,7 @@ export const VisualCustomization = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold border shrink-0"
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-lg font-bold border shrink-0"
                     style={{ background: "hsl(var(--sd-surface-2))", borderColor: "hsl(var(--sd-stroke))" }}
                   >
                     پ
@@ -163,16 +163,17 @@ export const VisualCustomization = () => {
                     <button
                       key={t.id}
                       onClick={() => updateContent({ themeId: t.id })}
-                      className="rounded-2xl border p-3.5 text-right transition-colors"
+                      className="rounded-xl border p-3.5 text-right transition-colors"
                       style={{
-                        borderColor: active ? "hsl(var(--sd-primary))" : "hsl(var(--sd-stroke))",
-                        background: active ? "hsl(var(--sd-primary-soft))" : "hsl(var(--sd-surface))",
+                        borderColor: active ? "hsl(var(--sd-ink))" : "hsl(var(--sd-stroke))",
+                        background: "hsl(var(--sd-surface))",
+                        boxShadow: active ? "inset 0 0 0 1px hsl(var(--sd-ink))" : "none",
                       }}
                     >
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <span className="text-[12.5px] font-semibold truncate">{t.name}</span>
                         {active && (
-                          <span className="w-[18px] h-[18px] rounded-full inline-flex items-center justify-center shrink-0" style={{ background: "hsl(var(--sd-primary))" }}>
+                          <span className="w-[18px] h-[18px] rounded-full inline-flex items-center justify-center shrink-0" style={{ background: "hsl(var(--sd-ink))" }}>
                             <Check className="w-2.5 h-2.5 text-white" />
                           </span>
                         )}
@@ -264,10 +265,11 @@ export const VisualCustomization = () => {
                   const active = content.loadingId === a.id;
                   return (
                     <button key={a.id} onClick={() => updateContent({ loadingId: a.id })}
-                      className="rounded-2xl border p-4 flex flex-col items-center gap-2 transition-colors"
+                      className="rounded-xl border p-4 flex flex-col items-center gap-2 transition-colors"
                       style={{
-                        borderColor: active ? "hsl(var(--sd-primary))" : "hsl(var(--sd-stroke))",
-                        background: active ? "hsl(var(--sd-primary-soft))" : "hsl(var(--sd-surface))",
+                        borderColor: active ? "hsl(var(--sd-ink))" : "hsl(var(--sd-stroke))",
+                        background: "hsl(var(--sd-surface))",
+                        boxShadow: active ? "inset 0 0 0 1px hsl(var(--sd-ink))" : "none",
                       }}>
                       <LoadingPreview id={a.id} />
                       <span className="text-[12px] font-medium">{a.name}</span>

@@ -68,24 +68,60 @@ export const CustomerIntelligence = () => {
           }}
         />
         {isLite && (
-          <div
-            className="mx-4 mb-2 rounded-xl border px-3.5 py-2.5 flex items-center gap-2 text-[11.5px]"
-            style={{
-              borderColor: limitReached ? "hsl(var(--sd-primary) / .35)" : "hsl(var(--sd-stroke))",
-              background: limitReached ? "hsl(var(--sd-primary-soft))" : "hsl(var(--sd-surface-2) / .6)",
-              color: "hsl(var(--sd-ink-2))",
-            }}
-          >
-            <Lock className="w-3.5 h-3.5 shrink-0" />
-            {limitReached ? (
-              <span>سهمیه پلن Lite تمام شد — برای گفتگوی نامحدود به Shift Pro ارتقا بده.</span>
-            ) : (
-              <span className="sd-num">
-                پلن Lite: {faNum(remaining)} پیام از {faNum(LITE_LIMIT)} پیام باقی مانده.
+          <div className="px-4 sm:px-6 pb-2">
+            <div
+              className="max-w-[760px] mx-auto rounded-2xl border px-3.5 py-2.5 flex items-center gap-3"
+              style={{
+                borderColor: limitReached
+                  ? "hsl(var(--sd-primary) / .28)"
+                  : "hsl(var(--sd-stroke))",
+                background: "hsl(var(--sd-surface))",
+              }}
+            >
+              <span
+                className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  background: limitReached
+                    ? "hsl(var(--sd-primary-soft))"
+                    : "hsl(var(--sd-surface-2))",
+                  color: limitReached
+                    ? "hsl(var(--sd-primary-ink))"
+                    : "hsl(var(--sd-muted))",
+                }}
+              >
+                {limitReached ? <Lock className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5" />}
               </span>
-            )}
+
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-semibold text-[hsl(var(--sd-ink))]">
+                  {limitReached ? "سهمیه پلن Lite تمام شد" : "سهمیه گفتگوی پلن Lite"}
+                </div>
+                <div className="text-[11px] text-[hsl(var(--sd-muted))] mt-0.5 sd-num">
+                  {limitReached
+                    ? "برای گفتگوی نامحدود به Shift Pro ارتقا بده."
+                    : `${faNum(remaining)} از ${faNum(LITE_LIMIT)} پیام باقی مانده`}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0" aria-hidden>
+                {Array.from({ length: LITE_LIMIT }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="h-1.5 rounded-full transition-all"
+                    style={{
+                      width: i < remaining ? 18 : 10,
+                      background:
+                        i < remaining
+                          ? "hsl(var(--sd-primary))"
+                          : "hsl(var(--sd-stroke-strong))",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
+
         <ChatComposer
           value={input}
           onChange={setInput}

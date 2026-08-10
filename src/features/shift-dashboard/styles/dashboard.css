@@ -374,13 +374,14 @@
 /* ------ Segmented meter ------ */
 .shift-dash .sd-meter {
   display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px;
-  height: 8px;
+  height: 6px;
 }
 .shift-dash .sd-meter span {
   background: hsl(var(--sd-surface-3));
-  border-radius: 2px;
+  border-radius: 999px;
 }
-.shift-dash .sd-meter span.on { background: hsl(var(--sd-primary)); }
+.shift-dash .sd-meter span.on { background: hsl(var(--sd-ink) / .8); }
+
 
 /* ------ Animations ------ */
 @keyframes sd-fade-up {

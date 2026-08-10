@@ -97,7 +97,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
           <ComposedChart data={data} margin={{ top: 10, right: 8, left: 8, bottom: 8 }}>
             <defs>
               <linearGradient id={gidA} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--sd-primary))" stopOpacity={0.16} />
+                <stop offset="0%" stopColor="hsl(var(--sd-primary))" stopOpacity={0.10} />
                 <stop offset="100%" stopColor="hsl(var(--sd-primary))" stopOpacity={0} />
               </linearGradient>
               <linearGradient id={gidB} x1="0" y1="0" x2="0" y2="1">
@@ -164,7 +164,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
               stroke="hsl(var(--sd-ink-2))"
               strokeOpacity={0.55}
               strokeWidth={1.5}
-              fill={`url(#${gidB})`}
+              fill="none"
               dot={false}
               activeDot={{ r: 4, strokeWidth: 2, stroke: "hsl(var(--sd-surface))" }}
               animationDuration={420}

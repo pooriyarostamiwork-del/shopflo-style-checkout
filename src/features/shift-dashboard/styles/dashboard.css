@@ -762,11 +762,19 @@
   border-color: hsl(var(--sd-stroke));
   margin-inline-start: 2px;
 }
+.shift-dash .sd-badge-group[data-tone="ink"] {
+  background: hsl(var(--sd-ink));
+  border-color: hsl(var(--sd-ink));
+  color: hsl(0 0% 100%);
+}
+.shift-dash .sd-badge-group[data-tone="ink"] .sd-badge-dot { background: hsl(0 0% 100% / .8); }
+.shift-dash .sd-badge-group[data-tone="ink"] .sd-badge-trail { border-color: hsl(0 0% 100% / .3); }
 .shift-dash .sd-badge-group[data-tone="brand"] {
   background: hsl(var(--sd-primary-soft));
   border-color: hsl(var(--sd-primary) / .3);
   color: hsl(var(--sd-primary-ink));
 }
+
 .shift-dash .sd-badge-group[data-tone="brand"] .sd-badge-dot { background: hsl(var(--sd-primary)); }
 .shift-dash .sd-badge-group[data-tone="neutral"] {
   background: hsl(var(--sd-surface-2));

@@ -73,16 +73,14 @@ export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, peri
         </div>
 
         <div className="mt-3 flex items-center gap-2 flex-wrap">
-          <span
-            className="text-[11px]"
-            style={{ color: hero ? heroMuted : "hsl(var(--sd-muted))" }}
-          >
-            {period}
-          </span>
           {typeof delta === "number" && (
             <span
-              className="inline-flex items-center gap-0.5 text-[11.5px] font-semibold sd-num"
-              style={{ color: hero ? (up ? "hsl(152 70% 72%)" : "hsl(0 90% 78%)") : deltaColor, unicodeBidi: "isolate" }}
+              className="inline-flex items-center gap-0.5 text-[11px] font-semibold sd-num px-1.5 py-0.5 rounded-md"
+              style={{
+                color: hero ? (up ? "hsl(152 62% 74%)" : "hsl(0 85% 80%)") : deltaColor,
+                background: hero ? "hsl(0 0% 100% / .12)" : deltaBg,
+                unicodeBidi: "isolate",
+              }}
             >
               {up ? (
                 <ArrowUpRight className="w-3 h-3" strokeWidth={2.5} />
@@ -92,6 +90,12 @@ export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, peri
               {up ? "+" : "−"}{fa(Math.abs(delta).toFixed(1))}٪
             </span>
           )}
+          <span
+            className="text-[11px]"
+            style={{ color: hero ? heroMuted : "hsl(var(--sd-muted))" }}
+          >
+            {period}
+          </span>
         </div>
 
         {sub && (
@@ -108,7 +112,7 @@ export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, peri
       {/* Left side (RTL end): tinted icon block */}
       {icon && (
         <div
-          className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center"
+          className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
           style={
             hero
               ? { background: "hsl(0 0% 100% / .12)", color: heroInk }
@@ -119,5 +123,6 @@ export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, peri
         </div>
       )}
     </div>
+
   );
 };

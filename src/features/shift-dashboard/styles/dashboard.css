@@ -844,3 +844,6 @@
 /* ------ Tight table variant ------ */
 .shift-dash .sd-table-tight thead th { padding: 8px 10px; }
 .shift-dash .sd-table-tight tbody td { padding: 10px; }
+
+/* ------ Form column (keeps settings/forms readable on wide screens) ------ */
+.shift-dash .sd-form-col { max-width: 860px; }

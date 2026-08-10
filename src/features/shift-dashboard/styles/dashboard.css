@@ -718,7 +718,7 @@
 .shift-dash .sd-rail-tip::after {
   content: "";
   position: absolute;
-  left: -3px; top: 50%;
+  right: -3px; top: 50%;
   transform: translateY(-50%) rotate(45deg);
   width: 6px; height: 6px;
   background: hsl(var(--sd-ink));

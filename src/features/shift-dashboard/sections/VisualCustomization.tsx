@@ -156,7 +156,7 @@ export const VisualCustomization = () => {
             </Block>
 
             <Block icon={<Palette className="w-4 h-4" />} title="تم رنگی" hint="پالت فروشگاه در تجربه گفتگو">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {themes.map(t => {
                   const active = content.themeId === t.id;
                   return (
@@ -180,7 +180,7 @@ export const VisualCustomization = () => {
                       </div>
                       <div className="flex gap-1.5">
                         {t.colors.map(c => (
-                          <span key={c} className="flex-1 h-7 rounded-lg border" style={{ background: c, borderColor: "hsl(var(--sd-stroke))" }} />
+                          <span key={c} className="w-5 h-5 rounded-full border" style={{ background: c, borderColor: "hsl(var(--sd-stroke-strong))" }} />
                         ))}
                       </div>
                     </button>

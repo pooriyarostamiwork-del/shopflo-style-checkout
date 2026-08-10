@@ -46,8 +46,11 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
   return (
     <div className="sd-card sd-anim-in p-4 sm:p-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
-        <h3 className="text-[15px] font-semibold leading-tight">{title}</h3>
+      <div
+        className="flex items-start justify-between gap-3 pb-4 mb-4 border-b flex-wrap"
+        style={{ borderColor: "hsl(var(--sd-stroke))" }}
+      >
+        <h3 className="text-[13.5px] font-semibold leading-tight">{title}</h3>
         <div className="sd-seg" role="tablist" aria-label="بازه زمانی">
           {(["7d", "30d", "1y"] as Tf[]).map(k => (
             <button key={k} role="tab" aria-selected={tf === k}
@@ -57,6 +60,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
           ))}
         </div>
       </div>
+
 
       {/* Metric ribbon — two side-by-side metrics with clear separation */}
       <div className="flex items-stretch gap-5 mb-5">

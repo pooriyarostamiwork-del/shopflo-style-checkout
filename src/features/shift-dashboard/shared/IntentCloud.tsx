@@ -12,7 +12,7 @@ export const IntentCloud = () => {
           <span
             key={i.label}
             className="sd-badge-group"
-            data-tone={isTop ? "ink" : isMid ? "neutral" : "muted"}
+            data-tone={isTop ? "brand" : isMid ? "neutral" : "muted"}
             title={`${fa(i.weight)} گفتگو`}
           >
             <span className="sd-badge-dot" aria-hidden />

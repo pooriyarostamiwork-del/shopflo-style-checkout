@@ -1,37 +1,36 @@
-/* Shift Dashboard scoped tokens — quiet neutral canvas, hairline structure, one accent */
+/* Shift Dashboard scoped tokens — editorial, hairline, one hero */
 .shift-dash {
-  --sd-primary: 0 84% 55%;
-  --sd-primary-ink: 0 74% 44%;
-  --sd-primary-soft: 0 88% 97%;
-  --sd-primary-hero: 0 80% 52%;
+  --sd-primary: 0 100% 61%;
+  --sd-primary-ink: 0 92% 48%;
+  --sd-primary-soft: 8 100% 96%;
+  --sd-primary-hero: 0 88% 58%;
 
-  --sd-bg: 220 18% 98%;
+  --sd-bg: 48 20% 97%;
   --sd-surface: 0 0% 100%;
-  --sd-surface-2: 220 16% 96.5%;
-  --sd-surface-3: 220 14% 93%;
-  --sd-ink: 222 22% 11%;
-  --sd-ink-2: 220 12% 28%;
-  --sd-muted: 220 9% 52%;
-  --sd-stroke: 220 14% 91.5%;
-  --sd-stroke-strong: 220 12% 84%;
+  --sd-surface-2: 40 12% 95%;
+  --sd-surface-3: 40 10% 92%;
+  --sd-ink: 0 0% 7%;
+  --sd-ink-2: 30 4% 22%;
+  --sd-muted: 30 5% 48%;
+  --sd-stroke: 40 10% 90%;
+  --sd-stroke-strong: 40 8% 80%;
 
-  --sd-success: 156 52% 34%;
-  --sd-warning: 30 88% 45%;
-  --sd-danger: 0 72% 51%;
+  --sd-success: 152 55% 38%;
+  --sd-warning: 32 92% 50%;
+  --sd-danger: 0 78% 55%;
 
-  --sd-radius-hero: 18px;
-  --sd-radius-card: 14px;
-  --sd-radius-chip: 10px;
-  --sd-radius-btn: 10px;
+  --sd-radius-hero: 26px;
+  --sd-radius-card: 20px;
+  --sd-radius-chip: 14px;
+  --sd-radius-btn: 12px;
 
-  --sd-focus: 0 0 0 3px hsl(var(--sd-primary) / .2);
+  --sd-focus: 0 0 0 3px hsl(var(--sd-primary) / .28);
 
   --sd-lh-tight: 1.25;
-  --sd-lh-body: 1.65;
+  --sd-lh-body: 1.7;
   --sd-lh-num: 1.1;
   --sd-tracking-fa: 0;
   --sd-tracking-num: -0.01em;
-
 
   font-family: 'Vazirmatn', 'Tahoma', sans-serif;
   background: hsl(var(--sd-bg));
@@ -305,21 +304,19 @@
 
 /* ------ Section header ------ */
 .shift-dash .sd-eyebrow {
-  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
-  color: hsl(var(--sd-muted));
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: hsl(var(--sd-primary));
   font-weight: 600;
   line-height: 1.4;
 }
 .shift-dash .sd-headline {
-  font-size: 23px; line-height: 1.3; letter-spacing: -0.012em;
+  font-size: 28px; line-height: var(--sd-lh-tight); letter-spacing: -0.01em;
   font-weight: 700; color: hsl(var(--sd-ink));
 }
 .shift-dash .sd-sublead {
-  font-size: 13px; color: hsl(var(--sd-muted)); margin-top: 5px;
-  line-height: 1.6;
-  max-width: 62ch;
+  font-size: 13.5px; color: hsl(var(--sd-muted)); margin-top: 6px;
+  line-height: 1.55;
 }
-
 
 /* ------ Switch ------ */
 .shift-dash .sd-switch {
@@ -374,14 +371,13 @@
 /* ------ Segmented meter ------ */
 .shift-dash .sd-meter {
   display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px;
-  height: 6px;
+  height: 8px;
 }
 .shift-dash .sd-meter span {
   background: hsl(var(--sd-surface-3));
-  border-radius: 999px;
+  border-radius: 2px;
 }
-.shift-dash .sd-meter span.on { background: hsl(var(--sd-ink) / .8); }
-
+.shift-dash .sd-meter span.on { background: hsl(var(--sd-primary)); }
 
 /* ------ Animations ------ */
 @keyframes sd-fade-up {
@@ -541,15 +537,14 @@
   gap: 6px;
   background: hsl(var(--sd-surface));
   border: 1px solid hsl(var(--sd-stroke));
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 8px 8px 8px 14px;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .shift-dash .sd-composer:focus-within {
-  border-color: hsl(var(--sd-stroke-strong));
-  box-shadow: 0 0 0 3px hsl(var(--sd-ink) / .06);
+  border-color: hsl(var(--sd-primary));
+  box-shadow: 0 0 0 3px hsl(var(--sd-primary) / .12);
 }
-
 .shift-dash .sd-composer-input {
   flex: 1;
   min-height: 24px;
@@ -763,19 +758,11 @@
   border-color: hsl(var(--sd-stroke));
   margin-inline-start: 2px;
 }
-.shift-dash .sd-badge-group[data-tone="ink"] {
-  background: hsl(var(--sd-ink));
-  border-color: hsl(var(--sd-ink));
-  color: hsl(0 0% 100%);
-}
-.shift-dash .sd-badge-group[data-tone="ink"] .sd-badge-dot { background: hsl(0 0% 100% / .8); }
-.shift-dash .sd-badge-group[data-tone="ink"] .sd-badge-trail { border-color: hsl(0 0% 100% / .3); }
 .shift-dash .sd-badge-group[data-tone="brand"] {
   background: hsl(var(--sd-primary-soft));
   border-color: hsl(var(--sd-primary) / .3);
   color: hsl(var(--sd-primary-ink));
 }
-
 .shift-dash .sd-badge-group[data-tone="brand"] .sd-badge-dot { background: hsl(var(--sd-primary)); }
 .shift-dash .sd-badge-group[data-tone="neutral"] {
   background: hsl(var(--sd-surface-2));
@@ -845,6 +832,3 @@
 /* ------ Tight table variant ------ */
 .shift-dash .sd-table-tight thead th { padding: 8px 10px; }
 .shift-dash .sd-table-tight tbody td { padding: 10px; }
-
-/* ------ Form column (keeps settings/forms readable on wide screens) ------ */
-.shift-dash .sd-form-col { max-width: 860px; }

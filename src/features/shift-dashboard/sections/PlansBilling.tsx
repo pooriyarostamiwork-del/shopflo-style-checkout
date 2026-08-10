@@ -41,26 +41,25 @@ const AITab = () => {
 
   return (
     <div className="space-y-5">
-      {/* Current status */}
-      <div className="sd-card sd-anim-in p-0 overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x md:divide-x-reverse"
-          style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-          <div className="p-5">
-            <div className="sd-eyebrow">پلن فعلی</div>
-            <div className="mt-1.5 text-[17px] font-semibold">{aiPlans.find(p => p.id === currentAIPlan.id)?.name}</div>
-            <div className="text-[11.5px] mt-1 sd-num text-[hsl(var(--sd-muted))]">خرید: {currentAIPlan.purchaseDate}</div>
+      {/* Current status — hero */}
+      <div className="sd-card-hero sd-anim-in p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <div className="text-[11px]" style={{ color: "rgba(255,255,255,.7)" }}>پلن فعلی</div>
+            <div className="mt-1.5 text-xl font-bold">{aiPlans.find(p => p.id === currentAIPlan.id)?.name}</div>
+            <div className="text-[11px] mt-1 sd-num" style={{ color: "rgba(255,255,255,.7)" }}>خرید: {currentAIPlan.purchaseDate}</div>
           </div>
-          <div className="p-5" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-            <div className="sd-eyebrow">گفتگوهای باقیمانده</div>
-            <div className="mt-1.5 text-[17px] font-semibold sd-num">{faNum(currentAIPlan.remaining)} <span className="text-[hsl(var(--sd-muted))] font-normal">/ {faNum(currentAIPlan.total)}</span></div>
-            <div className="mt-2.5 h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(var(--sd-surface-3))" }}>
-              <div style={{ width: `${remainPct}%`, background: "hsl(var(--sd-primary))", height: "100%" }} />
+          <div>
+            <div className="text-[11px]" style={{ color: "rgba(255,255,255,.7)" }}>گفتگوهای باقیمانده</div>
+            <div className="mt-1.5 text-xl font-bold sd-num">{faNum(currentAIPlan.remaining)} / {faNum(currentAIPlan.total)}</div>
+            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.2)" }}>
+              <div style={{ width: `${remainPct}%`, background: "white", height: "100%" }} />
             </div>
           </div>
-          <div className="p-5" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-            <div className="sd-eyebrow">پلن در صف</div>
-            <div className="mt-1.5 text-[17px] font-semibold">{aiPlans.find(p => p.id === currentAIPlan.queued)?.name}</div>
-            <div className="text-[11.5px] mt-1 text-[hsl(var(--sd-muted))]">پس از اتمام پلن فعلی فعال می‌شود</div>
+          <div>
+            <div className="text-[11px]" style={{ color: "rgba(255,255,255,.7)" }}>پلن در صف</div>
+            <div className="mt-1.5 text-xl font-bold">{aiPlans.find(p => p.id === currentAIPlan.queued)?.name}</div>
+            <div className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,.7)" }}>پس از اتمام پلن فعلی فعال می‌شود</div>
           </div>
         </div>
       </div>
@@ -83,7 +82,7 @@ const AITab = () => {
               )}
               <div className="text-[11px] text-[hsl(var(--sd-muted))]">{p.model}</div>
               <div className="text-[17px] font-bold mt-1">{p.name}</div>
-              <div className="mt-4 text-[21px] font-bold sd-num tracking-tight leading-none">{faToman(price)}</div>
+              <div className="mt-4 text-[24px] font-bold sd-num tracking-tight leading-none">{faToman(price)}</div>
               <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-2 sd-num">
                 {faNum(Math.round(convs))} گفتگو {tier.discount > 0 && <span style={{ color: "hsl(var(--sd-success))" }}> — {faPct(tier.discount)} تخفیف</span>}
               </div>
@@ -107,9 +106,9 @@ const AITab = () => {
               </div>
 
               <ul className="mt-4 space-y-2 text-[12px] text-[hsl(var(--sd-ink-2))] flex-1">
-                {p.features.map(f => <li key={f} className="flex items-center gap-2"><Check className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--sd-ink-2))" }} /> {f}</li>)}
+                {p.features.map(f => <li key={f} className="flex items-center gap-2"><Check className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--sd-primary))" }} /> {f}</li>)}
               </ul>
-              <button className={`mt-5 ${p.popular ? "sd-btn-primary" : "sd-btn-ghost"}`} onClick={() => toast.success(`${p.name} انتخاب شد`)}>خرید پلن</button>
+              <button className="mt-5 sd-btn-primary" onClick={() => toast.success(`${p.name} انتخاب شد`)}>خرید پلن</button>
             </div>
           );
         })}
@@ -125,7 +124,7 @@ const BillingTab = ({ plan }: { plan: string }) => (
     <div className="sd-card p-6 flex items-center justify-between gap-4 flex-wrap">
       <div>
         <div className="text-[11px] text-[hsl(var(--sd-muted))]">پلن فعلی Shift</div>
-        <div className="mt-1.5 text-[22px] font-bold tracking-tight">{shiftPlans.current.name}</div>
+        <div className="mt-1.5 text-[26px] font-bold tracking-tight">{shiftPlans.current.name}</div>
         <div className="text-[12px] text-[hsl(var(--sd-muted))] mt-1 sd-num">
           {faToman(shiftPlans.current.price)} / {shiftPlans.current.cycle} — تمدید بعدی: {shiftPlans.current.nextRenewal}
         </div>

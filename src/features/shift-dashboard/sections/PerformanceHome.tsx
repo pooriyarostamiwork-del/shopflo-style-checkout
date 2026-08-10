@@ -130,11 +130,10 @@ export const PerformanceHome = () => {
       </div>
 
       {/* Signals */}
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="sd-eyebrow shrink-0">سیگنال‌ها</h2>
-        <span className="h-px flex-1" style={{ background: "hsl(var(--sd-stroke))" }} />
+      <div className="flex items-center gap-2 mb-4">
+        <span className="w-1 h-4 rounded-full" style={{ background: "hsl(var(--sd-primary))" }} />
+        <h2 className="text-[15px] font-semibold">سیگنال‌ها</h2>
       </div>
-
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Intent tags */}

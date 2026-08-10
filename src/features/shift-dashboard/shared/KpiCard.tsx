@@ -39,14 +39,10 @@ export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, peri
     >
       {/* Right side (RTL start): text block */}
       <div className="min-w-0 flex-1 flex flex-col">
-        {/* Modern label: accent bar + uppercase-like small caps eyebrow */}
+        {/* Quiet label */}
         <div className="flex items-center gap-2">
           <span
-            className="w-1 h-3.5 rounded-full shrink-0"
-            style={{ background: hero ? heroAccent : "hsl(var(--sd-primary))" }}
-          />
-          <span
-            className="text-[11px] font-medium truncate"
+            className="text-[11.5px] font-medium truncate"
             style={{
               color: hero ? heroMuted : "hsl(var(--sd-muted))",
               letterSpacing: ".01em",
@@ -56,6 +52,7 @@ export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, peri
           </span>
           {live && <span className="sd-live-dot" />}
         </div>
+
 
         <div
           className="text-[26px] font-bold tracking-tight sd-num leading-none mt-3 flex items-baseline gap-1.5 flex-nowrap"

@@ -145,32 +145,18 @@ export const CustomerIntelligence = () => {
         title="هوش مشتری و بازار"
         subtitle="سوال بپرس، الگوهای رفتار مشتری و سیگنال‌های بازارت رو کشف کن."
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="sd-btn-ghost lg:hidden flex items-center gap-2"
-            >
-              <MessagesSquare className="w-4 h-4" />
-              چت‌ها
-            </button>
-            <button
-              onClick={handleNewChat}
-              className="sd-btn-primary flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" strokeWidth={2} />
-              چت جدید
-            </button>
-          </div>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="sd-btn-ghost lg:hidden flex items-center gap-2"
+          >
+            <MessagesSquare className="w-4 h-4" />
+            چت‌ها
+          </button>
         }
       />
 
-      {plan === "lite" ? (
-        <ProLock reason="گفتگو با دیتای مشتری و بازار در پلن Shift Pro فعال می‌شود">
-          {workspace}
-        </ProLock>
-      ) : (
-        workspace
-      )}
+      {workspace}
     </div>
   );
+
 };

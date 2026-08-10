@@ -20,8 +20,10 @@ interface Props {
 export const KpiCard = ({ label, value, unit, sub, delta, live, icon, hero, period = "۷ روز اخیر" }: Props) => {
   const up = typeof delta === "number" ? delta >= 0 : true;
   const deltaColor = up ? "hsl(var(--sd-success))" : "hsl(var(--sd-danger))";
-  const iconTint = up ? "hsl(var(--sd-success) / .10)" : "hsl(var(--sd-danger) / .10)";
-  const iconInk = up ? "hsl(var(--sd-success))" : "hsl(var(--sd-danger))";
+  const deltaBg = up ? "hsl(var(--sd-success) / .09)" : "hsl(var(--sd-danger) / .09)";
+  const iconTint = "hsl(var(--sd-surface-2))";
+  const iconInk = "hsl(var(--sd-ink-2))";
+
 
   // Hero variant colors
   const heroBg = "hsl(var(--sd-ink))";

@@ -66,15 +66,35 @@ export const CustomerIntelligence = () => {
             setInput(s);
           }}
         />
+        {isLite && (
+          <div
+            className="mx-4 mb-2 rounded-xl border px-3.5 py-2.5 flex items-center gap-2 text-[11.5px]"
+            style={{
+              borderColor: limitReached ? "hsl(var(--sd-primary) / .35)" : "hsl(var(--sd-stroke))",
+              background: limitReached ? "hsl(var(--sd-primary-soft))" : "hsl(var(--sd-surface-2) / .6)",
+              color: "hsl(var(--sd-ink-2))",
+            }}
+          >
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            {limitReached ? (
+              <span>سهمیه پلن Lite تمام شد — برای گفتگوی نامحدود به Shift Pro ارتقا بده.</span>
+            ) : (
+              <span className="sd-num">
+                پلن Lite: {remaining} پیام از {LITE_LIMIT} پیام باقی مانده.
+              </span>
+            )}
+          </div>
+        )}
         <ChatComposer
           value={input}
           onChange={setInput}
           onSend={handleSend}
-          disabled={plan === "lite" || chat.status === "thinking"}
+          disabled={limitReached || chat.status === "thinking"}
           isThinking={chat.status === "thinking"}
           autoFocusKey={chat.activeId}
         />
       </div>
+
 
       {/* Mobile drawer */}
       {drawerOpen && (

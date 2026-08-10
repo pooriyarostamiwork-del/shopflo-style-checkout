@@ -1,18 +1,28 @@
 import { useState } from "react";
-import { MessagesSquare, X, Sparkles } from "lucide-react";
+import { MessagesSquare, X, Lock } from "lucide-react";
 import { SectionHeader } from "../shared/SectionHeader";
-import { ProLock } from "../shared/ProLock";
 import { useDashboard } from "../context/DashboardContext";
 import { useIntelligenceChat } from "../intelligence/useIntelligenceChat";
 import { ThreadsRail } from "../intelligence/ThreadsRail";
 import { ChatTranscript } from "../intelligence/ChatTranscript";
 import { ChatComposer } from "../intelligence/ChatComposer";
 
+const LITE_LIMIT = 3;
+
 export const CustomerIntelligence = () => {
   const { plan } = useDashboard();
   const chat = useIntelligenceChat();
   const [input, setInput] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const isLite = plan === "lite";
+  const used = chat.threads.reduce(
+    (n, t) => n + t.messages.filter(m => m.role === "user").length,
+    0,
+  );
+  const remaining = Math.max(0, LITE_LIMIT - used);
+  const limitReached = isLite && remaining === 0;
+
 
   const handleSend = () => {
     const v = input.trim();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plan } from "./data/mockDashboard";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import { PlanTag } from "./shared/PlanTag";

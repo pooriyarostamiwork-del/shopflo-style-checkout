@@ -34,13 +34,13 @@ export const Settings = () => {
       />
 
       {tab === "team" && (
-        <div className="sd-card overflow-hidden">
+        <div className="sd-card overflow-hidden sd-form-col">
           <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
             <div>
               <div className="text-[14px] font-semibold flex items-center gap-2">اعضای تیم {!isPro && <ProBadge />}</div>
               <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">مدیریت دسترسی سطح‌بندی‌شده {!isPro && "(نقش‌های سفارشی فقط در Pro)"}</div>
             </div>
-            <button className="sd-btn-primary" onClick={() => toast("دعوت عضو (نمایشی)")}>+ افزودن عضو</button>
+            <button className="sd-btn-ghost" onClick={() => toast("دعوت عضو (نمایشی)")}>+ افزودن عضو</button>
           </div>
           <table className="sd-table" dir="rtl">
             <thead>
@@ -71,7 +71,7 @@ export const Settings = () => {
       )}
 
       {tab === "integrations" && (
-        <div className="space-y-4">
+        <div className="space-y-4 sd-form-col">
           <div className="sd-card p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -109,7 +109,7 @@ export const Settings = () => {
       )}
 
       {tab === "install" && (
-        <div className="sd-card p-6">
+        <div className="sd-card p-6 sd-form-col">
           <div className="text-[14px] font-semibold mb-1">اسکریپت نصب</div>
           <p className="text-[12px] text-[hsl(var(--sd-muted))] mb-4">این قطعه‌کد را قبل از تگ بسته‌شدن <code>&lt;/body&gt;</code> در فروشگاه خود قرار دهید.</p>
           <div className="relative rounded-2xl p-4 font-mono text-[12px] overflow-x-auto" dir="ltr" style={{ background: "hsl(var(--sd-ink))", color: "hsl(0 0% 92%)" }}>

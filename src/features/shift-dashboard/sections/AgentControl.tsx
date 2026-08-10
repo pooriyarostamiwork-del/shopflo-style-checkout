@@ -32,7 +32,7 @@ export const AgentControl = () => {
       />
 
       {tab === "persona" && (
-        <div className="space-y-4">
+        <div className="space-y-4 sd-form-col">
           <div className="sd-card p-5">
             <label className="text-[12px] text-[hsl(var(--sd-muted))]">نام ایجنت</label>
             <input className="sd-input mt-2" value={content.agentName} onChange={e => updateContent({ agentName: e.target.value })} />
@@ -46,7 +46,7 @@ export const AgentControl = () => {
                   <button
                     key={p.id}
                     onClick={() => updateContent({ personaId: p.id })}
-                    className="text-right p-4 rounded-2xl border transition relative"
+                    className="text-right p-4 rounded-xl border transition relative"
                     style={{
                       borderColor: active ? "hsl(var(--sd-ink))" : "hsl(var(--sd-stroke))",
                       background: active ? "hsl(var(--sd-ink))" : "hsl(var(--sd-surface))",
@@ -67,7 +67,7 @@ export const AgentControl = () => {
       )}
 
       {tab === "rules" && (
-        <div className="space-y-4 sd-anim-in">
+        <div className="space-y-4 sd-form-col sd-anim-in">
           <div className="sd-card overflow-hidden">
             <div className="px-4 pt-4 pb-1">
               <div className="text-[13px] font-semibold">محدودیت‌های ایجنت</div>
@@ -121,7 +121,7 @@ export const AgentControl = () => {
 
 
       {tab === "campaigns" && (
-        <div className="space-y-4">
+        <div className="space-y-4 sd-form-col">
           <div className="sd-card p-5">
             <div className="text-[13px] font-semibold mb-3">محصولات ویژه و پروموشن‌های اولویت‌دار</div>
             <textarea
@@ -148,7 +148,7 @@ export const AgentControl = () => {
         </div>
       )}
 
-      <div className="mt-6 flex justify-start">
+      <div className="mt-6 sd-form-col flex justify-start">
         <button className="sd-btn-primary" onClick={() => toast.success("تغییرات ذخیره شد")}>ذخیره تغییرات</button>
       </div>
     </div>

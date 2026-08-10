@@ -46,8 +46,11 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
   return (
     <div className="sd-card sd-anim-in p-4 sm:p-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
-        <h3 className="text-[15px] font-semibold leading-tight">{title}</h3>
+      <div
+        className="flex items-start justify-between gap-3 pb-4 mb-4 border-b flex-wrap"
+        style={{ borderColor: "hsl(var(--sd-stroke))" }}
+      >
+        <h3 className="text-[13.5px] font-semibold leading-tight">{title}</h3>
         <div className="sd-seg" role="tablist" aria-label="بازه زمانی">
           {(["7d", "30d", "1y"] as Tf[]).map(k => (
             <button key={k} role="tab" aria-selected={tf === k}
@@ -58,6 +61,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
         </div>
       </div>
 
+
       {/* Metric ribbon — two side-by-side metrics with clear separation */}
       <div className="flex items-stretch gap-5 mb-5">
         {/* Metric A (primary) */}
@@ -67,7 +71,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
             <span className="text-[11px] text-[hsl(var(--sd-muted))]">{seriesA.name}</span>
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <div className="text-[22px] font-bold sd-num leading-none text-[hsl(var(--sd-ink))]">{formatterA(headlineValue)}</div>
+            <div className="text-[21px] font-bold sd-num leading-none text-[hsl(var(--sd-ink))]">{formatterA(headlineValue)}</div>
             <DeltaChip value={headlineDelta} />
           </div>
         </div>
@@ -82,7 +86,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
             <span className="text-[11px] text-[hsl(var(--sd-muted))]">{seriesB.name}</span>
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <div className="text-[22px] font-bold sd-num leading-none text-[hsl(var(--sd-ink-2))]">{formatterB(secondaryValue)}</div>
+            <div className="text-[21px] font-bold sd-num leading-none text-[hsl(var(--sd-ink-2))]">{formatterB(secondaryValue)}</div>
           </div>
         </div>
       </div>
@@ -93,15 +97,15 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
           <ComposedChart data={data} margin={{ top: 10, right: 8, left: 8, bottom: 8 }}>
             <defs>
               <linearGradient id={gidA} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--sd-primary))" stopOpacity={0.28} />
+                <stop offset="0%" stopColor="hsl(var(--sd-primary))" stopOpacity={0.10} />
                 <stop offset="100%" stopColor="hsl(var(--sd-primary))" stopOpacity={0} />
               </linearGradient>
               <linearGradient id={gidB} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--sd-ink-2))" stopOpacity={0.14} />
+                <stop offset="0%" stopColor="hsl(var(--sd-ink-2))" stopOpacity={0.10} />
                 <stop offset="100%" stopColor="hsl(var(--sd-ink-2))" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} stroke="hsl(var(--sd-stroke))" strokeOpacity={0.9} />
+            <CartesianGrid vertical={false} stroke="hsl(var(--sd-stroke))" strokeOpacity={0.75} />
             <XAxis
               dataKey="label"
               tickLine={false}
@@ -160,7 +164,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
               stroke="hsl(var(--sd-ink-2))"
               strokeOpacity={0.55}
               strokeWidth={1.5}
-              fill={`url(#${gidB})`}
+              fill="none"
               dot={false}
               activeDot={{ r: 4, strokeWidth: 2, stroke: "hsl(var(--sd-surface))" }}
               animationDuration={420}

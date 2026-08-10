@@ -24,8 +24,7 @@ export const AgentControl = () => {
       <SectionTabs
         tabs={[
           { id: "persona", label: "شخصیت و لحن" },
-          { id: "guardrails", label: "محدودیت‌ها" },
-          { id: "auto", label: "خودکارسازی" },
+          { id: "rules", label: "محدودیت‌ها و خودکارسازی" },
           { id: "campaigns", label: "کمپین‌ها" },
         ]}
         active={tab}
@@ -67,50 +66,59 @@ export const AgentControl = () => {
         </div>
       )}
 
-      {tab === "guardrails" && (
-        <div className="sd-card overflow-hidden">
-          {guardrails.map((g, i) => {
-            const locked = g.pro && !isPro;
-            return (
-              <div key={g.id}
-                className={`p-4 flex items-start justify-between gap-4 ${i > 0 ? "border-t" : ""} ${locked ? "opacity-60" : ""}`}
+      {tab === "rules" && (
+        <div className="space-y-4 sd-anim-in">
+          <div className="sd-card overflow-hidden">
+            <div className="px-4 pt-4 pb-1">
+              <div className="text-[13px] font-semibold">محدودیت‌های ایجنت</div>
+              <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">مرزهایی که ایجنت هرگز از آن‌ها عبور نمی‌کند</div>
+            </div>
+            {guardrails.map(g => {
+              const locked = g.pro && !isPro;
+              return (
+                <div key={g.id}
+                  className={`p-4 flex items-start justify-between gap-4 border-t ${locked ? "opacity-60" : ""}`}
+                  style={{ borderColor: "hsl(var(--sd-stroke))" }}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-[13px]">{g.label}</div>
+                      {g.pro && <ProBadge />}
+                    </div>
+                    <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{g.desc}</div>
+                  </div>
+                  <Switch checked={g.enabled && !locked} onChange={() => toggleGuardrail(g.id)} disabled={locked} />
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="sd-card overflow-hidden">
+            <div className="px-4 pt-4 pb-1">
+              <div className="text-[13px] font-semibold">خودکارسازی</div>
+              <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">کارهایی که ایجنت بدون دخالت تو انجام می‌دهد</div>
+            </div>
+            {[
+              { title: "اعمال خودکار کد تخفیف", desc: "ایجنت کدهای تخفیف واجد شرایط را در طول خرید اعمال می‌کند", checked: content.autoApplyCoupons && isPro, onChange: () => updateContent({ autoApplyCoupons: !content.autoApplyCoupons }), disabled: !isPro, pro: true },
+              { title: "اطلاع‌رسانی خودکار پیشنهادها", desc: "ایجنت به‌طور فعالانه پیشنهادها و تخفیف‌های مرتبط را در گفتگو معرفی کند", checked: content.autoInformOffers, onChange: () => updateContent({ autoInformOffers: !content.autoInformOffers }) },
+              { title: "وضعیت ایجنت", desc: "ایجنت را بدون حذف پیکربندی، فعال یا غیرفعال کنید", checked: content.active, onChange: () => updateContent({ active: !content.active }) },
+            ].map(row => (
+              <div key={row.title}
+                className={`p-4 flex items-start justify-between gap-4 border-t ${row.disabled ? "opacity-60" : ""}`}
                 style={{ borderColor: "hsl(var(--sd-stroke))" }}>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold text-[13px]">{g.label}</div>
-                    {g.pro && <ProBadge />}
+                  <div className="flex items-center gap-2 font-semibold text-[13px]">
+                    {row.title}
+                    {row.pro && !isPro && <ProBadge />}
                   </div>
-                  <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{g.desc}</div>
+                  <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{row.desc}</div>
                 </div>
-                <Switch checked={g.enabled && !locked} onChange={() => toggleGuardrail(g.id)} disabled={locked} />
+                <Switch checked={row.checked} onChange={row.onChange} disabled={row.disabled} />
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       )}
 
-      {tab === "auto" && (
-        <div className="sd-card overflow-hidden">
-          {[
-            { title: "اعمال خودکار کد تخفیف", desc: "ایجنت کدهای تخفیف واجد شرایط را در طول خرید اعمال می‌کند", checked: content.autoApplyCoupons && isPro, onChange: () => updateContent({ autoApplyCoupons: !content.autoApplyCoupons }), disabled: !isPro, pro: true },
-            { title: "اطلاع‌رسانی خودکار پیشنهادها", desc: "ایجنت به‌طور فعالانه پیشنهادها و تخفیف‌های مرتبط را در گفتگو معرفی کند", checked: content.autoInformOffers, onChange: () => updateContent({ autoInformOffers: !content.autoInformOffers }) },
-            { title: "وضعیت ایجنت", desc: "ایجنت را بدون حذف پیکربندی، فعال یا غیرفعال کنید", checked: content.active, onChange: () => updateContent({ active: !content.active }) },
-          ].map((row, i) => (
-            <div key={row.title}
-              className={`p-4 flex items-start justify-between gap-4 ${i > 0 ? "border-t" : ""} ${row.disabled ? "opacity-60" : ""}`}
-              style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-              <div>
-                <div className="flex items-center gap-2 font-semibold text-[13px]">
-                  {row.title}
-                  {row.pro && !isPro && <ProBadge />}
-                </div>
-                <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{row.desc}</div>
-              </div>
-              <Switch checked={row.checked} onChange={row.onChange} disabled={row.disabled} />
-            </div>
-          ))}
-        </div>
-      )}
 
       {tab === "campaigns" && (
         <div className="space-y-4">

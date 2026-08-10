@@ -1,18 +1,29 @@
 import { useState } from "react";
-import { MessagesSquare, X, Sparkles } from "lucide-react";
+import { MessagesSquare, X, Lock } from "lucide-react";
 import { SectionHeader } from "../shared/SectionHeader";
-import { ProLock } from "../shared/ProLock";
 import { useDashboard } from "../context/DashboardContext";
+import { faNum } from "../data/mockDashboard";
 import { useIntelligenceChat } from "../intelligence/useIntelligenceChat";
 import { ThreadsRail } from "../intelligence/ThreadsRail";
 import { ChatTranscript } from "../intelligence/ChatTranscript";
 import { ChatComposer } from "../intelligence/ChatComposer";
+
+const LITE_LIMIT = 3;
 
 export const CustomerIntelligence = () => {
   const { plan } = useDashboard();
   const chat = useIntelligenceChat();
   const [input, setInput] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const isLite = plan === "lite";
+  const used = chat.threads.reduce(
+    (n, t) => n + t.messages.filter(m => m.role === "user").length,
+    0,
+  );
+  const remaining = Math.max(0, LITE_LIMIT - used);
+  const limitReached = isLite && remaining === 0;
+
 
   const handleSend = () => {
     const v = input.trim();
@@ -56,15 +67,35 @@ export const CustomerIntelligence = () => {
             setInput(s);
           }}
         />
+        {isLite && (
+          <div
+            className="mx-4 mb-2 rounded-xl border px-3.5 py-2.5 flex items-center gap-2 text-[11.5px]"
+            style={{
+              borderColor: limitReached ? "hsl(var(--sd-primary) / .35)" : "hsl(var(--sd-stroke))",
+              background: limitReached ? "hsl(var(--sd-primary-soft))" : "hsl(var(--sd-surface-2) / .6)",
+              color: "hsl(var(--sd-ink-2))",
+            }}
+          >
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            {limitReached ? (
+              <span>سهمیه پلن Lite تمام شد — برای گفتگوی نامحدود به Shift Pro ارتقا بده.</span>
+            ) : (
+              <span className="sd-num">
+                پلن Lite: {faNum(remaining)} پیام از {faNum(LITE_LIMIT)} پیام باقی مانده.
+              </span>
+            )}
+          </div>
+        )}
         <ChatComposer
           value={input}
           onChange={setInput}
           onSend={handleSend}
-          disabled={plan === "lite" || chat.status === "thinking"}
+          disabled={limitReached || chat.status === "thinking"}
           isThinking={chat.status === "thinking"}
           autoFocusKey={chat.activeId}
         />
       </div>
+
 
       {/* Mobile drawer */}
       {drawerOpen && (
@@ -115,32 +146,18 @@ export const CustomerIntelligence = () => {
         title="هوش مشتری و بازار"
         subtitle="سوال بپرس، الگوهای رفتار مشتری و سیگنال‌های بازارت رو کشف کن."
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="sd-btn-ghost lg:hidden flex items-center gap-2"
-            >
-              <MessagesSquare className="w-4 h-4" />
-              چت‌ها
-            </button>
-            <button
-              onClick={handleNewChat}
-              className="sd-btn-primary flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" strokeWidth={2} />
-              چت جدید
-            </button>
-          </div>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="sd-btn-ghost lg:hidden flex items-center gap-2"
+          >
+            <MessagesSquare className="w-4 h-4" />
+            چت‌ها
+          </button>
         }
       />
 
-      {plan === "lite" ? (
-        <ProLock reason="گفتگو با دیتای مشتری و بازار در پلن Shift Pro فعال می‌شود">
-          {workspace}
-        </ProLock>
-      ) : (
-        workspace
-      )}
+      {workspace}
     </div>
   );
+
 };

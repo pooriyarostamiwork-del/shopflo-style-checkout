@@ -172,7 +172,7 @@ export const VisualCustomization = () => {
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <span className="text-[12.5px] font-semibold truncate">{t.name}</span>
                         {active && (
-                          <span className="w-4.5 h-4.5 w-[18px] h-[18px] rounded-full inline-flex items-center justify-center shrink-0" style={{ background: "hsl(var(--sd-primary))" }}>
+                          <span className="w-[18px] h-[18px] rounded-full inline-flex items-center justify-center shrink-0" style={{ background: "hsl(var(--sd-primary))" }}>
                             <Check className="w-2.5 h-2.5 text-white" />
                           </span>
                         )}

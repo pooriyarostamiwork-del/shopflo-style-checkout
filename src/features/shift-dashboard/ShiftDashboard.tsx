@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plan } from "./data/mockDashboard";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import { PlanTag } from "./shared/PlanTag";
@@ -64,7 +64,15 @@ const ShellInner = () => {
   const active = FLAT.find(n => n.id === activeSection);
   const Section = active?.component ?? PerformanceHome;
 
+  // Always land at the top of a freshly opened section
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [activeSection]);
+
   const go = (id: string) => { setActiveSection(id); setMobileOpen(false); };
+
 
   const Rail = (
     <aside className="sd-rail" aria-label="ناوبری اصلی">

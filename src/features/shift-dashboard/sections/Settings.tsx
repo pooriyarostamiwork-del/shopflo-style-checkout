@@ -34,13 +34,13 @@ export const Settings = () => {
       />
 
       {tab === "team" && (
-        <div className="sd-card overflow-hidden">
+        <div className="sd-card overflow-hidden sd-form-col">
           <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
             <div>
               <div className="text-[14px] font-semibold flex items-center gap-2">اعضای تیم {!isPro && <ProBadge />}</div>
               <div className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">مدیریت دسترسی سطح‌بندی‌شده {!isPro && "(نقش‌های سفارشی فقط در Pro)"}</div>
             </div>
-            <button className="sd-btn-primary" onClick={() => toast("دعوت عضو (نمایشی)")}>+ افزودن عضو</button>
+            <button className="sd-btn-ghost" onClick={() => toast("دعوت عضو (نمایشی)")}>+ افزودن عضو</button>
           </div>
           <table className="sd-table" dir="rtl">
             <thead>

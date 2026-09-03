@@ -28,20 +28,6 @@ const extractSmartName = (userMessage: string, products: Product[]): string => {
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 
-// ── Intent classification types ──
-interface IntentClassification {
-  intent_type: "transactional" | "discovery" | "comparison" | "info_retrieval" | "conversational";
-  intent_subtype: string;
-  entities: {
-    product_ref?: number;
-    product_name?: string;
-    product_refs?: number[];
-    quantity?: number;
-    delta?: number;
-    coupon_code?: string;
-  };
-  confidence: number;
-}
 
 interface UseAgentMessagesProps {
   updateCurrentBasket: (updater: (prev: BasketState) => BasketState) => void;

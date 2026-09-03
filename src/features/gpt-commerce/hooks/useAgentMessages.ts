@@ -353,7 +353,7 @@ export const useAgentMessages = ({
     updateCurrentBasket(s => ({ ...s, isProcessing: false }));
   }, [cartItems.length, handleFinalizePurchase, updateCurrentBasket]);
 
-  // ── Main message handler with intent classification ──
+  // ── Main message handler: local fast paths, then ONE unified tool-calling agent ──
   const handleSendMessage = useCallback(async (content: string) => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -363,164 +363,73 @@ export const useAgentMessages = ({
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    // Build conversation history for classifier (lightweight, no products)
-    const conversationHistory = messages
-      .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))
-      .slice(-6)
-      .map(m => ({ role: m.role, content: m.content.slice(0, 200) }));
+    // ── Fast paths: deterministic Persian phrasings resolved locally (zero network) ──
+    const p2l = (s: string) => s.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const norm = p2l(content).trim().toLowerCase();
 
-    // Build context for classifier
-    const classifierContext = {
-      has_cart_items: cartItems.length > 0,
-      last_recommended_count: lastRecommendedProducts.length,
-      last_recommended_names: lastRecommendedProducts.slice(0, 6).map(p => p.name),
-      checkout_step: 'idle',
+    const ordinalMap: Record<string, number> = {
+      'اول': 1, 'اولی': 1, 'یکم': 1,
+      'دوم': 2, 'دومی': 2,
+      'سوم': 3, 'سومی': 3,
+      'چهارم': 4, 'چهارمی': 4,
+      'پنجم': 5, 'پنجمی': 5,
+      'ششم': 6, 'ششمی': 6,
     };
-
-    // Determine if this is the first real message (for greeting control)
-    const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;
-
-    // ── Step 1: Classify intent ──
-    const intent = await classifyIntent(content, conversationHistory, classifierContext);
-    console.log('Intent classified:', JSON.stringify(intent));
-
-    // ── Step 2: Route based on intent ──
-    switch (intent.intent_type) {
-      case 'transactional': {
-        // New subtypes that always route to cart_manipulation agent
-        if (['cart_batch_add', 'cart_replace', 'cart_cheapest'].includes(intent.intent_subtype)) {
-          await callCartManipulationAgent(content);
-          return;
-        }
-
-        const quantity = intent.entities.quantity || 1;
-
-        switch (intent.intent_subtype) {
-          case 'cart_add':
-            if (intent.entities.product_ref) {
-              handleTransactionalCartAdd(intent.entities.product_ref, quantity);
-            } else {
-              // No ref — ambiguous, route to cart_manipulation agent
-              await callCartManipulationAgent(content);
-            }
-            return;
-
-          case 'cart_add_by_name':
-            if (intent.entities.product_name) {
-              handleTransactionalCartAddByName(intent.entities.product_name, quantity);
-            } else {
-              await callAgent(content, trimHistoryForAgent(messages), 'discovery', undefined, isFirstMessage);
-            }
-            return;
-
-          case 'cart_remove':
-            if (intent.entities.product_ref || intent.entities.product_name || cartItems.length === 1) {
-              handleTransactionalCartRemove(intent.entities.product_ref, intent.entities.product_name);
-            } else {
-              await callCartManipulationAgent(content);
-            }
-            return;
-
-          case 'quantity_update':
-            if (intent.entities.product_ref || cartItems.length === 1) {
-              handleTransactionalQuantityUpdate(
-                intent.entities.product_ref,
-                intent.entities.quantity || 1,
-                intent.entities.delta
-              );
-            } else {
-              await callCartManipulationAgent(content);
-            }
-            return;
-
-          case 'checkout_initiate':
-            handleTransactionalCheckout();
-            return;
-
-          case 'checkout_direct':
-            if (intent.entities.product_ref && lastRecommendedProducts.length >= intent.entities.product_ref) {
-              const product = lastRecommendedProducts[intent.entities.product_ref - 1];
-              handleAddToCart(product, quantity);
-              setTimeout(() => {
-                handleFinalizePurchase();
-                updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-              }, 500);
-            } else {
-              await callCartManipulationAgent(content);
-            }
-            return;
-
-          case 'save_for_later':
-            if (intent.entities.product_ref && lastRecommendedProducts.length >= intent.entities.product_ref) {
-              const product = lastRecommendedProducts[intent.entities.product_ref - 1];
-              handleSaveProduct(product);
-              const msg: ChatMessage = {
-                id: `saved-${Date.now()}`, role: 'assistant',
-                content: `${product.name} ذخیره شد! ✅`,
-                timestamp: new Date(),
-              };
-              updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-            } else {
-              const msg: ChatMessage = {
-                id: `err-${Date.now()}`, role: 'assistant',
-                content: 'کدوم محصول رو می‌خوای ذخیره کنی؟ شماره محصول رو بگو.',
-                timestamp: new Date(),
-              };
-              updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-            }
-            return;
-
-          case 'order_status': {
-            const msg: ChatMessage = {
-              id: `order-inquiry-${Date.now()}`, role: 'assistant',
-              content: 'برای مشاهده و پیگیری سفارش‌هایت، به بخش «سفارش‌ها» مراجعه کن.',
-              ctaButton: { label: '📦 مشاهده سفارش‌ها', action: 'view-orders', disabled: false },
-              timestamp: new Date(),
-            };
-            updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-            return;
-          }
-
-          default:
-            await callAgent(content, trimHistoryForAgent(messages), 'discovery', undefined, isFirstMessage);
-            return;
-        }
+    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*)(\d+)/) || norm.match(/\b(\d+)\s*(?:ام|امی|م)?\b/);
+    let refNum: number | undefined = refMatch ? parseInt(refMatch[1]) : undefined;
+    if (!refNum) {
+      for (const [word, num] of Object.entries(ordinalMap)) {
+        if (norm.includes(word)) { refNum = num; break; }
       }
-
-      case 'comparison': {
-        const refs = intent.entities.product_refs || [];
-        const productsContext = refs
-          .filter(r => r >= 1 && r <= lastRecommendedProducts.length)
-          .map(r => lastRecommendedProducts[r - 1]);
-
-        if (productsContext.length >= 2) {
-          await callAgent(content, trimHistoryForAgent(messages), 'comparison', productsContext, isFirstMessage);
-        } else {
-          await callAgent(content, trimHistoryForAgent(messages), 'discovery', undefined, isFirstMessage);
-        }
-        return;
-      }
-
-      case 'info_retrieval':
-        await callAgent(content, trimHistoryForAgent(messages), 'info_retrieval', undefined, isFirstMessage);
-        return;
-
-      case 'conversational':
-        await callAgent(content, trimHistoryForAgent(messages), 'conversational', undefined, isFirstMessage);
-        return;
-
-      case 'discovery':
-      default:
-        await callAgent(content, trimHistoryForAgent(messages), 'discovery', undefined, isFirstMessage);
-        return;
     }
+    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته)/);
+    const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+    const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
+    const removeRe = /(حذف|بردار|پاک|خارج|درا?ور|نمی‌?خوام|نخوا)/;
+    const checkoutRe = /(نهایی|پرداخت|چک اوت|checkout|تسویه|ثبت سفارش|تموم کن|تمام کن)/;
+    const qtyUpRe = /(زیاد کن|بیشتر کن)/;
+    const qtyDownRe = /(کم کن|کمتر کن)/;
+    const ordersRe = /(سفارش‌?ها|سفارشاتم|پیگیری سفارش|کد رهگیری)/;
+
+    if (checkoutRe.test(norm) && cartItems.length > 0) {
+      handleTransactionalCheckout();
+      return;
+    }
+    if (ordersRe.test(norm)) {
+      const msg: ChatMessage = {
+        id: `order-inquiry-${Date.now()}`, role: 'assistant',
+        content: 'برای مشاهده و پیگیری سفارش‌هایت، به بخش «سفارش‌ها» مراجعه کن.',
+        ctaButton: { label: '📦 مشاهده سفارش‌ها', action: 'view-orders', disabled: false },
+        timestamp: new Date(),
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
+      return;
+    }
+    if (removeRe.test(norm) && (refNum || cartItems.length >= 1)) {
+      handleTransactionalCartRemove(refNum);
+      return;
+    }
+    if (addRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
+      handleTransactionalCartAdd(refNum, qty);
+      return;
+    }
+    if (qtyUpRe.test(norm) && (refNum || cartItems.length === 1)) {
+      handleTransactionalQuantityUpdate(refNum, qty, +qty);
+      return;
+    }
+    if (qtyDownRe.test(norm) && (refNum || cartItems.length === 1)) {
+      handleTransactionalQuantityUpdate(refNum, qty, -qty);
+      return;
+    }
+
+    // ── Everything else: one agent call, the model picks the tool ──
+    const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;
+    await callUnifiedAgent(content, trimHistoryForAgent(messages), isFirstMessage);
   }, [
-    cartItems, lastRecommendedProducts, messages,
-    handleFinalizePurchase, updateCurrentBasket, handleAddToCart,
-    handleTransactionalCartAdd, handleTransactionalCartAddByName,
-    handleTransactionalCartRemove, handleTransactionalQuantityUpdate,
-    handleTransactionalCheckout, handleSaveProduct,
-    globalAddresses, isOTPVerified, setShowOTPModal, setOtpContext,
+    cartItems, lastRecommendedProducts, messages, updateCurrentBasket,
+    handleTransactionalCartAdd, handleTransactionalCartRemove,
+    handleTransactionalQuantityUpdate, handleTransactionalCheckout,
   ]);
 
   // ── Execute cart actions returned by cart_manipulation agent (batched) ──

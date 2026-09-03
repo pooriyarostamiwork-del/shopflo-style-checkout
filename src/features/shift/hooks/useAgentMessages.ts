@@ -819,8 +819,8 @@ export const useAgentMessages = ({
     updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('shift-agent', {
-        body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true, store_id: storeId },
+      const { data, error } = await invokeWithTimeout('shift-agent', {
+        messages: [{ role: 'user', content }], mode: 'agentic', is_first_message: true, store_id: storeId,
       });
 
       if (error) throw new Error(error.message);

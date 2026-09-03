@@ -595,8 +595,8 @@ export const useAgentMessages = ({
     updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('gpt-commerce-agent', {
-        body: { messages: [{ role: 'user', content }], mode: 'discovery', is_first_message: true },
+      const { data, error } = await invokeWithTimeout('gpt-commerce-agent', {
+        messages: [{ role: 'user', content }], mode: 'agentic', is_first_message: true,
       });
 
       if (error) throw new Error(error.message);

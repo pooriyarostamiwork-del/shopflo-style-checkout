@@ -673,95 +673,55 @@ export const useAgentMessages = ({
     setIsCartOpen(true);
   }, [lastRecommendedProducts, updateCurrentBasket, setIsCartOpen]);
 
-  // ── Call cart_manipulation agent (minimal context, no conversation history) ──
-  const callCartManipulationAgent = useCallback(async (content: string) => {
-    try {
-      const body: any = {
-        messages: [{ role: 'user', content }],
-        mode: 'cart_manipulation',
-        is_first_message: false,
-        store_id: storeId,
-        cart_context: {
-          items: cartItems.map(item => ({
-            id: item.id, name: item.name, price: item.price,
-            quantity: item.quantity, merchant: item.merchant?.name,
-          })),
-          total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        },
-        products_context: lastRecommendedProducts.map(p => ({
-          id: p.id, name: p.name, price: p.price,
-          brand: p.merchant?.name, rating: p.rating,
-        })),
-      };
-
-      const { data, error } = await supabase.functions.invoke('shift-agent', { body });
-      if (error) throw new Error(error.message);
-
-      const actions = data?.cart_actions || [];
-      const responseContent = data?.content || 'عملیات انجام شد.';
-      const needsClarification = data?.needs_clarification || false;
-      const clarificationOptions = data?.clarification_options || [];
-
-      // Execute cart actions if any (single batched update)
-      if (actions.length > 0 && !needsClarification) {
-        executeCartActions(actions);
-      }
-
-      // Build quick replies from clarification options
-      const quickReplies = needsClarification && clarificationOptions.length > 0
-        ? clarificationOptions.map((opt: string, i: number) => ({
-            id: `clarify-${i}`, label: opt, type: 'custom' as QuickReplyType, action: `clarify_${i}`,
-          }))
-        : undefined;
-
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: responseContent,
-        quickReplies,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
-    } catch (err) {
-      console.error('Cart manipulation agent failed:', err);
-      const fallbackMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: 'متأسفانه نتونستم درخواستت رو پردازش کنم. دوباره امتحان کن. 🙏',
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
-    }
-  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, storeId]);
-
-  // ── Call the shift-agent with a specific mode ──
-  const callAgent = useCallback(async (
+  // ── Single unified agent call: search / details / cart tools, model decides ──
+  const callUnifiedAgent = useCallback(async (
     content: string,
     conversationHistory: { role: string; content: string }[],
-    mode: string,
-    productsContext?: Product[],
     isFirstMessage: boolean = false,
   ) => {
     try {
       const body: any = {
         messages: [...conversationHistory, { role: 'user', content }],
-        mode,
+        mode: 'agentic',
         is_first_message: isFirstMessage,
         store_id: storeId,
+        cart_context: {
+          items: cartItems.map(item => ({
+            id: item.id, name: item.name, price: item.price, quantity: item.quantity,
+          })),
+          total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        },
+        products_context: lastRecommendedProducts.slice(0, 6).map(p => ({
+          id: p.id, name: p.name, price: p.price, brand: p.merchant?.name, rating: p.rating,
+        })),
       };
-      if (productsContext) {
-        body.products_context = productsContext.map(p => ({
-          name: p.name,
-          price: p.price,
-          brand: p.merchant?.name,
-          rating: p.rating,
-          specs: p.specs,
-          description: p.description,
-        }));
-      }
 
-      const { data, error } = await supabase.functions.invoke('shift-agent', { body });
+      const { data, error } = await invokeWithTimeout('shift-agent', body);
       if (error) throw new Error(error.message);
+
+      const actions = data?.cart_actions || [];
+      const needsClarification = data?.needs_clarification || false;
+      const clarificationOptions = data?.clarification_options || [];
+
+      if (actions.length > 0 || needsClarification) {
+        if (actions.length > 0 && !needsClarification) executeCartActions(actions);
+
+        const quickReplies = needsClarification && clarificationOptions.length > 0
+          ? clarificationOptions.map((opt: string, i: number) => ({
+              id: `clarify-${i}`, label: opt, type: 'custom' as QuickReplyType, action: `clarify_${i}`,
+            }))
+          : undefined;
+
+        const cartMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: data?.content || 'عملیات انجام شد.',
+          quickReplies,
+          timestamp: new Date(),
+        };
+        updateCurrentBasket(s => ({ ...s, messages: [...s.messages, cartMessage], isProcessing: false }));
+        return;
+      }
 
       const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
       const dbProducts = data?.products || [];
@@ -794,12 +754,12 @@ export const useAgentMessages = ({
       const fallbackMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: 'متأسفانه در حال حاضر سرویس جستجو در دسترس نیست. لطفاً دوباره تلاش کنید. 🙏',
+        content: 'پاسخ‌گویی بیشتر از حد معمول طول کشید. لطفاً دوباره امتحان کن. 🙏',
         timestamp: new Date(),
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [updateCurrentBasket, setBaskets, activeBasketId, storeId]);
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, storeId]);
 
   // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {

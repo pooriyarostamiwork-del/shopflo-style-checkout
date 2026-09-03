@@ -82,32 +82,12 @@ export const mapDbProduct = (dbProduct: any): Product => {
   };
 };
 
-// ── Classify intent via edge function ──
-async function classifyIntent(
-  message: string,
-  conversationHistory: { role: string; content: string }[],
-  context: {
-    has_cart_items: boolean;
-    last_recommended_count: number;
-    last_recommended_names: string[];
-    checkout_step: string;
-  }
-): Promise<IntentClassification> {
-  try {
-    const { data, error } = await supabase.functions.invoke('classify-intent', {
-      body: { message, conversation_history: conversationHistory, context },
-    });
-    if (error) throw new Error(error.message);
-    return data as IntentClassification;
-  } catch (err) {
-    console.error('Intent classification failed, falling back to discovery:', err);
-    return {
-      intent_type: 'discovery',
-      intent_subtype: 'product_search',
-      entities: {},
-      confidence: 0.3,
-    };
-  }
+// ── Invoke an edge function with a hard timeout so a stalled model call can't hang the UI ──
+async function invokeWithTimeout(fn: string, body: any, ms = 25000) {
+  return await Promise.race([
+    supabase.functions.invoke(fn, { body }),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]) as { data: any; error: any };
 }
 
 // ── Fuzzy match products by name (returns ALL matches) ──

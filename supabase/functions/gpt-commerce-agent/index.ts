@@ -121,6 +121,49 @@ SELECTED_IDS:["id1","id2","id3"]
 - برای "ارزون‌ترین" → محصول با کمترین قیمت رو انتخاب کن
 - برای "عوضش کن" → یکی حذف و یکی اضافه کن
 - همیشه یه پیام تأیید فارسی بنویس`,
+
+  agentic: `تو دستیار خرید هوشمند فلوکارت هستی؛ مثل یک فروشنده حرفه‌ای که کل گفتگو رو دنبال می‌کنه.
+
+قوانین کلی:
+- همیشه فارسی، لحن صمیمی، بدون مارک‌داون (بدون ستاره و هشتگ)
+- قیمت‌ها به تومان
+- هرگز price_min یا price_max رو حدس نزن؛ فقط وقتی کاربر عدد گفته
+
+حافظه گفتگو (بخش «حافظه محصولات» پایین):
+- تمام محصولاتی که تا حالا نشون داده شدی، با شماره و شناسه، در حافظه هستن
+- گروه‌های قبلی هیچ‌وقت پاک نمی‌شن؛ کاربر می‌تونه بعداً به هر گروهی برگرده
+
+تشخیص موضوع و مرجع (مهم‌ترین بخش):
+- هر پیام جدید یک «موضوع درخواست» داره و ممکنه یک «مرجع» هم داشته باشه
+- «برای این / با این / مناسب این» یعنی محصول قبلی فقط مرجع است، جواب باید محصول جدید باشه
+  مثال: «برای این لپ‌تاپ چه کیفی بگیرم؟» → جستجو برای کیف، نه لپ‌تاپ
+- «این / اینا / همین‌ها / اونایی که گفتی» به آخرین گروه یا محصول در تمرکز اشاره می‌کنه
+- «اولی‌ها / همون‌هایی که اول گفتی» به گروه‌های قدیمی‌تر اشاره می‌کنه
+- وقتی کاربر موضوع رو عوض کرد، فقط موضوع جدید رو جواب بده و محصولات قبلی رو دوباره نشون نده
+- محصولاتی که کاربر رد کرده رو دوباره به‌عنوان پیشنهاد اصلی نیار
+
+انتخاب ابزار:
+- محصول جدید لازمه → search_products
+- کاربر می‌خواد محصولی که قبلاً دیده رو دوباره ببینه یا مقایسه کنه → recall_products با شناسه‌های همون محصولات
+- جزئیات یک محصول → get_product_details
+- افزودن/حذف/تغییر تعداد سبد → execute_cart_operations (می‌تونی product_id از حافظه بدی)
+- مقایسه یا سوال درباره اطلاعاتی که قبلاً گفتی → بدون ابزار جواب بده
+
+زیرمجموعه‌های موجود در فروشگاه:
+- هدفون، هدست و هندزفری
+- دوربین دیجیتال
+- ساعت و مچ‌بند هوشمند
+- هارد اکسترنال
+- لوازم جانبی گوشی موبایل
+- گوشی موبایل
+- لپ تاپ
+- کیبورد و ماوس
+- تبلت
+
+سیگنال‌ها (اختیاری، در خط‌های آخر پاسخ، فقط وقتی مطمئنی):
+REFERENCE_IDS:["id"]  محصولاتی که مرجع این درخواست بودن
+LIKED_IDS:["id"]  محصولاتی که کاربر پسندید یا انتخاب کرد
+REJECTED_IDS:["id"]  محصولاتی که کاربر رد کرد`,
 };
 
 // ── Tool definitions ──
@@ -244,8 +287,26 @@ const CART_OPERATIONS_TOOL = {
   },
 };
 
+
+const RECALL_TOOL = {
+  type: "function",
+  function: {
+    name: "recall_products",
+    description: "Re-show products the user has ALREADY seen in this conversation (from the product memory). Use for 'show those again', 'compare these', references to earlier groups.",
+    parameters: {
+      type: "object",
+      properties: {
+        product_ids: { type: "array", items: { type: "string" }, description: "IDs from the product memory" },
+      },
+      required: ["product_ids"],
+      additionalProperties: false,
+    },
+  },
+};
+
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
+  agentic: [SEARCH_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL],
   discovery: [SEARCH_TOOL, DETAILS_TOOL],
   comparison: [],
   info_retrieval: [DETAILS_TOOL],
@@ -321,7 +382,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages, mode = "discovery", products_context, cart_context, is_first_message = false } = await req.json();
+    const { messages: userMessages, mode = "discovery", products_context, cart_context, product_memory, memory_index, is_first_message = false } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -364,6 +425,23 @@ serve(async (req) => {
       }
     }
 
+    // ── Agentic mode: inject conversation working memory + cart ──
+    if (effectiveMode === "agentic") {
+      if (typeof product_memory === "string" && product_memory.trim()) {
+        systemPrompt += `\n\nحافظه محصولات این گفتگو:\n${product_memory}`;
+      } else {
+        systemPrompt += `\n\nحافظه محصولات این گفتگو: خالی (هنوز محصولی نشون داده نشده)`;
+      }
+      if (cart_context?.items?.length > 0) {
+        const cartList = cart_context.items.map((item: any, i: number) =>
+          `${i + 1}. [${item.id}] ${item.name} - ${item.price?.toLocaleString()} تومان × ${item.quantity}`
+        ).join("\n");
+        systemPrompt += `\n\nسبد خرید فعلی:\n${cartList}\nجمع: ${cart_context.total?.toLocaleString()} تومان`;
+      } else {
+        systemPrompt += `\n\nسبد خرید فعلی: خالی`;
+      }
+    }
+
     const aiMessages = [
       { role: "system", content: systemPrompt },
       ...userMessages.map((m: any) => ({ role: m.role, content: m.content })),
@@ -374,7 +452,7 @@ serve(async (req) => {
     // ── Start embedding generation in parallel for discovery mode ──
     const originalQuery = userMessages[userMessages.length - 1]?.content || "";
     let embeddingPromise: Promise<number[] | null> | null = null;
-    if (effectiveMode === "discovery") {
+    if (effectiveMode === "discovery" || effectiveMode === "agentic") {
       embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));
     }
 
@@ -441,9 +519,12 @@ serve(async (req) => {
       );
     }
 
-    // ── cart_manipulation mode: parse tool call and return structured actions ──
-    if (effectiveMode === "cart_manipulation") {
-      const toolCall = choice.message.tool_calls[0];
+    // ── Cart operations tool call → return structured actions ──
+    const cartToolCall = choice.message.tool_calls.find(
+      (t: any) => t.function?.name === "execute_cart_operations"
+    );
+    if (effectiveMode === "cart_manipulation" || cartToolCall) {
+      const toolCall = cartToolCall || choice.message.tool_calls[0];
       let cartResult: any;
       try {
         cartResult = JSON.parse(toolCall.function.arguments);
@@ -487,6 +568,16 @@ serve(async (req) => {
         extractedIntent = funcArgs;
         result = await executeSearch(supabase, funcArgs, precomputedEmbedding);
         if (result.products) allProducts = [...allProducts, ...result.products];
+      } else if (funcName === "recall_products") {
+        const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 10) : [];
+        if (ids.length > 0) {
+          const { data: recalled } = await supabase.from("products").select("*").in("id", ids);
+          const ordered = ids.map((id) => (recalled || []).find((p: any) => p.id === id)).filter(Boolean);
+          allProducts = [...allProducts, ...ordered];
+          result = { products: ordered.map((p: any) => ({ id: p.id, name: p.name, price: p.price })) };
+        } else {
+          result = { products: [] };
+        }
       } else if (funcName === "get_product_details") {
         result = await getProductDetails(supabase, funcArgs.product_id);
       } else {
@@ -575,10 +666,24 @@ SELECTED_IDS:["id1","id2","id3"]
       finalContent = finalContent.replace(/\n?SELECTED_IDS:\s*\[.*?\]/, "").trim();
     }
 
+    // ── Parse optional memory signals and strip them from the visible text ──
+    const parseSignal = (label: string): string[] => {
+      const m = finalContent.match(new RegExp(label + ":\\s*(\\[.*?\\])"));
+      if (!m) return [];
+      finalContent = finalContent.replace(new RegExp("\\n?" + label + ":\\s*\\[.*?\\]"), "").trim();
+      try { return JSON.parse(m[1]); } catch { return []; }
+    };
+    const referenceIds = parseSignal("REFERENCE_IDS");
+    const likedIds = parseSignal("LIKED_IDS");
+    const rejectedIds = parseSignal("REJECTED_IDS");
+
     return new Response(
       JSON.stringify({
         content: finalContent,
         products: selectedProducts,
+        reference_product_ids: referenceIds,
+        liked_product_ids: likedIds,
+        rejected_product_ids: rejectedIds,
         quickReplies: selectedProducts.length > 0
           ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
           : [],

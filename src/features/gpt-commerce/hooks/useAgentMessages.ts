@@ -27,6 +27,18 @@ const extractSmartName = (userMessage: string, products: Product[]): string => {
 };
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
+import {
+  ProductMemory,
+  appendGroup,
+  ensureProductMemory,
+  focusProduct,
+  markCommitment,
+  resolveById,
+  resolveByPosition,
+  serializeMemory,
+  setFocus,
+  unmarkInCart,
+} from "./productMemory";
 
 
 interface UseAgentMessagesProps {
@@ -43,6 +55,7 @@ interface UseAgentMessagesProps {
   cartItems: CartItem[];
   messages: ChatMessage[];
   lastRecommendedProducts: Product[];
+  productMemory: ProductMemory;
 }
 
 export const mapDbProduct = (dbProduct: any): Product => {
@@ -105,6 +118,7 @@ export const useAgentMessages = ({
   cartItems,
   messages,
   lastRecommendedProducts,
+  productMemory,
 }: UseAgentMessagesProps) => {
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
@@ -423,12 +437,30 @@ export const useAgentMessages = ({
     updateCurrentBasket(s => {
       let newCartItems = [...s.cartItems];
 
+      const mem = ensureProductMemory(s.productMemory);
+      const addedIds: string[] = [];
+      const removedIds: string[] = [];
+
+      // Resolve an action target by stable id first, then by badge position
+      const resolveTarget = (action: any, indexField = 'product_index'): Product | undefined => {
+        if (action.product_id) {
+          const byId = resolveById(mem, action.product_id) ||
+            lastRecommendedProducts.find(p => p.id === action.product_id);
+          if (byId) return byId;
+        }
+        const idx = action[indexField];
+        if (idx && idx >= 1) {
+          return resolveByPosition(mem, idx, action.group_id) || lastRecommendedProducts[idx - 1];
+        }
+        return undefined;
+      };
+
       for (const action of actions) {
         switch (action.type) {
           case 'add': {
-            const idx = action.product_index;
-            if (idx && idx >= 1 && idx <= lastRecommendedProducts.length) {
-              const product = lastRecommendedProducts[idx - 1];
+            const product = resolveTarget(action);
+            if (product) {
+              addedIds.push(product.id);
               const qty = action.quantity || 1;
               const existing = newCartItems.find(item => item.id === product.id);
               if (existing) {
@@ -442,8 +474,10 @@ export const useAgentMessages = ({
             break;
           }
           case 'remove': {
-            const pid = action.product_id;
+            const target = resolveTarget(action);
+            const pid = action.product_id || target?.id;
             if (pid) {
+              removedIds.push(pid);
               newCartItems = newCartItems.filter(item => item.id !== pid);
             }
             break;
@@ -464,11 +498,12 @@ export const useAgentMessages = ({
           }
           case 'replace': {
             if (action.remove_product_id) {
+              removedIds.push(action.remove_product_id);
               newCartItems = newCartItems.filter(item => item.id !== action.remove_product_id);
             }
-            const addIdx = action.add_product_index;
-            if (addIdx && addIdx >= 1 && addIdx <= lastRecommendedProducts.length) {
-              const product = lastRecommendedProducts[addIdx - 1];
+            const product = resolveTarget({ product_id: action.add_product_id, add_product_index: action.add_product_index, group_id: action.group_id }, 'add_product_index');
+            if (product) {
+              addedIds.push(product.id);
               const existing = newCartItems.find(item => item.id === product.id);
               if (existing) {
                 newCartItems = newCartItems.map(item =>
@@ -483,7 +518,11 @@ export const useAgentMessages = ({
         }
       }
 
-      return { ...s, cartItems: newCartItems };
+      let nextMemory = mem;
+      if (addedIds.length) nextMemory = markCommitment(nextMemory, addedIds, 'inCart');
+      if (removedIds.length) nextMemory = unmarkInCart(nextMemory, removedIds);
+
+      return { ...s, cartItems: newCartItems, productMemory: nextMemory };
     });
     setIsCartOpen(true);
   }, [lastRecommendedProducts, updateCurrentBasket, setIsCartOpen]);

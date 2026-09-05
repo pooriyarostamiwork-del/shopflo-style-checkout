@@ -534,6 +534,7 @@ export const useAgentMessages = ({
     isFirstMessage: boolean = false,
   ) => {
     try {
+      const mem = ensureProductMemory(productMemory);
       const body: any = {
         messages: [...conversationHistory, { role: 'user', content }],
         mode: 'agentic',
@@ -544,6 +545,17 @@ export const useAgentMessages = ({
           })),
           total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
         },
+        // Structured working memory of everything already shown in this conversation
+        product_memory: serializeMemory(mem),
+        memory_index: mem.groups.map(g => ({
+          group_id: g.groupId,
+          turn: g.turn,
+          query: g.query,
+          items: g.productIds
+            .map(id => mem.entries[id])
+            .filter(Boolean)
+            .map(e => ({ position: e.position, id: e.product.id, name: e.product.name, price: e.product.price })),
+        })),
         products_context: lastRecommendedProducts.slice(0, 6).map(p => ({
           id: p.id, name: p.name, price: p.price, brand: p.merchant?.name, rating: p.rating,
         })),
@@ -555,6 +567,18 @@ export const useAgentMessages = ({
       const actions = data?.cart_actions || [];
       const needsClarification = data?.needs_clarification || false;
       const clarificationOptions = data?.clarification_options || [];
+      const likedIds: string[] = data?.liked_product_ids || [];
+      const rejectedIds: string[] = data?.rejected_product_ids || [];
+      const referenceIds: string[] = data?.reference_product_ids || [];
+
+      // ── Commitments + focus the model resolved this turn ──
+      const applyMemorySignals = (base: ProductMemory): ProductMemory => {
+        let next = base;
+        if (likedIds.length) next = markCommitment(next, likedIds, 'liked');
+        if (rejectedIds.length) next = markCommitment(next, rejectedIds, 'rejected');
+        if (referenceIds.length) next = setFocus(next, referenceIds, next.entries[referenceIds[0]]?.groupId ?? null);
+        return next;
+      };
 
       // ── Cart branch ──
       if (actions.length > 0 || needsClarification) {
@@ -573,17 +597,34 @@ export const useAgentMessages = ({
           quickReplies,
           timestamp: new Date(),
         };
-        updateCurrentBasket(s => ({ ...s, messages: [...s.messages, cartMessage], isProcessing: false }));
+        updateCurrentBasket(s => ({
+          ...s,
+          messages: [...s.messages, cartMessage],
+          productMemory: applyMemorySignals(ensureProductMemory(s.productMemory)),
+          isProcessing: false,
+        }));
         return;
       }
 
-      // ── Discovery / conversational branch ──
+      // ── Discovery / recall / conversational branch ──
       const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
       const dbProducts = data?.products || [];
       const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
 
+      updateCurrentBasket(s => {
+        let nextMemory = applyMemorySignals(ensureProductMemory(s.productMemory));
+        if (mappedProducts.length > 0) {
+          const turn = s.messages.filter(m => m.role === 'user').length;
+          nextMemory = appendGroup(nextMemory, content, mappedProducts, turn);
+        }
+        return {
+          ...s,
+          productMemory: nextMemory,
+          ...(mappedProducts.length > 0 ? { lastRecommendedProducts: mappedProducts } : {}),
+        };
+      });
+
       if (mappedProducts.length > 0) {
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
         setBaskets(prev => prev.map(b => {
           if (b.id !== activeBasketId) return b;
           if (!b.title.startsWith('سبد جدید')) return b;

@@ -139,6 +139,7 @@ export const GPTCommerceShell = () => {
     cartItems,
     messages,
     lastRecommendedProducts,
+    productMemory: currentState.productMemory,
   });
 
   // Wrap handleQuickReply to intercept more_results and disambiguation

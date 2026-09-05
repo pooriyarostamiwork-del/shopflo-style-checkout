@@ -15,9 +15,6 @@ verify_jwt = false
 [functions.generate-embeddings]
 verify_jwt = false
 
-[functions.classify-intent]
-verify_jwt = false
-
 [functions.shift-agent]
 verify_jwt = false
 

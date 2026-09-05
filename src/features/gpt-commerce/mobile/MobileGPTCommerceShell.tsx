@@ -144,6 +144,7 @@ export const MobileGPTCommerceShell = () => {
     cartItems,
     messages,
     lastRecommendedProducts,
+    productMemory: currentState.productMemory,
   });
 
   const handleQuickReplyWrapped = useCallback((reply: any) => {

@@ -27,6 +27,18 @@ const extractSmartName = (userMessage: string, products: Product[]): string => {
 };
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
+import {
+  ProductMemory,
+  appendGroup,
+  ensureProductMemory,
+  focusProduct,
+  markCommitment,
+  resolveById,
+  resolveByPosition,
+  serializeMemory,
+  setFocus,
+  unmarkInCart,
+} from "./productMemory";
 
 
 interface UseAgentMessagesProps {
@@ -43,6 +55,7 @@ interface UseAgentMessagesProps {
   cartItems: CartItem[];
   messages: ChatMessage[];
   lastRecommendedProducts: Product[];
+  productMemory: ProductMemory;
 }
 
 export const mapDbProduct = (dbProduct: any): Product => {
@@ -85,9 +98,10 @@ function fuzzyMatchProducts(name: string, products: Product[]): Product[] {
 
 // ── Trim conversation history for agent calls ──
 function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: string }[] {
+  // Keep recent turns from BOTH roles (product lists live in structured memory)
   return messages
-    .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))
-    .slice(-4)
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .slice(-6)
     .map(m => ({ role: m.role, content: m.content.slice(0, 300) }));
 }
 
@@ -105,6 +119,7 @@ export const useAgentMessages = ({
   cartItems,
   messages,
   lastRecommendedProducts,
+  productMemory,
 }: UseAgentMessagesProps) => {
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
@@ -423,12 +438,30 @@ export const useAgentMessages = ({
     updateCurrentBasket(s => {
       let newCartItems = [...s.cartItems];
 
+      const mem = ensureProductMemory(s.productMemory);
+      const addedIds: string[] = [];
+      const removedIds: string[] = [];
+
+      // Resolve an action target by stable id first, then by badge position
+      const resolveTarget = (action: any, indexField = 'product_index'): Product | undefined => {
+        if (action.product_id) {
+          const byId = resolveById(mem, action.product_id) ||
+            lastRecommendedProducts.find(p => p.id === action.product_id);
+          if (byId) return byId;
+        }
+        const idx = action[indexField];
+        if (idx && idx >= 1) {
+          return resolveByPosition(mem, idx, action.group_id) || lastRecommendedProducts[idx - 1];
+        }
+        return undefined;
+      };
+
       for (const action of actions) {
         switch (action.type) {
           case 'add': {
-            const idx = action.product_index;
-            if (idx && idx >= 1 && idx <= lastRecommendedProducts.length) {
-              const product = lastRecommendedProducts[idx - 1];
+            const product = resolveTarget(action);
+            if (product) {
+              addedIds.push(product.id);
               const qty = action.quantity || 1;
               const existing = newCartItems.find(item => item.id === product.id);
               if (existing) {
@@ -442,8 +475,10 @@ export const useAgentMessages = ({
             break;
           }
           case 'remove': {
-            const pid = action.product_id;
+            const target = resolveTarget(action);
+            const pid = action.product_id || target?.id;
             if (pid) {
+              removedIds.push(pid);
               newCartItems = newCartItems.filter(item => item.id !== pid);
             }
             break;
@@ -464,11 +499,12 @@ export const useAgentMessages = ({
           }
           case 'replace': {
             if (action.remove_product_id) {
+              removedIds.push(action.remove_product_id);
               newCartItems = newCartItems.filter(item => item.id !== action.remove_product_id);
             }
-            const addIdx = action.add_product_index;
-            if (addIdx && addIdx >= 1 && addIdx <= lastRecommendedProducts.length) {
-              const product = lastRecommendedProducts[addIdx - 1];
+            const product = resolveTarget({ product_id: action.add_product_id, add_product_index: action.add_product_index, group_id: action.group_id }, 'add_product_index');
+            if (product) {
+              addedIds.push(product.id);
               const existing = newCartItems.find(item => item.id === product.id);
               if (existing) {
                 newCartItems = newCartItems.map(item =>
@@ -483,7 +519,11 @@ export const useAgentMessages = ({
         }
       }
 
-      return { ...s, cartItems: newCartItems };
+      let nextMemory = mem;
+      if (addedIds.length) nextMemory = markCommitment(nextMemory, addedIds, 'inCart');
+      if (removedIds.length) nextMemory = unmarkInCart(nextMemory, removedIds);
+
+      return { ...s, cartItems: newCartItems, productMemory: nextMemory };
     });
     setIsCartOpen(true);
   }, [lastRecommendedProducts, updateCurrentBasket, setIsCartOpen]);
@@ -495,6 +535,7 @@ export const useAgentMessages = ({
     isFirstMessage: boolean = false,
   ) => {
     try {
+      const mem = ensureProductMemory(productMemory);
       const body: any = {
         messages: [...conversationHistory, { role: 'user', content }],
         mode: 'agentic',
@@ -505,6 +546,17 @@ export const useAgentMessages = ({
           })),
           total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
         },
+        // Structured working memory of everything already shown in this conversation
+        product_memory: serializeMemory(mem),
+        memory_index: mem.groups.map(g => ({
+          group_id: g.groupId,
+          turn: g.turn,
+          query: g.query,
+          items: g.productIds
+            .map(id => mem.entries[id])
+            .filter(Boolean)
+            .map(e => ({ position: e.position, id: e.product.id, name: e.product.name, price: e.product.price })),
+        })),
         products_context: lastRecommendedProducts.slice(0, 6).map(p => ({
           id: p.id, name: p.name, price: p.price, brand: p.merchant?.name, rating: p.rating,
         })),
@@ -516,6 +568,18 @@ export const useAgentMessages = ({
       const actions = data?.cart_actions || [];
       const needsClarification = data?.needs_clarification || false;
       const clarificationOptions = data?.clarification_options || [];
+      const likedIds: string[] = data?.liked_product_ids || [];
+      const rejectedIds: string[] = data?.rejected_product_ids || [];
+      const referenceIds: string[] = data?.reference_product_ids || [];
+
+      // ── Commitments + focus the model resolved this turn ──
+      const applyMemorySignals = (base: ProductMemory): ProductMemory => {
+        let next = base;
+        if (likedIds.length) next = markCommitment(next, likedIds, 'liked');
+        if (rejectedIds.length) next = markCommitment(next, rejectedIds, 'rejected');
+        if (referenceIds.length) next = setFocus(next, referenceIds, next.entries[referenceIds[0]]?.groupId ?? null);
+        return next;
+      };
 
       // ── Cart branch ──
       if (actions.length > 0 || needsClarification) {
@@ -534,17 +598,34 @@ export const useAgentMessages = ({
           quickReplies,
           timestamp: new Date(),
         };
-        updateCurrentBasket(s => ({ ...s, messages: [...s.messages, cartMessage], isProcessing: false }));
+        updateCurrentBasket(s => ({
+          ...s,
+          messages: [...s.messages, cartMessage],
+          productMemory: applyMemorySignals(ensureProductMemory(s.productMemory)),
+          isProcessing: false,
+        }));
         return;
       }
 
-      // ── Discovery / conversational branch ──
+      // ── Discovery / recall / conversational branch ──
       const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
       const dbProducts = data?.products || [];
       const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
 
+      updateCurrentBasket(s => {
+        let nextMemory = applyMemorySignals(ensureProductMemory(s.productMemory));
+        if (mappedProducts.length > 0) {
+          const turn = s.messages.filter(m => m.role === 'user').length;
+          nextMemory = appendGroup(nextMemory, content, mappedProducts, turn);
+        }
+        return {
+          ...s,
+          productMemory: nextMemory,
+          ...(mappedProducts.length > 0 ? { lastRecommendedProducts: mappedProducts } : {}),
+        };
+      });
+
       if (mappedProducts.length > 0) {
-        updateCurrentBasket(s => ({ ...s, lastRecommendedProducts: mappedProducts }));
         setBaskets(prev => prev.map(b => {
           if (b.id !== activeBasketId) return b;
           if (!b.title.startsWith('سبد جدید')) return b;

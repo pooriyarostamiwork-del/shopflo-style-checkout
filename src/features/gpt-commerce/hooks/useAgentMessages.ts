@@ -98,9 +98,10 @@ function fuzzyMatchProducts(name: string, products: Product[]): Product[] {
 
 // ── Trim conversation history for agent calls ──
 function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: string }[] {
+  // Keep recent turns from BOTH roles (product lists live in structured memory)
   return messages
-    .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.products))
-    .slice(-4)
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .slice(-6)
     .map(m => ({ role: m.role, content: m.content.slice(0, 300) }));
 }
 

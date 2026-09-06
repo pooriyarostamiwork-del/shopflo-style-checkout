@@ -5,6 +5,7 @@ import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } fro
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import { FlowcartBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/gpt-commerce/FlowcartBrand";
+import { TypingText } from "@/components/gpt-commerce/TypingText";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";

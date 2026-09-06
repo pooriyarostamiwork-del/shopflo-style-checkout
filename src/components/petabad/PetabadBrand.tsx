@@ -1,5 +1,5 @@
-import flowcartIcon from "@/assets/flowcart-logo.svg";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import petabadIcon from "@/assets/petabad-logo.svg";
+import petabadLogotype from "@/assets/petabad-logotype.svg";
 import { cn } from "@/lib/utils";
 
 type MarkSize = "hero" | "brand" | "chat" | "avatar";
@@ -18,7 +18,7 @@ const wordmarkSizes: Record<WordmarkSize, string> = {
   compact: "h-[25px] w-[81px]",
 };
 
-export const FlowcartMark = ({
+export const PetabadMark = ({
   size = "brand",
   className,
   imageUrl,
@@ -37,7 +37,7 @@ export const FlowcartMark = ({
     )}
   >
     <img
-      src={imageUrl || flowcartIcon}
+      src={imageUrl || petabadIcon}
       alt={alt}
       className={cn("object-contain", imageUrl ? "h-full w-full" : "h-[78%] w-[78%]")}
       draggable={false}
@@ -45,7 +45,7 @@ export const FlowcartMark = ({
   </span>
 );
 
-export const FlowcartWordmark = ({
+export const PetabadWordmark = ({
   size = "brand",
   className,
 }: {
@@ -54,8 +54,8 @@ export const FlowcartWordmark = ({
 }) => (
   <span className={cn("relative inline-block shrink-0 overflow-hidden", wordmarkSizes[size], className)}>
     <img
-      src={flowcartLogotype}
-      alt="Flowcart"
+      src={petabadLogotype}
+      alt="PetAbad"
       className="absolute left-1/2 top-1/2 h-[190px] w-[190px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
       draggable={false}
     />
@@ -76,13 +76,13 @@ export const PetabadBrandLockup = ({
   className?: string;
 }) => (
   <div className={cn("flex items-center gap-2.5", className)}>
-    <FlowcartMark
+    <PetabadMark
       size={compact ? "avatar" : variant === "chat" ? "chat" : "brand"}
       imageUrl={imageUrl}
-      alt="فلوکارت"
+      alt="پت آباد"
     />
     <div className="flex min-w-0 flex-col items-start gap-0.5">
-      <FlowcartWordmark size={compact ? "compact" : variant === "chat" ? "chat" : "brand"} />
+      <PetabadWordmark size={compact ? "compact" : variant === "chat" ? "chat" : "brand"} />
       {subtitle ? <p className="text-xs leading-none text-muted-foreground">{subtitle}</p> : null}
     </div>
   </div>

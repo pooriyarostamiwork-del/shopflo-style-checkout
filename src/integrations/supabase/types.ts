@@ -875,6 +875,10 @@ export type Database = {
         }
         Returns: Json
       }
+      product_question_facets: {
+        Args: { p_in_stock?: boolean; p_query?: string; p_subcategory?: string }
+        Returns: Json
+      }
       shift_hybrid_search: {
         Args: {
           p_category?: string

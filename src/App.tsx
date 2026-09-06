@@ -16,6 +16,8 @@ import ShiftDashLite from "./pages/ShiftDashLite";
 import ShiftDashPro from "./pages/ShiftDashPro";
 import Playground from "./pages/Playground";
 import PlaygroundMobile from "./pages/PlaygroundMobile";
+import PetAbad from "./pages/PetAbad";
+import MobilePetAbad from "./pages/MobilePetAbad";
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();
@@ -47,6 +49,10 @@ const App = () => (
             {/* Shift merchant dashboard (front-end only) */}
             <Route path="/shift/dash/lite" element={<ShiftDashLite />} />
             <Route path="/shift/dash/pro" element={<ShiftDashPro />} />
+
+            {/* Product 4: PetAbad — pet-category AI storefront clone */}
+            <Route path="/petabad" element={<PetAbad />} />
+            <Route path="/m/petabad" element={<MobilePetAbad />} />
 
             {/* Catch-all */}
             {/* Component playground (isolated testing environment) */}

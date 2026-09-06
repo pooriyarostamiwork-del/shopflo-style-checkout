@@ -154,10 +154,12 @@ SELECTED_IDS:["id1","id2","id3"]
 - اگه نتیجه خالی بود، بعد می‌تونی بگی موجود نیست
 
 کامل بودن پاسخ:
-- نتیجه جستجو یک عدد matched_total داره: تعداد کل محصولات مطابق. اگه از تعداد نمایش‌داده‌شده بیشتره، حتماً به کاربر بگو چند مورد مطابق پیدا شد و چندتا رو نشون دادی
-- برای درخواست‌های «همه / کلا / تمام»، limit رو ۱۲ تا ۲۴ بذار و در متن هم تعداد کل رو بگو
+- عددها و شمارش‌ها (تعداد کل، matched_total، تعداد کاندیدا، بازه قیمت) فقط وقتی در متن گفته میشن که کاربر خودش درباره تعداد یا قیمت پرسیده باشه؛ در بقیه موارد هیچ عددی از این‌ها ننویس
+- هیچ‌وقت از فرایند داخلی حرف نزن؛ جمله‌هایی مثل «از بین ۱۲ کاندیدا» یا «کلاً ۱۴۸۹ مدل پیدا کردم» ممنوعه
+- برای درخواست‌های «همه / کلا / تمام»، limit رو ۱۲ تا ۲۴ بذار
 - ویژگی‌هایی مثل «بی‌سیم، بلوتوث، گیمینگ، ایرانی» فیلد ساختاریافته ندارن؛ اون‌ها رو در evidence_terms بفرست (چند شکل نوشتاری: مثلا ["بی سیم","بلوتوث","وایرلس"])
 - اگه اطلاعات یک ویژگی برای محصولی موجود نیست، بگو «مشخص نشده»، نگو «نداره»
+
 
 دامنه سؤال (SCOPE در پایین، اگه بود):
 - SHOWN_SET یعنی سؤال فقط درباره همون محصولاتی هست که نشون دادی → بدون جستجوی جدید از حافظه جواب بده
@@ -558,7 +560,21 @@ function extractSignals(raw: string): {
 }
 
 /** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
+/** Removes unrequested totals / candidate-count / internal-process sentences. */
+function stripCountTalk(raw: string): string {
+  const sentenceRe =
+    /[^.!؟?\n]*(?:کاندیدا|از\s*بین\s*[\d۰-۹]+|کلاً?\s*[\d۰-۹,٬]+\s*(?:مدل|محصول|مورد)|[\d۰-۹,٬]+\s*(?:مدل|محصول|مورد)\s*(?:پیدا|موجود|هست|داریم|برات))[^.!؟?\n]*[.!؟?]?/g;
+  return (raw || "")
+    .split("\n")
+    .map((line) => (/^\s*(?:[•\-*▪]|\d+[.)])/.test(line) ? line : line.replace(sentenceRe, "")))
+    .join("\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function sanitizeVisibleText(raw: string): string {
+
   let t = raw || "";
   t = t.replace(/^[ \t]*[A-Z][A-Z0-9_]{2,}\s*:\s*(\[[\s\S]*?\]|\{[\s\S]*?\})[ \t]*$/gm, "");
   t = t.replace(/[ \t]*[（(]\s*(?:شناسه|آیدی|کد محصول|id)\s*[:：]?\s*[0-9a-fA-F-]{8,}\s*[）)]/g, "");
@@ -577,7 +593,63 @@ async function hydrateProducts(supabase: any, ids: string[]): Promise<any[]> {
 
 // Vague "help me choose" phrasings — these turns must ask through the card.
 const GUIDANCE_RE =
-  /(راهنمایی(م)?\s*کن|راهنماییم|کمکم?\s*کن.*(انتخاب|بخرم|بگیرم)|نمی\s*دونم\s*(چی|کدوم)|چی\s*(پیشنهاد|توصیه)|کدوم\s*(رو|را)?\s*(بخرم|بگیرم|پیشنهاد)|مشاوره)/;
+  /(راهنمایی(م)?\s*کن|راهنماییم|کمکم?\s*کن.*(انتخاب|بخرم|بگیرم)|نمی\s*دونم\s*(چی|کدوم)|چی\s*(پیشنهاد|توصیه)|کدوم\s*(رو|را)?\s*(بخرم|بگیرم|پیشنهاد)|مشاوره|چی\s*بگیرم|چی\s*بخرم)/;
+
+/** Did the user actually ask about quantities / totals / price range? */
+const COUNT_QUESTION_RE =
+  /(چند\s*(تا|مدل|عدد|نوع)|چندتا|تعداد|چقدر|قیمت(ش|شون)?\s*(چند|چقدر)|ارزون\s*ترین|گرون\s*ترین|بازه\s*قیمت|از\s*چند)/;
+
+/**
+ * Turns a reply that asked questions in plain text into a card.
+ * Handles both a single question with bullet options and several question blocks.
+ */
+function extractQuestionCard(text: string): any | null {
+  const lines = (text || "").split("\n").map((l) => l.trim());
+  const bulletRe = /^(?:[•\-*▪]|\d+[.)])\s+(.{1,60})$/;
+  type Block = { question: string; options: { label: string }[] };
+  const blocks: Block[] = [];
+  let current: Block | null = null;
+  let lastQuestion = "";
+
+  for (const line of lines) {
+    if (!line) continue;
+    const bullet = line.match(bulletRe);
+    if (bullet) {
+      const label = bullet[1].replace(/[؟?]\s*$/, "").trim();
+      if (!label) continue;
+      if (!current) {
+        if (!lastQuestion) continue;
+        current = { question: lastQuestion, options: [] };
+        blocks.push(current);
+      }
+      current.options.push({ label });
+      continue;
+    }
+    current = null;
+    if (/[؟?]/.test(line)) lastQuestion = line.replace(/^[•\-*]\s*/, "").trim();
+  }
+
+  const usable = blocks.filter((b) => b.options.length >= 2);
+  if (usable.length === 0) return null;
+
+  if (usable.length === 1) {
+    return {
+      kind: "single",
+      question: usable[0].question,
+      helper: "",
+      options: usable[0].options.slice(0, 6),
+    };
+  }
+  return {
+    kind: "steps",
+    helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+    steps: usable.slice(0, 4).map((b, i) => ({
+      title: `سؤال ${i + 1}`,
+      question: b.question,
+      options: b.options.slice(0, 6),
+    })),
+  };
+}
 
 /** Text that is mostly questions → the model wrote a question list instead of a card. */
 function isQuestionHeavy(text: string): boolean {
@@ -585,8 +657,25 @@ function isQuestionHeavy(text: string): boolean {
   return marks >= 2;
 }
 
-const DEFAULT_GUIDANCE_STEPS = (category: string) => [
-  {
+/** Usage the user already stated — that guidance step is then skipped. */
+const USAGE_HINTS: Array<[RegExp, string]> = [
+  [/گیمینگ|بازی|گیمر/, "بازی و گیمینگ"],
+  [/دانشجو|درس|تحصیل/, "دانشجویی و درسی"],
+  [/طراحی|رندر|ادیت|مونتاژ|گرافیک/, "طراحی و کارهای سنگین"],
+  [/برنامه\s*نویس|کدنویسی|دولوپ/, "برنامه‌نویسی"],
+  [/اداری|روزمره|آفیس|کار\s*معمولی/, "کارهای روزمره و اداری"],
+];
+
+function detectUsage(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, label] of USAGE_HINTS) if (re.test(norm)) return label;
+  return null;
+}
+
+
+const DEFAULT_GUIDANCE_STEPS = (category: string, knownUsage?: string | null) => [
+  ...(knownUsage ? [] : [{
+
     title: "کاربری",
     question: `${category ? category + " رو ' " : ""}برای چه کاری می‌خوای؟`.replace(" ' ", " "),
     options: [
@@ -596,7 +685,8 @@ const DEFAULT_GUIDANCE_STEPS = (category: string) => [
       { label: "طراحی و کارهای سنگین" },
       { label: "برنامه‌نویسی" },
     ],
-  },
+  }]),
+
   {
     title: "بودجه",
     question: "بودجه‌ات حدوداً چقدره؟",
@@ -723,10 +813,15 @@ serve(async (req) => {
 
     // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
     const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
-    const wantsGuidance = GUIDANCE_RE.test(normalizePersian(lastUserText));
+    const normLastUser = normalizePersian(lastUserText);
+    const wantsGuidance = GUIDANCE_RE.test(normLastUser);
+    const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
+    const knownUsage = detectUsage(lastUserText);
+    const guidanceCategory = /لپ\s*تاپ/.test(normLastUser) ? "لپ‌تاپ" : "";
     if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش هنوز مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن (کاربری → بودجه → اولویت، هر مرحله ۳ تا ۵ گزینه کوتاه) و هیچ سؤالی رو در متن ننویس.`;
+      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` کاربری رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: کاربری → بودجه → اولویت."} هر مرحله ۳ تا ۵ گزینه کوتاه.`;
     }
+
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
@@ -795,7 +890,7 @@ serve(async (req) => {
 
     // ── No tool call = direct response (still sanitized + card-hydrated) ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
-      const rawText = choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟";
+      const rawText = choice.message?.content || "";
       const sig = extractSignals(rawText);
       const mentionedIds = [
         ...((sig.text.match(UUID_RE) || []) as string[]),
@@ -803,11 +898,32 @@ serve(async (req) => {
         ...sig.selectedIds,
       ];
       const hydrated = await hydrateProducts(supabase, mentionedIds);
-      const visible = sanitizeVisibleText(sig.text);
+      let visible = sanitizeVisibleText(sig.text);
+      if (!wantsCounts) visible = stripCountTalk(visible);
 
-      // Safety net: a guidance turn answered with a text question list becomes a card.
-      if (wantsGuidance && hydrated.length === 0 && isQuestionHeavy(visible)) {
-        const category = /لپ\s*تاپ/.test(normalizePersian(lastUserText)) ? "لپ‌تاپ" : "";
+
+      // Safety net: questions written as text become a tappable card on any turn.
+      if (hydrated.length === 0) {
+        const parsed = extractQuestionCard(visible);
+        const card =
+          parsed ||
+          (wantsGuidance && isQuestionHeavy(visible)
+            ? {
+                kind: "steps",
+                helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+              }
+            : null);
+        if (card) {
+          return new Response(
+            JSON.stringify({ content: "", products: [], quickReplies: [], clarification: card }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // A guidance turn must never end on the generic fallback line.
+      if (wantsGuidance && hydrated.length === 0 && !visible) {
         return new Response(
           JSON.stringify({
             content: "",
@@ -816,12 +932,13 @@ serve(async (req) => {
             clarification: {
               kind: "steps",
               helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(category),
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
             },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
 
       return new Response(
         JSON.stringify({
@@ -865,7 +982,24 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      // Empty/invalid card payload on a guidance turn → use the built-in card.
+      if (wantsGuidance) {
+        return new Response(
+          JSON.stringify({
+            content: "",
+            products: [],
+            quickReplies: [],
+            clarification: {
+              kind: "steps",
+              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
+
 
     // ── Cart operations tool call → return structured actions ──
 
@@ -962,11 +1096,14 @@ serve(async (req) => {
     ).join("\n");
 
     const rerankerInstruction = candidatesForRerank.length > 0
-      ? `\n\nتو الان ${candidatesForRerank.length} محصول کاندیدا داری. با توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
+      ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
 - محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
 - بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن
-- اگه تعداد کل مطابق (matched_total) از تعداد نمایش‌داده‌شده بیشتره، در متن بگو چند مورد پیدا شد
-- یه توضیح کوتاه و مفید بنویس، بدون مارک‌داون
+- ساختار پاسخ دقیقاً این‌طوریه: برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار
+- توضیح «چرا» باید مخصوص همون محصول باشه (پردازنده، رم، گرافیک، وزن، صفحه‌نمایش، قیمت) نه جمله کلی تکراری
+${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}
+- بدون مارک‌داون (بدون ستاره و هشتگ)
+
 
 لیست کاندیداها:
 ${candidateList}
@@ -1040,6 +1177,8 @@ SELECTED_IDS:["id1","id2","id3"]
     }
 
     finalContent = sanitizeVisibleText(finalContent);
+    if (!wantsCounts) finalContent = stripCountTalk(finalContent);
+
 
     if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
 

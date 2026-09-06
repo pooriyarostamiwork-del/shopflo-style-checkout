@@ -16,6 +16,8 @@ import {
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
+import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -121,7 +123,12 @@ export const ChatThread = ({
     if (onPaymentSelect) onPaymentSelect(paymentId);
   };
 
+  const thinkingLabel = getThinkingLabel(
+    [...messages].reverse().find((m) => m.role === "user")?.content
+  );
+
   return (
+
     <div
       className="flex-1 flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5"
       dir="rtl"
@@ -150,7 +157,8 @@ export const ChatThread = ({
         <div className="max-w-[820px] mx-auto p-6 space-y-6">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-4 animate-fade-in">
-              {/* Message Bubble */}
+              {/* Message Bubble — skipped when the turn carries no text */}
+              {msg.content?.trim() && (
               <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-start flex-row-reverse' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <div
@@ -177,6 +185,8 @@ export const ChatThread = ({
                   </p>
                 </div>
               </div>
+              )}
+
 
               {/* Interactive clarification card */}
               {msg.clarification && (
@@ -305,11 +315,15 @@ export const ChatThread = ({
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{thinkingLabel}</span>
                 </div>
+
               </div>
             </div>
           )}

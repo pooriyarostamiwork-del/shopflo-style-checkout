@@ -26,6 +26,8 @@ import {
   MerchantShipping,
 } from "@/components/gpt-commerce/AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
+import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+
 
 
 interface MobileChatThreadProps {
@@ -114,7 +116,12 @@ export const MobileChatThread = ({
     if (onPaymentSelect) onPaymentSelect(paymentId);
   };
 
+  const thinkingLabel = getThinkingLabel(
+    [...messages].reverse().find((m) => m.role === "user")?.content
+  );
+
   return (
+
     <div className="relative flex flex-col h-full min-h-0 bg-gradient-to-br from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
       {/* Mobile-scoped overrides */}
       <style>{`
@@ -166,6 +173,7 @@ export const MobileChatThread = ({
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">
+              {msg.content?.trim() && (
               <div
                 className={`flex gap-2 ${
                   msg.role === "user" ? "justify-end flex-row-reverse" : "justify-start flex-row-reverse"
@@ -205,6 +213,8 @@ export const MobileChatThread = ({
                   </p>
                 </div>
               </div>
+              )}
+
 
               {/* Interactive clarification card */}
               {msg.clarification && (
@@ -342,20 +352,24 @@ export const MobileChatThread = ({
                   border: "1px solid hsl(0 0% 0% / 0.06)",
                 }}
               >
-                <div className="flex gap-1">
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{thinkingLabel}</span>
                 </div>
+
               </div>
             </div>
           )}

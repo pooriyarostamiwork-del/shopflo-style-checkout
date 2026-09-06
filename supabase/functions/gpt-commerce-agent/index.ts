@@ -890,7 +890,7 @@ serve(async (req) => {
 
     // ── No tool call = direct response (still sanitized + card-hydrated) ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
-      const rawText = choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟";
+      const rawText = choice.message?.content || "";
       const sig = extractSignals(rawText);
       const mentionedIds = [
         ...((sig.text.match(UUID_RE) || []) as string[]),

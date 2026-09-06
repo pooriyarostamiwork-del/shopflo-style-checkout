@@ -1078,15 +1078,17 @@ serve(async (req) => {
       // Safety net: questions written as text become a tappable card on any turn.
       if (hydrated.length === 0) {
         const parsed = extractQuestionCard(visible);
-        const card =
+        const facets = parsed || wantsGuidance ? await getFacets() : null;
+        const rawCard =
           parsed ||
           (wantsGuidance && isQuestionHeavy(visible)
             ? {
                 kind: "steps",
                 helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
               }
             : null);
+        const card = rawCard ? groundClarification(rawCard, facets) : null;
         if (card) {
           return new Response(
             JSON.stringify({ content: "", products: [], quickReplies: [], clarification: card }),
@@ -1105,12 +1107,13 @@ serve(async (req) => {
             clarification: {
               kind: "steps",
               helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
             },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
 
 
       return new Response(

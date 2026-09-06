@@ -392,11 +392,12 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
 
   return (
     <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-8 pb-16">
-      {/* 🔥 Hot Deals — cross-category promotional carousel */}
+      {/* 🐾 Featured pet picks */}
       {(isLoadingDeals || (hotDealsProducts && hotDealsProducts.length > 0)) && (
         <CarouselSection
-          title="داغ‌ترین تخفیف‌ها"
-          icon={<span className="text-sm">🔥</span>}
+          title="پرطرفدارهای پت آباد"
+          icon={<span className="text-sm">🐾</span>}
+
           products={hotDealsProducts || []}
           onAddToCart={onAddToCart}
           onQuickView={onQuickView}

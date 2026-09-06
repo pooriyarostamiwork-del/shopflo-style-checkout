@@ -1146,14 +1146,21 @@ serve(async (req) => {
         .filter((s: any) => s.question && s.options.length > 0);
       const options = normOptions(payload.options);
       if (steps.length > 0 || options.length > 0) {
+        const facets = await getFacets();
+        const rawCard = steps.length > 0
+          ? { kind: "steps", helper: payload.helper || "", steps }
+          : { kind: "single", question: payload.question || "", helper: payload.helper || "", options };
+        const grounded = groundClarification(rawCard, facets) || {
+          kind: "steps",
+          helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
+        };
         return new Response(
           JSON.stringify({
             content: "",
             products: [],
             quickReplies: [],
-            clarification: steps.length > 0
-              ? { kind: "steps", helper: payload.helper || "", steps }
-              : { kind: "single", question: payload.question || "", helper: payload.helper || "", options },
+            clarification: grounded,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -1168,13 +1175,14 @@ serve(async (req) => {
             clarification: {
               kind: "steps",
               helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
             },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
+
 
 
     // ── Cart operations tool call → return structured actions ──

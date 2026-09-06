@@ -121,7 +121,12 @@ export const ChatThread = ({
     if (onPaymentSelect) onPaymentSelect(paymentId);
   };
 
+  const thinkingLabel = getThinkingLabel(
+    [...messages].reverse().find((m) => m.role === "user")?.content
+  );
+
   return (
+
     <div
       className="flex-1 flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5"
       dir="rtl"

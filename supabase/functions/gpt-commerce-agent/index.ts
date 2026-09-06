@@ -972,9 +972,28 @@ serve(async (req) => {
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
     const guidanceCategory = /لپ\s*تاپ/.test(normLastUser) ? "لپ‌تاپ" : "";
+    const facetSubcategory = /لپ\s*تاپ/.test(normLastUser) ? "لپ" : null;
+
+    // ── Catalog snapshot: question options must come from real products ──
+    let questionFacets: QuestionFacets | null = null;
+    let facetsPromise: Promise<QuestionFacets | null> | null = null;
     if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` کاربری رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: کاربری → بودجه → اولویت."} هر مرحله ۳ تا ۵ گزینه کوتاه.`;
+      questionFacets = await fetchQuestionFacets(supabase, lastUserText, facetSubcategory);
+      const snap = snapshotLine(questionFacets);
+      if (snap) systemPrompt += `\n\n${snap}`;
+    } else if (effectiveMode === "agentic" || effectiveMode === "discovery") {
+      facetsPromise = fetchQuestionFacets(supabase, lastUserText, facetSubcategory);
     }
+    const getFacets = async (): Promise<QuestionFacets | null> => {
+      if (questionFacets) return questionFacets;
+      if (facetsPromise) questionFacets = await facetsPromise;
+      return questionFacets;
+    };
+
+    if (wantsGuidance) {
+      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` کاربری رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: کاربری → بودجه → اولویت."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
+    }
+
 
 
     const aiMessages = [

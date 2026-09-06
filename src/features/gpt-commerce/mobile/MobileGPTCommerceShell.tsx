@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { SquarePen } from "lucide-react";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import { FlowcartBrandLockup } from "@/components/gpt-commerce/FlowcartBrand";
 import { CategorySelector } from "@/components/gpt-commerce/CategorySelector";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
@@ -432,26 +431,7 @@ export const MobileGPTCommerceShell = () => {
         </div>
         <div className="flex items-center gap-2">
           {!onLanding && (
-            <>
-              {/* RTL: mark first → appears right; logotype second → appears left */}
-              <div
-                className="rounded-xl flex items-center justify-center overflow-hidden"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  background:
-                    "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
-                }}
-              >
-                <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
-              </div>
-              <img
-                src={flowcartLogotype}
-                alt="Flowcart"
-                style={{ height: "44px", width: "auto", objectFit: "contain" }}
-                draggable={false}
-              />
-            </>
+            <FlowcartBrandLockup compact />
           )}
         </div>
         <div className="flex items-center gap-2">

@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.set_pet_product_embedding(uuid, vector);

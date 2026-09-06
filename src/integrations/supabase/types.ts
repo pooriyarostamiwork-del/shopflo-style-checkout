@@ -1014,10 +1014,6 @@ export type Database = {
         Args: { p_in_stock?: boolean; p_query?: string; p_subcategory?: string }
         Returns: Json
       }
-      set_pet_product_embedding: {
-        Args: { p_embedding: string; p_id: string }
-        Returns: undefined
-      }
       shift_hybrid_search: {
         Args: {
           p_category?: string

@@ -130,6 +130,8 @@ All colors MUST be HSL.
     --danger: 0 84% 60%;
     --cyan-accent: 189 85% 62%;
     --neon-blue: 217 91% 60%;
+    --loader-warm: 39 100% 64%;
+    --loader-deep: 17 73% 43%;
     
     /* Liquid Glass Colors */
     --glass-bg: 0 0% 100% / 0.7;
@@ -188,6 +190,8 @@ All colors MUST be HSL.
     --danger: 0 84% 70%;
     --cyan-accent: 189 85% 72%;
     --neon-blue: 217 91% 70%;
+    --loader-warm: 39 100% 64%;
+    --loader-deep: 17 73% 48%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -197,6 +201,60 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+/* Flowcart assistant loader — scoped to GPTCommerce usage. */
+@keyframes flowcart-loader-rotation {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes flowcart-loader-colorize {
+  0%, 100% { filter: hue-rotate(0deg); }
+  20% { filter: hue-rotate(-30deg); }
+  40% { filter: hue-rotate(-60deg); }
+  60% { filter: hue-rotate(-90deg); }
+  80% { filter: hue-rotate(-45deg); }
+}
+
+.flowcart-loader {
+  position: relative;
+  display: inline-flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  color: hsl(var(--loader-warm));
+  box-shadow: 0 0 0.7rem hsl(var(--loader-warm) / 0.26), 0 0.35rem 0.8rem hsl(var(--loader-deep) / 0.2);
+  animation: flowcart-loader-colorize 6s ease-in-out infinite;
+}
+
+.flowcart-loader::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border-top: 1px solid hsl(var(--loader-warm));
+  border-bottom: 1px solid hsl(var(--loader-deep));
+  background: linear-gradient(180deg, hsl(var(--loader-warm) / 0.5), hsl(var(--loader-deep) / 0.5));
+  box-shadow: inset 0 0.2rem 0.25rem hsl(var(--loader-warm) / 0.4), inset 0 -0.2rem 0.25rem hsl(var(--loader-deep) / 0.35);
+}
+
+.flowcart-loader svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  animation: flowcart-loader-rotation 2s linear infinite;
+}
+
+.flowcart-loader__fill {
+  fill: hsl(var(--loader-warm));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowcart-loader,
+  .flowcart-loader svg {
+    animation: none;
   }
 }
 

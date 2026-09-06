@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import { FlowcartBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/gpt-commerce/FlowcartBrand";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
@@ -220,21 +219,8 @@ export const MobileChatLanding = ({
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle */}
         <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
-          <div
-            className="mb-3 flex items-center justify-center rounded-2xl"
-            style={{
-              width: "4.1rem",
-              height: "4.1rem",
-              background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
-            }}
-          >
-            <img
-              src={flowcartLogo}
-              alt="Flowcart"
-              style={{ width: "77%", height: "77%" }}
-              draggable={false}
-            />
-          </div>
+          <FlowcartMark size="hero" className="mb-3 h-[4.1rem] w-[4.1rem]" alt="فلوکارت" />
+          <FlowcartWordmark className="mb-1" />
           <p className="text-muted-foreground leading-tight max-w-[280px]" style={{ fontSize: "0.78rem", letterSpacing: "-0.01em" }}>
             یک دستیار خرید واقعاً باهوش :)
           </p>
@@ -451,28 +437,7 @@ export const MobileChatLanding = ({
           style={{ borderColor: "hsl(0 0% 0% / 0.06)" }}
           dir="rtl"
         >
-          {/* Brand block — gradient mark + logotype */}
-          <div className="flex items-center gap-2 mb-1">
-            <div
-              className="flex items-center justify-center rounded-xl"
-              style={{
-                width: "44px",
-                height: "44px",
-                background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85))",
-              }}
-            >
-              <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
-            </div>
-            <img
-              src={flowcartLogotype}
-              alt="Flowcart"
-              style={{ height: "44px", width: "auto", objectFit: "contain" }}
-              draggable={false}
-            />
-          </div>
-          <p className="text-[11px] text-muted-foreground leading-tight mb-4 mr-[2.875rem]">
-            دستیار خرید هوشمند
-          </p>
+          <FlowcartBrandLockup subtitle="دستیار خرید هوشمند" className="mb-4" />
 
           {/* Links */}
           <div className="flex flex-wrap gap-1.5 mb-4">

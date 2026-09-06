@@ -1,6 +1,6 @@
 import { Shield, RefreshCw, Headphones, Truck, CreditCard, Phone } from "lucide-react";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import { FlowcartBrandLockup } from "./FlowcartBrand";
 
 // Social media icons as inline SVGs
 const InstagramIcon = () => (
@@ -68,16 +68,7 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-right">
             {/* Brand Column */}
             <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2 mb-3">
-                {footerLogo.imageUrl ? (
-                  <img src={footerLogo.imageUrl} alt="فلوکارت" className="w-8 h-8 rounded-lg object-cover" />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary text-lg">⚡</span>
-                  </div>
-                )}
-                <img src={flowcartLogotype} alt="Flowcart" style={{ height: '18px', width: 'auto' }} draggable={false} />
-              </div>
+              <FlowcartBrandLockup imageUrl={footerLogo.imageUrl || undefined} className="mb-3" />
               <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 {footerLogo.subtitle || 'خرید هوشمند با کمک هوش مصنوعی'}
               </p>

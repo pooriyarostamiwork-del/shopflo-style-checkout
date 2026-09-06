@@ -150,7 +150,8 @@ export const ChatThread = ({
         <div className="max-w-[820px] mx-auto p-6 space-y-6">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-4 animate-fade-in">
-              {/* Message Bubble */}
+              {/* Message Bubble — skipped when the turn carries no text */}
+              {msg.content?.trim() && (
               <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-start flex-row-reverse' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <div
@@ -177,6 +178,8 @@ export const ChatThread = ({
                   </p>
                 </div>
               </div>
+              )}
+
 
               {/* Interactive clarification card */}
               {msg.clarification && (

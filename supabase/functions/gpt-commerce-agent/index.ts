@@ -721,6 +721,12 @@ serve(async (req) => {
       }
     }
 
+    // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
+    const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
+    const wantsGuidance = GUIDANCE_RE.test(normalizePersian(lastUserText));
+    if (wantsGuidance) {
+      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش هنوز مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن (کاربری → بودجه → اولویت، هر مرحله ۳ تا ۵ گزینه کوتاه) و هیچ سؤالی رو در متن ننویس.`;
+    }
 
     const aiMessages = [
       { role: "system", content: systemPrompt },

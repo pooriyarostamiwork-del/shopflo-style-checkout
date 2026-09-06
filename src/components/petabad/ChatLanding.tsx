@@ -12,9 +12,9 @@ import { TypingText } from "./TypingText";
 
 // Rotating placeholder texts
 const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
+  "«غذای خشک سگ برای نژاد کوچک»",
+  "«بهترین خوراک گربه حساس معده»",
+  "«خودت برام خرید لوازم حیوان خانگی کن»",
 ];
 
 // Bento background cards for soft commerce context
@@ -149,9 +149,9 @@ export const ChatLanding = ({
   };
 
   const quickActions = [
-    { label: 'هدفون بی‌سیم می‌خوام', action: 'هدفون بی‌سیم خوب با ارسال سریع می‌خوام' },
+    { label: 'غذای سگ می‌خوام', action: 'غذای خشک سگ با ارسال سریع می‌خوام' },
     { label: 'مقایسه محصولات', action: 'این محصولات رو با هم مقایسه کن' },
-    { label: 'خودت خرید رو انجام بده', action: 'خودت خرید رو انجام بده' },
+    { label: 'خودت خرید رو انجام بده', action: 'خودت خرید لوازم حیوان خانگی رو انجام بده' },
   ];
 
   return (
@@ -172,7 +172,6 @@ export const ChatLanding = ({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
             <span className="text-foreground/80">همراه پت آباد، خیالت از خرید لوازم حیوان خانگی راحت باشه!</span>
-            <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
           </div>
           <button
             onClick={onSignIn}

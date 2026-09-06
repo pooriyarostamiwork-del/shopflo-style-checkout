@@ -25,9 +25,9 @@ import { TypingText } from "@/components/petabad/TypingText";
 
 
 const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
+  "«غذای خشک سگ برای نژاد کوچک»",
+  "«خوراک گربه حساس معده»",
+  "«خودت برام خرید حیوان خانگی کن»",
 ];
 
 interface ChatThreadProps {

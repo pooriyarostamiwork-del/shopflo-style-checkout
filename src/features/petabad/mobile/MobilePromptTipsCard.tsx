@@ -7,8 +7,8 @@ const templates: PromptTemplate[] = [
     title: "کشف هوشمند",
     template: "بهترین {category} زیر {budget} تومان",
     slots: [
-      { key: "category", label: "دسته‌بندی", placeholder: "هدفون نویزکنسلینگ", default: "هدفون نویزکنسلینگ" },
-      { key: "budget", label: "بودجه", placeholder: "۵ میلیون", default: "۵ میلیون" },
+      { key: "category", label: "دسته‌بندی", placeholder: "غذای خشک گربه", default: "غذای خشک گربه" },
+      { key: "budget", label: "بودجه", placeholder: "۵۰۰ هزار", default: "۵۰۰ هزار" },
     ],
     iconBg: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
     IconComp: Sparkles,
@@ -17,8 +17,8 @@ const templates: PromptTemplate[] = [
     title: "مقایسه هوشمند",
     template: "{product_a} بهتره یا {product_b}؟",
     slots: [
-      { key: "product_a", label: "محصول اول", placeholder: "گلکسی S۲۴", default: "گلکسی S۲۴" },
-      { key: "product_b", label: "محصول دوم", placeholder: "آیفون ۱۵", default: "آیفون ۱۵" },
+      { key: "product_a", label: "محصول اول", placeholder: "غذای رویال کنین", default: "غذای رویال کنین" },
+      { key: "product_b", label: "محصول دوم", placeholder: "غذای فیدار", default: "غذای فیدار" },
     ],
     iconBg: "linear-gradient(135deg, hsl(199 89% 48%), hsl(199 89% 48% / 0.8))",
     IconComp: Scale,
@@ -27,8 +27,8 @@ const templates: PromptTemplate[] = [
     title: "بودجه‌محور",
     template: "یه {occasion} شیک تا {budget} پیشنهاد بده",
     slots: [
-      { key: "occasion", label: "مناسبت / نوع", placeholder: "هدیه", default: "هدیه" },
-      { key: "budget", label: "سقف بودجه", placeholder: "۲ میلیون", default: "۲ میلیون" },
+      { key: "occasion", label: "مناسبت / نوع", placeholder: "اسباب‌بازی", default: "اسباب‌بازی" },
+      { key: "budget", label: "سقف بودجه", placeholder: "۳۰۰ هزار", default: "۳۰۰ هزار" },
     ],
     iconBg: "linear-gradient(135deg, hsl(142 70% 45%), hsl(142 70% 45% / 0.8))",
     IconComp: Wallet,
@@ -37,7 +37,7 @@ const templates: PromptTemplate[] = [
     title: "خرید خودکار",
     template: "خودت برام {goal} انتخاب کن و سبد رو بچین",
     slots: [
-      { key: "goal", label: "هدف خرید", placeholder: "لوازم سفر", default: "لوازم سفر" },
+      { key: "goal", label: "هدف خرید", placeholder: "لوازم گربه", default: "لوازم گربه" },
     ],
     iconBg: "linear-gradient(135deg, hsl(280 70% 55%), hsl(280 70% 55% / 0.8))",
     IconComp: Wand2,
@@ -46,8 +46,8 @@ const templates: PromptTemplate[] = [
     title: "پرسش از محصول",
     template: "این {product} برای {use_case} خوبه؟",
     slots: [
-      { key: "product", label: "محصول", placeholder: "لپ‌تاپ ایسوس", default: "لپ‌تاپ ایسوس" },
-      { key: "use_case", label: "کاربرد", placeholder: "برنامه‌نویسی", default: "برنامه‌نویسی" },
+      { key: "product", label: "محصول", placeholder: "غذای خشک سگ", default: "غذای خشک سگ" },
+      { key: "use_case", label: "کاربرد", placeholder: "توله سگ", default: "توله سگ" },
     ],
     iconBg: "linear-gradient(135deg, hsl(25 95% 55%), hsl(25 95% 55% / 0.8))",
     IconComp: Gift,

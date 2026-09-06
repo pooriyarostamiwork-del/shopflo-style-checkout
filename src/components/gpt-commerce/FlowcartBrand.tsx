@@ -1,4 +1,4 @@
-import flowcartIcon from "@/assets/flowcart-icon.png.asset.json";
+import flowcartIcon from "@/assets/flowcart-logo.svg";
 import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export const FlowcartMark = ({
     )}
   >
     <img
-      src={imageUrl || flowcartIcon.url}
+      src={imageUrl || flowcartIcon}
       alt={alt}
       className={cn("object-contain", imageUrl ? "h-full w-full" : "h-[78%] w-[78%]")}
       draggable={false}

@@ -560,7 +560,21 @@ function extractSignals(raw: string): {
 }
 
 /** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
+/** Removes unrequested totals / candidate-count / internal-process sentences. */
+function stripCountTalk(raw: string): string {
+  const sentenceRe =
+    /[^.!؟?\n]*(?:کاندیدا|از\s*بین\s*[\d۰-۹]+|کلاً?\s*[\d۰-۹,٬]+\s*(?:مدل|محصول|مورد)|[\d۰-۹,٬]+\s*(?:مدل|محصول|مورد)\s*(?:پیدا|موجود|هست|داریم|برات))[^.!؟?\n]*[.!؟?]?/g;
+  return (raw || "")
+    .split("\n")
+    .map((line) => (/^\s*(?:[•\-*▪]|\d+[.)])/.test(line) ? line : line.replace(sentenceRe, "")))
+    .join("\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function sanitizeVisibleText(raw: string): string {
+
   let t = raw || "";
   t = t.replace(/^[ \t]*[A-Z][A-Z0-9_]{2,}\s*:\s*(\[[\s\S]*?\]|\{[\s\S]*?\})[ \t]*$/gm, "");
   t = t.replace(/[ \t]*[（(]\s*(?:شناسه|آیدی|کد محصول|id)\s*[:：]?\s*[0-9a-fA-F-]{8,}\s*[）)]/g, "");

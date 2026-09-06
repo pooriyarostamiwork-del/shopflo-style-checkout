@@ -103,6 +103,11 @@ export function mergeGoalSignal(base: ShoppingContext, goal: any): ShoppingConte
   if (Array.isArray(goal.exclusions)) {
     next.exclusions = Array.from(new Set([...(next.exclusions || []), ...goal.exclusions.filter((x: any) => typeof x === "string")])).slice(-8);
   }
+  if (typeof goal.budget_max === "number" && goal.budget_max > 0) {
+    const cat = next.category || "__all__";
+    const prev = next.budgetByCategory?.[cat] || {};
+    next.budgetByCategory = { ...next.budgetByCategory, [cat]: { ...prev, max: goal.budget_max } };
+  }
   if (goal.budget && typeof goal.budget === "object") {
     const cat = next.category || "__all__";
     const prev = next.budgetByCategory?.[cat] || {};

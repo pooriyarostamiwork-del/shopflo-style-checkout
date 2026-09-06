@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound, Star, Store, Instagram, Twitter, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/petabadData";
-import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
-import slideItick from "@/assets/mobile-slide-itick.jpg";
+import slidePet1 from "@/assets/petabad-slide-1.jpg";
+import slidePet2 from "@/assets/petabad-slide-2.jpg";
 import { PetabadBrandLockup, PetabadMark, PetabadWordmark } from "@/components/petabad/PetabadBrand";
 import { TypingText } from "@/components/petabad/TypingText";
 import { useQuery } from "@tanstack/react-query";
@@ -52,8 +52,8 @@ const CHIP_PADDING_X = "0.814rem";
 const CHIP_PADDING_Y = "0.468rem";
 
 const heroSlides = [
-  { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
-  { id: "itick", image: slideItick, alt: "آی‌تیکت" },
+  { id: "pet1", image: slidePet1, alt: "غذا و لوازم سگ و گربه" },
+  { id: "pet2", image: slidePet2, alt: "بهداشت و اسباب‌بازی حیوانات خانگی" },
 ];
 
 interface MobileChatLandingProps {

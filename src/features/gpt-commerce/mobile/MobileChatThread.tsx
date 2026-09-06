@@ -166,6 +166,7 @@ export const MobileChatThread = ({
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-3 animate-fade-in">
+              {msg.content?.trim() && (
               <div
                 className={`flex gap-2 ${
                   msg.role === "user" ? "justify-end flex-row-reverse" : "justify-start flex-row-reverse"
@@ -205,6 +206,8 @@ export const MobileChatThread = ({
                   </p>
                 </div>
               </div>
+              )}
+
 
               {/* Interactive clarification card */}
               {msg.clarification && (

@@ -369,6 +369,7 @@ const FACETS_TOOL = {
         subcategory: { type: "string", description: "Exact subcategory, e.g. لپ تاپ" },
         query_text: { type: "string", description: "Free-text narrowing when there is no exact subcategory" },
         criterion: { type: "string", description: "Extra wording requirement, e.g. بی سیم" },
+        include_counts: { type: "boolean", description: "true ONLY when the user asked about quantities/totals/price range. Otherwise names only." },
       },
       additionalProperties: false,
     },

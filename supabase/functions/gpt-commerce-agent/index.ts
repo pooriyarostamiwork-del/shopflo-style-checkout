@@ -579,13 +579,85 @@ async function hydrateProducts(supabase: any, ids: string[]): Promise<any[]> {
 
 // Vague "help me choose" phrasings — these turns must ask through the card.
 const GUIDANCE_RE =
-  /(راهنمایی(م)?\s*کن|راهنماییم|کمکم?\s*کن.*(انتخاب|بخرم|بگیرم)|نمی\s*دونم\s*(چی|کدوم)|چی\s*(پیشنهاد|توصیه)|کدوم\s*(رو|را)?\s*(بخرم|بگیرم|پیشنهاد)|مشاوره)/;
+  /(راهنمایی(م)?\s*کن|راهنماییم|کمکم?\s*کن.*(انتخاب|بخرم|بگیرم)|نمی\s*دونم\s*(چی|کدوم)|چی\s*(پیشنهاد|توصیه)|کدوم\s*(رو|را)?\s*(بخرم|بگیرم|پیشنهاد)|مشاوره|چی\s*بگیرم|چی\s*بخرم)/;
+
+/** Did the user actually ask about quantities / totals / price range? */
+const COUNT_QUESTION_RE =
+  /(چند\s*(تا|مدل|عدد|نوع)|چندتا|تعداد|چقدر|قیمت(ش|شون)?\s*(چند|چقدر)|ارزون\s*ترین|گرون\s*ترین|بازه\s*قیمت|از\s*چند)/;
+
+/**
+ * Turns a reply that asked questions in plain text into a card.
+ * Handles both a single question with bullet options and several question blocks.
+ */
+function extractQuestionCard(text: string): any | null {
+  const lines = (text || "").split("\n").map((l) => l.trim());
+  const bulletRe = /^(?:[•\-*▪]|\d+[.)])\s+(.{1,60})$/;
+  type Block = { question: string; options: { label: string }[] };
+  const blocks: Block[] = [];
+  let current: Block | null = null;
+  let lastQuestion = "";
+
+  for (const line of lines) {
+    if (!line) continue;
+    const bullet = line.match(bulletRe);
+    if (bullet) {
+      const label = bullet[1].replace(/[؟?]\s*$/, "").trim();
+      if (!label) continue;
+      if (!current) {
+        if (!lastQuestion) continue;
+        current = { question: lastQuestion, options: [] };
+        blocks.push(current);
+      }
+      current.options.push({ label });
+      continue;
+    }
+    current = null;
+    if (/[؟?]/.test(line)) lastQuestion = line.replace(/^[•\-*]\s*/, "").trim();
+  }
+
+  const usable = blocks.filter((b) => b.options.length >= 2);
+  if (usable.length === 0) return null;
+
+  if (usable.length === 1) {
+    return {
+      kind: "single",
+      question: usable[0].question,
+      helper: "",
+      options: usable[0].options.slice(0, 6),
+    };
+  }
+  return {
+    kind: "steps",
+    helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+    steps: usable.slice(0, 4).map((b, i) => ({
+      title: `سؤال ${i + 1}`,
+      question: b.question,
+      options: b.options.slice(0, 6),
+    })),
+  };
+}
 
 /** Text that is mostly questions → the model wrote a question list instead of a card. */
 function isQuestionHeavy(text: string): boolean {
   const marks = (text.match(/[؟?]/g) || []).length;
   return marks >= 2;
 }
+
+/** Usage the user already stated — that guidance step is then skipped. */
+const USAGE_HINTS: Array<[RegExp, string]> = [
+  [/گیمینگ|بازی|گیمر/, "بازی و گیمینگ"],
+  [/دانشجو|درس|تحصیل/, "دانشجویی و درسی"],
+  [/طراحی|رندر|ادیت|مونتاژ|گرافیک/, "طراحی و کارهای سنگین"],
+  [/برنامه\s*نویس|کدنویسی|دولوپ/, "برنامه‌نویسی"],
+  [/اداری|روزمره|آفیس|کار\s*معمولی/, "کارهای روزمره و اداری"],
+];
+
+function detectUsage(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, label] of USAGE_HINTS) if (re.test(norm)) return label;
+  return null;
+}
+
 
 const DEFAULT_GUIDANCE_STEPS = (category: string) => [
   {

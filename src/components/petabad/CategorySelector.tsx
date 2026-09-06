@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Smartphone, Heart, Shirt, Home, Sparkles, Gamepad2, ChevronDown } from "lucide-react";
+import { Dog, Cat, Bird, Bone, Sparkles, Bath, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,12 +20,13 @@ interface CategorySelectorProps {
 
 const categories: Category[] = [
   { id: 'all', label: 'همه', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 'digital', label: 'دیجیتال', icon: <Smartphone className="w-4 h-4" /> },
-  { id: 'health', label: 'سلامت و زیبایی', icon: <Heart className="w-4 h-4" /> },
-  { id: 'fashion', label: 'مد و پوشاک', icon: <Shirt className="w-4 h-4" /> },
-  { id: 'home', label: 'خانه', icon: <Home className="w-4 h-4" /> },
-  { id: 'gaming', label: 'گیمینگ', icon: <Gamepad2 className="w-4 h-4" /> },
+  { id: 'cat', label: 'گربه', icon: <Cat className="w-4 h-4" /> },
+  { id: 'dog', label: 'سگ', icon: <Dog className="w-4 h-4" /> },
+  { id: 'bird', label: 'پرندگان', icon: <Bird className="w-4 h-4" /> },
+  { id: 'snack', label: 'اسنک و تشویقی', icon: <Bone className="w-4 h-4" /> },
+  { id: 'care', label: 'بهداشت و نگهداری', icon: <Bath className="w-4 h-4" /> },
 ];
+
 
 export const CategorySelector = ({ activeCategory, onCategoryChange }: CategorySelectorProps) => {
   const activeItem = categories.find(c => c.id === activeCategory) || categories[0];

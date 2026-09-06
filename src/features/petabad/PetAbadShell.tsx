@@ -14,6 +14,7 @@ import { useUserData } from "./hooks/useUserData";
 import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
 import { useAgentMessages } from "./hooks/useAgentMessages";
 import { useCartPersistence } from "./hooks/useCartPersistence";
+import "./petabad-theme.css";
 
 export const PetAbadShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
@@ -415,7 +416,7 @@ export const PetAbadShell = () => {
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="petabad-theme flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
       {(hasStartedChat || pendingNewChat) && (
         <Sidebar
           activeSection={activeSection}

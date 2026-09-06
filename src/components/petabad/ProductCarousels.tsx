@@ -13,7 +13,7 @@ interface ProductCarouselsProps {
   cartItems: Product[];
 }
 
-// Subcategory config for carousel sections
+// Subcategory config for carousel sections (pet catalog)
 const subcategoryConfig: {
   subcategory: string;
   title: string;
@@ -21,21 +21,15 @@ const subcategoryConfig: {
   accentColor: string;
   bannerKey: keyof BannerConfigs;
 }[] = [
-  { subcategory: 'هدفون، هدست و هندزفری', title: 'هدفون و هندزفری', emoji: '🎧', accentColor: 'linear-gradient(135deg, #ef4444, #f97316)', bannerKey: 'hotDeals' },
-  { subcategory: 'ساعت و مچ‌بند هوشمند', title: 'ساعت هوشمند', emoji: '⌚', accentColor: 'linear-gradient(135deg, #ec4899, #f472b6)', bannerKey: 'youMayLike' },
-  { subcategory: 'گوشی موبایل', title: 'گوشی موبایل', emoji: '📱', accentColor: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))', bannerKey: 'mostPopular' },
-  { subcategory: 'لپ تاپ', title: 'لپ‌تاپ', emoji: '💻', accentColor: 'linear-gradient(135deg, #6366f1, #818cf8)', bannerKey: 'hotDeals' },
-  { subcategory: 'لوازم جانبی گوشی موبایل', title: 'لوازم جانبی موبایل', emoji: '🔌', accentColor: 'linear-gradient(135deg, #14b8a6, #2dd4bf)', bannerKey: 'youMayLike' },
-  { subcategory: 'هارد اکسترنال', title: 'هارد اکسترنال', emoji: '💾', accentColor: 'linear-gradient(135deg, #92400e, #b45309)', bannerKey: 'mostPopular' },
-  { subcategory: 'دوربین دیجیتال', title: 'دوربین دیجیتال', emoji: '📷', accentColor: 'linear-gradient(135deg, #a855f7, #d946ef)', bannerKey: 'hotDeals' },
-  { subcategory: 'کیبورد و ماوس', title: 'کیبورد و ماوس', emoji: '⌨️', accentColor: 'linear-gradient(135deg, #16a34a, #22c55e)', bannerKey: 'youMayLike' },
+  { subcategory: 'غذای خشک گربه', title: 'غذای خشک گربه', emoji: '🐱', accentColor: 'linear-gradient(135deg, #f97316, #fb923c)', bannerKey: 'hotDeals' },
+  { subcategory: 'غذای خشک سگ', title: 'غذای خشک سگ', emoji: '🐶', accentColor: 'linear-gradient(135deg, #ea580c, #f97316)', bannerKey: 'youMayLike' },
+  { subcategory: 'کنسرو و پوچ و غذای تر گربه', title: 'کنسرو و پوچ گربه', emoji: '🥫', accentColor: 'linear-gradient(135deg, #d97706, #f59e0b)', bannerKey: 'mostPopular' },
+  { subcategory: 'کنسرو و پوچ و غذای تر سگ', title: 'کنسرو و پوچ سگ', emoji: '🍖', accentColor: 'linear-gradient(135deg, #b45309, #d97706)', bannerKey: 'hotDeals' },
+  { subcategory: 'تشویقی سگ', title: 'اسنک و تشویقی سگ', emoji: '🦴', accentColor: 'linear-gradient(135deg, #f59e0b, #fbbf24)', bannerKey: 'youMayLike' },
+  { subcategory: 'تشویقی و بستنی گربه', title: 'اسنک و تشویقی گربه', emoji: '🍬', accentColor: 'linear-gradient(135deg, #fb923c, #fdba74)', bannerKey: 'mostPopular' },
+  { subcategory: 'شامپو و نرم کننده سگ', title: 'لوازم بهداشتی', emoji: '🧴', accentColor: 'linear-gradient(135deg, #16a34a, #22c55e)', bannerKey: 'hotDeals' },
+  { subcategory: 'اسباب بازی گربه', title: 'اسباب‌بازی گربه', emoji: '🧶', accentColor: 'linear-gradient(135deg, #a855f7, #d946ef)', bannerKey: 'youMayLike' },
 ];
-
-const merchantMap: Record<string, typeof merchants[0]> = {
-  m1: merchants[0],
-  m2: merchants[1],
-  m3: merchants[2] || { id: 'm3', name: 'تکنولایف', logo: '💻' },
-};
 
 function mapDbProduct(row: any): Product {
   return {
@@ -45,14 +39,15 @@ function mapDbProduct(row: any): Product {
     originalPrice: row.original_price || undefined,
     image: row.image_url,
     imageUrls: row.image_urls || undefined,
-    description: row.description || undefined,
-    merchant: merchantMap[row.merchant_id] || merchants[0],
+    description: row.short_description || row.description || undefined,
+    merchant: merchants[0],
     rating: Number(row.rating) || 4.0,
-    fastDelivery: row.fast_delivery,
-    returnGuarantee: row.return_guarantee,
+    fastDelivery: true,
+    returnGuarantee: true,
     inStock: row.in_stock,
   };
 }
+
 
 interface CarouselSectionProps {
   title: string;
@@ -348,48 +343,37 @@ const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerC
 };
 
 export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
-  // Fetch hot deals — cross-category products with highest discount %
+  // Featured pet picks — most reviewed in-stock products across the pet catalog
   const { data: hotDealsProducts, isLoading: isLoadingDeals } = useQuery({
-    queryKey: ['carousel-hot-deals'],
+    queryKey: ['petabad-carousel-featured'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('products')
+        .from('pet_products')
         .select('*')
         .eq('in_stock', true)
-        .not('original_price', 'is', null)
-        .order('original_price', { ascending: false })
-        .limit(100);
-      
+        .order('review_count', { ascending: false })
+        .limit(15);
+
       if (error) throw error;
-      
-      // Sort by discount percentage descending, take top 15
-      const withDiscount = (data || [])
-        .filter(r => r.original_price && r.original_price > r.price)
-        .sort((a, b) => {
-          const discA = 1 - a.price / (a.original_price || a.price);
-          const discB = 1 - b.price / (b.original_price || b.price);
-          return discB - discA;
-        })
-        .slice(0, 15);
-      
-      return withDiscount.map(mapDbProduct);
+      return (data || []).map(mapDbProduct);
     },
     staleTime: 5 * 60 * 1000,
   });
 
   // Fetch products grouped by subcategory
   const { data: productsBySubcategory, isLoading } = useQuery({
-    queryKey: ['carousel-products'],
+    queryKey: ['petabad-carousel-products'],
     queryFn: async () => {
       const results: Record<string, Product[]> = {};
-      
+
       const { data, error } = await supabase
-        .from('products')
+        .from('pet_products')
         .select('*')
         .in('subcategory', subcategoryConfig.map(s => s.subcategory))
         .eq('in_stock', true)
-        .order('rating', { ascending: false })
-        .limit(200);
+        .order('review_count', { ascending: false })
+        .limit(400);
+
       
       if (error) throw error;
       
@@ -408,11 +392,12 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
 
   return (
     <div className="w-full max-w-[960px] mx-auto px-4 mt-16 space-y-8 pb-16">
-      {/* 🔥 Hot Deals — cross-category promotional carousel */}
+      {/* 🐾 Featured pet picks */}
       {(isLoadingDeals || (hotDealsProducts && hotDealsProducts.length > 0)) && (
         <CarouselSection
-          title="داغ‌ترین تخفیف‌ها"
-          icon={<span className="text-sm">🔥</span>}
+          title="پرطرفدارهای پت آباد"
+          icon={<span className="text-sm">🐾</span>}
+
           products={hotDealsProducts || []}
           onAddToCart={onAddToCart}
           onQuickView={onQuickView}

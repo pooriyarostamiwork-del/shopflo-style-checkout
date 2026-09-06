@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound, Star, Store, Instagram, Twitter, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/petabadData";
-import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
-import slideItick from "@/assets/mobile-slide-itick.jpg";
+import slidePet1 from "@/assets/petabad-slide-1.jpg";
+import slidePet2 from "@/assets/petabad-slide-2.jpg";
 import { PetabadBrandLockup, PetabadMark, PetabadWordmark } from "@/components/petabad/PetabadBrand";
 import { TypingText } from "@/components/petabad/TypingText";
 import { useQuery } from "@tanstack/react-query";
@@ -31,18 +31,18 @@ function mapDbProduct(row: any): Product {
 }
 
 const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
+  "«غذای خشک سگ برای نژاد کوچک»",
+  "«خوراک گربه حساس معده»",
+  "«خودت برام خرید حیوان خانگی کن»",
 ];
 
 // Capped to 6 chips → fits in max 3 rows on 360–430px viewports
 const promptChips = [
-  "🎧 هدفون بی‌سیم زیر ۵ میلیون",
-  "📱 گوشی موبایل با دوربین خوب",
-  "💻 لپ‌تاپ برای برنامه‌نویسی",
-  "🎁 هدیه برای دوست",
-  "🔥 بهترین تخفیف‌های امروز",
+  "🐱 غذای خشک گربه",
+  "🐶 غذای خشک سگ",
+  "🥫 کنسرو و پوچ",
+  "🦴 اسنک و تشویقی",
+  "🧴 شامپو و بهداشتی",
   "🛒 خودت برام خرید کن",
 ];
 
@@ -52,8 +52,8 @@ const CHIP_PADDING_X = "0.814rem";
 const CHIP_PADDING_Y = "0.468rem";
 
 const heroSlides = [
-  { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
-  { id: "itick", image: slideItick, alt: "آی‌تیکت" },
+  { id: "pet1", image: slidePet1, alt: "غذا و لوازم سگ و گربه" },
+  { id: "pet2", image: slidePet2, alt: "بهداشت و اسباب‌بازی حیوانات خانگی" },
 ];
 
 interface MobileChatLandingProps {
@@ -143,26 +143,22 @@ export const MobileChatLanding = ({
     setInputValue("");
   };
 
-  // Hot deals — client-side query, mirrors desktop carousel logic
+  // Featured pet picks — most reviewed in-stock pet products
   const { data: hotDeals, isLoading: hotDealsLoading } = useQuery({
-    queryKey: ["mobile-hot-deals"],
+    queryKey: ["petabad-mobile-featured"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pet_products")
         .select("*")
         .eq("in_stock", true)
-        .not("original_price", "is", null)
-        .order("original_price", { ascending: false })
-        .limit(60);
+        .order("review_count", { ascending: false })
+        .limit(12);
       if (error) throw error;
-      return (data || [])
-        .filter((r: any) => r.original_price && r.original_price > r.price)
-        .sort((a: any, b: any) => (1 - b.price / b.original_price) - (1 - a.price / a.original_price))
-        .slice(0, 12)
-        .map(mapDbProduct);
+      return (data || []).map(mapDbProduct);
     },
     staleTime: 5 * 60 * 1000,
   });
+
 
   // Bento card style (matches desktop /gptcommerce landing background)
   const bentoBase: React.CSSProperties = {
@@ -324,13 +320,13 @@ export const MobileChatLanding = ({
           </div>
         </div>
 
-        {/* Hot Deals carousel — redesigned: tap-to-chat, no buttons */}
+        {/* Featured pet picks carousel — redesigned: tap-to-chat, no buttons */}
         {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
           <div className="mt-6">
             <div className="px-5 mb-3">
               <p className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
                 <Sparkles className="w-4 h-4 text-primary" />
-                داغ‌ترین تخفیف‌ها
+                پرطرفدارهای پت آباد
               </p>
             </div>
             <div className="px-5">

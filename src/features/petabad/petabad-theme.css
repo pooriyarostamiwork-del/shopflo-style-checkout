@@ -1,0 +1,9 @@
+/* PetAbad scoped theme — orange identity, isolated from Flowcart/Shift */
+.petabad-theme {
+  --primary: 22 82% 54%;
+  --primary-hover: 22 82% 62%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 22 82% 54%;
+  --accent: 33 92% 62%;
+  --accent-foreground: 24 40% 16%;
+}

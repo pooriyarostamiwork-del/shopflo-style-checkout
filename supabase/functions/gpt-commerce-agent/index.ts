@@ -1161,6 +1161,8 @@ SELECTED_IDS:["id1","id2","id3"]
     }
 
     finalContent = sanitizeVisibleText(finalContent);
+    if (!wantsCounts) finalContent = stripCountTalk(finalContent);
+
 
     if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
 

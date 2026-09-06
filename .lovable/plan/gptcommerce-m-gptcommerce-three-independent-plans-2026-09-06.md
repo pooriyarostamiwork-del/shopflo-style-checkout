@@ -7,6 +7,7 @@ Scope: only `/gptcommerce` and `/m/gptcommerce` (they share `useAgentMessages.ts
 Traced: `src/features/gpt-commerce/hooks/useAgentMessages.ts` → `supabase/functions/gpt-commerce-agent/index.ts` → RPC `hybrid_product_search` → `products` table, plus `productMemory.ts`, `ChatThread.tsx`, `MobileChatThread.tsx`.
 
 Catalog facts (queried live):
+
 - 1,489 products; 435 have **no subcategory**; brand present on 1,374 across 134 distinct values.
 - `specs` is `[]` for **every** product (0 non-empty). So structured attributes effectively do not exist — name/description/tags/brand are the only evidence. `description` averages 186 chars and is included in `search_vector`.
 - Laptops: 111 rows, brands include اپل (5), ایسر (6), ام اس آی (3), گیگابایت (1), سامسونگ (1) plus duplicate HP spellings (`اچ پی`, `اچ‌پی`, `اچ‌ پی`).
@@ -22,6 +23,7 @@ Reproduced failure (gateway log `01a073a7…`): on "اپل چیا داری" the 
 **Root causes:** (a) no way to enumerate or count the catalog, so "which brands / do you have X" is answered from a 20-row sample or from memory; (b) `LIMIT 20` with no count and no offset, so "all X" is structurally impossible and the model cannot distinguish *matching* from *displayed*; (c) brand filter is single-value, case/spelling/language-fragile; (d) the prompt permits catalog claims without a tool call; (e) missing embeddings degrade semantic recall; (f) criteria like "بی‌سیم" or "ایرانی" have no structured field, and there is no text-evidence search path.
 
 **Changes (no extra model calls):**
+
 1. New SQL function `product_facets(p_subcategory, p_criterion)` → canonical brand list with counts, total matching count, price band. Exposed as one new tool `catalog_facets`. Enumeration/existence questions become one cheap SQL call instead of a guess.
 2. Brand canonicalisation: a small `brand_aliases` table (Persian variants + English↔Persian, seeded from the 134 existing values) plus a `canonical_brand()` helper, used by both search and facets. `Apple`/`apple`/`اپل` all resolve to اپل; the three HP spellings collapse to one.
 3. `hybrid_product_search` v2 (same name, added optional params, backward compatible): `p_limit`, `p_offset`, `p_brands text[]`, `p_evidence text[]` (terms matched against name/description/tags — the tier that answers "بی‌سیم", "گیمینگ", "ایرانی"), and a returned `matched_total` window count. Default limit stays 20; comprehensive requests use up to 60.
@@ -41,6 +43,7 @@ Reproduced failure (gateway log `01a073a7…`): on "اپل چیا داری" the 
 **Root cause:** the only state carried between turns is `productMemory` (groups, positions, liked/rejected/inCart) plus the last 6 trimmed messages. There is no representation of the **shopping goal** (use case, budget, recipient), so "هدفون چی بگیرم" after "لپ‌تاپ گیمینگ زیر ۱۰۰ میلیون" is read as a fresh query — verified in the hook and in the system prompt, which has reference rules but no goal rules.
 
 **Changes (no extra model calls):**
+
 1. Add a compact `shoppingContext` to the per-basket state next to `productMemory`: `useCase`, `recipient`, `categoryBudgets` (per category), `currentCategory`, `preferences`, `exclusions`, `updatedAt`. Persisted with the basket (storage version bump, same pattern as v7).
 2. Filled from two zero-cost sources: deterministic regex for numeric budgets/categories/recipient phrases (برای مامانم، برای خودم), and an optional `GOAL:` signal line the **existing** answer call already has room for, parsed and stripped exactly like the current `LIKED_IDS`/`REJECTED_IDS` signals.
 3. Persistence rules encoded in state, not in the model: use case persists across categories; budget is category-scoped and never transferred; an explicit statement overrides immediately and clears the previous use case for that category.
@@ -57,9 +60,10 @@ Reproduced failure (gateway log `01a073a7…`): on "اپل چیا داری" the 
 **Current state (verified):** numeric/ordinal references are already resolved locally in the hook; "این/اینا" resolution relies entirely on the model plus `CURRENT FOCUS`. Ambiguity today surfaces as a chat bubble question with quick-reply chips (`needs_clarification` + `clarification_options`). The playground `PgQuizCard` and `PgMultiStepSelector` are hardcoded to mock constants (`PG_QUIZ`, `PG_WIZARD_STEPS`) and cannot render agent-supplied questions.
 
 **Changes (no extra model calls):**
+
 1. Deterministic reference resolver in `productMemory.ts`: explicit number → named product → single focused product → latest group → earlier group. The resolved target is passed as a `REFERENCE:` line, so the model does not have to re-derive it.
 2. New tool `ask_clarification(question, options[], steps?)`. When the model calls it, the edge function returns the payload **directly** — no answer call — so a clarification turn costs *one* model call, fewer than today.
-3. Port the two playground components into `src/components/gpt-commerce/` as data-driven `GcQuizCard` / `GcMultiStepSelector` (props: question, options, optional steps; keeps skip). They render inside the chat message from a new `clarification` field on `ChatMessage`, with the bubble text left empty so **the question appears only in the component, never duplicated**. Both `ChatThread.tsx` and `MobileChatThread.tsx` render it.
+3. Port the two playground components into `src/components/gpt-commerce/` as data-driven `GcQuizCard` / `GcMultiStepSelector` (props: question, options, optional steps; keeps skip). They render inside the chat message from a new `clarification` field on `ChatMessage`, with the bubble text left empty so **the question appears only in the component, never duplicated**. Both `ChatThread.tsx` and `MobileChatThread.tsx` render it.  GcQuizCard for single answer questions and `GcMultiStepSelector for multi answer questions.` 
 4. The answer feeds back as the user's next message plus a deterministic patch to `shoppingContext` (Plan 2), then the normal single agent turn runs.
 5. Clarification is allowed only when interpretations diverge materially; the existing cart-disambiguation chips stay as they are.
 

@@ -145,7 +145,9 @@ SELECTED_IDS:["id1","id2","id3"]
 قانون حیاتی: هرگز اسم، مدل یا قیمت محصولی رو از خودت نساز. هر محصولی که معرفی می‌کنی باید یا از نتیجه search_products / recall_products باشه یا در حافظه محصولات باشه. اگه قراره محصول جدیدی پیشنهاد بدی، حتماً و بدون استثنا اول search_products رو صدا بزن.
 
 قانون حیاتی دوم (ادعا درباره موجودی): هیچ‌وقت نگو «نداریم» یا «موجود نیست» یا فهرست برند/دسته نده، مگر اینکه در همین نوبت catalog_facets یا search_products رو صدا زده باشی. حافظه محصولات فقط چیزهایی هست که تا حالا نشون دادی، نه کل فروشگاه.
-- «چه برندهایی داری؟ / همه‌شو لیست کن / چند مدل دارید؟» → catalog_facets (فهرست کامل برندها با تعداد رو از همون نتیجه بگو، کم و زیادش نکن)
+- «چه برندهایی داری؟ / همه‌شو لیست کن» → catalog_facets، ولی در متن فقط «اسم برندها» رو بگو؛ عدد و تعداد و بازه قیمت رو ننویس مگه کاربر خودش خواسته باشه
+- «چند مدل دارید؟ / چندتا؟ / تعداد؟» → catalog_facets و این‌جا تعداد رو بگو
+- تعداد کل و بازه قیمت فقط وقتی گفته میشه که کاربر درباره تعداد یا قیمت پرسیده باشه
 - «X داری؟» یا «از برند X چی داری؟» → search_products با filters.brand = X (اسم برند رو هر شکلی که کاربر گفت بده؛ فارسی و انگلیسی هر دو کار می‌کنه)
 - «از برند X در دسته Y چند مدل داری؟» → catalog_facets با subcategory = Y و تعداد همون برند رو از نتیجه بگو؛ عدد را از جستجو حدس نزن
 - وقتی برند و دسته هر دو مشخصه، در search_products هم subcategory رو بده تا matched_total مربوط به همون دسته باشه؛ هرگز matched_totalِ بدون دسته رو به عنوان تعداد آن دسته نگو
@@ -166,17 +168,23 @@ SELECTED_IDS:["id1","id2","id3"]
 - بودجه فقط برای همون دسته‌ای که کاربر گفته اعمال میشه؛ به دسته بعدی منتقلش نکن
 - اگه کاربر صریحاً هدف رو عوض کرد، هدف قبلی رو کنار بذار
 
-ابهام واقعی:
-- اگه دو برداشت مختلف به محصولات کاملاً متفاوتی می‌رسه و نمی‌تونی حدس بزنی، ask_clarification رو صدا بزن (سؤال + گزینه‌ها). سؤال رو در متن معمولی تکرار نکن
+پرسیدن سؤال (قانون قطعی):
+- هیچ‌وقت سؤال‌هات رو به شکل متن یا لیست بولت‌دار در پاسخ ننویس. هر سؤالی که از کاربر داری فقط و فقط با ask_clarification پرسیده میشه (کارت تعاملی)
+- درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification با steps (کاربری → بودجه → اولویت) و هر مرحله ۳ تا ۵ گزینه کوتاه
+- اگه دو برداشت مختلف به محصولات کاملاً متفاوتی می‌رسه، ask_clarification (سؤال + گزینه‌ها)
 - اگه فقط یک برداشت منطقیه، سؤال نپرس و جواب بده
+
+نمایش محصول:
+- هرگز شناسه (id/UUID) محصول رو در متن پاسخ ننویس؛ شناسه فقط در ابزارها و سیگنال‌ها استفاده میشه
+- اگه داری محصولی از حافظه رو دوباره معرفی می‌کنی یا می‌فرستی، حتماً recall_products رو با شناسه‌هاش صدا بزن تا کارت محصول نمایش داده شه
 
 انتخاب ابزار:
 - محصول جدید لازمه (حتی وقتی مرجعش محصول قبلیه، مثل «برای این لپ‌تاپ چه هدفونی؟») → search_products با کلمات موضوع جدید
 - سؤال شمارشی/فهرستی درباره کل فروشگاه → catalog_facets
-- کاربر می‌خواد محصولی که قبلاً دیده رو دوباره ببینه یا مقایسه کنه → recall_products با شناسه‌های همون محصولات
+- کاربر می‌خواد محصولی که قبلاً دیده رو دوباره ببینه یا بفرستی → recall_products با شناسه‌های همون محصولات
 - جزئیات یک محصول → get_product_details
 - افزودن/حذف/تغییر تعداد سبد → execute_cart_operations (می‌تونی product_id از حافظه بدی)
-- ابهام واقعی → ask_clarification
+- ابهام واقعی یا هر سؤالی از کاربر → ask_clarification
 - مقایسه یا سوال درباره اطلاعاتی که قبلاً گفتی → بدون ابزار جواب بده
 
 زیرمجموعه‌های موجود در فروشگاه:
@@ -361,6 +369,7 @@ const FACETS_TOOL = {
         subcategory: { type: "string", description: "Exact subcategory, e.g. لپ تاپ" },
         query_text: { type: "string", description: "Free-text narrowing when there is no exact subcategory" },
         criterion: { type: "string", description: "Extra wording requirement, e.g. بی سیم" },
+        include_counts: { type: "boolean", description: "true ONLY when the user asked about quantities/totals/price range. Otherwise names only." },
       },
       additionalProperties: false,
     },
@@ -501,8 +510,118 @@ async function executeFacets(supabase: any, args: any): Promise<any> {
     console.error("Facets error:", error);
     return { error: "شمارش کاتالوگ با مشکل مواجه شد" };
   }
-  return data;
+  // Counts / totals / price range are opt-in: a plain "list the brands" request
+  // must not come back stuffed with numbers.
+  if (args?.include_counts === true) return data;
+  return {
+    brands: (data?.brands || []).map((b: any) => b?.brand).filter(Boolean),
+    subcategories: (data?.subcategories || []).map((s: any) => s?.subcategory).filter(Boolean),
+    counts_hidden: true,
+  };
 }
+
+// ── Visible-text hygiene ────────────────────────────────────────────────
+const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+/** Pulls machine signal lines (LABEL:[...] / LABEL:{...}) out of the model text. */
+function extractSignals(raw: string): {
+  text: string;
+  referenceIds: string[];
+  likedIds: string[];
+  rejectedIds: string[];
+  selectedIds: string[];
+  goal: any;
+} {
+  let text = raw || "";
+  const takeArray = (label: string): string[] => {
+    const m = text.match(new RegExp(label + ":\\s*(\\[[\\s\\S]*?\\])"));
+    if (!m) return [];
+    text = text.replace(new RegExp("\\n?" + label + ":\\s*\\[[\\s\\S]*?\\]"), "").trim();
+    try {
+      const parsed = JSON.parse(m[1]);
+      return Array.isArray(parsed) ? parsed.filter((v: any) => typeof v === "string") : [];
+    } catch {
+      return [];
+    }
+  };
+  const selectedIds = takeArray("SELECTED_IDS");
+  const referenceIds = takeArray("REFERENCE_IDS");
+  const likedIds = takeArray("LIKED_IDS");
+  const rejectedIds = takeArray("REJECTED_IDS");
+  let goal: any = null;
+  const goalMatch = text.match(/GOAL:\s*(\{[\s\S]*?\})/);
+  if (goalMatch) {
+    try { goal = JSON.parse(goalMatch[1]); } catch { goal = null; }
+    text = text.replace(/\n?GOAL:\s*\{[\s\S]*?\}/, "").trim();
+  }
+  return { text, referenceIds, likedIds, rejectedIds, selectedIds, goal };
+}
+
+/** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
+function sanitizeVisibleText(raw: string): string {
+  let t = raw || "";
+  t = t.replace(/^[ \t]*[A-Z][A-Z0-9_]{2,}\s*:\s*(\[[\s\S]*?\]|\{[\s\S]*?\})[ \t]*$/gm, "");
+  t = t.replace(/[ \t]*[（(]\s*(?:شناسه|آیدی|کد محصول|id)\s*[:：]?\s*[0-9a-fA-F-]{8,}\s*[）)]/g, "");
+  t = t.replace(UUID_RE, "");
+  t = t.replace(/[ \t]*[（(]\s*[）)]/g, "");
+  return t.replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Fetches full product rows for ids, preserving the given order. */
+async function hydrateProducts(supabase: any, ids: string[]): Promise<any[]> {
+  const unique = Array.from(new Set(ids.filter(Boolean))).slice(0, 12);
+  if (unique.length === 0) return [];
+  const { data } = await supabase.from("products").select("*").in("id", unique);
+  return unique.map((id) => (data || []).find((p: any) => p.id === id)).filter(Boolean);
+}
+
+// Vague "help me choose" phrasings — these turns must ask through the card.
+const GUIDANCE_RE =
+  /(راهنمایی(م)?\s*کن|راهنماییم|کمکم?\s*کن.*(انتخاب|بخرم|بگیرم)|نمی\s*دونم\s*(چی|کدوم)|چی\s*(پیشنهاد|توصیه)|کدوم\s*(رو|را)?\s*(بخرم|بگیرم|پیشنهاد)|مشاوره)/;
+
+/** Text that is mostly questions → the model wrote a question list instead of a card. */
+function isQuestionHeavy(text: string): boolean {
+  const marks = (text.match(/[؟?]/g) || []).length;
+  return marks >= 2;
+}
+
+const DEFAULT_GUIDANCE_STEPS = (category: string) => [
+  {
+    title: "کاربری",
+    question: `${category ? category + " رو ' " : ""}برای چه کاری می‌خوای؟`.replace(" ' ", " "),
+    options: [
+      { label: "کارهای روزمره و اداری" },
+      { label: "دانشجویی و درسی" },
+      { label: "بازی و گیمینگ" },
+      { label: "طراحی و کارهای سنگین" },
+      { label: "برنامه‌نویسی" },
+    ],
+  },
+  {
+    title: "بودجه",
+    question: "بودجه‌ات حدوداً چقدره؟",
+    options: [
+      { label: "تا ۳۰ میلیون تومان" },
+      { label: "۳۰ تا ۵۰ میلیون تومان" },
+      { label: "۵۰ تا ۸۰ میلیون تومان" },
+      { label: "بالای ۸۰ میلیون تومان" },
+      { label: "مهم نیست، بهترین رو نشونم بده" },
+    ],
+  },
+  {
+    title: "اولویت",
+    question: "چه چیزی برات مهم‌تره؟",
+    options: [
+      { label: "قدرت و سرعت" },
+      { label: "سبکی و حمل راحت" },
+      { label: "کیفیت صفحه‌نمایش" },
+      { label: "عمر باتری" },
+      { label: "بهترین قیمت" },
+    ],
+  },
+];
+
+
 
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
@@ -602,6 +721,12 @@ serve(async (req) => {
       }
     }
 
+    // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
+    const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
+    const wantsGuidance = GUIDANCE_RE.test(normalizePersian(lastUserText));
+    if (wantsGuidance) {
+      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش هنوز مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن (کاربری → بودجه → اولویت، هر مرحله ۳ تا ۵ گزینه کوتاه) و هیچ سؤالی رو در متن ننویس.`;
+    }
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
@@ -668,12 +793,44 @@ serve(async (req) => {
       );
     }
 
-    // ── No tool call = direct response ──
+    // ── No tool call = direct response (still sanitized + card-hydrated) ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
+      const rawText = choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟";
+      const sig = extractSignals(rawText);
+      const mentionedIds = [
+        ...((sig.text.match(UUID_RE) || []) as string[]),
+        ...sig.likedIds,
+        ...sig.selectedIds,
+      ];
+      const hydrated = await hydrateProducts(supabase, mentionedIds);
+      const visible = sanitizeVisibleText(sig.text);
+
+      // Safety net: a guidance turn answered with a text question list becomes a card.
+      if (wantsGuidance && hydrated.length === 0 && isQuestionHeavy(visible)) {
+        const category = /لپ\s*تاپ/.test(normalizePersian(lastUserText)) ? "لپ‌تاپ" : "";
+        return new Response(
+          JSON.stringify({
+            content: "",
+            products: [],
+            quickReplies: [],
+            clarification: {
+              kind: "steps",
+              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+              steps: DEFAULT_GUIDANCE_STEPS(category),
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
-          content: choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟",
-          products: [],
+          content: visible || "متوجه نشدم. می‌تونی دوباره بگی؟",
+          products: hydrated,
+          reference_product_ids: sig.referenceIds,
+          liked_product_ids: sig.likedIds,
+          rejected_product_ids: sig.rejectedIds,
+          goal: sig.goal,
           quickReplies: [],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -727,7 +884,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           cart_actions: cartResult.actions || [],
-          content: cartResult.message || "عملیات انجام شد.",
+          content: sanitizeVisibleText(cartResult.message || "") || "عملیات انجام شد.",
           needs_clarification: cartResult.needs_clarification || false,
           clarification_options: cartResult.clarification_options || [],
           products: [],
@@ -855,42 +1012,34 @@ SELECTED_IDS:["id1","id2","id3"]
     }
 
     const followUpData = await followUpResponse.json();
-    let finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
+    const rawFinal = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
 
-    // Parse SELECTED_IDS from re-ranker output
+    // ── One shared pass: pull every machine signal out of the visible text ──
+    const sig = extractSignals(rawFinal);
+    let finalContent = sig.text;
+    const referenceIds = sig.referenceIds;
+    const likedIds = sig.likedIds;
+    const rejectedIds = sig.rejectedIds;
+    const goalSignal = sig.goal;
+
     let selectedProducts = allProducts.slice(0, maxShown);
-    const selectedIdsMatch = finalContent.match(/SELECTED_IDS:\s*(\[.*?\])/);
-    if (selectedIdsMatch) {
-      try {
-        const selectedIds: string[] = JSON.parse(selectedIdsMatch[1]);
-        const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
-        const reordered = selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
-        if (reordered.length > 0) selectedProducts = reordered;
-        console.log(`Re-ranker selected ${reordered.length} products`);
-      } catch (e) {
-        console.error("Failed to parse SELECTED_IDS:", e);
-      }
-      finalContent = finalContent.replace(/\n?SELECTED_IDS:\s*\[.*?\]/, "").trim();
+    if (sig.selectedIds.length > 0) {
+      const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
+      const reordered = sig.selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
+      if (reordered.length > 0) selectedProducts = reordered;
+      console.log(`Re-ranker selected ${reordered.length} products`);
     }
 
-    // ── Parse optional memory signals and strip them from the visible text ──
-    const parseSignal = (label: string): string[] => {
-      const m = finalContent.match(new RegExp(label + ":\\s*(\\[.*?\\])"));
-      if (!m) return [];
-      finalContent = finalContent.replace(new RegExp("\\n?" + label + ":\\s*\\[.*?\\]"), "").trim();
-      try { return JSON.parse(m[1]); } catch { return []; }
-    };
-    const referenceIds = parseSignal("REFERENCE_IDS");
-    const likedIds = parseSignal("LIKED_IDS");
-    const rejectedIds = parseSignal("REJECTED_IDS");
-
-    // GOAL signal: a compact object describing the shopping goal, stripped from visible text
-    let goalSignal: any = null;
-    const goalMatch = finalContent.match(/GOAL:\s*(\{[\s\S]*?\})/);
-    if (goalMatch) {
-      try { goalSignal = JSON.parse(goalMatch[1]); } catch { goalSignal = null; }
-      finalContent = finalContent.replace(/\n?GOAL:\s*\{[\s\S]*?\}/, "").trim();
+    // Products named from memory (ids cited in the text) still get their cards.
+    if (selectedProducts.length === 0) {
+      const mentionedIds = [
+        ...((finalContent.match(UUID_RE) || []) as string[]),
+        ...likedIds,
+      ];
+      selectedProducts = await hydrateProducts(supabase, mentionedIds);
     }
+
+    finalContent = sanitizeVisibleText(finalContent);
 
     if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
 

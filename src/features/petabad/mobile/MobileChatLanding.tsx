@@ -1,0 +1,587 @@
+import { useState, useRef, useEffect } from "react";
+import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound, Star, Store, Instagram, Twitter, Linkedin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
+import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
+import slideItick from "@/assets/mobile-slide-itick.jpg";
+import { FlowcartBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/gpt-commerce/FlowcartBrand";
+import { TypingText } from "@/components/gpt-commerce/TypingText";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
+import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
+
+// Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
+const merchantMap: Record<string, typeof merchants[0]> = {
+  m1: merchants[0],
+  m2: merchants[1],
+  m3: merchants[2] || { id: "m3", name: "تکنولایف", logo: "💻" },
+};
+function mapDbProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    originalPrice: row.original_price || undefined,
+    image: row.image_url,
+    imageUrls: row.image_urls || undefined,
+    description: row.description || undefined,
+    merchant: merchantMap[row.merchant_id] || merchants[0],
+    rating: Number(row.rating) || 4.0,
+    fastDelivery: row.fast_delivery,
+    returnGuarantee: row.return_guarantee,
+    inStock: row.in_stock,
+  } as Product;
+}
+
+const placeholderTexts = [
+  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
+  "«بهترین تخفیف‌های امروز چیه؟»",
+  "«خودت برام خرید کن»",
+];
+
+// Capped to 6 chips → fits in max 3 rows on 360–430px viewports
+const promptChips = [
+  "🎧 هدفون بی‌سیم زیر ۵ میلیون",
+  "📱 گوشی موبایل با دوربین خوب",
+  "💻 لپ‌تاپ برای برنامه‌نویسی",
+  "🎁 هدیه برای دوست",
+  "🔥 بهترین تخفیف‌های امروز",
+  "🛒 خودت برام خرید کن",
+];
+
+// Chip sizing — bumped +10% per latest spec
+const CHIP_FONT_SIZE = "0.702rem";
+const CHIP_PADDING_X = "0.814rem";
+const CHIP_PADDING_Y = "0.468rem";
+
+const heroSlides = [
+  { id: "drnext", image: slideDrnext, alt: "دکترنکست" },
+  { id: "itick", image: slideItick, alt: "آی‌تیکت" },
+];
+
+interface MobileChatLandingProps {
+  onSendMessage: (message: string, forceNew?: boolean) => void;
+  onAddToCart: (product: Product) => void;
+  onCompare?: (product: Product) => void;
+  onSaveProduct?: (product: Product) => void;
+  savedProductIds?: string[];
+  cartItems: CartItem[];
+  isProcessing: boolean;
+  isAuthenticated?: boolean;
+  userFirstName?: string;
+  basketCount?: number;
+  onOpenBaskets?: () => void;
+  onOpenCart?: () => void;
+  onOpenAccount?: () => void;
+  onProductCardTap?: (product: Product) => void;
+}
+
+export const MobileChatLanding = ({
+  onSendMessage,
+  onAddToCart,
+  onCompare,
+  onSaveProduct,
+  savedProductIds = [],
+  cartItems,
+  isProcessing,
+  isAuthenticated,
+  userFirstName,
+  basketCount = 0,
+  onOpenBaskets,
+  onOpenCart,
+  onOpenAccount,
+  onProductCardTap,
+}: MobileChatLandingProps) => {
+  const [inputValue, setInputValue] = useState("");
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (inputValue) return;
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [inputValue]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "44px";
+      const sh = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = Math.min(sh, 120) + "px";
+    }
+  }, [inputValue]);
+
+  // Track which slide is most visible — measure per-slide width (RTL-safe)
+  const handleSliderScroll = () => {
+    const el = sliderRef.current;
+    if (!el) return;
+    const firstSlide = el.querySelector<HTMLElement>("[data-slide]");
+    const slideW = firstSlide ? firstSlide.offsetWidth + 12 /* gap */ : el.clientWidth;
+    // In RTL, scrollLeft is <= 0 in most browsers
+    const offset = Math.abs(el.scrollLeft);
+    const idx = Math.min(
+      heroSlides.length - 1,
+      Math.max(0, Math.round(offset / slideW))
+    );
+    if (idx !== activeSlide) setActiveSlide(idx);
+  };
+
+  const goToSlide = (i: number) => {
+    const el = sliderRef.current;
+    if (!el) return;
+    const firstSlide = el.querySelector<HTMLElement>("[data-slide]");
+    const slideW = firstSlide ? firstSlide.offsetWidth + 12 : el.clientWidth;
+    const target = slideW * i;
+    // RTL → negative scrollLeft
+    el.scrollTo({ left: -target, behavior: "smooth" });
+  };
+
+  const submit = (msg?: string) => {
+    const text = (msg ?? inputValue).trim();
+    if (!text || isProcessing) return;
+    onSendMessage(text, true);
+    setInputValue("");
+  };
+
+  // Hot deals — client-side query, mirrors desktop carousel logic
+  const { data: hotDeals, isLoading: hotDealsLoading } = useQuery({
+    queryKey: ["mobile-hot-deals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("in_stock", true)
+        .not("original_price", "is", null)
+        .order("original_price", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return (data || [])
+        .filter((r: any) => r.original_price && r.original_price > r.price)
+        .sort((a: any, b: any) => (1 - b.price / b.original_price) - (1 - a.price / a.original_price))
+        .slice(0, 12)
+        .map(mapDbProduct);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Bento card style (matches desktop /gptcommerce landing background)
+  const bentoBase: React.CSSProperties = {
+    background: "hsl(0 0% 100% / 0.04)",
+    border: "1px solid hsl(0 0% 100% / 0.08)",
+    borderRadius: "20px",
+    backdropFilter: "blur(28px)",
+    opacity: 0.29,
+  };
+
+  return (
+    <div
+      className="relative flex flex-col min-h-full overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 pb-56 mobile-no-img-label"
+      dir="rtl"
+    >
+      {/* Mobile-scoped overrides: hide ProductImage placeholder label */}
+      <style>{`
+        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
+        .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+      `}</style>
+      {/* Floating bento background cards (desktop /gptcommerce parity) */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute" style={{ ...bentoBase, width: 110, height: 140, top: 40, right: -20, transform: "rotate(-3deg)" }}>
+          <div className="w-full h-20 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2.5 space-y-2">
+            <div className="h-2.5 bg-foreground/20 rounded w-3/4" />
+            <div className="h-2 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+        <div className="absolute flex items-center justify-center" style={{ ...bentoBase, width: 90, height: 32, top: 180, left: -10, transform: "rotate(2deg)" }}>
+          <span className="text-[10px] text-foreground/30">٪۱۰ تخفیف</span>
+        </div>
+        <div className="absolute flex items-center gap-2 px-3" style={{ ...bentoBase, width: 140, height: 44, bottom: 280, right: -30, transform: "rotate(2deg)" }}>
+          <div className="w-7 h-7 rounded-lg bg-foreground/10" />
+          <div className="flex-1 space-y-1">
+            <div className="h-1.5 bg-foreground/15 rounded w-1/2" />
+            <div className="h-1.5 bg-foreground/10 rounded w-3/4" />
+          </div>
+        </div>
+        <div className="absolute" style={{ ...bentoBase, width: 100, height: 120, bottom: 220, left: -20, transform: "rotate(-2deg)" }}>
+          <div className="w-full h-16 rounded-t-[16px] bg-gradient-to-br from-primary/5 to-primary/10" />
+          <div className="p-2 space-y-1.5">
+            <div className="h-2 bg-foreground/20 rounded w-3/4" />
+            <div className="h-1.5 bg-foreground/10 rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+
+      <div className="relative z-10 flex flex-col">
+        {/* Inside logo + subtitle */}
+        <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
+          <FlowcartMark size="hero" className="mb-3 h-[4.1rem] w-[4.1rem]" alt="فلوکارت" />
+          <FlowcartWordmark className="mb-1" />
+          <p className="text-muted-foreground leading-tight max-w-[280px]" style={{ fontSize: "0.78rem", letterSpacing: "-0.01em" }}>
+            یک دستیار خرید واقعاً باهوش :)
+          </p>
+          {isAuthenticated && userFirstName && (
+            <p className="text-sm font-medium text-foreground mt-2">
+              سلام {userFirstName} جان 👋
+            </p>
+          )}
+        </div>
+
+        {/* Hero slider — slidable, snap-proximity for easy swipe */}
+        <div className="pt-3 pb-6">
+          <div className="px-5">
+            <div
+              ref={sliderRef}
+              onScroll={handleSliderScroll}
+              className="hero-slider-track -mx-5 overflow-x-auto snap-x snap-proximity scroll-smooth"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                WebkitOverflowScrolling: "touch",
+                scrollPaddingInline: "1.25rem",
+              }}
+            >
+              <style>{`.hero-slider-track::-webkit-scrollbar{display:none}`}</style>
+              <div className="flex gap-3 px-5">
+                {heroSlides.map((s) => (
+                  <div
+                    key={s.id}
+                    data-slide
+                    className="snap-start shrink-0 w-[88%] rounded-2xl overflow-hidden relative"
+                    style={{
+                      border: "1px solid hsl(0 0% 0% / 0.06)",
+                      aspectRatio: "1920 / 1296",
+                      background:
+                        "linear-gradient(110deg, hsl(0 0% 95%) 30%, hsl(0 0% 90%) 50%, hsl(0 0% 95%) 70%)",
+                      backgroundSize: "200% 100%",
+                      animation: "heroShimmer 1.6s linear infinite",
+                    }}
+                  >
+                    <style>{`@keyframes heroShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+                    <img
+                      src={s.image}
+                      alt={s.alt}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover relative z-10"
+                      draggable={false}
+                      onLoad={(e) => {
+                        const parent = e.currentTarget.parentElement as HTMLElement;
+                        parent.style.animation = "none";
+                        parent.style.background = "hsl(0 0% 96%)";
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Dot indicators — clickable */}
+          <div className="flex items-center justify-center gap-1.5 mt-3">
+            {heroSlides.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`اسلاید ${i + 1}`}
+                onClick={() => goToSlide(i)}
+                className="rounded-full transition-all"
+                style={{
+                  width: i === activeSlide ? 18 : 6,
+                  height: 6,
+                  background:
+                    i === activeSlide
+                      ? "hsl(var(--primary))"
+                      : "hsl(0 0% 0% / 0.15)",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Prompt chips — max 3 rows */}
+        <div className="px-5">
+          <p className="text-muted-foreground mb-3 flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
+            <Sparkles className="w-4 h-4 text-primary" />
+            پرطرفدارترین‌های امروز
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {promptChips.map((chip) => (
+              <button
+                key={chip}
+                onClick={() => submit(chip.replace(/^[^\u0600-\u06FF\w]+\s*/, ""))}
+                className="rounded-full active:scale-95 transition-transform leading-tight"
+                style={{
+                  fontSize: CHIP_FONT_SIZE,
+                  padding: `${CHIP_PADDING_Y} ${CHIP_PADDING_X}`,
+                  background: "hsl(var(--primary) / 0.06)",
+                  border: "1px solid hsl(var(--primary) / 0.15)",
+                  color: "hsl(var(--primary))",
+                }}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Hot Deals carousel — redesigned: tap-to-chat, no buttons */}
+        {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
+          <div className="mt-6">
+            <div className="px-5 mb-3">
+              <p className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
+                <Sparkles className="w-4 h-4 text-primary" />
+                داغ‌ترین تخفیف‌ها
+              </p>
+            </div>
+            <div className="px-5">
+              <div
+                className="-mx-5 overflow-x-auto scrollbar-none snap-x snap-proximity"
+                style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+              >
+                <div
+                  className="flex gap-2.5 items-stretch px-5"
+                >
+                {hotDealsLoading
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-[168px] flex-shrink-0 rounded-2xl overflow-hidden"
+                        style={{
+                          border: "1px solid hsl(0 0% 0% / 0.08)",
+                          background: "hsl(0 0% 100%)",
+                        }}
+                      >
+                        <div className="w-full aspect-square bg-muted/40 animate-pulse" />
+                        <div className="p-3 space-y-2">
+                          <div className="h-3 bg-muted/40 rounded w-3/4 animate-pulse" />
+                          <div className="h-3 bg-muted/40 rounded w-1/2 animate-pulse" />
+                          <div className="h-3 bg-muted/40 rounded w-2/3 animate-pulse" />
+                        </div>
+                      </div>
+                    ))
+                  : (hotDeals || []).map((p) => {
+                      const discountPct = p.originalPrice
+                        ? Math.round((1 - p.price / p.originalPrice) * 100)
+                        : 0;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => onProductCardTap?.(p)}
+                          className="snap-start flex-shrink-0 w-[168px] rounded-2xl overflow-hidden text-right active:scale-[0.98] transition-transform"
+                          style={{
+                            background: "hsl(0 0% 100%)",
+                            border: "1px solid hsl(0 0% 0% / 0.08)",
+                          }}
+                        >
+                          {/* Image with discount chip */}
+                          <div className="relative w-full aspect-square" style={{ background: "hsl(0 0% 98%)" }}>
+                            <ProductImage
+                              src={p.image}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {discountPct > 0 && (
+                              <div
+                                className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[10px] font-bold text-white"
+                                style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}
+                              >
+                                {toPersianNumber(discountPct)}٪
+                              </div>
+                            )}
+                          </div>
+                          {/* Divider */}
+                          <div className="w-full h-px" style={{ background: "hsl(0 0% 0% / 0.06)" }} />
+                          {/* Content */}
+                          <div className="p-3" dir="rtl">
+                            <h4 className="text-[13px] font-medium text-foreground line-clamp-2 leading-snug min-h-[2.6em]">
+                              {p.name}
+                            </h4>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Star className="w-3 h-3 fill-current text-amber-400" />
+                              <span className="text-[11px] text-muted-foreground">{toPersianNumber(p.rating)}</span>
+                              <span className="mx-1 text-[11px] text-muted-foreground/60">|</span>
+                              <Store className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-[11px] text-muted-foreground truncate">{p.merchant.name}</span>
+                            </div>
+                            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 mt-2">
+                              <span className="text-[13px] font-bold text-foreground">
+                                {formatPersianPrice(p.price)}
+                              </span>
+                              {p.originalPrice && (
+                                <span className="text-[11px] text-muted-foreground line-through">
+                                  {formatPersianPrice(p.originalPrice)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+              </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Prompt tips & tricks — creative carousel */}
+        <MobilePromptTipsCard onSendMessage={onSendMessage} />
+
+        {/* Mobile Landing Footer */}
+        <footer
+          className="mt-10 mx-5 px-4 py-6 border-t"
+          style={{ borderColor: "hsl(0 0% 0% / 0.06)" }}
+          dir="rtl"
+        >
+          <FlowcartBrandLockup subtitle="دستیار خرید هوشمند" className="mb-4" />
+
+          {/* Links */}
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {["درباره ما", "پشتیبانی", "حریم خصوصی", "قوانین"].map((label) => (
+              <button
+                key={label}
+                type="button"
+                className="px-2.5 py-1 rounded-full text-[11px] text-muted-foreground active:scale-95 transition-transform"
+                style={{ border: "1px solid hsl(0 0% 0% / 0.08)", background: "hsl(0 0% 100% / 0.6)" }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Social */}
+          <div className="flex items-center gap-2 mb-4">
+            {[Instagram, Twitter, Linkedin].map((SocialIcon, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label="social"
+                className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ border: "1px solid hsl(0 0% 0% / 0.08)", background: "hsl(0 0% 100% / 0.6)" }}
+              >
+                <SocialIcon className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+
+          {/* Copyright */}
+          <div className="text-center space-y-1">
+            <p className="text-[11px] text-muted-foreground/70">
+              تمامی حقوق محفوظ است · {toPersianNumber(1404)}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60">
+              ساخته‌شده با ❤︎ در ایران
+            </p>
+          </div>
+        </footer>
+      </div>
+
+      {/* Sticky bottom input */}
+      <div
+        className="fixed bottom-0 inset-x-0 z-30 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        style={{
+          background:
+            "linear-gradient(180deg, hsl(0 0% 100% / 0), hsl(0 0% 100% / 0.95) 30%)",
+        }}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+          className="flex items-center gap-2 p-2 rounded-2xl"
+          style={{
+            background: "hsl(0 0% 100%)",
+            border: "1px solid hsl(0 0% 0% / 0.08)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div className="relative flex-1 flex items-stretch min-h-[44px]">
+            <textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder=""
+              className="w-full max-h-[120px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-[15px] font-normal resize-none px-2 block"
+              style={{ lineHeight: "22px", paddingBlock: "11px", letterSpacing: "-0.005em" }}
+              dir="rtl"
+            />
+            {!inputValue && (
+              <div
+                className="absolute inset-0 flex items-center pointer-events-none px-2"
+                dir="rtl"
+              >
+                <TypingText
+                  key={placeholderIndex}
+                  text={placeholderTexts[placeholderIndex]}
+                  className="text-muted-foreground/50 text-sm text-right w-full leading-snug"
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
+              style={{
+                background: "hsl(0 0% 98%)",
+                border: "1px solid hsl(0 0% 0% / 0.06)",
+              }}
+            >
+              <Mic className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <Button
+              type="submit"
+              disabled={!inputValue.trim() || isProcessing}
+              className="h-9 w-9 rounded-full p-0"
+            >
+              <ArrowUp className="w-5 h-5" />
+            </Button>
+          </div>
+        </form>
+
+        {/* Action bar — frameless icons with count badges on chats & cart */}
+        <div className="flex items-center justify-center gap-[3.16rem] mt-3">
+          {[
+            { key: "baskets", icon: MessagesSquare, label: "چت‌ها", onClick: onOpenBaskets, count: basketCount },
+            { key: "cart", icon: ShoppingBag, label: "سبد خرید", onClick: onOpenCart, count: cartItems.length },
+            { key: "account", icon: UserRound, label: "حساب", onClick: onOpenAccount, count: 0 },
+          ].map(({ key, icon: Icon, label, onClick, count }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={onClick}
+              aria-label={label}
+              className="relative flex items-center justify-center active:scale-90 transition-transform p-1.5"
+            >
+              <Icon className="w-[26px] h-[26px] text-foreground/75" strokeWidth={1.75} />
+              {count > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-[4px] flex items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                  style={{
+                    background: "hsl(var(--primary))",
+                    color: "hsl(var(--primary-foreground))",
+                    border: "1.5px solid hsl(0 0% 100%)",
+                  }}
+                >
+                  {toPersianNumber(count)}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -114,7 +114,12 @@ export const MobileChatThread = ({
     if (onPaymentSelect) onPaymentSelect(paymentId);
   };
 
+  const thinkingLabel = getThinkingLabel(
+    [...messages].reverse().find((m) => m.role === "user")?.content
+  );
+
   return (
+
     <div className="relative flex flex-col h-full min-h-0 bg-gradient-to-br from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
       {/* Mobile-scoped overrides */}
       <style>{`

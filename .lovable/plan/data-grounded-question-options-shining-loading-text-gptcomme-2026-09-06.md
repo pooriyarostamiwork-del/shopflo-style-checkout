@@ -9,19 +9,15 @@ For "لپ تاپ گیمینگ چی بگیرم" the card offered "زیر ۲۰ م�
 ## The fix: options are derived from the catalog, never invented
 
 1. Before any question card is sent, the assistant takes a snapshot of the actual candidate set for what the person asked (the same filters the search would use: category + their words, e.g. "گیمینگ"). The snapshot gives how many products exist, the real price steps (cheapest / lower quarter / middle / upper quarter / most expensive), the brands present, and which recurring attributes exist in that set.
-
 2. Budget options are then built from those real price steps, as adjacent ranges that each contain products — for gaming laptops that becomes something like:
-   - ۹۲ تا ۱۱۵ میلیون
-   - ۱۱۵ تا ۱۳۰ میلیون
-   - ۱۳۰ تا ۱۷۵ میلیون
-   - بالای ۱۷۵ میلیون
-   - مهم نیست، بهترین رو نشونم بده
+  - ۹۲ تا ۱۱۵ میلیون
+  - ۱۱۵ تا ۱۳۰ میلیون
+  - ۱۳۰ تا ۱۷۵ میلیون
+  - بالای ۱۷۵ میلیون
+  - مهم نیست، بهترین رو نشونم بده  
    Each option carries the hidden range so the following search uses the exact numbers instead of re-guessing.
-
 3. Every other option list is filtered the same way: brand options only list brands that exist in that candidate set, attribute options only appear when enough products in the set actually have them. Any option the model proposes that matches zero products is dropped; if a whole step ends up with fewer than two usable options, that step is skipped rather than shown with fake choices.
-
 4. When the candidate set is tiny (under ~4 products), no budget question is asked at all — the assistant shows what exists and says the range plainly.
-
 5. If the person names a budget that the set cannot satisfy (e.g. ۲۰ میلیون for gaming), the assistant says the real starting price and offers the closest option instead of returning nothing.
 
 ## Loading bubble

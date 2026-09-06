@@ -27,6 +27,8 @@ import {
 } from "@/components/gpt-commerce/AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+import { ShiningText } from "@/components/gpt-commerce/ShiningText";
+
 
 
 
@@ -367,7 +369,7 @@ export const MobileChatThread = ({
                       style={{ animationDelay: "300ms" }}
                     />
                   </div>
-                  <span className="text-[11px] text-muted-foreground">{thinkingLabel}</span>
+                  <ShiningText text={thinkingLabel} className="text-[11px]" />
                 </div>
 
               </div>

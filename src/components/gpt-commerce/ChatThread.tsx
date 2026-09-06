@@ -17,6 +17,8 @@ import {
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+import { ShiningText } from "@/components/gpt-commerce/ShiningText";
+
 
 
 const placeholderTexts = [
@@ -321,7 +323,7 @@ export const ChatThread = ({
                     <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
                     <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
-                  <span className="text-xs text-muted-foreground">{thinkingLabel}</span>
+                  <ShiningText text={thinkingLabel} className="text-xs" />
                 </div>
 
               </div>

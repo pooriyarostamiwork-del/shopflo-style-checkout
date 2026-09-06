@@ -884,7 +884,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           cart_actions: cartResult.actions || [],
-          content: cartResult.message || "عملیات انجام شد.",
+          content: sanitizeVisibleText(cartResult.message || "") || "عملیات انجام شد.",
           needs_clarification: cartResult.needs_clarification || false,
           clarification_options: cartResult.clarification_options || [],
           products: [],

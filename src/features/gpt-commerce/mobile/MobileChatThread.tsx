@@ -26,6 +26,8 @@ import {
   MerchantShipping,
 } from "@/components/gpt-commerce/AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
+import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+
 
 
 interface MobileChatThreadProps {

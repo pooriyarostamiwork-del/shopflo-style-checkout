@@ -4,7 +4,7 @@ New routes: `/petabad` (desktop) and `/m/petabad` (mobile). Everything else in t
 
 ## What the dataset gives us
 
-The uploaded workbook has one sheet, 15 columns, ~1,700 pet products:
+The uploaded workbook has one sheet, 15 columns, ~1,700 pet products:  
 name, short description, long description, price, original price, image URL, in-stock, subcategory, category, species, brand, origin country, weight, taxonomy (3 levels), specifications (key:value pairs in Persian).
 
 Notes from reviewing the rows: prices are plain numbers, "Original Price" is mostly `Null`, `inStock` is yes/no, images are single URLs from petabad.com, and taxonomy/specifications are Persian text that needs parsing into structured fields (weight, species, flavour, brand, origin country, dimensions).
@@ -14,11 +14,11 @@ Notes from reviewing the rows: prices are plain numbers, "Original Price" is mos
 1. **Its own catalog** — a separate pet products table with all the fields Flowcart has, plus species, origin country, weight, taxonomy levels and structured specs. Full Persian text search and AI similarity search of its own, so pet data never mixes with the electronics catalog.
 2. **Data import** — the Excel file is imported and cleaned: Persian text normalised, prices/stock converted, brands tidied, taxonomy and specification strings split into real fields, then search data and AI embeddings generated for all rows.
 3. **AI search tech stack (same as Flowcart, but pet-specific)**
-   - Persian-normalised `search_vector` tsvector on name, description, category, brand, species and tags.
-   - Trigram (pg_trgm) indexes on name and brand for typo-tolerant matching.
-   - `embedding vector(3072)` column populated with `google/gemini-embedding-2` via the Lovable AI Gateway, using halfvec HNSW cosine index.
-   - `pet_hybrid_search` SQL function combining full-text rank, vector cosine similarity and trigram overlap, with the same filters Flowcart uses (category, subcategory, brand, price range, in-stock, min rating).
-   - `pet_question_facets` SQL function for data-grounded clarifying questions: candidate count, price quantiles, distinct brands, species and tags derived from the actual filtered catalog.
+  - Persian-normalised `search_vector` tsvector on name, description, category, brand, species and tags.
+  - Trigram (pg_trgm) indexes on name and brand for typo-tolerant matching.
+  - `embedding vector(3072)` column populated with `google/gemini-embedding-2` via the Lovable AI Gateway, using halfvec HNSW cosine index.
+  - `pet_hybrid_search` SQL function combining full-text rank, vector cosine similarity and trigram overlap, with the same filters Flowcart uses (category, subcategory, brand, price range, in-stock, min rating).
+  - `pet_question_facets` SQL function for data-grounded clarifying questions: candidate count, price quantiles, distinct brands, species and tags derived from the actual filtered catalog.
 4. **Its own assistant** — a separate pet shopping agent with a pet-specific personality and vocabulary (species, life stage, breed size, food type, sensitivities, grooming, toys, health), and its own data-grounded clarifying questions (budget ranges, brands and options derived from the actual pet catalog, like Flowcart does today).
 5. **Cloned storefront** — the full desktop and mobile Flowcart experience duplicated for پت‌آباد: chat landing, chat mode, product cards, quick view, product details, cart sidebar, checkout steps, addresses, OTP login, order history, account panel, footer. Same journeys, same behaviour, no new features.
 6. **Pet-customised content** — landing headline and subtitle, input placeholders and typing animation texts, quick-action chips, landing product carousels (e.g. غذای گربه, غذای سگ, اسنک و تشویقی, لوازم بهداشتی, اسباب‌بازی, تخفیف‌دارها), empty states, loading texts, and all example prompts written for pet shopping.

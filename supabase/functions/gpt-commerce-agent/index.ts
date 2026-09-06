@@ -886,9 +886,28 @@ serve(async (req) => {
       const hydrated = await hydrateProducts(supabase, mentionedIds);
       const visible = sanitizeVisibleText(sig.text);
 
-      // Safety net: a guidance turn answered with a text question list becomes a card.
-      if (wantsGuidance && hydrated.length === 0 && isQuestionHeavy(visible)) {
-        const category = /لپ\s*تاپ/.test(normalizePersian(lastUserText)) ? "لپ‌تاپ" : "";
+      // Safety net: questions written as text become a tappable card on any turn.
+      if (hydrated.length === 0) {
+        const parsed = extractQuestionCard(visible);
+        const card =
+          parsed ||
+          (wantsGuidance && isQuestionHeavy(visible)
+            ? {
+                kind: "steps",
+                helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+              }
+            : null);
+        if (card) {
+          return new Response(
+            JSON.stringify({ content: "", products: [], quickReplies: [], clarification: card }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // A guidance turn must never end on the generic fallback line.
+      if (wantsGuidance && hydrated.length === 0 && !visible) {
         return new Response(
           JSON.stringify({
             content: "",
@@ -897,12 +916,13 @@ serve(async (req) => {
             clarification: {
               kind: "steps",
               helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(category),
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
             },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
 
       return new Response(
         JSON.stringify({

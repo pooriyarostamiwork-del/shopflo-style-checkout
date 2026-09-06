@@ -367,7 +367,7 @@ export const MobileChatThread = ({
                       style={{ animationDelay: "300ms" }}
                     />
                   </div>
-                  <span className="text-[11px] text-muted-foreground">{thinkingLabel}</span>
+                  <ShiningText text={thinkingLabel} className="text-[11px]" />
                 </div>
 
               </div>

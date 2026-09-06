@@ -31,18 +31,18 @@ function mapDbProduct(row: any): Product {
 }
 
 const placeholderTexts = [
-  "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
-  "«بهترین تخفیف‌های امروز چیه؟»",
-  "«خودت برام خرید کن»",
+  "«غذای خشک سگ برای نژاد کوچک»",
+  "«خوراک گربه حساس معده»",
+  "«خودت برام خرید حیوان خانگی کن»",
 ];
 
 // Capped to 6 chips → fits in max 3 rows on 360–430px viewports
 const promptChips = [
-  "🎧 هدفون بی‌سیم زیر ۵ میلیون",
-  "📱 گوشی موبایل با دوربین خوب",
-  "💻 لپ‌تاپ برای برنامه‌نویسی",
-  "🎁 هدیه برای دوست",
-  "🔥 بهترین تخفیف‌های امروز",
+  "🐱 غذای خشک گربه",
+  "🐶 غذای خشک سگ",
+  "🥫 کنسرو و پوچ",
+  "🦴 اسنک و تشویقی",
+  "🧴 شامپو و بهداشتی",
   "🛒 خودت برام خرید کن",
 ];
 
@@ -320,13 +320,13 @@ export const MobileChatLanding = ({
           </div>
         </div>
 
-        {/* Hot Deals carousel — redesigned: tap-to-chat, no buttons */}
+        {/* Featured pet picks carousel — redesigned: tap-to-chat, no buttons */}
         {(hotDealsLoading || (hotDeals && hotDeals.length > 0)) && (
           <div className="mt-6">
             <div className="px-5 mb-3">
               <p className="text-muted-foreground flex items-center gap-1.5" style={{ fontSize: "0.88rem" }}>
                 <Sparkles className="w-4 h-4 text-primary" />
-                داغ‌ترین تخفیف‌ها
+                پرطرفدارهای پت آباد
               </p>
             </div>
             <div className="px-5">

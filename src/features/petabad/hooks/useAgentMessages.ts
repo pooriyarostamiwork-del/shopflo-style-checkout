@@ -39,7 +39,7 @@ const extractSmartName = (userMessage: string, products: Product[]): string => {
   if (!words) return userMessage.slice(0, 20);
   return words.length > 25 ? words.slice(0, 25) + '…' : words;
 };
-import { Basket } from "@/components/gpt-commerce/Sidebar";
+import { Basket } from "@/components/petabad/Sidebar";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 import {
   ProductMemory,

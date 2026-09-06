@@ -6,7 +6,7 @@ import {
   AgenticState,
   DeliveryAddress,
 } from "@/data/gptCommerceData";
-import { Basket } from "@/components/gpt-commerce/Sidebar";
+import { Basket } from "@/components/petabad/Sidebar";
 import { ProductMemory, createEmptyProductMemory } from "./productMemory";
 import { ShoppingContext, createEmptyShoppingContext } from "./shoppingContext";
 

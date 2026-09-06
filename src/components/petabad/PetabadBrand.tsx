@@ -62,7 +62,7 @@ export const FlowcartWordmark = ({
   </span>
 );
 
-export const FlowcartBrandLockup = ({
+export const PetabadBrandLockup = ({
   subtitle,
   imageUrl,
   compact = false,

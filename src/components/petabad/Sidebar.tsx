@@ -3,7 +3,7 @@ import { User, Package, Gift, ChevronDown, MessageSquare, Plus, MoreHorizontal, 
 import { toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FlowcartBrandLockup } from "./FlowcartBrand";
+import { PetabadBrandLockup } from "./PetabadBrand";
 
 export interface SavedItem {
   id: string;
@@ -105,7 +105,7 @@ export const Sidebar = ({
     <aside className="w-[260px] h-screen flex flex-col overflow-hidden bg-background border-l border-border/40" dir="rtl">
       {/* Header */}
       <div className="p-4 border-b border-border/40 py-[17px]">
-        <FlowcartBrandLockup
+        <PetabadBrandLockup
           imageUrl={chatModeLogo.imageUrl || undefined}
           variant="chat"
         />

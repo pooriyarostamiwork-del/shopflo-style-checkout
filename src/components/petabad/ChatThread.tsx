@@ -15,12 +15,12 @@ import {
   PaymentSelector,
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
-import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
-import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
-import { ShiningText } from "@/components/gpt-commerce/ShiningText";
-import { FlowcartMark } from "@/components/gpt-commerce/FlowcartBrand";
-import { WanderingEyes } from "@/components/gpt-commerce/WanderingEyes";
-import { TypingText } from "@/components/gpt-commerce/TypingText";
+import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
+import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
+import { ShiningText } from "@/components/petabad/ShiningText";
+import { FlowcartMark } from "@/components/petabad/PetabadBrand";
+import { WanderingEyes } from "@/components/petabad/WanderingEyes";
+import { TypingText } from "@/components/petabad/TypingText";
 
 
 

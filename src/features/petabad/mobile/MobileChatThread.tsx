@@ -10,8 +10,8 @@ import {
   DeliveryAddress,
   CartItem,
 } from "@/data/gptCommerceData";
-import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
-import { PDPProductComponent } from "@/components/gpt-commerce/PDPProductComponent";
+import { ChatProductCard } from "@/components/petabad/ChatProductCard";
+import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
 import {
   QuickReplyButtons,
   CTAButton,
@@ -19,17 +19,17 @@ import {
   AddressConfirmation,
   AddressSelector,
   PaymentSelector,
-} from "@/components/gpt-commerce/AgenticMessageComponents";
+} from "@/components/petabad/AgenticMessageComponents";
 import {
   AddressShippingSelector,
   MerchantShipping,
-} from "@/components/gpt-commerce/AddressShippingSelector";
-import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
-import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
-import { ShiningText } from "@/components/gpt-commerce/ShiningText";
-import { FlowcartMark } from "@/components/gpt-commerce/FlowcartBrand";
-import { WanderingEyes } from "@/components/gpt-commerce/WanderingEyes";
-import { TypingText } from "@/components/gpt-commerce/TypingText";
+} from "@/components/petabad/AddressShippingSelector";
+import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
+import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
+import { ShiningText } from "@/components/petabad/ShiningText";
+import { FlowcartMark } from "@/components/petabad/PetabadBrand";
+import { WanderingEyes } from "@/components/petabad/WanderingEyes";
+import { TypingText } from "@/components/petabad/TypingText";
 
 
 

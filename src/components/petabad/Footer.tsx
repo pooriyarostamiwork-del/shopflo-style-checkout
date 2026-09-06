@@ -1,6 +1,6 @@
 import { Shield, RefreshCw, Headphones, Truck, CreditCard, Phone } from "lucide-react";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import { FlowcartBrandLockup } from "./FlowcartBrand";
+import { PetabadBrandLockup } from "./PetabadBrand";
 
 // Social media icons as inline SVGs
 const InstagramIcon = () => (
@@ -68,7 +68,7 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-right">
             {/* Brand Column */}
             <div className="col-span-2 md:col-span-1">
-              <FlowcartBrandLockup imageUrl={footerLogo.imageUrl || undefined} className="mb-3" />
+              <PetabadBrandLockup imageUrl={footerLogo.imageUrl || undefined} className="mb-3" />
               <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 {footerLogo.subtitle || 'خرید هوشمند با کمک هوش مصنوعی'}
               </p>

@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { SquarePen } from "lucide-react";
-import { FlowcartBrandLockup } from "@/components/gpt-commerce/FlowcartBrand";
-import { CategorySelector } from "@/components/gpt-commerce/CategorySelector";
-import { Basket } from "@/components/gpt-commerce/Sidebar";
-import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
+import { PetabadBrandLockup } from "@/components/petabad/PetabadBrand";
+import { CategorySelector } from "@/components/petabad/CategorySelector";
+import { Basket } from "@/components/petabad/Sidebar";
+import { AccountPanel } from "@/components/petabad/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
-import { OTPModal } from "@/components/gpt-commerce/OTPModal";
+import { OTPModal } from "@/components/petabad/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { toPersianNumber, merchants, type Product, type ChatMessage } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
@@ -19,7 +19,7 @@ import { MobileChatLanding } from "./MobileChatLanding";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
 
-export const MobileGPTCommerceShell = () => {
+export const MobilePetAbadShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
 
   const {
@@ -431,7 +431,7 @@ export const MobileGPTCommerceShell = () => {
         </div>
         <div className="flex items-center gap-2">
           {!onLanding && (
-            <FlowcartBrandLockup compact />
+            <PetabadBrandLockup compact />
           )}
         </div>
         <div className="flex items-center gap-2">

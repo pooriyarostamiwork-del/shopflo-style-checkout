@@ -7,7 +7,7 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import { FlowcartMark, FlowcartWordmark } from "./FlowcartBrand";
+import { FlowcartMark, FlowcartWordmark } from "./PetabadBrand";
 import { TypingText } from "./TypingText";
 
 // Rotating placeholder texts

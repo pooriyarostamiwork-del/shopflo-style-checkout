@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
-import { FlowcartBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/gpt-commerce/FlowcartBrand";
-import { TypingText } from "@/components/gpt-commerce/TypingText";
+import { PetabadBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/petabad/PetabadBrand";
+import { TypingText } from "@/components/petabad/TypingText";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
-import { ProductImage } from "@/components/gpt-commerce/ProductImage";
+import { ChatProductCard } from "@/components/petabad/ChatProductCard";
+import { ProductImage } from "@/components/petabad/ProductImage";
 import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
@@ -438,7 +438,7 @@ export const MobileChatLanding = ({
           style={{ borderColor: "hsl(0 0% 0% / 0.06)" }}
           dir="rtl"
         >
-          <FlowcartBrandLockup subtitle="دستیار خرید هوشمند" className="mb-4" />
+          <PetabadBrandLockup subtitle="دستیار خرید هوشمند" className="mb-4" />
 
           {/* Links */}
           <div className="flex flex-wrap gap-1.5 mb-4">

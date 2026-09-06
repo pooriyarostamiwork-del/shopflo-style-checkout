@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Sidebar, Basket } from "@/components/gpt-commerce/Sidebar";
-import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
-import { RightPanel } from "@/components/gpt-commerce/RightPanel";
-import { AccountPanel } from "@/components/gpt-commerce/AccountPanel";
+import { Sidebar, Basket } from "@/components/petabad/Sidebar";
+import { ChatInterface } from "@/components/petabad/ChatInterface";
+import { RightPanel } from "@/components/petabad/RightPanel";
+import { AccountPanel } from "@/components/petabad/AccountPanel";
 import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
-import { OTPModal } from "@/components/gpt-commerce/OTPModal";
+import { OTPModal } from "@/components/petabad/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { toPersianNumber, merchants } from "@/data/gptCommerceData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
@@ -15,7 +15,7 @@ import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
 import { useAgentMessages } from "./hooks/useAgentMessages";
 import { useCartPersistence } from "./hooks/useCartPersistence";
 
-export const GPTCommerceShell = () => {
+export const PetAbadShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
 
   // ── Layer 2: Business logic hooks ──────────────────────────────────────

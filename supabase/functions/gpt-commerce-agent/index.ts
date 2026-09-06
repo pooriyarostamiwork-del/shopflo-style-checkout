@@ -522,6 +522,159 @@ async function executeFacets(supabase: any, args: any): Promise<any> {
   };
 }
 
+// ── Catalog-grounded question options ───────────────────────────────────
+// Every option offered to the shopper has to exist in the catalog. We take one
+// cheap SQL snapshot of the candidate set and rewrite the option lists from it.
+
+type QuestionFacets = {
+  total: number;
+  price: { min: number; q1: number; median: number; q3: number; max: number } | null;
+  brands: Array<{ brand: string; count: number }>;
+  tags: Array<{ value: string; count: number }>;
+};
+
+async function fetchQuestionFacets(
+  supabase: any,
+  queryText: string,
+  subcategory?: string | null
+): Promise<QuestionFacets | null> {
+  try {
+    const { data, error } = await supabase.rpc("product_question_facets", {
+      p_query: normalizePersian(queryText || "") || null,
+      p_subcategory: subcategory || null,
+      p_in_stock: true,
+    });
+    if (error) {
+      console.error("Question facets error:", error);
+      return null;
+    }
+    if (!data) return null;
+    return {
+      total: Number(data.total) || 0,
+      price: data.price
+        ? {
+            min: Number(data.price.min),
+            q1: Number(data.price.q1),
+            median: Number(data.price.median),
+            q3: Number(data.price.q3),
+            max: Number(data.price.max),
+          }
+        : null,
+      brands: Array.isArray(data.brands) ? data.brands : [],
+      tags: Array.isArray(data.tags) ? data.tags : [],
+    };
+  } catch (e) {
+    console.error("Question facets exception:", e);
+    return null;
+  }
+}
+
+const faDigits = (s: string) => s.replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+
+/** "۹۲ میلیون" / "۱٫۲ میلیارد" — rounded, human, never zero-padded noise. */
+function formatToman(v: number): string {
+  if (!Number.isFinite(v)) return "";
+  if (v >= 1_000_000_000) {
+    const b = v / 1_000_000_000;
+    return `${faDigits((Math.round(b * 10) / 10).toString().replace(".", "٫"))} میلیارد`;
+  }
+  return `${faDigits(String(Math.round(v / 1_000_000)))} میلیون`;
+}
+
+/** Adjacent budget buckets built from the real price quantiles of the candidate set. */
+function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
+  if (!price) return null;
+  const round = (v: number) => Math.round(v / 1_000_000) * 1_000_000;
+  const edges = Array.from(
+    new Set([round(price.min), round(price.q1), round(price.median), round(price.q3)])
+  ).sort((a, b) => a - b);
+  if (edges.length < 2) return null;
+
+  const options: any[] = [];
+  for (let i = 0; i < edges.length - 1; i++) {
+    options.push({
+      label: `${formatToman(edges[i])} تا ${formatToman(edges[i + 1])} تومان`,
+      value: { price_min: edges[i], price_max: edges[i + 1] },
+    });
+  }
+  const last = edges[edges.length - 1];
+  if (round(price.max) > last) {
+    options.push({
+      label: `بالای ${formatToman(last)} تومان`,
+      value: { price_min: last },
+    });
+  }
+  options.push({ label: "مهم نیست، بهترین رو نشونم بده", value: {} });
+  return options.length >= 3 ? options : null;
+}
+
+const BUDGET_STEP_RE = /بودجه|قیمت|تومان|هزینه/;
+
+/**
+ * Rewrites a clarification card against the catalog:
+ * budget options come from real quantiles, brand options only list existing brands,
+ * and a step that ends up with fewer than two usable options is dropped.
+ */
+function groundClarification(card: any, facets: QuestionFacets | null): any {
+  if (!card || !facets || facets.total === 0) return card;
+  const brandKeys = new Set(
+    facets.brands.map((b) => normalizePersian(String(b.brand || "")).replace(/[\s‌]/g, ""))
+  );
+  const budgetOptions = facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
+
+  const groundStep = (step: any) => {
+    const text = normalizePersian(`${step?.title || ""} ${step?.question || ""}`);
+    const optionsText = normalizePersian(
+      (step?.options || []).map((o: any) => o?.label || "").join(" ")
+    );
+    const isBudget = BUDGET_STEP_RE.test(text) || /میلیون|میلیارد|تومان/.test(optionsText);
+
+    if (isBudget) {
+      // Tiny candidate sets get no budget question at all.
+      if (!budgetOptions) return null;
+      return {
+        ...step,
+        title: step?.title || "بودجه",
+        question: step?.question || "بودجه‌ات حدوداً چقدره؟",
+        options: budgetOptions,
+      };
+    }
+
+    const isBrand = /برند|مارک/.test(text);
+    if (isBrand) {
+      const kept = (step?.options || []).filter((o: any) => {
+        const key = normalizePersian(String(o?.label || "")).replace(/[\s‌]/g, "");
+        return [...brandKeys].some((b) => b && (b.includes(key) || key.includes(b)));
+      });
+      const options = kept.length >= 2
+        ? kept
+        : facets.brands.slice(0, 5).map((b) => ({ label: b.brand, value: { brand: b.brand } }));
+      return options.length >= 2 ? { ...step, options } : null;
+    }
+
+    return (step?.options || []).length >= 2 ? step : null;
+  };
+
+  if (card.kind === "steps") {
+    const steps = (card.steps || []).map(groundStep).filter(Boolean);
+    if (steps.length === 0) return null;
+    return { ...card, steps };
+  }
+  const single = groundStep({ title: "", question: card.question, options: card.options });
+  if (!single) return card;
+  return { ...card, question: single.question || card.question, options: single.options };
+}
+
+/** Compact snapshot line so the model never invents a budget or brand. */
+function snapshotLine(facets: QuestionFacets | null): string {
+  if (!facets || facets.total === 0 || !facets.price) return "";
+  const brands = facets.brands.slice(0, 8).map((b) => b.brand).join("، ");
+  return `CATALOG_SNAPSHOT: تعداد کاندیدا ${facets.total} | قیمت واقعی از ${facets.price.min} تا ${facets.price.max} تومان (میانه ${facets.price.median}) | برندهای موجود: ${brands}
+قانون: هیچ بازه قیمتی یا برندی بیرون از این محدوده پیشنهاد نکن. گزینه‌های بودجه باید داخل همین بازه باشن.`;
+}
+
+
+
 // ── Visible-text hygiene ────────────────────────────────────────────────
 const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 

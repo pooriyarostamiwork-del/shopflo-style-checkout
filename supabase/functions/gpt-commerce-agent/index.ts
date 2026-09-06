@@ -966,7 +966,24 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      // Empty/invalid card payload on a guidance turn → use the built-in card.
+      if (wantsGuidance) {
+        return new Response(
+          JSON.stringify({
+            content: "",
+            products: [],
+            quickReplies: [],
+            clarification: {
+              kind: "steps",
+              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage),
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
+
 
     // ── Cart operations tool call → return structured actions ──
 

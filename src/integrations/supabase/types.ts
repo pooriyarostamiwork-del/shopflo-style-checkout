@@ -152,6 +152,93 @@ export type Database = {
         }
         Relationships: []
       }
+      pet_products: {
+        Row: {
+          brand: string | null
+          category: string
+          created_at: string
+          description: string | null
+          embedding: string | null
+          id: string
+          image_url: string
+          image_urls: string[] | null
+          in_stock: boolean
+          name: string
+          origin_country: string | null
+          original_price: number | null
+          price: number
+          rating: number
+          review_count: number
+          search_vector: unknown
+          short_description: string | null
+          species: string | null
+          specs: Json | null
+          subcategory: string | null
+          tags: string[] | null
+          taxonomy_level1: string | null
+          taxonomy_level2: string | null
+          taxonomy_level3: string | null
+          updated_at: string
+          weight: string | null
+        }
+        Insert: {
+          brand?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          embedding?: string | null
+          id?: string
+          image_url?: string
+          image_urls?: string[] | null
+          in_stock?: boolean
+          name: string
+          origin_country?: string | null
+          original_price?: number | null
+          price?: number
+          rating?: number
+          review_count?: number
+          search_vector?: unknown
+          short_description?: string | null
+          species?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+          taxonomy_level1?: string | null
+          taxonomy_level2?: string | null
+          taxonomy_level3?: string | null
+          updated_at?: string
+          weight?: string | null
+        }
+        Update: {
+          brand?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          embedding?: string | null
+          id?: string
+          image_url?: string
+          image_urls?: string[] | null
+          in_stock?: boolean
+          name?: string
+          origin_country?: string | null
+          original_price?: number | null
+          price?: number
+          rating?: number
+          review_count?: number
+          search_vector?: unknown
+          short_description?: string | null
+          species?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+          taxonomy_level1?: string | null
+          taxonomy_level2?: string | null
+          taxonomy_level3?: string | null
+          updated_at?: string
+          weight?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand: string | null
@@ -866,6 +953,94 @@ export type Database = {
         }[]
       }
       normalize_persian: { Args: { input: string }; Returns: string }
+      pet_hybrid_search:
+        | {
+            Args: {
+              p_brand?: string
+              p_category?: string
+              p_embedding?: string
+              p_in_stock?: boolean
+              p_limit?: number
+              p_max_price?: number
+              p_min_price?: number
+              p_offset?: number
+              p_query?: string
+              p_species?: string
+              p_subcategory?: string
+            }
+            Returns: {
+              brand: string
+              category: string
+              description: string
+              final_score: number
+              id: string
+              image_url: string
+              image_urls: string[]
+              in_stock: boolean
+              matched_total: number
+              name: string
+              origin_country: string
+              original_price: number
+              price: number
+              rating: number
+              review_count: number
+              short_description: string
+              species: string
+              specs: Json
+              subcategory: string
+              tags: string[]
+              weight: string
+            }[]
+          }
+        | {
+            Args: {
+              p_brand?: string
+              p_category?: string
+              p_embedding?: string
+              p_in_stock?: boolean
+              p_limit?: number
+              p_max_price?: number
+              p_min_price?: number
+              p_offset?: number
+              p_query?: string
+              p_species?: string
+              p_store_id?: string
+              p_subcategory?: string
+            }
+            Returns: {
+              brand: string
+              category: string
+              description_fa: string
+              final_score: number
+              id: string
+              image_url: string
+              image_urls: string[]
+              in_stock: boolean
+              matched_total: number
+              name_fa: string
+              origin_country: string
+              original_price: number
+              price: number
+              rating: number
+              review_count: number
+              species: string
+              specs: Json
+              stock_qty: number
+              subcategory: string
+              tags: string[]
+              weight: string
+            }[]
+          }
+      pet_question_facets: {
+        Args: {
+          p_category?: string
+          p_in_stock?: boolean
+          p_query?: string
+          p_species?: string
+          p_subcategory?: string
+        }
+        Returns: Json
+      }
       product_facets: {
         Args: {
           p_criterion?: string

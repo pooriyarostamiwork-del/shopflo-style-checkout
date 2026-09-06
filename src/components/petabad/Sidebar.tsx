@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User, Package, Gift, ChevronDown, MessageSquare, Plus, MoreHorizontal, Trash2, Merge, Bookmark, ShoppingCart, Play, Archive } from "lucide-react";
-import { toPersianNumber } from "@/data/gptCommerceData";
+import { toPersianNumber } from "@/data/petabadData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PetabadBrandLockup } from "./PetabadBrand";

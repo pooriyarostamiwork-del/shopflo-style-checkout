@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DeliveryAddress } from "@/data/gptCommerceData";
+import { DeliveryAddress } from "@/data/petabadData";
 
 const GLOBAL_ADDRESSES_KEY = 'petabad-global-addresses';
 

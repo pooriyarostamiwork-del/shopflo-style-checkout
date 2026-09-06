@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { Product } from "@/data/gptCommerceData";
+import { Product } from "@/data/petabadData";
 import { PDPProductComponent } from "./PDPProductComponent";
 
 interface ProductDetailsModalProps {

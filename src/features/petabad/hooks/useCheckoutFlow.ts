@@ -10,7 +10,7 @@ import {
   DeliveryAddress,
   paymentOptions,
   calculateOrderSummary,
-} from "@/data/gptCommerceData";
+} from "@/data/petabadData";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 
 interface MerchantShippingMethod {

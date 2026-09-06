@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem } from "@/data/gptCommerceData";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem } from "@/data/petabadData";
 import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { ProductDetailsModal } from "./ProductDetailsModal";

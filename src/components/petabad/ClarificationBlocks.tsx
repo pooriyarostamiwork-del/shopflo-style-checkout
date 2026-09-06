@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronLeft, Sparkles, SlidersHorizontal } from "lucide-react";
-import type { Clarification, ClarificationOption } from "@/data/gptCommerceData";
+import type { Clarification, ClarificationOption } from "@/data/petabadData";
 
 const Shell = ({
   icon,

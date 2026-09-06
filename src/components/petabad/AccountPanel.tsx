@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User, MapPin, Package, Heart, ChevronLeft, Edit3, Trash2, Plus, Phone, Mail, AlertTriangle, Truck, Tag, CreditCard, MessageSquare, ChevronRight, LogOut, Store } from "lucide-react";
-import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/gptCommerceData";
+import { DeliveryAddress, toPersianNumber, formatPersianPrice, Order, OrderStatus } from "@/data/petabadData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductImage } from "./ProductImage";

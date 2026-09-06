@@ -3,7 +3,7 @@ import { Check, MapPin, Truck, Plus, ChevronDown, ChevronUp, Store } from "lucid
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DeliveryAddress, Merchant, toPersianNumber } from "@/data/gptCommerceData";
+import { DeliveryAddress, Merchant, toPersianNumber } from "@/data/petabadData";
 
 export type AddressShippingMode = "existing" | "new";
 

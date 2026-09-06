@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
-import { toPersianNumber } from "@/data/gptCommerceData";
+import { toPersianNumber } from "@/data/petabadData";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -9,7 +9,7 @@ import {
   AgenticState,
   DeliveryAddress,
   CartItem,
-} from "@/data/gptCommerceData";
+} from "@/data/petabadData";
 import { ChatProductCard } from "@/components/petabad/ChatProductCard";
 import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
 import {

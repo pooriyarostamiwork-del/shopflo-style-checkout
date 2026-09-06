@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toPersianNumber } from "@/data/gptCommerceData";
+import { toPersianNumber } from "@/data/petabadData";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 

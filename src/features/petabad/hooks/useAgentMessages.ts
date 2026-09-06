@@ -9,7 +9,7 @@ import {
   QuickReplyType,
   paymentOptions,
   merchants,
-} from "@/data/gptCommerceData";
+} from "@/data/petabadData";
 
 const isValidClarification = (value: unknown): value is Clarification => {
   if (!value || typeof value !== 'object') return false;
@@ -81,23 +81,23 @@ interface UseAgentMessagesProps {
 }
 
 export const mapDbProduct = (dbProduct: any): Product => {
-  const merchantMap: Record<string, typeof merchants[0]> = {
-    m1: merchants[0], m2: merchants[1], m3: merchants[2], m4: merchants[3], m5: merchants[4],
-  };
+  const specsObj = dbProduct.specs && typeof dbProduct.specs === 'object' && !Array.isArray(dbProduct.specs)
+    ? Object.entries(dbProduct.specs).map(([label, value]) => ({ label, value: String(value) }))
+    : (Array.isArray(dbProduct.specs) ? dbProduct.specs : undefined);
   return {
     id: dbProduct.id,
-    name: dbProduct.name,
+    name: dbProduct.name_fa || dbProduct.name,
     price: dbProduct.price,
     originalPrice: dbProduct.original_price || undefined,
-    image: dbProduct.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop',
+    image: dbProduct.image_url || 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=300&h=300&fit=crop',
     imageUrls: dbProduct.image_urls?.length > 0 ? dbProduct.image_urls : undefined,
-    description: dbProduct.description || undefined,
-    specs: dbProduct.specs?.length > 0 ? dbProduct.specs : undefined,
-    reviewsSummary: dbProduct.reviews_summary || undefined,
-    merchant: merchantMap[dbProduct.merchant_id] || merchants[0],
+    description: dbProduct.description_fa || dbProduct.description || undefined,
+    specs: specsObj && specsObj.length > 0 ? specsObj : undefined,
+    reviewsSummary: dbProduct.review_count ? `${dbProduct.review_count} نظر` : undefined,
+    merchant: merchants[0],
     rating: Number(dbProduct.rating) || 4.0,
     fastDelivery: dbProduct.fast_delivery || false,
-    returnGuarantee: dbProduct.return_guarantee || true,
+    returnGuarantee: dbProduct.return_guarantee ?? true,
     inStock: dbProduct.in_stock !== false,
     colorOptions: dbProduct.color_options?.length > 0 ? dbProduct.color_options : undefined,
   };

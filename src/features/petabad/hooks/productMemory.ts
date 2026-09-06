@@ -1,4 +1,4 @@
-import { Product } from "@/data/gptCommerceData";
+import { Product } from "@/data/petabadData";
 
 // ============================================================================
 // Conversation product memory

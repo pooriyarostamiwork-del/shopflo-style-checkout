@@ -220,7 +220,7 @@ export const mockProducts: Product[] = [
     name: 'ایرپاد پرو ۲ اپل',
     price: 9800000,
     image: 'https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=300&h=300&fit=crop',
-    merchant: merchants[2],
+    merchant: merchants[0],
     rating: 4.7,
     fastDelivery: true,
     returnGuarantee: true,
@@ -232,7 +232,7 @@ export const mockProducts: Product[] = [
     price: 4500000,
     originalPrice: 5200000,
     image: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=300&h=300&fit=crop',
-    merchant: merchants[1],
+    merchant: merchants[0],
     rating: 4.5,
     fastDelivery: false,
     returnGuarantee: true,
@@ -255,7 +255,7 @@ export const mockProducts: Product[] = [
     price: 8900000,
     originalPrice: 10500000,
     image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=300&h=300&fit=crop',
-    merchant: merchants[2],
+    merchant: merchants[0],
     rating: 4.6,
     fastDelivery: true,
     returnGuarantee: true,
@@ -266,7 +266,7 @@ export const mockProducts: Product[] = [
     name: 'هدفون Audio-Technica ATH-M50x',
     price: 6200000,
     image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=300&h=300&fit=crop',
-    merchant: merchants[1],
+    merchant: merchants[0],
     rating: 4.9,
     fastDelivery: false,
     returnGuarantee: true,
@@ -279,12 +279,12 @@ export const skincareProducts: Product[] = [
   {
     id: 'sk1', name: 'ست مراقبت پوست سراوی (CeraVe)', price: 2800000,
     image: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop',
-    merchant: merchants[3], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'sk2', name: 'سرم ویتامین C اوردینری', price: 1900000,
     image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&h=300&fit=crop',
-    merchant: merchants[3], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'sk3', name: 'کرم مرطوب‌کننده لاروش پوزای', price: 3500000, originalPrice: 4000000,
@@ -294,17 +294,17 @@ export const skincareProducts: Product[] = [
   {
     id: 'sk4', name: 'ماسک ورقه‌ای کره‌ای (بسته ۱۰ عددی)', price: 850000,
     image: 'https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=300&h=300&fit=crop',
-    merchant: merchants[3], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
     id: 'sk5', name: 'ست هدیه بادی شاپ', price: 4200000, originalPrice: 4800000,
     image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=300&h=300&fit=crop',
-    merchant: merchants[3], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'sk6', name: 'روغن آرگان خالص', price: 1200000,
     image: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.4, fastDelivery: false, returnGuarantee: false, inStock: true,
+    merchant: merchants[0], rating: 4.4, fastDelivery: false, returnGuarantee: false, inStock: true,
   },
 ];
 
@@ -318,12 +318,12 @@ export const coffeeProducts: Product[] = [
   {
     id: 'cf2', name: 'آسیاب قهوه باراتزا', price: 8900000,
     image: 'https://images.unsplash.com/photo-1587080413959-06b859fb107d?w=300&h=300&fit=crop',
-    merchant: merchants[2], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'cf3', name: 'قهوه تازه‌رست ایلی (۱ کیلو)', price: 1400000,
     image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.6, fastDelivery: true, returnGuarantee: false, inStock: true,
+    merchant: merchants[0], rating: 4.6, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
   {
     id: 'cf4', name: 'فنجان اسپرسو ست ۶ تایی', price: 950000,
@@ -333,12 +333,12 @@ export const coffeeProducts: Product[] = [
   {
     id: 'cf5', name: 'تمپر و توزیع‌کننده قهوه', price: 650000,
     image: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?w=300&h=300&fit=crop',
-    merchant: merchants[2], rating: 4.3, fastDelivery: false, returnGuarantee: false, inStock: true,
+    merchant: merchants[0], rating: 4.3, fastDelivery: false, returnGuarantee: false, inStock: true,
   },
   {
     id: 'cf6', name: 'کتابچه آموزش باریستا', price: 350000,
     image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.5, fastDelivery: true, returnGuarantee: false, inStock: true,
+    merchant: merchants[0], rating: 4.5, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
 ];
 
@@ -347,7 +347,7 @@ export const gamingProducts: Product[] = [
   {
     id: 'gm1', name: 'مانیتور گیمینگ ایسوس ۲۷ اینچ', price: 9800000, originalPrice: 11500000,
     image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=300&h=300&fit=crop',
-    merchant: merchants[2], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.8, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'gm2', name: 'کیبورد مکانیکی ریزر', price: 3200000,
@@ -357,7 +357,7 @@ export const gamingProducts: Product[] = [
   {
     id: 'gm3', name: 'موس گیمینگ لاجیتک G Pro', price: 2800000,
     image: 'https://images.unsplash.com/photo-1527814050087-3793815479db?w=300&h=300&fit=crop',
-    merchant: merchants[2], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'gm4', name: 'هدست گیمینگ هایپرایکس', price: 2500000, originalPrice: 3000000,
@@ -367,7 +367,7 @@ export const gamingProducts: Product[] = [
   {
     id: 'gm5', name: 'پد موس بزرگ RGB', price: 850000,
     image: 'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.3, fastDelivery: true, returnGuarantee: false, inStock: true,
+    merchant: merchants[0], rating: 4.3, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
   {
     id: 'gm6', name: 'صندلی گیمینگ DXRacer', price: 12500000,
@@ -386,12 +386,12 @@ export const babyProducts: Product[] = [
   {
     id: 'bb2', name: 'ست ظرف غذای بامبو', price: 1100000,
     image: 'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'bb3', name: 'قاشق سیلیکونی حساس به دما (ست ۴ تایی)', price: 450000,
     image: 'https://images.unsplash.com/photo-1519340241574-2cec6aef0c01?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
     id: 'bb4', name: 'پیش‌بند سیلیکونی با جیب', price: 380000,
@@ -401,7 +401,7 @@ export const babyProducts: Product[] = [
   {
     id: 'bb5', name: 'لیوان آموزشی ۳۶۰ درجه', price: 550000,
     image: 'https://images.unsplash.com/photo-1570831739435-6601aa3fa4fb?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'bb6', name: 'کتاب راهنمای تغذیه تکمیلی', price: 280000,
@@ -415,17 +415,17 @@ export const fitnessProducts: Product[] = [
   {
     id: 'ft1', name: 'دمبل قابل تنظیم ست', price: 4500000, originalPrice: 5200000,
     image: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=300&h=300&fit=crop',
-    merchant: merchants[4], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.7, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'ft2', name: 'مت یوگا حرفه‌ای', price: 1200000,
     image: 'https://images.unsplash.com/photo-1592432678016-e910b452f9a2?w=300&h=300&fit=crop',
-    merchant: merchants[4], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.6, fastDelivery: true, returnGuarantee: true, inStock: true,
   },
   {
     id: 'ft3', name: 'کش مقاومتی ست ۵ تایی', price: 650000,
     image: 'https://images.unsplash.com/photo-1517344884509-a0c97ec11bcc?w=300&h=300&fit=crop',
-    merchant: merchants[4], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.5, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
   {
     id: 'ft4', name: 'ساعت هوشمند شیائومی Band 8', price: 2800000,
@@ -435,12 +435,12 @@ export const fitnessProducts: Product[] = [
   {
     id: 'ft5', name: 'بطری آب ورزشی ۱ لیتری', price: 350000,
     image: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=300&h=300&fit=crop',
-    merchant: merchants[1], rating: 4.3, fastDelivery: true, returnGuarantee: false, inStock: true,
+    merchant: merchants[0], rating: 4.3, fastDelivery: true, returnGuarantee: false, inStock: true,
   },
   {
     id: 'ft6', name: 'پودر پروتئین وی ۱ کیلویی', price: 1800000,
     image: 'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=300&h=300&fit=crop',
-    merchant: merchants[4], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
+    merchant: merchants[0], rating: 4.4, fastDelivery: false, returnGuarantee: true, inStock: true,
   },
 ];
 
@@ -476,7 +476,7 @@ export const paymentOptions: PaymentOption[] = [
   },
   {
     id: 'bnpl',
-    label: 'پرداخت در ۴ قسط با فلوپی',
+    label: 'پرداخت در ۴ قسط',
     icon: '📅',
     available: true,
     description: 'خرید الان، پرداخت اقساطی',

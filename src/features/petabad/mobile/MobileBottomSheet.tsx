@@ -6,7 +6,7 @@ import {
   formatPersianPrice,
   toPersianNumber,
   calculateOrderSummary,
-} from "@/data/gptCommerceData";
+} from "@/data/petabadData";
 import { Basket } from "@/components/petabad/Sidebar";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";

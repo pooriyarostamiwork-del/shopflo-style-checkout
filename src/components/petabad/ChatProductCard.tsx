@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Plus, Info, Star, Store } from "lucide-react";
-import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
+import { Product, formatPersianPrice, toPersianNumber } from "@/data/petabadData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { ProductImage } from "./ProductImage";

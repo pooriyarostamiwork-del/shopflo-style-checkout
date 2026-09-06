@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, Sparkles, MessagesSquare, ShoppingBag, UserRound, Star, Store, Instagram, Twitter, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
+import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/petabadData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import { PetabadBrandLockup, PetabadMark, PetabadWordmark } from "@/components/petabad/PetabadBrand";
@@ -13,21 +13,16 @@ import { ProductImage } from "@/components/petabad/ProductImage";
 import { MobilePromptTipsCard } from "./MobilePromptTipsCard";
 
 // Local mapper (mirrors ProductCarousels) — pure client-side, no backend changes
-const merchantMap: Record<string, typeof merchants[0]> = {
-  m1: merchants[0],
-  m2: merchants[1],
-  m3: merchants[2] || { id: "m3", name: "تکنولایف", logo: "💻" },
-};
 function mapDbProduct(row: any): Product {
   return {
     id: row.id,
-    name: row.name,
+    name: row.name_fa || row.name,
     price: row.price,
     originalPrice: row.original_price || undefined,
     image: row.image_url,
     imageUrls: row.image_urls || undefined,
-    description: row.description || undefined,
-    merchant: merchantMap[row.merchant_id] || merchants[0],
+    description: row.description_fa || row.description || undefined,
+    merchant: merchants[0],
     rating: Number(row.rating) || 4.0,
     fastDelivery: row.fast_delivery,
     returnGuarantee: row.return_guarantee,
@@ -153,7 +148,7 @@ export const MobileChatLanding = ({
     queryKey: ["mobile-hot-deals"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("products")
+        .from("pet_products")
         .select("*")
         .eq("in_stock", true)
         .not("original_price", "is", null)

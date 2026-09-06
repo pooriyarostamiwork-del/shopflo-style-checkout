@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Plus, Info, Grid2X2, Star, Store } from "lucide-react";
-import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/data/gptCommerceData";
+import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/data/petabadData";
 import { useRef, useState } from "react";
 import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from "@/contexts/HomepageSettingsContext";
 import { useQuery } from "@tanstack/react-query";

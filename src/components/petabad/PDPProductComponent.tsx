@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Plus, Check, Truck, RotateCcw, Shield, Star, Zap, Store, FileText, List, ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
+import { Product, formatPersianPrice, toPersianNumber } from "@/data/petabadData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { ProductImage } from "./ProductImage";
 

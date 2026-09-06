@@ -8,7 +8,7 @@ import {
   PaymentOption,
   formatPersianPrice,
   toPersianNumber,
-} from "@/data/gptCommerceData";
+} from "@/data/petabadData";
 
 // Helper to calculate order summary from cart items in real-time
 type CartItemInput = { id: string; name: string; price: number; quantity: number; image: string; merchant: { id: string; name: string; logo: string } };

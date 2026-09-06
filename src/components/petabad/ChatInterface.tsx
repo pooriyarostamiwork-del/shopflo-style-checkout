@@ -1,4 +1,4 @@
-import { ChatMessage, Product, QuickReply, AgenticState, DeliveryAddress, CartItem } from "@/data/gptCommerceData";
+import { ChatMessage, Product, QuickReply, AgenticState, DeliveryAddress, CartItem } from "@/data/petabadData";
 import { MerchantShipping } from "./AddressShippingSelector";
 import { ChatLanding } from "./ChatLanding";
 import { ChatThread } from "./ChatThread";

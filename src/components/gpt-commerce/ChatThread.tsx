@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Paperclip, Mic } from "lucide-react";
+import { ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem } from "@/data/gptCommerceData";
 import { ChatProductCard } from "./ChatProductCard";
@@ -18,6 +18,8 @@ import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSele
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
 import { ShiningText } from "@/components/gpt-commerce/ShiningText";
+import { FlowcartMark } from "@/components/gpt-commerce/FlowcartBrand";
+import { FlowcartLoader } from "@/components/gpt-commerce/FlowcartLoader";
 
 
 
@@ -163,12 +165,7 @@ export const ChatThread = ({
               {msg.content?.trim() && (
               <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-start flex-row-reverse' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))' }}
-                  >
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
+                  <FlowcartMark size="avatar" />
                 )}
                 <div
                   className={`max-w-[70%] px-4 py-3 ${msg.role === 'user' ? 'rounded-[16px_16px_4px_16px]' : 'rounded-[16px_16px_16px_4px]'}`}
@@ -310,19 +307,10 @@ export const ChatThread = ({
           {/* Processing Indicator */}
           {isProcessing && (
             <div className="flex gap-3 animate-fade-in">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))' }}
-              >
-                <Zap className="w-4 h-4 text-white" />
-              </div>
+              <FlowcartMark size="avatar" />
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
                 <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
+                  <FlowcartLoader />
                   <ShiningText text={thinkingLabel} className="text-xs" />
                 </div>
 

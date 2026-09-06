@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { User, Package, Gift, ChevronDown, MessageSquare, Plus, MoreHorizontal, Trash2, Merge, Bookmark, ShoppingCart, Play, Archive } from "lucide-react";
+import { User, Package, Gift, ChevronDown, Plus, MoreHorizontal, Trash2, Merge, Bookmark, ShoppingCart, Play, Archive } from "lucide-react";
 import { toPersianNumber } from "@/data/gptCommerceData";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import { FlowcartBrandLockup } from "./FlowcartBrand";
 
 export interface SavedItem {
   id: string;
@@ -105,19 +105,10 @@ export const Sidebar = ({
     <aside className="w-[260px] h-screen flex flex-col overflow-hidden bg-background border-l border-border/40" dir="rtl">
       {/* Header */}
       <div className="p-4 border-b border-border/40 py-[17px]">
-        <div className="flex items-center gap-3">
-          {chatModeLogo.imageUrl ? (
-            <img src={chatModeLogo.imageUrl} alt="فلوکارت" className="w-10 h-10 rounded-xl object-cover" />
-          ) : (
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary">
-              <MessageSquare className="w-5 h-5 text-primary-foreground" />
-            </div>
-          )}
-          <div className="flex flex-col gap-1 min-w-0">
-            <img src={flowcartLogotype} alt="Flowcart" style={{ height: '20px', width: 'auto' }} draggable={false} />
-            <p className="text-xs text-muted-foreground">{chatModeLogo.subtitle || 'دستیار خرید هوشمند'}</p>
-          </div>
-        </div>
+        <FlowcartBrandLockup
+          imageUrl={chatModeLogo.imageUrl || undefined}
+          subtitle={chatModeLogo.subtitle || 'دستیار خرید هوشمند'}
+        />
       </div>
 
       {/* Scrollable Content */}

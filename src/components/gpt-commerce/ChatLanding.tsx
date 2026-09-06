@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Paperclip, Mic, User } from "lucide-react";
+import { ArrowUp, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, Product, CartItem, DeliveryAddress } from "@/data/gptCommerceData";
 import { CategorySelector } from "./CategorySelector";
@@ -7,7 +7,7 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import flowcartLogotype from "@/assets/flowcart-logotype.svg";
+import { FlowcartMark, FlowcartWordmark } from "./FlowcartBrand";
 
 // Rotating placeholder texts
 const placeholderTexts = [
@@ -197,21 +197,9 @@ export const ChatLanding = ({
 
         {/* Logo & Welcome */}
         <div className="relative z-10 flex flex-col items-center gap-4 xl:gap-6 mb-6 xl:mb-8">
-          {firstPageLogo.imageUrl ? (
-            <img src={firstPageLogo.imageUrl} alt="فلوکارت" className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl object-cover" />
-          ) : (
-            <div
-              className="w-16 h-16 xl:w-20 xl:h-20 rounded-2xl flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.08))',
-                border: '1px solid hsl(0 0% 0% / 0.06)',
-              }}
-            >
-              <Zap className="w-8 h-8 xl:w-10 xl:h-10 text-primary" />
-            </div>
-          )}
+          <FlowcartMark size="hero" imageUrl={firstPageLogo.imageUrl || undefined} alt="فلوکارت" />
           <div className="flex flex-col items-center gap-3">
-            <img src={flowcartLogotype} alt="Flowcart" style={{ height: '40px', width: 'auto' }} draggable={false} />
+            <FlowcartWordmark />
             <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
           </div>
         </div>

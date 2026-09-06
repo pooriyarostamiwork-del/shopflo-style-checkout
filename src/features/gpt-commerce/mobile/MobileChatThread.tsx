@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Zap, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { toPersianNumber } from "@/data/gptCommerceData";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -28,6 +27,8 @@ import {
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
 import { ShiningText } from "@/components/gpt-commerce/ShiningText";
+import { FlowcartMark } from "@/components/gpt-commerce/FlowcartBrand";
+import { FlowcartLoader } from "@/components/gpt-commerce/FlowcartLoader";
 
 
 
@@ -182,15 +183,7 @@ export const MobileChatThread = ({
                 }`}
               >
                 {msg.role === "assistant" && (
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
-                    }}
-                  >
-                    <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
-                  </div>
+                  <FlowcartMark size="avatar" className="mt-0.5 h-7 w-7" />
                 )}
                 <div
                   className={`max-w-[82%] px-3.5 py-2.5 ${
@@ -338,15 +331,7 @@ export const MobileChatThread = ({
 
           {isProcessing && (
             <div className="flex gap-2 animate-fade-in justify-start flex-row-reverse">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
-                style={{
-                  background:
-                    "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))",
-                }}
-              >
-                <img src={flowcartLogo} alt="" style={{ width: "70%", height: "70%" }} draggable={false} />
-              </div>
+              <FlowcartMark size="avatar" className="h-7 w-7" />
               <div
                 className="rounded-[16px_16px_16px_4px] px-3.5 py-2.5"
                 style={{
@@ -355,20 +340,7 @@ export const MobileChatThread = ({
                 }}
               >
                 <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <span
-                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <span
-                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <span
-                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </div>
+                  <FlowcartLoader className="h-5 w-5" />
                   <ShiningText text={thinkingLabel} className="text-[11px]" />
                 </div>
 

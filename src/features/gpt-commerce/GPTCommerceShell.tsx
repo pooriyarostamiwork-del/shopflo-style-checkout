@@ -140,6 +140,7 @@ export const GPTCommerceShell = () => {
     messages,
     lastRecommendedProducts,
     productMemory: currentState.productMemory,
+    shoppingContext: currentState.shoppingContext,
   });
 
   // Wrap handleQuickReply to intercept more_results and disambiguation

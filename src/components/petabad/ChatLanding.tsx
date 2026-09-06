@@ -7,7 +7,7 @@ import { ProductCarousels } from "./ProductCarousels";
 import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
-import { FlowcartMark, FlowcartWordmark } from "./PetabadBrand";
+import { PetabadMark, PetabadWordmark } from "./PetabadBrand";
 import { TypingText } from "./TypingText";
 
 // Rotating placeholder texts
@@ -171,7 +171,7 @@ export const ChatLanding = ({
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
-            <span className="text-foreground/80">تا صد میلیون خیال جمع — فلوکارت هست، پول کم؟ کم‌کم!</span>
+            <span className="text-foreground/80">همراه پت آباد، خیالت از خرید لوازم حیوان خانگی راحت باشه!</span>
             <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
           </div>
           <button
@@ -198,8 +198,8 @@ export const ChatLanding = ({
 
         {/* Logo & Welcome */}
         <div className="relative z-10 flex flex-col items-center text-center gap-4 mb-6 xl:mb-8">
-          <FlowcartMark size="hero" imageUrl={firstPageLogo.imageUrl || undefined} alt="فلوکارت" className="mx-auto" />
-          <FlowcartWordmark className="mx-auto" />
+          <PetabadMark size="hero" imageUrl={firstPageLogo.imageUrl || undefined} alt="پت آباد" className="mx-auto" />
+          <PetabadWordmark className="mx-auto" />
           <p className="text-muted-foreground text-center leading-none">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
         </div>
 

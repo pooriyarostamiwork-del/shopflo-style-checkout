@@ -1,6 +1,6 @@
 import { useState, useEffect, ImgHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import flowcartLogo from "@/assets/flowcart-logo.svg";
+import petabadLogo from "@/assets/petabad-logo.svg";
 
 interface ProductImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "onError"> {
   src?: string | null;
@@ -47,7 +47,7 @@ export const ProductImage = ({
         aria-label={alt}
       >
         <img
-          src={flowcartLogo}
+          src={petabadLogo}
           alt=""
           aria-hidden
           draggable={false}

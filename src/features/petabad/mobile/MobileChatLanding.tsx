@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } from "@/data/gptCommerceData";
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
-import { PetabadBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/petabad/PetabadBrand";
+import { PetabadBrandLockup, PetabadMark, PetabadWordmark } from "@/components/petabad/PetabadBrand";
 import { TypingText } from "@/components/petabad/TypingText";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -220,8 +220,8 @@ export const MobileChatLanding = ({
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle */}
         <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
-          <FlowcartMark size="hero" className="mb-3 h-[4.1rem] w-[4.1rem]" alt="فلوکارت" />
-          <FlowcartWordmark className="mb-1" />
+          <PetabadMark size="hero" className="mb-3 h-[4.1rem] w-[4.1rem]" alt="پت آباد" />
+          <PetabadWordmark className="mb-1" />
           <p className="text-muted-foreground leading-tight max-w-[280px]" style={{ fontSize: "0.78rem", letterSpacing: "-0.01em" }}>
             یک دستیار خرید واقعاً باهوش :)
           </p>

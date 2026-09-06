@@ -413,7 +413,7 @@ export const OTPModal = ({ isOpen, onClose, onVerified }: OTPModalProps) => {
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  'ذخیره و ورود به فلوکارت'
+                  'ذخیره و ورود به پت آباد'
                 )}
               </Button>
               

@@ -391,7 +391,7 @@ export const AccountPanel = ({
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">{profileData.name}</h3>
-                    <p className="text-sm text-muted-foreground">عضو فلوکارت</p>
+                    <p className="text-sm text-muted-foreground">عضو پت آباد</p>
                   </div>
                   {!editingProfile && (
                     <button

@@ -7,7 +7,7 @@ import { Product } from "@/data/gptCommerceData";
 // what the user liked / rejected / added, and what "this" / "these" currently
 // point at. Fully category-agnostic: nothing here knows about laptops, pets or
 // any other vertical — it only tracks groups, positions, ids and free-text
-// facts, so it works for every catalogue inside Flowcart.
+// facts, so it works for every catalogue inside PetAbad.
 // ============================================================================
 
 export interface MemoryEntry {

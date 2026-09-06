@@ -18,7 +18,7 @@ import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSele
 import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
-import { FlowcartMark } from "@/components/petabad/PetabadBrand";
+import { PetabadMark } from "@/components/petabad/PetabadBrand";
 import { WanderingEyes } from "@/components/petabad/WanderingEyes";
 import { TypingText } from "@/components/petabad/TypingText";
 
@@ -152,7 +152,7 @@ export const ChatThread = ({
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
-          <span className="text-foreground/80">تا صد میلیون خیال جمع — فلوکارت هست، پول کم؟ کم‌کم!</span>
+          <span className="text-foreground/80">همراه پت آباد، خیالت از خرید لوازم حیوان خانگی راحت باشه!</span>
           <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
         </div>
       </div>
@@ -166,7 +166,7 @@ export const ChatThread = ({
               {msg.content?.trim() && (
               <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-start flex-row-reverse' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
-                  <FlowcartMark size="avatar" />
+                  <PetabadMark size="avatar" />
                 )}
                 <div
                   className={`max-w-[70%] px-4 py-3 ${msg.role === 'user' ? 'rounded-[16px_16px_4px_16px]' : 'rounded-[16px_16px_16px_4px]'}`}
@@ -308,7 +308,7 @@ export const ChatThread = ({
           {/* Processing Indicator */}
           {isProcessing && (
             <div className="flex gap-3 animate-fade-in">
-              <FlowcartMark size="avatar" />
+              <PetabadMark size="avatar" />
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
                 <div className="flex items-center gap-2">
                   <WanderingEyes className="h-5 w-[45px] text-primary" />

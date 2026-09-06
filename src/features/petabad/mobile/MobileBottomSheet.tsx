@@ -425,7 +425,7 @@ export const MobileBottomSheet = ({
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">
-                        {userFirstName || "کاربر فلوکارت"}
+                        {userFirstName || "کاربر پت آباد"}
                       </p>
                       <p className="text-[11px] text-muted-foreground">حساب فعال</p>
                     </div>

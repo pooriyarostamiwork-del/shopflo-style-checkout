@@ -615,7 +615,7 @@ export const useAgentMessages = ({
       const referenceHint = buildReferenceHint(content, mem);
       if (referenceHint) body.reference_hint = referenceHint;
 
-      const { data, error } = await invokeWithTimeout('gpt-commerce-agent', body);
+      const { data, error } = await invokeWithTimeout('petabad-agent', body);
       if (error) throw new Error(error.message);
 
       const actions = data?.cart_actions || [];
@@ -755,7 +755,7 @@ export const useAgentMessages = ({
     updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
     try {
-      const { data, error } = await invokeWithTimeout('gpt-commerce-agent', {
+      const { data, error } = await invokeWithTimeout('petabad-agent', {
         messages: [{ role: 'user', content }], mode: 'agentic', is_first_message: true,
       });
 

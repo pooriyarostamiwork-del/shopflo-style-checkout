@@ -129,7 +129,7 @@ export const Footer = ({ onSupportClick, onSignInClick }: FooterProps) => {
       <div className="py-4 border-t border-border/20">
         <div className="max-w-[960px] mx-auto px-4">
           <p className="text-[10px] text-muted-foreground/40 text-center">
-            © ۱۴۰۳ فلوکارت. تمامی حقوق محفوظ است.
+            © ۱۴۰۳ پت آباد. تمامی حقوق محفوظ است.
           </p>
         </div>
       </div>

@@ -27,7 +27,7 @@ import {
 import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
-import { FlowcartMark } from "@/components/petabad/PetabadBrand";
+import { PetabadMark } from "@/components/petabad/PetabadBrand";
 import { WanderingEyes } from "@/components/petabad/WanderingEyes";
 import { TypingText } from "@/components/petabad/TypingText";
 
@@ -184,7 +184,7 @@ export const MobileChatThread = ({
                 }`}
               >
                 {msg.role === "assistant" && (
-                  <FlowcartMark size="avatar" className="mt-0.5 h-7 w-7" />
+                  <PetabadMark size="avatar" className="mt-0.5 h-7 w-7" />
                 )}
                 <div
                   className={`max-w-[82%] px-3.5 py-2.5 ${
@@ -332,7 +332,7 @@ export const MobileChatThread = ({
 
           {isProcessing && (
             <div className="flex gap-2 animate-fade-in justify-start flex-row-reverse">
-              <FlowcartMark size="avatar" className="h-7 w-7" />
+              <PetabadMark size="avatar" className="h-7 w-7" />
               <div
                 className="rounded-[16px_16px_16px_4px] px-3.5 py-2.5"
                 style={{
@@ -393,7 +393,7 @@ export const MobileChatThread = ({
                 dir="rtl"
               >
                 <TypingText
-                  text="از فلوکارت بخوا"
+                  text="از پت آباد بخوا"
                   className="text-muted-foreground/50 text-sm text-right w-full leading-snug"
                 />
               </div>

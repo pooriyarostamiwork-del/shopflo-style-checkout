@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DeliveryAddress } from "@/data/gptCommerceData";
 
-const GLOBAL_ADDRESSES_KEY = 'flowcart-global-addresses';
+const GLOBAL_ADDRESSES_KEY = 'petabad-global-addresses';
 
 const getInitialGlobalAddresses = (): DeliveryAddress[] => {
   try {

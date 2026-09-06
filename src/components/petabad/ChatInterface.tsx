@@ -6,7 +6,7 @@ import { ChatThread } from "./ChatThread";
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome-pending',
   role: 'assistant',
-  content: 'سلام! 👋 من دستیار خرید هوشمند فلوکارت هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
+  content: 'سلام! 👋 من دستیار خرید هوشمند پت آباد هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
   timestamp: new Date(),
 };
 

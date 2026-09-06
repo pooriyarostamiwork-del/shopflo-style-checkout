@@ -144,10 +144,10 @@ export const useCartPersistence = ({
   useEffect(() => {
     if (!isAuthenticated) {
       hasLoadedFromDb.current = false;
-      localStorage.removeItem('flowcart-baskets');
-      localStorage.removeItem('flowcart-active-basket');
-      localStorage.removeItem('flowcart-basket-states');
-      localStorage.removeItem('flowcart-global-addresses');
+      localStorage.removeItem('petabad-baskets');
+      localStorage.removeItem('petabad-active-basket');
+      localStorage.removeItem('petabad-basket-states');
+      localStorage.removeItem('petabad-global-addresses');
     }
   }, [isAuthenticated]);
 

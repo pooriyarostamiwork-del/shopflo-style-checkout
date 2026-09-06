@@ -1012,42 +1012,34 @@ SELECTED_IDS:["id1","id2","id3"]
     }
 
     const followUpData = await followUpResponse.json();
-    let finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
+    const rawFinal = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
 
-    // Parse SELECTED_IDS from re-ranker output
+    // ── One shared pass: pull every machine signal out of the visible text ──
+    const sig = extractSignals(rawFinal);
+    let finalContent = sig.text;
+    const referenceIds = sig.referenceIds;
+    const likedIds = sig.likedIds;
+    const rejectedIds = sig.rejectedIds;
+    const goalSignal = sig.goal;
+
     let selectedProducts = allProducts.slice(0, maxShown);
-    const selectedIdsMatch = finalContent.match(/SELECTED_IDS:\s*(\[.*?\])/);
-    if (selectedIdsMatch) {
-      try {
-        const selectedIds: string[] = JSON.parse(selectedIdsMatch[1]);
-        const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
-        const reordered = selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
-        if (reordered.length > 0) selectedProducts = reordered;
-        console.log(`Re-ranker selected ${reordered.length} products`);
-      } catch (e) {
-        console.error("Failed to parse SELECTED_IDS:", e);
-      }
-      finalContent = finalContent.replace(/\n?SELECTED_IDS:\s*\[.*?\]/, "").trim();
+    if (sig.selectedIds.length > 0) {
+      const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
+      const reordered = sig.selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
+      if (reordered.length > 0) selectedProducts = reordered;
+      console.log(`Re-ranker selected ${reordered.length} products`);
     }
 
-    // ── Parse optional memory signals and strip them from the visible text ──
-    const parseSignal = (label: string): string[] => {
-      const m = finalContent.match(new RegExp(label + ":\\s*(\\[.*?\\])"));
-      if (!m) return [];
-      finalContent = finalContent.replace(new RegExp("\\n?" + label + ":\\s*\\[.*?\\]"), "").trim();
-      try { return JSON.parse(m[1]); } catch { return []; }
-    };
-    const referenceIds = parseSignal("REFERENCE_IDS");
-    const likedIds = parseSignal("LIKED_IDS");
-    const rejectedIds = parseSignal("REJECTED_IDS");
-
-    // GOAL signal: a compact object describing the shopping goal, stripped from visible text
-    let goalSignal: any = null;
-    const goalMatch = finalContent.match(/GOAL:\s*(\{[\s\S]*?\})/);
-    if (goalMatch) {
-      try { goalSignal = JSON.parse(goalMatch[1]); } catch { goalSignal = null; }
-      finalContent = finalContent.replace(/\n?GOAL:\s*\{[\s\S]*?\}/, "").trim();
+    // Products named from memory (ids cited in the text) still get their cards.
+    if (selectedProducts.length === 0) {
+      const mentionedIds = [
+        ...((finalContent.match(UUID_RE) || []) as string[]),
+        ...likedIds,
+      ];
+      selectedProducts = await hydrateProducts(supabase, mentionedIds);
     }
+
+    finalContent = sanitizeVisibleText(finalContent);
 
     if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
 

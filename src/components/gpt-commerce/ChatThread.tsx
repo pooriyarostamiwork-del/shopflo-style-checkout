@@ -19,7 +19,8 @@ import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlock
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
 import { ShiningText } from "@/components/gpt-commerce/ShiningText";
 import { FlowcartMark } from "@/components/gpt-commerce/FlowcartBrand";
-import { FlowcartLoader } from "@/components/gpt-commerce/FlowcartLoader";
+import { WanderingEyes } from "@/components/gpt-commerce/WanderingEyes";
+import { TypingText } from "@/components/gpt-commerce/TypingText";
 
 
 
@@ -310,7 +311,7 @@ export const ChatThread = ({
               <FlowcartMark size="avatar" />
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
                 <div className="flex items-center gap-2">
-                  <FlowcartLoader />
+                  <WanderingEyes className="h-5 w-[45px] text-primary" />
                   <ShiningText text={thinkingLabel} className="text-xs" />
                 </div>
 
@@ -351,12 +352,11 @@ export const ChatThread = ({
                   className="absolute inset-0 flex items-start pointer-events-none px-2 py-3"
                   dir="rtl"
                 >
-                  <span
+                  <TypingText
                     key={placeholderIndex}
-                    className="text-muted-foreground/50 text-base text-right w-full whitespace-normal break-words leading-snug"
-                  >
-                    {placeholderTexts[placeholderIndex]}
-                  </span>
+                    text={placeholderTexts[placeholderIndex]}
+                    className="text-muted-foreground/50 text-base text-right w-full leading-snug"
+                  />
                 </div>
               )}
             </div>

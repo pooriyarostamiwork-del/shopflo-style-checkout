@@ -8,6 +8,7 @@ import { ProductDetailsModal } from "./ProductDetailsModal";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { FlowcartMark, FlowcartWordmark } from "./FlowcartBrand";
+import { TypingText } from "./TypingText";
 
 // Rotating placeholder texts
 const placeholderTexts = [
@@ -196,12 +197,10 @@ export const ChatLanding = ({
         <BentoCard type="product" className="bottom-24 left-[10%] animate-float-slow" style={{ animationDelay: '6s', animationDuration: '24s', transform: 'rotate(2deg)' }} />
 
         {/* Logo & Welcome */}
-        <div className="relative z-10 flex flex-col items-center gap-4 xl:gap-6 mb-6 xl:mb-8">
-          <FlowcartMark size="hero" imageUrl={firstPageLogo.imageUrl || undefined} alt="فلوکارت" />
-          <div className="flex flex-col items-center gap-3">
-            <FlowcartWordmark />
-            <p className="text-muted-foreground">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
-          </div>
+        <div className="relative z-10 flex flex-col items-center text-center gap-4 mb-6 xl:mb-8">
+          <FlowcartMark size="hero" imageUrl={firstPageLogo.imageUrl || undefined} alt="فلوکارت" className="mx-auto" />
+          <FlowcartWordmark className="mx-auto" />
+          <p className="text-muted-foreground text-center leading-none">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
         </div>
 
         {/* Centered Glass Chatbox */}
@@ -232,12 +231,11 @@ export const ChatLanding = ({
                   />
                   {!inputValue && (
                     <div className="absolute inset-0 flex items-center pointer-events-none px-3 py-4 overflow-hidden" dir="rtl">
-                      <span
+                      <TypingText
                         key={placeholderIndex}
-                        className="text-muted-foreground/50 text-base text-right w-full animate-typing-rtl"
-                      >
-                        {placeholderTexts[placeholderIndex]}
-                      </span>
+                        text={placeholderTexts[placeholderIndex]}
+                        className="text-muted-foreground/50 text-base text-right w-full"
+                      />
                     </div>
                   )}
                 </div>

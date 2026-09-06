@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, Info, Bookmark, Star, Store } from "lucide-react";
+import { Plus, Info, Star, Store } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
@@ -165,22 +165,6 @@ export const ChatProductCard = ({
 
         {/* Actions - Bottom - vertically centered between divider and card bottom */}
         <div className="flex items-center gap-2 mt-auto py-3 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)' }}>
-          {/* Save Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSave?.(product);
-            }}
-            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
-              isSaved 
-                ? 'bg-amber-500 text-white' 
-                : 'bg-transparent border border-border/60 hover:border-amber-400 hover:bg-amber-50'
-            }`}
-            title={isSaved ? 'حذف از ذخیره‌شده‌ها' : 'ذخیره در این سبد'}
-          >
-            <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : 'text-muted-foreground'}`} />
-          </button>
-          
           {/* Add to Cart Button */}
           <Button
             onClick={(e) => {

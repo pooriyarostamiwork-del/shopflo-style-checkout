@@ -28,7 +28,8 @@ import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlock
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
 import { ShiningText } from "@/components/gpt-commerce/ShiningText";
 import { FlowcartMark } from "@/components/gpt-commerce/FlowcartBrand";
-import { FlowcartLoader } from "@/components/gpt-commerce/FlowcartLoader";
+import { WanderingEyes } from "@/components/gpt-commerce/WanderingEyes";
+import { TypingText } from "@/components/gpt-commerce/TypingText";
 
 
 
@@ -340,7 +341,7 @@ export const MobileChatThread = ({
                 }}
               >
                 <div className="flex items-center gap-2">
-                  <FlowcartLoader className="h-5 w-5" />
+                  <WanderingEyes className="h-4 w-9 text-primary" />
                   <ShiningText text={thinkingLabel} className="text-[11px]" />
                 </div>
 
@@ -391,9 +392,10 @@ export const MobileChatThread = ({
                 className="absolute inset-0 flex items-center pointer-events-none px-2"
                 dir="rtl"
               >
-                <span className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug">
-                  از فلوکارت بخوا
-                </span>
+                <TypingText
+                  text="از فلوکارت بخوا"
+                  className="text-muted-foreground/50 text-sm text-right w-full leading-snug"
+                />
               </div>
             )}
           </div>

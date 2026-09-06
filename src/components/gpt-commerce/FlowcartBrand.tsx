@@ -2,18 +2,20 @@ import flowcartIcon from "@/assets/flowcart-logo.svg";
 import flowcartLogotype from "@/assets/flowcart-logotype.svg";
 import { cn } from "@/lib/utils";
 
-type MarkSize = "hero" | "brand" | "avatar";
-type WordmarkSize = "brand" | "compact";
+type MarkSize = "hero" | "brand" | "chat" | "avatar";
+type WordmarkSize = "brand" | "chat" | "compact";
 
 const markSizes: Record<MarkSize, string> = {
   hero: "h-20 w-20 rounded-2xl",
   brand: "h-11 w-11 rounded-xl",
+  chat: "h-10 w-10 rounded-xl",
   avatar: "h-8 w-8 rounded-full",
 };
 
 const wordmarkSizes: Record<WordmarkSize, string> = {
   brand: "h-[35px] w-[115px]",
-  compact: "h-[28px] w-[92px]",
+  chat: "h-[31px] w-[101px]",
+  compact: "h-[25px] w-[81px]",
 };
 
 export const FlowcartMark = ({
@@ -64,17 +66,23 @@ export const FlowcartBrandLockup = ({
   subtitle,
   imageUrl,
   compact = false,
+  variant = "default",
   className,
 }: {
   subtitle?: string;
   imageUrl?: string;
   compact?: boolean;
+  variant?: "default" | "chat";
   className?: string;
 }) => (
   <div className={cn("flex items-center gap-2.5", className)}>
-    <FlowcartMark size={compact ? "avatar" : "brand"} imageUrl={imageUrl} alt="فلوکارت" />
+    <FlowcartMark
+      size={compact ? "avatar" : variant === "chat" ? "chat" : "brand"}
+      imageUrl={imageUrl}
+      alt="فلوکارت"
+    />
     <div className="flex min-w-0 flex-col items-start gap-0.5">
-      <FlowcartWordmark size={compact ? "compact" : "brand"} />
+      <FlowcartWordmark size={compact ? "compact" : variant === "chat" ? "chat" : "brand"} />
       {subtitle ? <p className="text-xs leading-none text-muted-foreground">{subtitle}</p> : null}
     </div>
   </div>

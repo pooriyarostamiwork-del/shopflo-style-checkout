@@ -5,6 +5,7 @@ import { Product, CartItem, formatPersianPrice, toPersianNumber, merchants } fro
 import slideDrnext from "@/assets/mobile-slide-drnext.jpg";
 import slideItick from "@/assets/mobile-slide-itick.jpg";
 import { FlowcartBrandLockup, FlowcartMark, FlowcartWordmark } from "@/components/gpt-commerce/FlowcartBrand";
+import { TypingText } from "@/components/gpt-commerce/TypingText";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatProductCard } from "@/components/gpt-commerce/ChatProductCard";
@@ -521,12 +522,11 @@ export const MobileChatLanding = ({
                 className="absolute inset-0 flex items-center pointer-events-none px-2"
                 dir="rtl"
               >
-                <span
+                <TypingText
                   key={placeholderIndex}
-                  className="text-muted-foreground/50 text-sm text-right w-full whitespace-normal break-words leading-snug"
-                >
-                  {placeholderTexts[placeholderIndex]}
-                </span>
+                  text={placeholderTexts[placeholderIndex]}
+                  className="text-muted-foreground/50 text-sm text-right w-full leading-snug"
+                />
               </div>
             )}
           </div>

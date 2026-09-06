@@ -130,8 +130,6 @@ All colors MUST be HSL.
     --danger: 0 84% 60%;
     --cyan-accent: 189 85% 62%;
     --neon-blue: 217 91% 60%;
-    --loader-warm: 39 100% 64%;
-    --loader-deep: 17 73% 43%;
     
     /* Liquid Glass Colors */
     --glass-bg: 0 0% 100% / 0.7;
@@ -190,8 +188,6 @@ All colors MUST be HSL.
     --danger: 0 84% 70%;
     --cyan-accent: 189 85% 72%;
     --neon-blue: 217 91% 70%;
-    --loader-warm: 39 100% 64%;
-    --loader-deep: 17 73% 48%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;

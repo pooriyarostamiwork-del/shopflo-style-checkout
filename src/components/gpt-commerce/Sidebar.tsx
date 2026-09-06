@@ -107,7 +107,7 @@ export const Sidebar = ({
       <div className="p-4 border-b border-border/40 py-[17px]">
         <FlowcartBrandLockup
           imageUrl={chatModeLogo.imageUrl || undefined}
-          subtitle={chatModeLogo.subtitle || 'دستیار خرید هوشمند'}
+          variant="chat"
         />
       </div>
 

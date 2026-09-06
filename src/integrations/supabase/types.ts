@@ -56,6 +56,27 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_aliases: {
+        Row: {
+          alias_key: string
+          canonical: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          alias_key: string
+          canonical: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          alias_key?: string
+          canonical?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           created_at: string
@@ -803,14 +824,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      brand_key: { Args: { input: string }; Returns: string }
+      brand_match_keys: { Args: { p_brand: string }; Returns: string[] }
       hybrid_product_search: {
         Args: {
           p_brand?: string
           p_embedding?: string
+          p_evidence?: string[]
           p_in_stock?: boolean
+          p_limit?: number
           p_max_price?: number
           p_min_price?: number
           p_min_rating?: number
+          p_offset?: number
           p_query: string
           p_subcategory?: string
         }
@@ -824,6 +850,7 @@ export type Database = {
           image_url: string
           image_urls: string[]
           in_stock: boolean
+          matched_total: number
           merchant_id: string
           name: string
           original_price: number
@@ -839,6 +866,15 @@ export type Database = {
         }[]
       }
       normalize_persian: { Args: { input: string }; Returns: string }
+      product_facets: {
+        Args: {
+          p_criterion?: string
+          p_in_stock?: boolean
+          p_query?: string
+          p_subcategory?: string
+        }
+        Returns: Json
+      }
       shift_hybrid_search: {
         Args: {
           p_category?: string

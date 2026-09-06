@@ -671,7 +671,8 @@ const DEFAULT_GUIDANCE_STEPS = (category: string, knownUsage?: string | null) =>
       { label: "طراحی و کارهای سنگین" },
       { label: "برنامه‌نویسی" },
     ],
-  },
+  }]),
+
   {
     title: "بودجه",
     question: "بودجه‌ات حدوداً چقدره؟",

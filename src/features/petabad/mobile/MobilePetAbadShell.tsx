@@ -18,6 +18,7 @@ import { useCartPersistence } from "../hooks/useCartPersistence";
 import { MobileChatLanding } from "./MobileChatLanding";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
+import "../petabad-theme.css";
 
 export const MobilePetAbadShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
@@ -340,7 +341,7 @@ export const MobilePetAbadShell = () => {
   // ── Account full screen overlay ────────────────────────────────────────
   if (showAccountFull) {
     return (
-      <div className="h-[100dvh] overflow-y-auto bg-background" dir="rtl">
+      <div className="petabad-theme h-[100dvh] overflow-y-auto bg-background" dir="rtl">
         <AccountPanel
           onBack={() => setShowAccountFull(false)}
           addresses={globalAddresses}
@@ -364,7 +365,7 @@ export const MobilePetAbadShell = () => {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
+    <div className="petabad-theme h-[100dvh] flex flex-col bg-gradient-to-b from-background via-background to-primary/5" dir="rtl">
       {/* Mobile top header */}
       <header
         className="flex items-center justify-between px-3 py-2.5 border-b flex-shrink-0"

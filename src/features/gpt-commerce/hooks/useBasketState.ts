@@ -8,6 +8,7 @@ import {
 } from "@/data/gptCommerceData";
 import { Basket } from "@/components/gpt-commerce/Sidebar";
 import { ProductMemory, createEmptyProductMemory } from "./productMemory";
+import { ShoppingContext, createEmptyShoppingContext } from "./shoppingContext";
 
 // ========== PER-BASKET STATE ==========
 export interface BasketState {
@@ -18,6 +19,7 @@ export interface BasketState {
   selectedShippingByMerchant: Record<string, string>;
   lastRecommendedProducts: Product[];
   productMemory: ProductMemory;
+  shoppingContext: ShoppingContext;
   isProcessing: boolean;
   hasStartedChat: boolean;
   checkoutAddresses: DeliveryAddress[];
@@ -45,6 +47,7 @@ export const createDefaultBasketState = (): BasketState => ({
   selectedShippingByMerchant: {},
   lastRecommendedProducts: [],
   productMemory: createEmptyProductMemory(),
+  shoppingContext: createEmptyShoppingContext(),
   isProcessing: false,
   hasStartedChat: false,
   checkoutAddresses: [],
@@ -59,7 +62,7 @@ export const BASKET_STATES_KEY = 'flowcart-basket-states';
 
 // Storage version migration guard (module-level, runs once)
 const STORAGE_VERSION_KEY = 'flowcart-storage-version';
-const CURRENT_VERSION = '7';
+const CURRENT_VERSION = '8';
 if (typeof window !== 'undefined') {
   const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
   if (storedVersion !== CURRENT_VERSION) {

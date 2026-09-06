@@ -119,7 +119,27 @@ export interface AgenticState {
   orderId: string | null;
 }
 
+export interface ClarificationOption {
+  label: string;
+  hint?: string;
+}
+
+export interface ClarificationStep {
+  title: string;
+  question: string;
+  options: ClarificationOption[];
+}
+
+export interface Clarification {
+  kind: 'single' | 'steps';
+  question?: string;
+  helper?: string;
+  options?: ClarificationOption[];
+  steps?: ClarificationStep[];
+}
+
 export interface ChatMessage {
+
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -143,6 +163,8 @@ export interface ChatMessage {
   paymentOptions?: PaymentOption[];
   showCartSummary?: boolean;
   inlineProduct?: Product; // Product details shown inline in chat (not modal)
+  clarification?: Clarification; // Interactive question card (question is NOT repeated in content)
+
   timestamp: Date;
   isCtaActive?: boolean; // Whether this CTA is currently active (only one should be active at a time)
 }

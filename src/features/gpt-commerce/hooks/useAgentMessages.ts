@@ -39,6 +39,13 @@ import {
   setFocus,
   unmarkInCart,
 } from "./productMemory";
+import {
+  ShoppingContext,
+  ensureShoppingContext,
+  mergeGoalSignal,
+  serializeShoppingContext,
+  updateFromMessage,
+} from "./shoppingContext";
 
 
 interface UseAgentMessagesProps {
@@ -56,6 +63,7 @@ interface UseAgentMessagesProps {
   messages: ChatMessage[];
   lastRecommendedProducts: Product[];
   productMemory: ProductMemory;
+  shoppingContext: ShoppingContext;
 }
 
 export const mapDbProduct = (dbProduct: any): Product => {
@@ -105,6 +113,28 @@ function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: 
     .map(m => ({ role: m.role, content: m.content.slice(0, 300) }));
 }
 
+// ── Deterministic hints (no model call) ──
+const ENUMERATION_RE = /(چیا داری|چی داری|چه (برند|مدل|مارک)|همه(ی)? ?(محصولات|مدل ?ها|گزینه ?ها)?|لیست|چند تا|چندتا|کدوم برند|برند ?های|موجودی)/;
+const EXISTENCE_RE = /(داری|دارید|موجوده|موجود هست|هست)\s*\??$/;
+const REFERENCE_RE = /(این|اینا|اینها|همون|همین|اون ?ها|اونا|قبلی|همون ?ها|برای این|با این)/;
+
+function buildScopeHint(message: string): string | undefined {
+  const t = message.replace(/\u200c/g, " ");
+  const hints: string[] = [];
+  if (ENUMERATION_RE.test(t)) hints.push("این پیام درخواست شمارش/فهرست کامل است — حتماً catalog_facets را صدا بزن و اعداد را از آن بگیر.");
+  else if (EXISTENCE_RE.test(t)) hints.push("این پیام سؤال موجود بودن است — حتماً قبل از هر پاسخ search_products یا catalog_facets را صدا بزن؛ از حافظه پاسخ نده.");
+  return hints.length ? hints.join(" ") : undefined;
+}
+
+function buildReferenceHint(message: string, memory: ProductMemory): string | undefined {
+  if (!REFERENCE_RE.test(message)) return undefined;
+  const focus = memory.focus?.productIds?.length
+    ? memory.focus.productIds
+    : (memory.groups[memory.groups.length - 1]?.productIds ?? []);
+  if (!focus.length) return undefined;
+  return `کاربر با ضمیر به محصولات قبلی اشاره کرده. محصولات مرجع: ${focus.slice(0, 6).join(", ")}. اینها موضوع جدید نیستند مگر صریح گفته شود.`;
+}
+
 export const useAgentMessages = ({
   updateCurrentBasket,
   setBasketStates,
@@ -120,6 +150,7 @@ export const useAgentMessages = ({
   messages,
   lastRecommendedProducts,
   productMemory,
+  shoppingContext,
 }: UseAgentMessagesProps) => {
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
@@ -562,6 +593,14 @@ export const useAgentMessages = ({
         })),
       };
 
+      const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
+      const serializedGoal = serializeShoppingContext(nextShopping);
+      if (serializedGoal) body.shopping_context = serializedGoal;
+      const scopeHint = buildScopeHint(content);
+      if (scopeHint) body.scope_hint = scopeHint;
+      const referenceHint = buildReferenceHint(content, mem);
+      if (referenceHint) body.reference_hint = referenceHint;
+
       const { data, error } = await invokeWithTimeout('gpt-commerce-agent', body);
       if (error) throw new Error(error.message);
 
@@ -580,6 +619,28 @@ export const useAgentMessages = ({
         if (referenceIds.length) next = setFocus(next, referenceIds, next.entries[referenceIds[0]]?.groupId ?? null);
         return next;
       };
+
+      // ── Shopping goal persistence (deterministic + optional GOAL signal) ──
+      const goalUpdated = mergeGoalSignal(nextShopping, data?.goal);
+
+      // ── Clarification branch: render an interactive card, never a duplicate question ──
+      const clarification = data?.clarification;
+      if (clarification && (clarification.options?.length || clarification.steps?.length)) {
+        const clarifyMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: '',
+          clarification,
+          timestamp: new Date(),
+        };
+        updateCurrentBasket(s => ({
+          ...s,
+          messages: [...s.messages, clarifyMessage],
+          shoppingContext: goalUpdated,
+          isProcessing: false,
+        }));
+        return;
+      }
 
       // ── Cart branch ──
       if (actions.length > 0 || needsClarification) {
@@ -602,6 +663,7 @@ export const useAgentMessages = ({
           ...s,
           messages: [...s.messages, cartMessage],
           productMemory: applyMemorySignals(ensureProductMemory(s.productMemory)),
+          shoppingContext: goalUpdated,
           isProcessing: false,
         }));
         return;
@@ -621,6 +683,7 @@ export const useAgentMessages = ({
         return {
           ...s,
           productMemory: nextMemory,
+          shoppingContext: goalUpdated,
           ...(mappedProducts.length > 0 ? { lastRecommendedProducts: mappedProducts } : {}),
         };
       });
@@ -656,7 +719,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
     }
-  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId]);
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext]);
 
   // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {

@@ -25,6 +25,8 @@ import {
   AddressShippingSelector,
   MerchantShipping,
 } from "@/components/gpt-commerce/AddressShippingSelector";
+import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
+
 
 interface MobileChatThreadProps {
   messages: ChatMessage[];
@@ -204,7 +206,15 @@ export const MobileChatThread = ({
                 </div>
               </div>
 
+              {/* Interactive clarification card */}
+              {msg.clarification && (
+                <div className="pr-1">
+                  <ClarificationBlock clarification={msg.clarification} onAnswer={onSendMessage} />
+                </div>
+              )}
+
               {/* Product cards — horizontal scroll on mobile */}
+
               {msg.products && msg.products.length > 0 && (
                 <div className="-mx-3 px-3 overflow-x-auto scrollbar-none">
                   <div className="flex gap-[0.375rem] pl-9 pb-1" style={{ width: "max-content" }}>

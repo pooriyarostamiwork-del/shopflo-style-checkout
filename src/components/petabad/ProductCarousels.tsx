@@ -343,48 +343,37 @@ const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerC
 };
 
 export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
-  // Fetch hot deals — cross-category products with highest discount %
+  // Featured pet picks — most reviewed in-stock products across the pet catalog
   const { data: hotDealsProducts, isLoading: isLoadingDeals } = useQuery({
-    queryKey: ['carousel-hot-deals'],
+    queryKey: ['petabad-carousel-featured'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('products')
+        .from('pet_products')
         .select('*')
         .eq('in_stock', true)
-        .not('original_price', 'is', null)
-        .order('original_price', { ascending: false })
-        .limit(100);
-      
+        .order('review_count', { ascending: false })
+        .limit(15);
+
       if (error) throw error;
-      
-      // Sort by discount percentage descending, take top 15
-      const withDiscount = (data || [])
-        .filter(r => r.original_price && r.original_price > r.price)
-        .sort((a, b) => {
-          const discA = 1 - a.price / (a.original_price || a.price);
-          const discB = 1 - b.price / (b.original_price || b.price);
-          return discB - discA;
-        })
-        .slice(0, 15);
-      
-      return withDiscount.map(mapDbProduct);
+      return (data || []).map(mapDbProduct);
     },
     staleTime: 5 * 60 * 1000,
   });
 
   // Fetch products grouped by subcategory
   const { data: productsBySubcategory, isLoading } = useQuery({
-    queryKey: ['carousel-products'],
+    queryKey: ['petabad-carousel-products'],
     queryFn: async () => {
       const results: Record<string, Product[]> = {};
-      
+
       const { data, error } = await supabase
-        .from('products')
+        .from('pet_products')
         .select('*')
         .in('subcategory', subcategoryConfig.map(s => s.subcategory))
         .eq('in_stock', true)
-        .order('rating', { ascending: false })
-        .limit(200);
+        .order('review_count', { ascending: false })
+        .limit(400);
+
       
       if (error) throw error;
       

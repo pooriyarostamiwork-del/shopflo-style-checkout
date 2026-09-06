@@ -377,7 +377,7 @@ const FACETS_TOOL = {
     parameters: {
       type: "object",
       properties: {
-        subcategory: { type: "string", description: "Exact subcategory, e.g. غذای سگ" },
+        subcategory: { type: "string", description: "Exact subcategory, e.g. غذای خشک سگ، کنسرو و پوچ و غذای تر گربه" },
         species: { type: "string", description: "Exact species filter, e.g. سگ" },
         query_text: { type: "string", description: "Free-text narrowing when there is no exact subcategory" },
         criterion: { type: "string", description: "Extra wording requirement, e.g. ارگانیک" },

@@ -555,8 +555,7 @@ async function fetchQuestionFacets(
       .join(" ")
       .trim();
     const { data, error } = await supabase.rpc("product_question_facets", {
-
-      p_query: normalizePersian(queryText || "") || null,
+      p_query: cleaned || null,
       p_subcategory: subcategory || null,
       p_in_stock: true,
     });

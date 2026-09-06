@@ -659,8 +659,9 @@ function detectUsage(text: string): string | null {
 }
 
 
-const DEFAULT_GUIDANCE_STEPS = (category: string) => [
-  {
+const DEFAULT_GUIDANCE_STEPS = (category: string, knownUsage?: string | null) => [
+  ...(knownUsage ? [] : [{
+
     title: "کاربری",
     question: `${category ? category + " رو ' " : ""}برای چه کاری می‌خوای؟`.replace(" ' ", " "),
     options: [

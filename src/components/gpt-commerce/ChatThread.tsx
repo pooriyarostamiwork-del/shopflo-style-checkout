@@ -17,6 +17,8 @@ import {
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+import { ShiningText } from "@/components/gpt-commerce/ShiningText";
+
 
 
 const placeholderTexts = [

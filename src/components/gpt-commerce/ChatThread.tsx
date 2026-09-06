@@ -15,6 +15,7 @@ import {
   PaymentSelector,
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
+import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",
@@ -177,10 +178,18 @@ export const ChatThread = ({
                 </div>
               </div>
 
+              {/* Interactive clarification card */}
+              {msg.clarification && (
+                <div className="mr-11 max-w-[520px]">
+                  <ClarificationBlock clarification={msg.clarification} onAnswer={onSendMessage} />
+                </div>
+              )}
+
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
                 <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {msg.products.slice(0, 6).map((product, index) => (
+                  {msg.products.slice(0, 12).map((product, index) => (
+
                     <ChatProductCard
                       key={product.id}
                       product={product}

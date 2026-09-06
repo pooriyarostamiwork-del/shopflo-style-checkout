@@ -144,11 +144,37 @@ SELECTED_IDS:["id1","id2","id3"]
 
 قانون حیاتی: هرگز اسم، مدل یا قیمت محصولی رو از خودت نساز. هر محصولی که معرفی می‌کنی باید یا از نتیجه search_products / recall_products باشه یا در حافظه محصولات باشه. اگه قراره محصول جدیدی پیشنهاد بدی، حتماً و بدون استثنا اول search_products رو صدا بزن.
 
+قانون حیاتی دوم (ادعا درباره موجودی): هیچ‌وقت نگو «نداریم» یا «موجود نیست» یا فهرست برند/دسته نده، مگر اینکه در همین نوبت catalog_facets یا search_products رو صدا زده باشی. حافظه محصولات فقط چیزهایی هست که تا حالا نشون دادی، نه کل فروشگاه.
+- «چه برندهایی داری؟ / همه‌شو لیست کن / چند مدل دارید؟» → catalog_facets (فهرست کامل برندها با تعداد رو از همون نتیجه بگو، کم و زیادش نکن)
+- «X داری؟» یا «از برند X چی داری؟» → search_products با filters.brand = X (اسم برند رو هر شکلی که کاربر گفت بده؛ فارسی و انگلیسی هر دو کار می‌کنه)
+- اگه نتیجه خالی بود، بعد می‌تونی بگی موجود نیست
+
+کامل بودن پاسخ:
+- نتیجه جستجو یک عدد matched_total داره: تعداد کل محصولات مطابق. اگه از تعداد نمایش‌داده‌شده بیشتره، حتماً به کاربر بگو چند مورد مطابق پیدا شد و چندتا رو نشون دادی
+- برای درخواست‌های «همه / کلا / تمام»، limit رو ۱۲ تا ۲۴ بذار و در متن هم تعداد کل رو بگو
+- ویژگی‌هایی مثل «بی‌سیم، بلوتوث، گیمینگ، ایرانی» فیلد ساختاریافته ندارن؛ اون‌ها رو در evidence_terms بفرست (چند شکل نوشتاری: مثلا ["بی سیم","بلوتوث","وایرلس"])
+- اگه اطلاعات یک ویژگی برای محصولی موجود نیست، بگو «مشخص نشده»، نگو «نداره»
+
+دامنه سؤال (SCOPE در پایین، اگه بود):
+- SHOWN_SET یعنی سؤال فقط درباره همون محصولاتی هست که نشون دادی → بدون جستجوی جدید از حافظه جواب بده
+- CATALOG یا CATALOG_ALL یعنی سؤال درباره کل فروشگاهه → ابزار صدا بزن
+
+هدف خرید (بخش «هدف خرید» پایین، اگه بود):
+- هدف و کاربری کاربر بین دسته‌ها ادامه داره (مثلا گیمینگ → موس گیمینگ)
+- بودجه فقط برای همون دسته‌ای که کاربر گفته اعمال میشه؛ به دسته بعدی منتقلش نکن
+- اگه کاربر صریحاً هدف رو عوض کرد، هدف قبلی رو کنار بذار
+
+ابهام واقعی:
+- اگه دو برداشت مختلف به محصولات کاملاً متفاوتی می‌رسه و نمی‌تونی حدس بزنی، ask_clarification رو صدا بزن (سؤال + گزینه‌ها). سؤال رو در متن معمولی تکرار نکن
+- اگه فقط یک برداشت منطقیه، سؤال نپرس و جواب بده
+
 انتخاب ابزار:
 - محصول جدید لازمه (حتی وقتی مرجعش محصول قبلیه، مثل «برای این لپ‌تاپ چه هدفونی؟») → search_products با کلمات موضوع جدید
+- سؤال شمارشی/فهرستی درباره کل فروشگاه → catalog_facets
 - کاربر می‌خواد محصولی که قبلاً دیده رو دوباره ببینه یا مقایسه کنه → recall_products با شناسه‌های همون محصولات
 - جزئیات یک محصول → get_product_details
 - افزودن/حذف/تغییر تعداد سبد → execute_cart_operations (می‌تونی product_id از حافظه بدی)
+- ابهام واقعی → ask_clarification
 - مقایسه یا سوال درباره اطلاعاتی که قبلاً گفتی → بدون ابزار جواب بده
 
 زیرمجموعه‌های موجود در فروشگاه:
@@ -165,8 +191,10 @@ SELECTED_IDS:["id1","id2","id3"]
 سیگنال‌ها (اختیاری، در خط‌های آخر پاسخ، فقط وقتی مطمئنی):
 REFERENCE_IDS:["id"]  محصولاتی که مرجع این درخواست بودن
 LIKED_IDS:["id"]  محصولاتی که کاربر پسندید یا انتخاب کرد
-REJECTED_IDS:["id"]  محصولاتی که کاربر رد کرد`,
+REJECTED_IDS:["id"]  محصولاتی که کاربر رد کرد
+GOAL:{"use_case":"","recipient":"","category":"","budget_max":0}  فقط فیلدهایی که کاربر واقعاً گفته`,
 };
+
 
 // ── Tool definitions ──
 const SEARCH_TOOL = {
@@ -199,12 +227,26 @@ const SEARCH_TOOL = {
           items: { type: "string" },
           description: "Abstract inferred intent: hard_to_lose, child_safe, budget, premium, etc.",
         },
+        evidence_terms: {
+          type: "array",
+          items: { type: "string" },
+          description: "Persian wording variants of an unstructured requirement (wireless, gaming, Iranian...). A product matches if ANY term appears in its name/description/tags.",
+        },
+        limit: {
+          type: "number",
+          description: "How many products to retrieve (default 20, max 60). Use 24 for comprehensive 'show me all' requests.",
+        },
+        offset: {
+          type: "number",
+          description: "Skip this many results — used for 'more results' paging.",
+        },
         sort_by: {
           type: "string",
           enum: ["relevance", "price_low", "price_high", "rating"],
         },
       },
       required: ["query_text"],
+
       additionalProperties: false,
     },
   },
@@ -306,10 +348,75 @@ const RECALL_TOOL = {
   },
 };
 
+const FACETS_TOOL = {
+  type: "function",
+  function: {
+    name: "catalog_facets",
+    description: "Get the COMPLETE, exact list of brands with product counts (plus subcategory counts, total and price range) for a slice of the catalog. Use for 'which brands do you have', 'list them all', 'how many X do you have'. Never guess these numbers.",
+    parameters: {
+      type: "object",
+      properties: {
+        subcategory: { type: "string", description: "Exact subcategory, e.g. لپ تاپ" },
+        query_text: { type: "string", description: "Free-text narrowing when there is no exact subcategory" },
+        criterion: { type: "string", description: "Extra wording requirement, e.g. بی سیم" },
+      },
+      additionalProperties: false,
+    },
+  },
+};
+
+const CLARIFY_TOOL = {
+  type: "function",
+  function: {
+    name: "ask_clarification",
+    description: "Ask the user ONE or a few short structured questions when two readings of the request lead to materially different products. The question is rendered as an interactive card — do not repeat it in text.",
+    parameters: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "Persian question (single-step form)" },
+        helper: { type: "string", description: "Optional short Persian helper line" },
+        options: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              hint: { type: "string" },
+            },
+            required: ["label"],
+          },
+          description: "Options for a single question",
+        },
+        steps: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              question: { type: "string" },
+              options: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { label: { type: "string" }, hint: { type: "string" } },
+                  required: ["label"],
+                },
+              },
+            },
+            required: ["title", "question", "options"],
+          },
+          description: "Use ONLY when several attributes are missing — renders a multi-step selector",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+};
+
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
-  agentic: [SEARCH_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL],
-  discovery: [SEARCH_TOOL, DETAILS_TOOL],
+  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL],
+  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL],
   comparison: [],
   info_retrieval: [DETAILS_TOOL],
   conversational: [],
@@ -332,8 +439,8 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 
 // ── Execute tool calls ──
 async function executeSearch(supabase: any, args: any, precomputedEmbedding: number[] | null): Promise<any> {
-  const { query_text, subcategory, filters, sort_by } = args;
-  const normalizedQuery = normalizePersian(query_text);
+  const { query_text, subcategory, filters, sort_by, evidence_terms, limit, offset } = args;
+  const normalizedQuery = normalizePersian(query_text || "");
 
   const rpcParams: any = { p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
@@ -341,8 +448,27 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
   if (filters?.brand) rpcParams.p_brand = filters.brand;
+  const terms = [
+    ...(Array.isArray(evidence_terms) ? evidence_terms : []),
+    ...(Array.isArray(filters?.features) ? filters.features : []),
+  ].filter((t: any) => typeof t === "string" && t.trim()).slice(0, 8);
+  if (terms.length > 0) rpcParams.p_evidence = terms;
+  rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
+  if (Number(offset) > 0) rpcParams.p_offset = Math.floor(Number(offset));
 
-  const { data, error } = await supabase.rpc("hybrid_product_search", rpcParams);
+  let { data, error } = await supabase.rpc("hybrid_product_search", rpcParams);
+
+  // Evidence terms are a hard filter — if nothing matches, retry without them so we never
+  // report "not available" just because the wording is missing from the text fields.
+  if (!error && (!data || data.length === 0) && terms.length > 0) {
+    delete rpcParams.p_evidence;
+    const retry = await supabase.rpc("hybrid_product_search", rpcParams);
+    if (!retry.error) {
+      data = retry.data;
+      if (data?.length) data = data.map((p: any) => ({ ...p, evidence_unconfirmed: true }));
+    }
+  }
+
   if (error) {
     console.error("Hybrid search error:", error);
     return { products: [], message: "جستجو با مشکل مواجه شد" };
@@ -353,8 +479,29 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
   else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
 
-  return { products: results };
+  const matchedTotal = results[0]?.matched_total ?? results.length;
+  return {
+    matched_total: matchedTotal,
+    shown: results.length,
+    evidence_unconfirmed: results[0]?.evidence_unconfirmed === true,
+    products: results,
+  };
 }
+
+async function executeFacets(supabase: any, args: any): Promise<any> {
+  const { data, error } = await supabase.rpc("product_facets", {
+    p_subcategory: args?.subcategory || null,
+    p_criterion: args?.criterion || null,
+    p_query: args?.query_text ? normalizePersian(args.query_text) : null,
+    p_in_stock: true,
+  });
+  if (error) {
+    console.error("Facets error:", error);
+    return { error: "شمارش کاتالوگ با مشکل مواجه شد" };
+  }
+  return data;
+}
+
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
   const { data, error } = await supabase
@@ -384,7 +531,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages, mode = "discovery", products_context, cart_context, product_memory, memory_index, is_first_message = false } = await req.json();
+    const { messages: userMessages, mode = "discovery", products_context, cart_context, product_memory, memory_index, is_first_message = false, scope_hint, shopping_context, reference_hint } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(
         JSON.stringify({ error: "messages array required" }),
@@ -442,7 +589,17 @@ serve(async (req) => {
       } else {
         systemPrompt += `\n\nسبد خرید فعلی: خالی`;
       }
+      if (typeof shopping_context === "string" && shopping_context.trim()) {
+        systemPrompt += `\n\nهدف خرید:\n${shopping_context.trim()}`;
+      }
+      if (typeof scope_hint === "string" && scope_hint.trim()) {
+        systemPrompt += `\n\nSCOPE: ${scope_hint.trim()}`;
+      }
+      if (typeof reference_hint === "string" && reference_hint.trim()) {
+        systemPrompt += `\n\nREFERENCE: ${reference_hint.trim()}`;
+      }
     }
+
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
@@ -521,7 +678,38 @@ serve(async (req) => {
       );
     }
 
+    // ── Clarification tool call → return structured question (no second model call) ──
+    const clarifyToolCall = choice.message.tool_calls.find(
+      (t: any) => t.function?.name === "ask_clarification"
+    );
+    if (clarifyToolCall) {
+      let payload: any = {};
+      try { payload = JSON.parse(clarifyToolCall.function.arguments); } catch { payload = {}; }
+      const normOptions = (arr: any) =>
+        (Array.isArray(arr) ? arr : [])
+          .map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint }))
+          .filter((o: any) => typeof o.label === "string" && o.label.trim());
+      const steps = (Array.isArray(payload.steps) ? payload.steps : [])
+        .map((s: any) => ({ title: s?.title || "", question: s?.question || "", options: normOptions(s?.options) }))
+        .filter((s: any) => s.question && s.options.length > 0);
+      const options = normOptions(payload.options);
+      if (steps.length > 0 || options.length > 0) {
+        return new Response(
+          JSON.stringify({
+            content: "",
+            products: [],
+            quickReplies: [],
+            clarification: steps.length > 0
+              ? { kind: "steps", helper: payload.helper || "", steps }
+              : { kind: "single", question: payload.question || "", helper: payload.helper || "", options },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // ── Cart operations tool call → return structured actions ──
+
     const cartToolCall = choice.message.tool_calls.find(
       (t: any) => t.function?.name === "execute_cart_operations"
     );
@@ -568,10 +756,21 @@ serve(async (req) => {
       let result: any;
       if (funcName === "search_products") {
         extractedIntent = funcArgs;
-        result = await executeSearch(supabase, funcArgs, precomputedEmbedding);
-        if (result.products) allProducts = [...allProducts, ...result.products];
+        const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding);
+        if (searched.products) allProducts = [...allProducts, ...searched.products];
+        // Compact tool payload — full product rows never go into the prompt.
+        result = {
+          matched_total: searched.matched_total ?? 0,
+          shown: searched.shown ?? 0,
+          evidence_unconfirmed: searched.evidence_unconfirmed || false,
+          products: (searched.products || []).map((p: any) => ({
+            id: p.id, name: p.name, price: p.price, brand: p.brand, rating: p.rating,
+          })),
+        };
+      } else if (funcName === "catalog_facets") {
+        result = await executeFacets(supabase, funcArgs);
       } else if (funcName === "recall_products") {
-        const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 10) : [];
+        const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 12) : [];
         if (ids.length > 0) {
           const { data: recalled } = await supabase.from("products").select("*").in("id", ids);
           const ordered = ids.map((id) => (recalled || []).find((p: any) => p.id === id)).filter(Boolean);
@@ -595,17 +794,20 @@ serve(async (req) => {
 
     // ── Step 3: Single follow-up LLM call for response generation + re-ranking ──
     console.log("Step 3: Response generation...");
-    const candidatesForRerank = allProducts.slice(0, 10);
+    const requestedLimit = Number(extractedIntent?.limit) || 0;
+    const comprehensive = requestedLimit >= 12;
+    const maxShown = comprehensive ? 12 : 6;
+    const candidatesForRerank = allProducts.slice(0, comprehensive ? 24 : 12);
     const candidateList = candidatesForRerank.map((p: any, i: number) =>
-      `${i + 1}. [${p.id}] ${p.name} - ${p.price?.toLocaleString()} تومان`
+      `${i + 1}. [${p.id}] ${p.name} — ${p.price?.toLocaleString()} تومان${p.brand ? ` — ${p.brand}` : ""}`
     ).join("\n");
 
     const rerankerInstruction = candidatesForRerank.length > 0
       ? `\n\nتو الان ${candidatesForRerank.length} محصول کاندیدا داری. با توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
 - محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
-- بهترین ۳ تا ۶ محصول رو انتخاب کن
-- یه توضیح کوتاه و مفید بنویس
-- از مارک‌داون استفاده نکن
+- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن
+- اگه تعداد کل مطابق (matched_total) از تعداد نمایش‌داده‌شده بیشتره، در متن بگو چند مورد پیدا شد
+- یه توضیح کوتاه و مفید بنویس، بدون مارک‌داون
 
 لیست کاندیداها:
 ${candidateList}
@@ -614,6 +816,7 @@ ${candidateList}
 SELECTED_IDS:["id1","id2","id3"]
 که id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
       : "";
+
 
     const followUpMessages = [
       ...aiMessages,
@@ -653,7 +856,7 @@ SELECTED_IDS:["id1","id2","id3"]
     let finalContent = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
 
     // Parse SELECTED_IDS from re-ranker output
-    let selectedProducts = allProducts.slice(0, 6);
+    let selectedProducts = allProducts.slice(0, maxShown);
     const selectedIdsMatch = finalContent.match(/SELECTED_IDS:\s*(\[.*?\])/);
     if (selectedIdsMatch) {
       try {
@@ -679,6 +882,16 @@ SELECTED_IDS:["id1","id2","id3"]
     const likedIds = parseSignal("LIKED_IDS");
     const rejectedIds = parseSignal("REJECTED_IDS");
 
+    // GOAL signal: a compact object describing the shopping goal, stripped from visible text
+    let goalSignal: any = null;
+    const goalMatch = finalContent.match(/GOAL:\s*(\{[\s\S]*?\})/);
+    if (goalMatch) {
+      try { goalSignal = JSON.parse(goalMatch[1]); } catch { goalSignal = null; }
+      finalContent = finalContent.replace(/\n?GOAL:\s*\{[\s\S]*?\}/, "").trim();
+    }
+
+    if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
+
     return new Response(
       JSON.stringify({
         content: finalContent,
@@ -686,6 +899,8 @@ SELECTED_IDS:["id1","id2","id3"]
         reference_product_ids: referenceIds,
         liked_product_ids: likedIds,
         rejected_product_ids: rejectedIds,
+        goal: goalSignal,
+
         quickReplies: selectedProducts.length > 0
           ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
           : [],

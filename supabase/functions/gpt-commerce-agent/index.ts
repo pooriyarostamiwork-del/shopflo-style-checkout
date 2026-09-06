@@ -799,10 +799,15 @@ serve(async (req) => {
 
     // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
     const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
-    const wantsGuidance = GUIDANCE_RE.test(normalizePersian(lastUserText));
+    const normLastUser = normalizePersian(lastUserText);
+    const wantsGuidance = GUIDANCE_RE.test(normLastUser);
+    const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
+    const knownUsage = detectUsage(lastUserText);
+    const guidanceCategory = /لپ\s*تاپ/.test(normLastUser) ? "لپ‌تاپ" : "";
     if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش هنوز مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن (کاربری → بودجه → اولویت، هر مرحله ۳ تا ۵ گزینه کوتاه) و هیچ سؤالی رو در متن ننویس.`;
+      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` کاربری رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: کاربری → بودجه → اولویت."} هر مرحله ۳ تا ۵ گزینه کوتاه.`;
     }
+
 
     const aiMessages = [
       { role: "system", content: systemPrompt },

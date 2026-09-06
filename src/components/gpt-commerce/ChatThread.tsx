@@ -16,6 +16,8 @@ import {
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
 import { ClarificationBlock } from "@/components/gpt-commerce/ClarificationBlocks";
+import { getThinkingLabel } from "@/features/gpt-commerce/hooks/loadingLabel";
+
 
 const placeholderTexts = [
   "«هدفون نویز کنسلینگ زیر ۵ میلیون»",

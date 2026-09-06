@@ -680,6 +680,35 @@ function groundClarification(card: any, facets: QuestionFacets | null): any {
   return { ...card, question: single.question || card.question, options: single.options };
 }
 
+function isValidClarification(card: any): boolean {
+  if (!card || (card.kind !== "single" && card.kind !== "steps")) return false;
+  if (card.kind === "single") {
+    return typeof card.question === "string" && card.question.trim().length > 0 &&
+      Array.isArray(card.options) && card.options.length >= 2 &&
+      card.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0);
+  }
+  return Array.isArray(card.steps) && card.steps.length > 0 && card.steps.every((step: any) =>
+    typeof step?.question === "string" && step.question.trim().length > 0 &&
+    Array.isArray(step.options) && step.options.length >= 2 &&
+    step.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0)
+  );
+}
+
+function clarificationResponse(card: any, source: string): Response | null {
+  if (!isValidClarification(card)) return null;
+  const steps = card.kind === "steps" ? card.steps : [];
+  console.log("Clarification response:", JSON.stringify({
+    source,
+    kind: card.kind,
+    step_count: steps.length,
+    option_counts: card.kind === "single" ? [card.options.length] : steps.map((s: any) => s.options.length),
+  }));
+  return new Response(
+    JSON.stringify({ response_type: "clarification", content: "", products: [], quickReplies: [], clarification: card }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 /** Compact snapshot line so the model never invents a budget or brand. */
 function snapshotLine(facets: QuestionFacets | null): string {
   if (!facets || facets.total === 0 || !facets.price) return "";
@@ -732,13 +761,14 @@ function extractSignals(raw: string): {
 function stripCountTalk(raw: string): string {
   const sentenceRe =
     /[^.!؟?\n]*(?:کاندیدا|از\s*بین\s*[\d۰-۹]+|کلاً?\s*[\d۰-۹,٬]+\s*(?:مدل|محصول|مورد)|[\d۰-۹,٬]+\s*(?:مدل|محصول|مورد)\s*(?:پیدا|موجود|هست|داریم|برات))[^.!؟?\n]*[.!؟?]?/g;
-  return (raw || "")
+  const cleaned = (raw || "")
     .split("\n")
     .map((line) => (/^\s*(?:[•\-*▪]|\d+[.)])/.test(line) ? line : line.replace(sentenceRe, "")))
     .join("\n")
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  return cleaned || (raw || "").trim();
 }
 
 function sanitizeVisibleText(raw: string): string {
@@ -1104,36 +1134,27 @@ serve(async (req) => {
               }
             : null);
         const card = rawCard ? groundClarification(rawCard, facets) : null;
-        if (card) {
-          return new Response(
-            JSON.stringify({ content: "", products: [], quickReplies: [], clarification: card }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+        const cardResponse = clarificationResponse(card, "direct-text");
+        if (cardResponse) return cardResponse;
       }
 
       // A guidance turn must never end on the generic fallback line.
       if (wantsGuidance && hydrated.length === 0 && !visible) {
-        return new Response(
-          JSON.stringify({
-            content: "",
-            products: [],
-            quickReplies: [],
-            clarification: {
-              kind: "steps",
-              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
-            },
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const fallbackCard = {
+          kind: "steps",
+          helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
+        };
+        const fallbackResponse = clarificationResponse(fallbackCard, "guidance-fallback");
+        if (fallbackResponse) return fallbackResponse;
       }
 
 
 
       return new Response(
         JSON.stringify({
-          content: visible || "متوجه نشدم. می‌تونی دوباره بگی؟",
+          response_type: hydrated.length > 0 ? "products" : "message",
+          content: visible || (hydrated.length > 0 ? "این گزینه‌ها به درخواستت می‌خوره:" : "متوجه نشدم. می‌تونی دوباره بگی؟"),
           products: hydrated,
           reference_product_ids: sig.referenceIds,
           liked_product_ids: sig.likedIds,
@@ -1165,36 +1186,29 @@ serve(async (req) => {
         const rawCard = steps.length > 0
           ? { kind: "steps", helper: payload.helper || "", steps }
           : { kind: "single", question: payload.question || "", helper: payload.helper || "", options };
-        const grounded = groundClarification(rawCard, facets) || {
+        const grounded = groundClarification(rawCard, facets);
+        const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
           steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
         };
+        const cardResponse = clarificationResponse(grounded, "ask-tool-grounded") ||
+          clarificationResponse(fallbackCard, "ask-tool-fallback");
+        if (cardResponse) return cardResponse;
         return new Response(
-          JSON.stringify({
-            content: "",
-            products: [],
-            quickReplies: [],
-            clarification: grounded,
-          }),
+          JSON.stringify({ response_type: "message", content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.", products: [], quickReplies: [] }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       // Empty/invalid card payload on a guidance turn → use the built-in card.
       if (wantsGuidance) {
-        return new Response(
-          JSON.stringify({
-            content: "",
-            products: [],
-            quickReplies: [],
-            clarification: {
-              kind: "steps",
-              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
-            },
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const fallbackCard = {
+          kind: "steps",
+          helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
+        };
+        const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
+        if (fallbackResponse) return fallbackResponse;
       }
     }
 
@@ -1216,6 +1230,7 @@ serve(async (req) => {
       console.log("Cart manipulation result:", JSON.stringify(cartResult));
       return new Response(
         JSON.stringify({
+          response_type: "cart",
           cart_actions: cartResult.actions || [],
           content: sanitizeVisibleText(cartResult.message || "") || "عملیات انجام شد.",
           needs_clarification: cartResult.needs_clarification || false,
@@ -1337,6 +1352,7 @@ SELECTED_IDS:["id1","id2","id3"]
       console.error("Re-ranker error:", followUpResponse.status, errText);
       return new Response(
         JSON.stringify({
+          response_type: allProducts.length > 0 ? "products" : "message",
           content: allProducts.length > 0
             ? "این محصولات رو برات پیدا کردم:"
             : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
@@ -1381,8 +1397,15 @@ SELECTED_IDS:["id1","id2","id3"]
 
     if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
 
+    if (!finalContent) {
+      finalContent = selectedProducts.length > 0
+        ? "این گزینه‌ها به درخواستت می‌خوره:"
+        : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
+    }
+
     return new Response(
       JSON.stringify({
+        response_type: selectedProducts.length > 0 ? "products" : "message",
         content: finalContent,
         products: selectedProducts,
         reference_product_ids: referenceIds,

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  Clarification,
   ChatMessage,
   CartItem,
   Product,
@@ -9,6 +10,19 @@ import {
   paymentOptions,
   merchants,
 } from "@/data/gptCommerceData";
+
+const isValidClarification = (value: unknown): value is Clarification => {
+  if (!value || typeof value !== 'object') return false;
+  const card = value as Clarification;
+  const validOptions = (options: unknown) => Array.isArray(options) && options.length >= 2 &&
+    options.every(option => Boolean(option && typeof option === 'object' && typeof (option as { label?: unknown }).label === 'string' && (option as { label: string }).label.trim()));
+  if (card.kind === 'single') return typeof card.question === 'string' && Boolean(card.question.trim()) && validOptions(card.options);
+  return card.kind === 'steps' && Array.isArray(card.steps) && card.steps.length > 0 && card.steps.every(step =>
+    typeof step.question === 'string' && Boolean(step.question.trim()) && validOptions(step.options)
+  );
+};
+
+const invalidAssistantResponse = 'پاسخ کامل دریافت نشد. لطفاً همین پیام را دوباره ارسال کن.';
 
 // Helper: extract a clean basket name from user query + returned products
 const FILLER_WORDS = /\b(می‌خوام|میخوام|خوب|بهترین|نشون بده|نشان بده|پیدا کن|برام|برای من|لطفا|لطفاً|یه|یک|چند|تا|رو|با|از|که|هم|و|ارزان|گران|ارسال سریع|موجود)\b/g;
@@ -625,7 +639,7 @@ export const useAgentMessages = ({
 
       // ── Clarification branch: render an interactive card, never a duplicate question ──
       const clarification = data?.clarification;
-      if (clarification && (clarification.options?.length || clarification.steps?.length)) {
+      if (data?.response_type === 'clarification' && isValidClarification(clarification)) {
         const clarifyMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
@@ -670,7 +684,9 @@ export const useAgentMessages = ({
       }
 
       // ── Discovery / recall / conversational branch ──
-      const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
+      const responseContent = typeof data?.content === 'string' && data.content.trim()
+        ? data.content.trim()
+        : invalidAssistantResponse;
       const dbProducts = data?.products || [];
       const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
 
@@ -745,7 +761,22 @@ export const useAgentMessages = ({
 
       if (error) throw new Error(error.message);
 
-      const responseContent = data?.content || 'متأسفانه مشکلی پیش اومد. دوباره امتحان کن.';
+      const clarification = data?.clarification;
+      if (data?.response_type === 'clarification' && isValidClarification(clarification)) {
+        const clarifyMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: '',
+          clarification,
+          timestamp: new Date(),
+        };
+        updateTarget(s => ({ ...s, messages: [...s.messages, clarifyMessage], isProcessing: false }));
+        return;
+      }
+
+      const responseContent = typeof data?.content === 'string' && data.content.trim()
+        ? data.content.trim()
+        : invalidAssistantResponse;
       const dbProducts = data?.products || [];
       const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
 

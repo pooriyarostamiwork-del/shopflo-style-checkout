@@ -153,7 +153,6 @@ export const ChatThread = ({
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
           <span className="text-foreground/80">همراه پت آباد، خیالت از خرید لوازم حیوان خانگی راحت باشه!</span>
-          <span className="text-primary font-semibold cursor-pointer hover:underline">دریافت وام فلوپی</span>
         </div>
       </div>
 

@@ -898,7 +898,9 @@ serve(async (req) => {
         ...sig.selectedIds,
       ];
       const hydrated = await hydrateProducts(supabase, mentionedIds);
-      const visible = sanitizeVisibleText(sig.text);
+      let visible = sanitizeVisibleText(sig.text);
+      if (!wantsCounts) visible = stripCountTalk(visible);
+
 
       // Safety net: questions written as text become a tappable card on any turn.
       if (hydrated.length === 0) {

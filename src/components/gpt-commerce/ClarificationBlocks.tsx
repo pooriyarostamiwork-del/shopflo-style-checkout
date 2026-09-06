@@ -94,12 +94,10 @@ export const ClarificationBlock = ({
   const steps = useMemo(() => clarification.steps ?? [], [clarification.steps]);
 
   if (done) {
-    return (
-      <div dir="rtl" className="rounded-2xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
-        باشه، ادامه می‌دیم.
-      </div>
-    );
+    // Answer is sent as a normal chat message; nothing extra should linger here.
+    return null;
   }
+
 
   if (clarification.kind === "steps" && steps.length > 0) {
     const step = steps[Math.min(stepIndex, steps.length - 1)];

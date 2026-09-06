@@ -345,20 +345,24 @@ export const MobileChatThread = ({
                   border: "1px solid hsl(0 0% 0% / 0.06)",
                 }}
               >
-                <div className="flex gap-1">
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <span
-                    className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{thinkingLabel}</span>
                 </div>
+
               </div>
             </div>
           )}

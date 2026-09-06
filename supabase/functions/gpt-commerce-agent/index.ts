@@ -826,43 +826,44 @@ function detectUsage(text: string): string | null {
 }
 
 
-const DEFAULT_GUIDANCE_STEPS = (category: string, knownUsage?: string | null) => [
-  ...(knownUsage ? [] : [{
+const DEFAULT_GUIDANCE_STEPS = (
+  category: string,
+  knownUsage?: string | null,
+  facets?: QuestionFacets | null
+) => {
+  const budgetOptions = facets && facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
+  return [
+    ...(knownUsage ? [] : [{
+      title: "کاربری",
+      question: `${category ? category + " رو ' " : ""}برای چه کاری می‌خوای؟`.replace(" ' ", " "),
+      options: [
+        { label: "کارهای روزمره و اداری" },
+        { label: "دانشجویی و درسی" },
+        { label: "بازی و گیمینگ" },
+        { label: "طراحی و کارهای سنگین" },
+        { label: "برنامه‌نویسی" },
+      ],
+    }]),
+    // Budget is asked only when the real candidate set supports real ranges.
+    ...(budgetOptions ? [{
+      title: "بودجه",
+      question: "بودجه‌ات حدوداً چقدره؟",
+      options: budgetOptions,
+    }] : []),
+    {
+      title: "اولویت",
+      question: "چه چیزی برات مهم‌تره؟",
+      options: [
+        { label: "قدرت و سرعت" },
+        { label: "سبکی و حمل راحت" },
+        { label: "کیفیت صفحه‌نمایش" },
+        { label: "عمر باتری" },
+        { label: "بهترین قیمت" },
+      ],
+    },
+  ];
+};
 
-    title: "کاربری",
-    question: `${category ? category + " رو ' " : ""}برای چه کاری می‌خوای؟`.replace(" ' ", " "),
-    options: [
-      { label: "کارهای روزمره و اداری" },
-      { label: "دانشجویی و درسی" },
-      { label: "بازی و گیمینگ" },
-      { label: "طراحی و کارهای سنگین" },
-      { label: "برنامه‌نویسی" },
-    ],
-  }]),
-
-  {
-    title: "بودجه",
-    question: "بودجه‌ات حدوداً چقدره؟",
-    options: [
-      { label: "تا ۳۰ میلیون تومان" },
-      { label: "۳۰ تا ۵۰ میلیون تومان" },
-      { label: "۵۰ تا ۸۰ میلیون تومان" },
-      { label: "بالای ۸۰ میلیون تومان" },
-      { label: "مهم نیست، بهترین رو نشونم بده" },
-    ],
-  },
-  {
-    title: "اولویت",
-    question: "چه چیزی برات مهم‌تره؟",
-    options: [
-      { label: "قدرت و سرعت" },
-      { label: "سبکی و حمل راحت" },
-      { label: "کیفیت صفحه‌نمایش" },
-      { label: "عمر باتری" },
-      { label: "بهترین قیمت" },
-    ],
-  },
-];
 
 
 

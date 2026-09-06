@@ -535,13 +535,27 @@ type QuestionFacets = {
   tags: Array<{ value: string; count: number }>;
 };
 
+/** Conversational filler that must not narrow the candidate set. */
+const FACET_STOPWORDS = [
+  "بگیرم", "بخرم", "بخرم؟", "میخوام", "می‌خوام", "خوام", "چی", "چه", "کدوم", "برام", "برای",
+  "راهنمایی", "راهنماییم", "کمک", "کمکم", "کن", "کنی", "بهترین", "پیشنهاد", "معرفی", "لطفا",
+  "لطفاً", "میشه", "می‌شه", "یه", "یک", "خوب", "مناسب", "دنبال", "هستم", "باشه", "میگردم",
+  "می‌گردم", "دارید", "داری", "نشونم", "بده", "تومان", "تومن", "قیمت",
+];
+
 async function fetchQuestionFacets(
   supabase: any,
   queryText: string,
   subcategory?: string | null
 ): Promise<QuestionFacets | null> {
   try {
+    const cleaned = normalizePersian(queryText || "")
+      .split(/\s+/)
+      .filter((t) => t && !FACET_STOPWORDS.includes(t))
+      .join(" ")
+      .trim();
     const { data, error } = await supabase.rpc("product_question_facets", {
+
       p_query: normalizePersian(queryText || "") || null,
       p_subcategory: subcategory || null,
       p_in_stock: true,

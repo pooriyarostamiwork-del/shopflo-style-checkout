@@ -793,12 +793,44 @@ serve(async (req) => {
       );
     }
 
-    // ── No tool call = direct response ──
+    // ── No tool call = direct response (still sanitized + card-hydrated) ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
+      const rawText = choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟";
+      const sig = extractSignals(rawText);
+      const mentionedIds = [
+        ...((sig.text.match(UUID_RE) || []) as string[]),
+        ...sig.likedIds,
+        ...sig.selectedIds,
+      ];
+      const hydrated = await hydrateProducts(supabase, mentionedIds);
+      const visible = sanitizeVisibleText(sig.text);
+
+      // Safety net: a guidance turn answered with a text question list becomes a card.
+      if (wantsGuidance && hydrated.length === 0 && isQuestionHeavy(visible)) {
+        const category = /لپ\s*تاپ/.test(normalizePersian(lastUserText)) ? "لپ‌تاپ" : "";
+        return new Response(
+          JSON.stringify({
+            content: "",
+            products: [],
+            quickReplies: [],
+            clarification: {
+              kind: "steps",
+              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+              steps: DEFAULT_GUIDANCE_STEPS(category),
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
-          content: choice.message?.content || "متوجه نشدم. می‌تونی دوباره بگی؟",
-          products: [],
+          content: visible || "متوجه نشدم. می‌تونی دوباره بگی؟",
+          products: hydrated,
+          reference_product_ids: sig.referenceIds,
+          liked_product_ids: sig.likedIds,
+          rejected_product_ids: sig.rejectedIds,
+          goal: sig.goal,
           quickReplies: [],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -164,10 +164,13 @@ export const FloatingAgentShell = () => {
                   ))}
                 </div>
               </div>
-            ) : messages.length === 0 ? (
-              <FloatingAgentEmptyState onPick={(q) => handleSendMessage(q)} />
             ) : (
-              <div className="flex-1 overflow-hidden">
+              <div className="relative flex-1 overflow-hidden">
+                {messages.length === 0 && (
+                  <div className="absolute inset-x-0 top-0 z-10 overflow-y-auto">
+                    <FloatingAgentEmptyState onPick={(q) => handleSendMessage(q)} />
+                  </div>
+                )}
                 <ChatThread
                   key={activeBasketId}
                   messages={messages}
@@ -186,22 +189,6 @@ export const FloatingAgentShell = () => {
               </div>
             )}
 
-            {!showHistory && messages.length === 0 && (
-              <div className="border-t border-border p-3">
-                <ChatThread
-                  messages={[]}
-                  onSendMessage={handleSendMessage}
-                  onAddToCart={onAdd}
-                  onCompare={handleCompare}
-                  cartItems={currentState.cartItems}
-                  isProcessing={currentState.isProcessing}
-                  isCartOpen={false}
-                  onSignIn={noop}
-                  inputRef={inputRef}
-                  onQuickReply={handleQuickReply}
-                />
-              </div>
-            )}
           </div>
         </div>
       )}

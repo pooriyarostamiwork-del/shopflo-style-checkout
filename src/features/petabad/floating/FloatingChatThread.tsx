@@ -84,7 +84,7 @@ export const FloatingChatThread = ({
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/30" dir="rtl">
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && emptyState}
+        {!messages.some((m) => m.role === "user") && emptyState}
 
         <div className="space-y-5">
           {messages.map((msg) => (

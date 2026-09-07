@@ -501,6 +501,34 @@ const BREED_SIZE: Array<[RegExp, string]> = [
   [/پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\s*راسل/, "کوچک"],
 ];
 
+// Breed → the wording a breed-specific product actually uses in its title.
+const BREED_LINE: Array<[RegExp, string]> = [
+  [/گلدن|golden/i, "Golden Retriever"],
+  [/لابرادور|labrador/i, "Labrador"],
+  [/ژرمن|شپرد|german\s*shepherd/i, "German Shepherd"],
+  [/پامرانیان|pomeranian/i, "Pomeranian"],
+  [/شیتزو|shih/i, "Shih Tzu"],
+  [/یورک|yorkshire/i, "Yorkshire"],
+  [/چیهواهوا|chihuahua/i, "Chihuahua"],
+  [/پودل|poodle/i, "Poodle"],
+  [/هاسکی|husky/i, "Husky"],
+  [/بولداگ|bulldog/i, "Bulldog"],
+  [/روتوایلر|rottweiler/i, "Rottweiler"],
+  [/پرشین|persian/i, "Persian"],
+  [/مین\s*کون|maine/i, "Maine Coon"],
+  [/بریتیش|british/i, "British"],
+  [/اسکاتیش|scottish/i, "Scottish"],
+  [/سیامی|siamese/i, "Siamese"],
+  [/پاگ|pug/i, "Pug"],
+  [/بیگل|beagle/i, "Beagle"],
+];
+
+function inferBreedLine(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, line] of BREED_LINE) if (re.test(norm)) return line;
+  return null;
+}
+
 function inferBreedSize(text: string): string | null {
   const norm = normalizePersian(text || "");
   for (const [re, size] of BREED_SIZE) if (re.test(norm)) return size;
@@ -565,6 +593,23 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   }
 
   let results = data;
+
+  // A breed-specific product (e.g. Royal Canin Golden Retriever) must lead the answer.
+  const breedLine = filters?.product_line ? null : inferBreedLine(`${breed || ""} ${query_text || ""}`);
+  if (breedLine) {
+    const exact = await runSearch({
+      p_store_id: PETABAD_STORE_ID,
+      p_query: normalizedQuery,
+      p_in_stock: true,
+      p_product_line: breedLine,
+      ...(rpcParams.p_species ? { p_species: rpcParams.p_species } : {}),
+      p_limit: 6,
+    });
+    if (exact && exact.length > 0) {
+      const seen = new Set(exact.map((p: any) => p.id));
+      results = [...exact, ...results.filter((p: any) => !seen.has(p.id))];
+    }
+  }
 
   const terms = [
     ...(Array.isArray(evidence_terms) ? evidence_terms : []),

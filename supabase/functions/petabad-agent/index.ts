@@ -2084,7 +2084,7 @@ SELECTED_IDS:["id1","id2","id3"]
     }
 
     const followUpData = await followUpResponse.json();
-    const rawFinal = followUpData.choices?.[0]?.message?.content || "محصولات رو ببین:";
+    const rawFinal = followUpData.choices?.[0]?.message?.content || "";
 
     // ── One shared pass: pull every machine signal out of the visible text ──
     const sig = extractSignals(rawFinal);

@@ -185,6 +185,7 @@ export const FloatingAgentShell = () => {
                   onInlineProductDetails={handleInlineProductDetails}
                   onQuickReply={handleQuickReply}
                   agenticState={currentState.agenticState}
+                  embedded
                 />
               </div>
             )}

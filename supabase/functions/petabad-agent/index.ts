@@ -430,6 +430,7 @@ const CLARIFY_TOOL = {
       type: "object",
       properties: {
         question: { type: "string", description: "Persian question (single-step form)" },
+        multi: { type: "boolean", description: "true when the user may pick several options at once" },
         helper: { type: "string", description: "Optional short Persian helper line" },
         options: {
           type: "array",
@@ -450,6 +451,7 @@ const CLARIFY_TOOL = {
             properties: {
               title: { type: "string" },
               question: { type: "string" },
+              multi: { type: "boolean", description: "true when the user may pick several options in this step (e.g. needed categories)" },
               options: {
                 type: "array",
                 items: {
@@ -1056,13 +1058,15 @@ function detectSpecies(text: string): string | null {
 const DEFAULT_GUIDANCE_STEPS = (
   category: string,
   knownUsage?: string | null,
-  facets?: QuestionFacets | null
+  facets?: QuestionFacets | null,
+  knownSpecies?: string | null
 ) => {
   const budgetOptions = facets && facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
   return [
-    ...(knownUsage ? [] : [{
-      title: "نوع حیوان و نیاز",
-      question: `${category ? category + " رو ' " : ""}برای چه حیوان و نیازی می‌خوای؟`.replace(" ' ", " "),
+    // Species is asked only when the user hasn't already named their pet.
+    ...(knownSpecies ? [] : [{
+      title: "نوع حیوان",
+      question: "برای چه حیوانی می‌خوای؟",
       options: [
         { label: "سگ" },
         { label: "گربه" },
@@ -1071,27 +1075,37 @@ const DEFAULT_GUIDANCE_STEPS = (
         { label: "سایر حیوانات خانگی" },
       ],
     }]),
-    // Budget is asked only when the real candidate set supports real ranges.
+    {
+      title: "نیازها",
+      question: knownSpecies
+        ? `برای ${knownSpecies}‌ت دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)`
+        : "دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)",
+      multi: true,
+      options: [
+        { label: "غذا و تشویقی" },
+        { label: "بهداشت و نگهداری" },
+        { label: "اسباب‌بازی و سرگرمی" },
+        { label: "لوازم جانبی و حمل" },
+        { label: "مکمل و سلامت" },
+      ],
+    },
     ...(budgetOptions ? [{
       title: "بودجه",
       question: "بودجه‌ات حدوداً چقدره؟",
       options: budgetOptions,
     }] : []),
-    {
+    ...(knownUsage ? [] : [{
       title: "اولویت",
       question: "چه چیزی برات مهم‌تره؟",
       options: [
         { label: "کیفیت و مواد اولیه" },
-        { label: "مناسب حساسیت‌های گوارشی" },
         { label: "برند شناخته‌شده" },
         { label: "بسته‌بندی اقتصادی" },
         { label: "بهترین قیمت" },
       ],
-    },
+    }]),
   ];
 };
-
-
 
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
@@ -1197,6 +1211,7 @@ serve(async (req) => {
     const wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
+    const knownSpecies = detectSpecies(lastUserText);
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
     // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
     const facetFamily = /خشک/.test(normLastUser)
@@ -1318,7 +1333,7 @@ serve(async (req) => {
             ? {
                 kind: "steps",
                 helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
+                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
               }
             : null);
         const card = rawCard ? groundClarification(rawCard, facets) : null;
@@ -1331,7 +1346,7 @@ serve(async (req) => {
         const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
         };
         const fallbackResponse = clarificationResponse(fallbackCard, "guidance-fallback");
         if (fallbackResponse) return fallbackResponse;
@@ -1378,7 +1393,7 @@ serve(async (req) => {
         const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
         };
         const cardResponse = clarificationResponse(grounded, "ask-tool-grounded") ||
           clarificationResponse(fallbackCard, "ask-tool-fallback");
@@ -1393,7 +1408,7 @@ serve(async (req) => {
         const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
         };
         const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
         if (fallbackResponse) return fallbackResponse;

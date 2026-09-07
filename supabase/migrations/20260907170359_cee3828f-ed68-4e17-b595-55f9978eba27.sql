@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.pet_hybrid_search(uuid, text, public.vector, text, text, text, text, text, text, text, text, text, text[], integer, integer, boolean, boolean, integer, integer);

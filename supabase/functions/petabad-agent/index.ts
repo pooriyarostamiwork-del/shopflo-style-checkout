@@ -540,9 +540,15 @@ function inferBreedSize(text: string): string | null {
   return null;
 }
 
-async function executeSearch(supabase: any, args: any, precomputedEmbedding: number[] | null): Promise<any> {
+async function executeSearch(
+  supabase: any,
+  args: any,
+  precomputedEmbedding: number[] | null,
+  lock?: { species?: string | null; lifeStage?: string | null },
+): Promise<any> {
   const { query_text, subcategory, subcategory_family, species, breed, filters, sort_by, evidence_terms, limit, offset } = args;
   const normalizedQuery = normalizePersian(query_text || "");
+  const lockedSpecies = lock?.species || null;
 
   const rpcParams: any = { p_store_id: PETABAD_STORE_ID, p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
@@ -553,7 +559,10 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
     : null);
   if (family) rpcParams.p_subcategory_prefix = family;
   else if (subcategory) rpcParams.p_subcategory = subcategory;
-  if (species) rpcParams.p_species = species;
+  // The species lock always wins over whatever the model asked for.
+  if (lockedSpecies) rpcParams.p_species = lockedSpecies;
+  else if (species) rpcParams.p_species = species;
+
   if (filters?.brand) rpcParams.p_brand = filters.brand;
   if (filters?.product_line) rpcParams.p_product_line = filters.product_line;
   if (filters?.origin_country) rpcParams.p_origin_country = filters.origin_country;
@@ -597,7 +606,9 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
     }
   }
 
-  let results = data;
+  // HARD species lock: a row from another animal never reaches the answer model.
+  let results = filterBySpecies(data, lockedSpecies);
+
 
   // A breed-specific product (e.g. Royal Canin Golden Retriever) must lead the answer.
   const breedLine = filters?.product_line ? null : inferBreedLine(`${breed || ""} ${query_text || ""}`);
@@ -610,10 +621,12 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
       ...(rpcParams.p_species ? { p_species: rpcParams.p_species } : {}),
       p_limit: 6,
     });
-    if (exact && exact.length > 0) {
-      const seen = new Set(exact.map((p: any) => p.id));
-      results = [...exact, ...results.filter((p: any) => !seen.has(p.id))];
+    const exactSafe = filterBySpecies(exact || [], lockedSpecies);
+    if (exactSafe.length > 0) {
+      const seen = new Set(exactSafe.map((p: any) => p.id));
+      results = [...exactSafe, ...results.filter((p: any) => !seen.has(p.id))];
     }
+
   }
 
   const terms = [
@@ -639,6 +652,10 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
   else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
 
+  // Stated life stage: matching rows lead, contradictory rows removed.
+  results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
+
+
   return {
     matched_total: results.length,
     shown: results.length,
@@ -656,12 +673,13 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   };
 }
 
-async function executeFacets(supabase: any, args: any): Promise<any> {
+async function executeFacets(supabase: any, args: any, lockedSpecies?: string | null): Promise<any> {
   const { data, error } = await supabase.rpc("pet_question_facets", {
     p_query: args?.query_text ? normalizePersian(args.query_text) : null,
     p_subcategory: args?.subcategory || null,
     p_subcategory_prefix: args?.subcategory_family || null,
-    p_species: args?.species || null,
+    p_species: lockedSpecies || args?.species || null,
+
     p_brand: args?.brand || null,
     p_origin_country: args?.origin_country || null,
     p_in_stock: true,
@@ -672,7 +690,15 @@ async function executeFacets(supabase: any, args: any): Promise<any> {
   }
   // Counts / totals / price range are opt-in: a plain "list the brands" request
   // must not come back stuffed with numbers.
-  if (args?.include_counts === true) return data;
+  if (args?.include_counts === true) {
+    if (!lockedSpecies) return data;
+    return { ...data, species: undefined };
+  }
+  const own = speciesRe(lockedSpecies || null);
+  const shelfAllowed = (value: string) =>
+    !lockedSpecies ||
+    own!.test(normalizePersian(value)) ||
+    !SPECIES_TOKENS.some(([name, re]) => name !== lockedSpecies && re.test(normalizePersian(value)));
   return {
     brands: (data?.brands || []).map((b: any) => b?.brand).filter(Boolean),
     countries: (data?.countries || []).map((c: any) => c?.value).filter(Boolean),
@@ -680,10 +706,12 @@ async function executeFacets(supabase: any, args: any): Promise<any> {
     life_stages: (data?.life_stages || []).map((l: any) => l?.value).filter(Boolean),
     breed_sizes: (data?.breed_sizes || []).map((b: any) => b?.value).filter(Boolean),
     needs: (data?.needs || []).map((n: any) => n?.value).filter(Boolean),
-    subcategories: (data?.subcategories || []).map((sc: any) => sc?.value).filter(Boolean),
-    species: (data?.species || []).map((sp: any) => sp?.value).filter(Boolean),
+    // Shelves belonging to another animal never enter a locked conversation.
+    subcategories: (data?.subcategories || []).map((sc: any) => sc?.value).filter(Boolean).filter(shelfAllowed),
+    ...(lockedSpecies ? {} : { species: (data?.species || []).map((sp: any) => sp?.value).filter(Boolean) }),
     counts_hidden: true,
   };
+
 }
 
 // ── Catalog-grounded question options ───────────────────────────────────
@@ -1057,6 +1085,113 @@ function detectSpecies(text: string): string | null {
   return null;
 }
 
+// ── Species lock ────────────────────────────────────────────────────────
+// Once the shopper names their animal, NOTHING from another animal may enter
+// the experience: not a card, not a sentence, not an explanation.
+
+const SPECIES_TOKENS: Array<[string, RegExp]> = [
+  ["گربه", /گربه|پیشی|cat/i],
+  ["سگ", /سگ|dog|پاپی/i],
+  ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
+  ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],
+  ["سایر حیوانات خانگی", /جونده|جوندگان|خرگوش|همستر|خوکچه|خزنده|لاک\s*پشت|موش|سنجاب|فرت/],
+];
+
+function speciesRe(label: string | null): RegExp | null {
+  if (!label) return null;
+  for (const [name, re] of SPECIES_TOKENS) if (name === label) return re;
+  return null;
+}
+
+/** Is this catalog row acceptable for the locked species? */
+function rowMatchesSpecies(row: any, locked: string): boolean {
+  const own = speciesRe(locked);
+  if (!own) return true;
+  const speciesText = normalizePersian(String(row?.species || ""));
+  const shelf = normalizePersian(`${row?.subcategory || ""} ${row?.category || ""}`);
+  const haystack = `${speciesText} ${shelf}`;
+  if (own.test(haystack)) return true;
+  // No species signal at all → allow only when no OTHER animal is named either.
+  const foreign = SPECIES_TOKENS.some(([name, re]) => name !== locked && re.test(haystack));
+  return !foreign;
+}
+
+function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
+  if (!locked) return rows;
+  return (rows || []).filter((r) => rowMatchesSpecies(r, locked));
+}
+
+/** Life stage the shopper stated — kitten/puppy talk must never drift to adult copy. */
+function detectLifeStage(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  if (/بچه\s*گربه|توله|بچه\s*سگ|پاپی|نابالغ|kitten|puppy/i.test(norm)) return "نابالغ";
+  if (/پیر|مسن|سالمند|سنیور|senior/i.test(norm)) return "سنیور";
+  return null;
+}
+
+/** Soft stage ordering: matching stage first, contradictory stage dropped. */
+function applyStagePreference(rows: any[], stage: string | null): any[] {
+  if (!stage) return rows;
+  const opposite = stage === "نابالغ" ? "سنیور" : stage === "سنیور" ? "نابالغ" : null;
+  const kept = (rows || []).filter((r) => !(opposite && r?.life_stage === opposite));
+  const exact = kept.filter((r) => r?.life_stage === stage);
+  const rest = kept.filter((r) => r?.life_stage !== stage);
+  return [...exact, ...rest];
+}
+
+// ── Multi-need bundle shopping ──────────────────────────────────────────
+// A shopper who asks for food + hygiene + toys + supplements gets one grouped
+// answer, each group retrieved separately but always inside the species lock.
+
+type NeedSpec = { key: string; label: string; re: RegExp; query: (sp: string) => string };
+
+const NEED_SPECS: NeedSpec[] = [
+  {
+    key: "food",
+    label: "غذا",
+    re: /غذا|خوراک|تشویقی|کنسرو|پوچ/,
+    query: (sp) => `غذای ${sp}`,
+  },
+  {
+    key: "hygiene",
+    label: "بهداشت و مراقبت",
+    re: /بهداشت|مراقبت|شامپو|حموم|حمام|خاک|شوینده|نظافت|مسواک|ناخن|گوش/,
+    query: (sp) => `شامپو و بهداشت ${sp}`,
+  },
+  {
+    key: "toys",
+    label: "اسباب‌بازی",
+    re: /اسباب\s*بازی|بازی|سرگرمی|تونل|توپ/,
+    query: (sp) => `اسباب بازی ${sp}`,
+  },
+  {
+    key: "gear",
+    label: "لوازم نگهداری",
+    re: /لوازم|نگهداری|حمل|قلاده|ظرف|باکس|لباس|جای\s*خواب|تشک|اسکرچر|درخت/,
+    query: (sp) => `لوازم و ظرف و جای خواب ${sp}`,
+  },
+  {
+    key: "health",
+    label: "مکمل و درمان",
+    re: /مکمل|درمان|دارو|ویتامین|پروبیوتیک|ضد\s*انگل|قرص|شربت/,
+    query: (sp) => `مکمل و ویتامین ${sp}`,
+  },
+];
+
+function detectNeeds(text: string): NeedSpec[] {
+  const norm = normalizePersian(text || "");
+  return NEED_SPECS.filter((n) => n.re.test(norm));
+}
+
+/** Extra hygiene shelves for cats/dogs so a need word can never drift shelves. */
+function needShelfQueries(need: NeedSpec, species: string): string[] {
+  if (need.key === "hygiene") {
+    return [`شامپو ${species}`, `خاک ${species}`, `مسواک و خمیر دندان ${species}`];
+  }
+  return [need.query(species)];
+}
+
+
 
 const DEFAULT_GUIDANCE_STEPS = (
   category: string,
@@ -1214,7 +1349,23 @@ serve(async (req) => {
     const wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
-    const knownSpecies = detectSpecies(lastUserText);
+    let knownSpecies = detectSpecies(lastUserText);
+
+    // ── Species lock: newest mention across the whole conversation wins ──
+    const userTurns = (userMessages || []).filter((m: any) => m.role === "user").map((m: any) => String(m.content || ""));
+    let lockedSpecies: string | null = null;
+    let lockedStage: string | null = null;
+    for (let i = userTurns.length - 1; i >= 0; i--) {
+      if (!lockedSpecies) lockedSpecies = detectSpecies(userTurns[i]);
+      if (!lockedStage) lockedStage = detectLifeStage(userTurns[i]);
+      if (lockedSpecies && lockedStage) break;
+    }
+    const speciesLock = { species: lockedSpecies, lifeStage: lockedStage };
+    knownSpecies = lockedSpecies || knownSpecies;
+
+    const bundleNeeds = detectNeeds(lastUserText);
+    const isBundleTurn = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
+
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
     // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
     const facetFamily = /خشک/.test(normLastUser)
@@ -1223,7 +1374,20 @@ serve(async (req) => {
         ? (/سگ/.test(normLastUser) ? "کنسرو و پوچ و غذای تر سگ" : /گربه/.test(normLastUser) ? "کنسرو و پوچ و غذای تر گربه" : null)
         : null;
     const facetSubcategory = null;
-    const facetSpecies = /سگ/.test(normLastUser) ? "سگ" : /گربه/.test(normLastUser) ? "گربه" : null;
+    const facetSpecies = lockedSpecies === "سگ" || lockedSpecies === "گربه"
+      ? lockedSpecies
+      : (/سگ/.test(normLastUser) ? "سگ" : /گربه/.test(normLastUser) ? "گربه" : null);
+
+    if (lockedSpecies) {
+      systemPrompt += `\n\nSPECIES_LOCK: خرید این گفتگو فقط و فقط برای «${lockedSpecies}» است.
+- هیچ محصول، جمله، توضیح یا مقایسه‌ای مربوط به حیوان دیگری (پرنده، سگ، گربه، ماهی، جوندگان یا هر حیوان دیگر جز «${lockedSpecies}») نباید در پاسخت بیاد.
+- هرگز توضیح نده که نتایج پیداشده مربوط به حیوان دیگری بودن؛ درباره فرایند داخلی جستجو حرف نزن.
+- اگر برای یک نیاز محصول مناسب «${lockedSpecies}» پیدا نشد، فقط صادقانه بگو برای همون بخش گزینه مناسبی پیدا نکردی و محصول جایگزین از حیوان دیگه پیشنهاد نده.`;
+    }
+    if (lockedStage) {
+      systemPrompt += `\n\nLIFE_STAGE_LOCK: مرحله سنی مشخص شده «${lockedStage}» است؛ درباره مرحله سنی دیگر (مثلاً بالغ وقتی کاربر گفته بچه‌گربه) حرف نزن و محصول مخصوص مرحله دیگر پیشنهاد نده.`;
+    }
+
 
     // ── Catalog snapshot: question options must come from real products ──
     let questionFacets: QuestionFacets | null = null;
@@ -1241,9 +1405,12 @@ serve(async (req) => {
       return questionFacets;
     };
 
-    if (wantsGuidance) {
+    if (isBundleTurn) {
+      systemPrompt += `\n\nBUNDLE_SEARCH_TURN: کاربر نوع حیوانش («${lockedSpecies}») و نیازهاش رو گفته. در این نوبت هرگز ask_clarification صدا نزن؛ حتماً search_products رو صدا بزن و بعد پاسخ گروه‌بندی‌شده بده.`;
+    } else if (wantsGuidance) {
       systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده${knownSpecies ? ` نوع حیوانش رو خودش گفته («${knownSpecies}») پس هرگز نپرس برای چه حیوانی؛` : ""} و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` نیاز رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: نوع حیوان → نیازها (multi) → بودجه."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
     }
+
 
 
 
@@ -1264,7 +1431,7 @@ serve(async (req) => {
     // ── Step 1: LLM call (with or without tools based on mode) ──
     console.log(`Step 1: ${effectiveMode} LLM call...`);
     const llmBody: any = {
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3.1-flash-lite",
       messages: aiMessages,
     };
     if (tools.length > 0) {
@@ -1373,9 +1540,11 @@ serve(async (req) => {
     }
 
     // ── Clarification tool call → return structured question (no second model call) ──
-    const clarifyToolCall = choice.message.tool_calls.find(
+    // A bundle turn already has species + needs: asking again is not allowed.
+    const clarifyToolCall = isBundleTurn ? null : choice.message.tool_calls.find(
       (t: any) => t.function?.name === "ask_clarification"
     );
+
     if (clarifyToolCall) {
       let payload: any = {};
       try { payload = JSON.parse(clarifyToolCall.function.arguments); } catch { payload = {}; }
@@ -1477,7 +1646,7 @@ serve(async (req) => {
       let result: any;
       if (funcName === "search_products") {
         extractedIntent = funcArgs;
-        const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding);
+        const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
         if (searched.products) allProducts = [...allProducts, ...searched.products];
         // Compact tool payload — full product rows never go into the prompt.
         result = {
@@ -1489,17 +1658,21 @@ serve(async (req) => {
           })),
         };
       } else if (funcName === "catalog_facets") {
-        result = await executeFacets(supabase, funcArgs);
+        result = await executeFacets(supabase, funcArgs, lockedSpecies);
       } else if (funcName === "recall_products") {
         const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 12) : [];
         if (ids.length > 0) {
           const { data: recalled } = await supabase.from("pet_products").select("*").in("id", ids);
-          const ordered = ids.map((id) => (recalled || []).find((p: any) => p.id === id)).filter(Boolean);
+          const ordered = filterBySpecies(
+            ids.map((id) => (recalled || []).find((p: any) => p.id === id)).filter(Boolean),
+            lockedSpecies,
+          );
           allProducts = [...allProducts, ...ordered];
           result = { products: ordered.map((p: any) => ({ id: p.id, name: p.name, price: p.price })) };
         } else {
           result = { products: [] };
         }
+
       } else if (funcName === "get_product_details") {
         result = await getProductDetails(supabase, funcArgs.product_id);
       } else {
@@ -1513,15 +1686,56 @@ serve(async (req) => {
       });
     }
 
+    // ── Multi-need bundle: one grouped answer, each shelf retrieved separately ──
+    let bundleGroups: Array<{ label: string; products: any[] }> = [];
+    let emptyNeedLabels: string[] = [];
+    if (isBundleTurn) {
+      const sp = lockedSpecies as string;
+      const groups = await Promise.all(
+        bundleNeeds.slice(0, 5).map(async (need) => {
+          const queries = needShelfQueries(need, sp);
+          const found: any[] = [];
+          for (const q of queries) {
+            const r = await executeSearch(
+              supabase,
+              { query_text: q, species: sp, limit: 6 },
+              null,
+              speciesLock,
+            );
+            for (const p of r.products || []) if (!found.some((f) => f.id === p.id)) found.push(p);
+            if (found.length >= 3) break;
+          }
+          return { label: need.label, products: found.slice(0, 2) };
+        }),
+      );
+      bundleGroups = groups.filter((g) => g.products.length > 0);
+      emptyNeedLabels = groups.filter((g) => g.products.length === 0).map((g) => g.label);
+      const bundleProducts: any[] = [];
+      for (const g of bundleGroups) {
+        for (const p of g.products) if (!bundleProducts.some((x) => x.id === p.id)) bundleProducts.push(p);
+      }
+      if (bundleProducts.length > 0) allProducts = bundleProducts.slice(0, 9);
+    }
+
     // ── Step 3: Single follow-up LLM call for response generation + re-ranking ──
     console.log("Step 3: Response generation...");
     const requestedLimit = Number(extractedIntent?.limit) || 0;
     const comprehensive = requestedLimit >= 12;
-    const maxShown = comprehensive ? 12 : 6;
-    const candidatesForRerank = allProducts.slice(0, comprehensive ? 24 : 12);
+    const maxShown = isBundleTurn ? Math.min(allProducts.length, 9) : comprehensive ? 12 : 6;
+    // Card set is authoritative: the model may only write about these exact rows.
+    const candidatesForRerank = isBundleTurn ? allProducts.slice(0, maxShown) : allProducts.slice(0, comprehensive ? 24 : 12);
     const candidateList = candidatesForRerank.map((p: any, i: number) =>
       `${i + 1}. [${p.id}] ${p.name_fa || p.name} — ${p.price?.toLocaleString()} تومان${p.brand ? ` — ${p.brand}` : ""}`
     ).join("\n");
+
+    const bundleInstruction = isBundleTurn
+      ? `\n\nBUNDLE_TURN: کاربر چند نیاز هم‌زمان داره. پاسخ باید گروه‌بندی‌شده باشه و شماره‌گذاری محصولات پیوسته و از ۱ شروع بشه.
+- گروه‌ها و محصولات مجاز فقط همین‌ها هستن (به همین ترتیب و هیچ محصول دیگری):
+${bundleGroups.map((g) => `${g.label}: ${g.products.map((p: any) => p.name_fa || p.name).join(" | ")}`).join("\n")}
+- دقیقاً به ${maxShown} محصول اشاره کن، نه بیشتر و نه کمتر.
+${emptyNeedLabels.length ? `- برای این نیازها محصول مناسب پیدا نشد، فقط صادقانه بگو گزینه مناسبی نداریم و جایگزین از حیوان دیگه پیشنهاد نده: ${emptyNeedLabels.join("، ")}` : ""}`
+      : "";
+
 
     const rerankerInstruction = candidatesForRerank.length > 0
       ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
@@ -1546,8 +1760,9 @@ SELECTED_IDS:["id1","id2","id3"]
       ...aiMessages,
       choice.message,
       ...toolResults,
-      ...(rerankerInstruction ? [{ role: "system", content: rerankerInstruction }] : []),
+      ...(rerankerInstruction ? [{ role: "system", content: rerankerInstruction + bundleInstruction }] : []),
     ];
+
 
     const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -1556,7 +1771,7 @@ SELECTED_IDS:["id1","id2","id3"]
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3.1-flash-lite",
         messages: followUpMessages,
       }),
     });
@@ -1570,7 +1785,7 @@ SELECTED_IDS:["id1","id2","id3"]
           content: allProducts.length > 0
             ? "این محصولات رو برات پیدا کردم:"
             : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
-          products: allProducts.slice(0, 6),
+          products: allProducts.slice(0, maxShown),
           quickReplies: [],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -1608,8 +1823,10 @@ SELECTED_IDS:["id1","id2","id3"]
     finalContent = sanitizeVisibleText(finalContent);
     if (!wantsCounts) finalContent = stripCountTalk(finalContent);
 
-
+    // Last gate: nothing from another animal ships, and cards never exceed the cap.
+    selectedProducts = filterBySpecies(selectedProducts, lockedSpecies);
     if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
+
 
     if (!finalContent) {
       finalContent = selectedProducts.length > 0

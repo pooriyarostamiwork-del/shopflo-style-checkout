@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import petabadLogo from "@/assets/petabad-logo.svg";
 
 const SUGGESTIONS = [
@@ -8,22 +9,24 @@ const SUGGESTIONS = [
 ];
 
 export const FloatingAgentEmptyState = ({ onPick }: { onPick: (q: string) => void }) => (
-  <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
-    <img src={petabadLogo} alt="پت آباد" className="h-12 w-12" />
-    <div>
-      <h2 className="text-base font-semibold text-foreground">چی برای حیوون خونگیت لازم داری؟</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        بگو چه حیوونی داری و دنبال چی هستی؛ محصول مناسبش رو پیدا می‌کنم.
-      </p>
+  <div className="mb-4 rounded-3xl border border-border/70 bg-card p-5 text-center">
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+      <img src={petabadLogo} alt="پت آباد" className="h-8 w-8" />
     </div>
-    <div className="flex w-full flex-col gap-2">
+    <h2 className="mt-3 text-[15px] font-bold text-foreground">چی برای حیوون خونگیت لازم داری؟</h2>
+    <p className="mt-1 text-xs leading-6 text-muted-foreground">
+      بگو چه حیوونی داری و دنبال چی هستی؛ گزینه‌های مناسبش رو برات پیدا می‌کنم.
+    </p>
+
+    <div className="mt-4 space-y-2">
       {SUGGESTIONS.map((s) => (
         <button
           key={s}
           onClick={() => onPick(s)}
-          className="rounded-xl border border-border px-3 py-2 text-right text-xs text-foreground transition-colors hover:bg-muted"
+          className="flex w-full items-center gap-2 rounded-2xl border border-border/70 bg-background px-3 py-2.5 text-right text-xs leading-6 text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
         >
-          {s}
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="flex-1">{s}</span>
         </button>
       ))}
     </div>

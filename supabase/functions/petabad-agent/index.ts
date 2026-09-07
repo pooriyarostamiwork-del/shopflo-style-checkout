@@ -402,6 +402,58 @@ const RECALL_TOOL = {
   },
 };
 
+const WEB_LOOKUP_TOOL = {
+  type: "function",
+  function: {
+    name: "brand_or_general_lookup",
+    description:
+      "Look up general knowledge on the web — brand background ('در مورد برند فیدار بهم بگو'), a company's origin/reputation, or pet-care facts that are NOT catalog data. Never use it for prices, stock or which products exist; those come from the catalog tools.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Short Persian or Latin search query, e.g. برند فیدار غذای حیوانات" },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+};
+
+/** Firecrawl web search (direct API connection). Returns compact snippets only. */
+async function executeWebLookup(args: any): Promise<any> {
+  const key = Deno.env.get("FIRECRAWL_API_KEY");
+  const query = String(args?.query || "").trim();
+  if (!key || !query) {
+    return { available: false, note: "دسترسی به اطلاعات بیرون از فروشگاه در دسترس نیست؛ فقط بر اساس کاتالوگ پاسخ بده." };
+  }
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/search", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query, limit: 4, lang: "fa" }),
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!res.ok) {
+      console.error(`Firecrawl search failed [${res.status}]: ${await res.text()}`);
+      return { available: false, note: "جستجوی وب ناموفق بود؛ فقط بر اساس کاتالوگ پاسخ بده." };
+    }
+    const json = await res.json();
+    const rows = Array.isArray(json?.data) ? json.data : Array.isArray(json?.data?.web) ? json.data.web : [];
+    return {
+      available: true,
+      results: rows.slice(0, 4).map((r: any) => ({
+        title: String(r?.title || "").slice(0, 140),
+        snippet: String(r?.description || r?.markdown || "").slice(0, 600),
+      })),
+    };
+  } catch (e) {
+    console.error("Firecrawl search error:", e);
+    return { available: false, note: "جستجوی وب ناموفق بود؛ فقط بر اساس کاتالوگ پاسخ بده." };
+  }
+}
+
+
+
 const FACETS_TOOL = {
   type: "function",
   function: {

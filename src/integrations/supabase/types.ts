@@ -152,6 +152,57 @@ export type Database = {
         }
         Relationships: []
       }
+      pet_faqs: {
+        Row: {
+          answer: string
+          category: string
+          created_at: string
+          embedding: string | null
+          id: string
+          is_active: boolean
+          keywords: string[]
+          phone_numbers: string[]
+          question: string
+          search_vector: unknown
+          subtopic: string | null
+          tags: string[]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          answer: string
+          category: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          phone_numbers?: string[]
+          question: string
+          search_vector?: unknown
+          subtopic?: string | null
+          tags?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          answer?: string
+          category?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          phone_numbers?: string[]
+          question?: string
+          search_vector?: unknown
+          subtopic?: string | null
+          tags?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       pet_products: {
         Row: {
           brand: string | null
@@ -986,6 +1037,26 @@ export type Database = {
       pet_extract_life_stage: { Args: { p_text: string }; Returns: string }
       pet_extract_line: { Args: { p_name: string }; Returns: string }
       pet_extract_needs: { Args: { p_text: string }; Returns: string[] }
+      pet_faq_search: {
+        Args: {
+          p_categories?: string[]
+          p_embedding?: string
+          p_limit?: number
+          p_query?: string
+        }
+        Returns: {
+          answer: string
+          category: string
+          id: string
+          match_kind: string
+          phone_numbers: string[]
+          question: string
+          score: number
+          subtopic: string
+          tags: string[]
+          version: number
+        }[]
+      }
       pet_hybrid_search:
         | {
             Args: {

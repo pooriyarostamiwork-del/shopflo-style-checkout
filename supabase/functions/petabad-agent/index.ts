@@ -85,16 +85,12 @@ SELECTED_IDS:["id1","id2","id3"]
 
 وظیفه تو: پاسخ دقیق و مختصر به سوالات کاربر درباره محصولات، سفارش‌ها، ارسال، و سیاست‌های پت‌شاپ.
 
-سیاست‌های پت‌شاپ:
-- ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان
-- ضمانت بازگشت ۷ روزه
-- ارسال سریع ۱-۳ روز کاری
-- پشتیبانی ۲۴/۷
-
 قوانین:
 - فارسی صحبت کن
 - بدون مارک‌داون - متن ساده
-- مختصر و دقیق باش`,
+- مختصر و دقیق باش
+- هیچ سیاستی (هزینه ارسال، زمان تحویل، مرجوعی، ضمانت، پرداخت) رو از خودت نساز؛ فقط از business_faq_lookup`,
+
 
   conversational: `تو دستیار خرید دوستانه پت‌آباد هستی.
 
@@ -457,6 +453,90 @@ async function executeWebLookup(args: any): Promise<any> {
   }
 }
 
+// ── Business / policy questions: answered ONLY from the official FAQ knowledge base ──
+const FAQ_CATEGORIES = [
+  "ordering_account", "payment", "discounts", "shipping_cost", "shipping_timing",
+  "shipping_methods", "order_tracking", "order_changes", "returns", "refunds",
+  "guarantees", "store_info_trust", "support_channels",
+];
+
+const BUSINESS_RE =
+  /(ارسال|پست|پیک|تیپاکس|کرایه|هزینه\s*ارسال|بسته\s*بند|تحویل|چند\s*روز|زمان\s*رسیدن|مرجوع|بازگشت|عودت|پس\s*دادن|گارانتی|ضمانت|اصل\s*بودن|تقلبی|پرداخت|اقساط|اسنپ\s*پی|snapp|کارت\s*به\s*کارت|درگاه|فاکتور|تخفیف|کد\s*تخفیف|کوپن|سفارش(م|ت|ات)?\s*(رو|را)?\s*(لغو|پیگیری|تغییر|ویرایش)|لغو\s*سفارش|پیگیری\s*سفارش|رهگیری|کد\s*رهگیری|شماره\s*تماس|پشتیبان|تلفن|حضوری|فروشگاه\s*فیزیک|آدرس\s*فروشگاه|انقضا|تاریخ\s*مصرف|محدودیت\s*خرید|سفارش\s*تلفن)/;
+
+/** Retrieve official PetAbad FAQ answers (hybrid FTS + trigram + embeddings). */
+async function executeFaqLookup(
+  supabase: any,
+  args: any,
+  precomputedEmbedding?: number[] | null,
+): Promise<any> {
+  const query = normalizePersian(String(args?.query || "")).trim();
+  if (!query) return { entries: [], note: "سؤال مشخص نیست." };
+  const cats = Array.isArray(args?.categories)
+    ? args.categories.filter((c: any) => FAQ_CATEGORIES.includes(String(c)))
+    : null;
+  const embedding = precomputedEmbedding ?? (await generateQueryEmbedding(query));
+  try {
+    const { data, error } = await supabase.rpc("pet_faq_search", {
+      p_query: query,
+      p_embedding: embedding ? JSON.stringify(embedding) : null,
+      p_categories: cats && cats.length ? cats : null,
+      p_limit: 5,
+    });
+    if (error) {
+      console.error("pet_faq_search error:", error);
+      return { entries: [], note: "دسترسی به دانش فروشگاه ممکن نشد." };
+    }
+    const rows = (data || []) as any[];
+    return {
+      entries: rows.map((r) => ({
+        faq_id: r.id,
+        question: r.question,
+        official_answer: r.answer,
+        category: r.category,
+        subtopic: r.subtopic,
+        phone_numbers: r.phone_numbers || [],
+        match: r.match_kind,
+      })),
+      best_match: rows[0]?.match_kind || "none",
+    };
+  } catch (e) {
+    console.error("FAQ lookup error:", e);
+    return { entries: [], note: "دسترسی به دانش فروشگاه ممکن نشد." };
+  }
+}
+
+const FAQ_TOOL = {
+  type: "function",
+  function: {
+    name: "business_faq_lookup",
+    description:
+      "Answer questions about PetAbad the business — shipping cost/time/methods, delivery, order placement or changes or cancellation, tracking, payment methods and instalments, discounts and coupons, returns, refunds, guarantees/authenticity, expiry, purchase limits, phone orders, in-person purchase, support channels. This is the ONLY allowed source for store policies. Never answer such a question from your own knowledge.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "The user's business question in Persian, as asked" },
+        categories: {
+          type: "array",
+          items: { type: "string", enum: FAQ_CATEGORIES },
+          description: "Optional topic narrowing",
+        },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+};
+
+const FAQ_GROUNDING_RULES = `
+
+سؤال‌های مربوط به خود فروشگاه (ارسال، هزینه ارسال، زمان تحویل، پرداخت، اقساط، تخفیف، لغو یا تغییر یا پیگیری سفارش، مرجوعی، بازگشت وجه، ضمانت و اصالت کالا، خرید حضوری، شماره تماس و پشتیبانی، محدودیت خرید، تاریخ انقضا):
+- همیشه اول business_faq_lookup را صدا بزن. هرگز از دانش عمومی خودت سیاست فروشگاه نساز و هیچ عدد، مهلت، هزینه یا شرطی را حدس نزن.
+- جواب را فقط از official_answer بنویس؛ همه شرط‌ها و استثناها و مبالغ و مهلت‌ها را نگه دار (مثلاً «۷۲ ساعت»، «۷ روز»، «تهران/غیر تهران»).
+- اگر جواب فقط بخشی از سؤال را پوشش می‌دهد، همان بخش را دقیق بگو و صادقانه بگو بقیه‌اش را باید از پشتیبانی بپرسد؛ چیزی از خودت اضافه نکن.
+- اگر هیچ ورودی مرتبطی برنگشت (entries خالی یا best_match = weak)، بگو مطمئن نیستی و کاربر را به پشتیبانی ارجاع بده؛ سیاست جدید نساز.
+- اگر شماره تماس در phone_numbers بود، همان را بگو؛ شماره از خودت نساز.
+- اگر سؤال هم درباره محصول است و هم درباره فروشگاه، هر دو ابزار را صدا بزن و جواب را در دو بخش کوتاه بده.
+- لحن صمیمی و ساده، بدون مارک‌داون، و بدون اشاره به «پایگاه دانش» یا فرایند داخلی.`;
 
 
 const FACETS_TOOL = {
@@ -533,12 +613,13 @@ const CLARIFY_TOOL = {
 
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
-  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL, WEB_LOOKUP_TOOL],
-  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, WEB_LOOKUP_TOOL],
+  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL, WEB_LOOKUP_TOOL, FAQ_TOOL],
+  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, WEB_LOOKUP_TOOL, FAQ_TOOL],
 
   comparison: [],
-  info_retrieval: [DETAILS_TOOL],
-  conversational: [],
+  info_retrieval: [DETAILS_TOOL, FAQ_TOOL],
+  conversational: [FAQ_TOOL],
+
   cart_manipulation: [CART_OPERATIONS_TOOL],
 };
 
@@ -1491,8 +1572,18 @@ serve(async (req) => {
     const normLastUser = normalizePersian(lastUserText);
     const wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
+    const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
+
+    // Store-policy questions are grounded in the official FAQ knowledge base only.
+    if ((MODE_TOOLS[effectiveMode] || []).includes(FAQ_TOOL)) {
+      systemPrompt += FAQ_GROUNDING_RULES;
+      if (isBusinessQuestion) {
+        systemPrompt += `\n\nBUSINESS_QUESTION_TURN: این پیام درباره سیاست‌ها یا خدمات فروشگاهه. در همین نوبت business_faq_lookup را صدا بزن و جواب را فقط از official_answer بنویس.`;
+      }
+    }
+
 
     // ── Species lock, re-resolved on every turn ──
     // The animal named LAST wins: last mention inside the newest message first,
@@ -1634,7 +1725,44 @@ serve(async (req) => {
 
     // ── No tool call = direct response (still sanitized + card-hydrated) ──
     if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
+      // Business/policy question answered without the FAQ tool = ungrounded. Redo it grounded.
+      if (isBusinessQuestion) {
+        const faq = await executeFaqLookup(supabase, { query: lastUserText }, await (embeddingPromise || Promise.resolve(null)));
+        if (faq.entries?.length > 0) {
+          const kb = faq.entries.map((e: any, i: number) =>
+            `${i + 1}) [${e.faq_id}] موضوع: ${e.category}\nسؤال رسمی: ${e.question}\nپاسخ رسمی: ${e.official_answer}${e.phone_numbers?.length ? `\nشماره تماس: ${e.phone_numbers.join(" / ")}` : ""}`
+          ).join("\n\n");
+          const grounded = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-3.1-flash-lite",
+              messages: [
+                { role: "system", content: `تو دستیار پت‌آباد هستی. فقط بر اساس پاسخ‌های رسمی زیر جواب بده.${FAQ_GROUNDING_RULES}\n\nپاسخ‌های رسمی مرتبط (بهترین تطابق: ${faq.best_match}):\n${kb}` },
+                ...userMessages.map((m: any) => ({ role: m.role, content: m.content })),
+              ],
+            }),
+          });
+          if (grounded.ok) {
+            const gj = await grounded.json();
+            const gText = sanitizeVisibleText(extractSignals(gj.choices?.[0]?.message?.content || "").text);
+            if (gText) {
+              return new Response(
+                JSON.stringify({
+                  response_type: "message",
+                  content: gText,
+                  products: [],
+                  faq_ids: faq.entries.map((e: any) => e.faq_id),
+                  quickReplies: [],
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+          }
+        }
+      }
       const rawText = choice.message?.content || "";
+
       const sig = extractSignals(rawText);
       const mentionedIds = [
         ...((sig.text.match(UUID_RE) || []) as string[]),
@@ -1810,8 +1938,11 @@ serve(async (req) => {
             id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,
           })),
         };
+      } else if (funcName === "business_faq_lookup") {
+        result = await executeFaqLookup(supabase, funcArgs, precomputedEmbedding);
       } else if (funcName === "brand_or_general_lookup") {
         result = await executeWebLookup(funcArgs);
+
       } else if (funcName === "catalog_facets") {
 
         result = await executeFacets(supabase, funcArgs, lockedSpecies);
@@ -1967,6 +2098,19 @@ SELECTED_IDS:["id1","id2","id3"]
       console.log(`Re-ranker selected ${reordered.length} products`);
     }
 
+    // Text/card parity: every product numbered in the answer must ship with its card.
+    const numberedCount = (finalContent.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
+    const parityCap = Math.min(Math.max(maxShown, numberedCount), 12);
+    if (numberedCount > selectedProducts.length) {
+      const have = new Set(selectedProducts.map((p: any) => p.id));
+      for (const p of candidatesForRerank) {
+        if (selectedProducts.length >= parityCap) break;
+        if (!have.has(p.id)) { selectedProducts.push(p); have.add(p.id); }
+      }
+      console.log(`Parity fill → ${selectedProducts.length} cards for ${numberedCount} numbered items`);
+    }
+
+
     // Products named from memory (ids cited in the text) still get their cards.
     if (selectedProducts.length === 0) {
       const mentionedIds = [
@@ -1981,7 +2125,7 @@ SELECTED_IDS:["id1","id2","id3"]
 
     // Last gate: nothing from another animal ships, and cards never exceed the cap.
     selectedProducts = filterBySpecies(selectedProducts, lockedSpecies);
-    if (selectedProducts.length > maxShown) selectedProducts = selectedProducts.slice(0, maxShown);
+    if (selectedProducts.length > parityCap) selectedProducts = selectedProducts.slice(0, parityCap);
 
 
     if (!finalContent) {

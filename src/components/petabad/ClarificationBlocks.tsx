@@ -130,20 +130,9 @@ export const ClarificationBlock = ({
 
   const steps = useMemo(() => clarification.steps ?? [], [clarification.steps]);
 
-  // History must never stay tappable — only the newest, unanswered card is live.
-  if (resolvedWith !== undefined) {
-    const summary = resolvedWith.trim();
-    if (!summary) return null;
-    return (
-      <div
-        dir="rtl"
-        className="flex items-start gap-2 rounded-2xl border border-border/70 bg-muted/40 px-3 py-2 text-[11px] leading-5 text-muted-foreground"
-      >
-        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-        <span className="min-w-0">{summary}</span>
-      </div>
-    );
-  }
+  // Answered cards disappear entirely — the shopper's own reply is the record.
+  if (resolvedWith !== undefined) return null;
+
 
   if (done) {
     // Answer is sent as a normal chat message; nothing extra should linger here.

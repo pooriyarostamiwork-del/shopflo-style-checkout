@@ -18,6 +18,8 @@ import Playground from "./pages/Playground";
 import PlaygroundMobile from "./pages/PlaygroundMobile";
 import PetAbad from "./pages/PetAbad";
 import MobilePetAbad from "./pages/MobilePetAbad";
+import PetabadFloating from "./pages/PetabadFloating";
+
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();

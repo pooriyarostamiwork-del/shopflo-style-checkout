@@ -750,6 +750,9 @@ const faDigits = (s: string) => s.replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹
 /** "۹۲ میلیون" / "۱٫۲ میلیارد" — rounded, human, never zero-padded noise. */
 function formatToman(v: number): string {
   if (!Number.isFinite(v)) return "";
+  if (v < 1_000_000) {
+    return `${faDigits(String(Math.max(1, Math.round(v / 1_000)) * 1))} هزار`;
+  }
   if (v >= 1_000_000_000) {
     const b = v / 1_000_000_000;
     return `${faDigits((Math.round(b * 10) / 10).toString().replace(".", "٫"))} میلیارد`;
@@ -760,13 +763,19 @@ function formatToman(v: number): string {
 /** Adjacent budget buckets built from the real price quantiles of the candidate set. */
 function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
   if (!price) return null;
-  const round = (v: number) => Math.round(v / 1_000_000) * 1_000_000;
+  const round = (v: number) => {
+    if (v >= 1_000_000) return Math.round(v / 1_000_000) * 1_000_000;
+    return Math.max(100_000, Math.round(v / 100_000) * 100_000);
+  };
+  // Buckets are open-ended at the bottom ("تا X") — a "۰ تا X" label is meaningless.
   const edges = Array.from(
-    new Set([round(price.min), round(price.q1), round(price.median), round(price.q3)])
+    new Set([round(price.q1), round(price.median), round(price.q3)])
   ).sort((a, b) => a - b);
   if (edges.length < 2) return null;
 
-  const options: any[] = [];
+  const options: any[] = [
+    { label: `تا ${formatToman(edges[0])} تومان`, value: { price_max: edges[0] } },
+  ];
   for (let i = 0; i < edges.length - 1; i++) {
     options.push({
       label: `${formatToman(edges[i])} تا ${formatToman(edges[i + 1])} تومان`,
@@ -775,10 +784,7 @@ function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
   }
   const last = edges[edges.length - 1];
   if (round(price.max) > last) {
-    options.push({
-      label: `بالای ${formatToman(last)} تومان`,
-      value: { price_min: last },
-    });
+    options.push({ label: `بالای ${formatToman(last)} تومان`, value: { price_min: last } });
   }
   options.push({ label: "مهم نیست، بهترین رو نشونم بده", value: {} });
   return options.length >= 3 ? options : null;
@@ -1028,6 +1034,21 @@ const USAGE_HINTS: Array<[RegExp, string]> = [
 function detectUsage(text: string): string | null {
   const norm = normalizePersian(text || "");
   for (const [re, label] of USAGE_HINTS) if (re.test(norm)) return label;
+  return null;
+}
+
+/** Species the user already named — that guidance step is then skipped. */
+const SPECIES_HINTS: Array<[RegExp, string]> = [
+  [/گربه|بچه\s*گربه|پیشی|cat/i, "گربه"],
+  [/سگ|توله\s*سگ|dog|پاپی/i, "سگ"],
+  [/پرنده|مرغ\s*عشق|طوطی|قناری|کاسکو/, "پرنده"],
+  [/ماهی|آکواریوم|اکواریوم/, "ماهی و آکواریوم"],
+  [/خرگوش|همستر|جوندگان|لاک\s*پشت|خوکچه/, "سایر حیوانات خانگی"],
+];
+
+function detectSpecies(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, label] of SPECIES_HINTS) if (re.test(norm)) return label;
   return null;
 }
 

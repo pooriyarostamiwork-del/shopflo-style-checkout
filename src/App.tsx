@@ -52,7 +52,9 @@ const App = () => (
 
             {/* Product 4: PetAbad — pet-category AI storefront clone */}
             <Route path="/petabad" element={<PetAbad />} />
+            <Route path="/petabad/floating" element={<PetabadFloating />} />
             <Route path="/m/petabad" element={<MobilePetAbad />} />
+
 
             {/* Catch-all */}
             {/* Component playground (isolated testing environment) */}

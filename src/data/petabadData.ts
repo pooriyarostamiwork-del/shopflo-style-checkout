@@ -127,6 +127,7 @@ export interface ClarificationOption {
 export interface ClarificationStep {
   title: string;
   question: string;
+  multi?: boolean;
   options: ClarificationOption[];
 }
 
@@ -134,6 +135,7 @@ export interface Clarification {
   kind: 'single' | 'steps';
   question?: string;
   helper?: string;
+  multi?: boolean;
   options?: ClarificationOption[];
   steps?: ClarificationStep[];
 }

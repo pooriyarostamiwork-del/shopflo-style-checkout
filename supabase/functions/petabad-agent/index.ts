@@ -176,7 +176,10 @@ SELECTED_IDS:["id1","id2","id3"]
 
 پرسیدن سؤال (قانون قطعی):
 - هیچ‌وقت سؤال‌هات رو به شکل متن یا لیست بولت‌دار در پاسخ ننویس. هر سؤالی که از کاربر داری فقط و فقط با ask_clarification پرسیده میشه (کارت تعاملی)
-- درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification با steps (نوع حیوان → بودجه → اولویت) و هر مرحله ۳ تا ۵ گزینه کوتاه
+- درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification با steps (نوع حیوان → نیازها → بودجه) و هر مرحله ۳ تا ۵ گزینه کوتاه
+- هر چیزی که کاربر خودش گفته (مثل نوع حیوان: گربه/سگ) رو دوباره نپرس؛ اون مرحله رو حذف کن
+- مرحله‌ای که کاربر می‌تونه چند جواب داشته باشه (مثل «چه چیزهایی لازم داری» یا نیازها/دسته‌ها) رو با multi: true بفرست تا کاربر چندتایی انتخاب کنه
+- اگه کاربر چند دسته انتخاب کرد (مثل غذا + بهداشت + اسباب‌بازی) برای هر دسته جداگانه جست‌وجو کن و یک سبد چنددسته‌ای پیشنهاد بده، نه فقط یک دسته
 - اگه دو برداشت مختلف به محصولات کاملاً متفاوتی می‌رسه، ask_clarification (سؤال + گزینه‌ها)
 - اگه فقط یک برداشت منطقیه، سؤال نپرس و جواب بده
 
@@ -430,6 +433,7 @@ const CLARIFY_TOOL = {
       type: "object",
       properties: {
         question: { type: "string", description: "Persian question (single-step form)" },
+        multi: { type: "boolean", description: "true when the user may pick several options at once" },
         helper: { type: "string", description: "Optional short Persian helper line" },
         options: {
           type: "array",
@@ -450,6 +454,7 @@ const CLARIFY_TOOL = {
             properties: {
               title: { type: "string" },
               question: { type: "string" },
+              multi: { type: "boolean", description: "true when the user may pick several options in this step (e.g. needed categories)" },
               options: {
                 type: "array",
                 items: {
@@ -750,6 +755,9 @@ const faDigits = (s: string) => s.replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹
 /** "۹۲ میلیون" / "۱٫۲ میلیارد" — rounded, human, never zero-padded noise. */
 function formatToman(v: number): string {
   if (!Number.isFinite(v)) return "";
+  if (v < 1_000_000) {
+    return `${faDigits(String(Math.max(1, Math.round(v / 1_000)) * 1))} هزار`;
+  }
   if (v >= 1_000_000_000) {
     const b = v / 1_000_000_000;
     return `${faDigits((Math.round(b * 10) / 10).toString().replace(".", "٫"))} میلیارد`;
@@ -760,13 +768,19 @@ function formatToman(v: number): string {
 /** Adjacent budget buckets built from the real price quantiles of the candidate set. */
 function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
   if (!price) return null;
-  const round = (v: number) => Math.round(v / 1_000_000) * 1_000_000;
+  const round = (v: number) => {
+    if (v >= 1_000_000) return Math.round(v / 1_000_000) * 1_000_000;
+    return Math.max(100_000, Math.round(v / 100_000) * 100_000);
+  };
+  // Buckets are open-ended at the bottom ("تا X") — a "۰ تا X" label is meaningless.
   const edges = Array.from(
-    new Set([round(price.min), round(price.q1), round(price.median), round(price.q3)])
+    new Set([round(price.q1), round(price.median), round(price.q3)])
   ).sort((a, b) => a - b);
   if (edges.length < 2) return null;
 
-  const options: any[] = [];
+  const options: any[] = [
+    { label: `تا ${formatToman(edges[0])} تومان`, value: { price_max: edges[0] } },
+  ];
   for (let i = 0; i < edges.length - 1; i++) {
     options.push({
       label: `${formatToman(edges[i])} تا ${formatToman(edges[i + 1])} تومان`,
@@ -775,10 +789,7 @@ function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
   }
   const last = edges[edges.length - 1];
   if (round(price.max) > last) {
-    options.push({
-      label: `بالای ${formatToman(last)} تومان`,
-      value: { price_min: last },
-    });
+    options.push({ label: `بالای ${formatToman(last)} تومان`, value: { price_min: last } });
   }
   options.push({ label: "مهم نیست، بهترین رو نشونم بده", value: {} });
   return options.length >= 3 ? options : null;
@@ -1031,17 +1042,34 @@ function detectUsage(text: string): string | null {
   return null;
 }
 
+/** Species the user already named — that guidance step is then skipped. */
+const SPECIES_HINTS: Array<[RegExp, string]> = [
+  [/گربه|بچه\s*گربه|پیشی|cat/i, "گربه"],
+  [/سگ|توله\s*سگ|dog|پاپی/i, "سگ"],
+  [/پرنده|مرغ\s*عشق|طوطی|قناری|کاسکو/, "پرنده"],
+  [/ماهی|آکواریوم|اکواریوم/, "ماهی و آکواریوم"],
+  [/خرگوش|همستر|جوندگان|لاک\s*پشت|خوکچه/, "سایر حیوانات خانگی"],
+];
+
+function detectSpecies(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, label] of SPECIES_HINTS) if (re.test(norm)) return label;
+  return null;
+}
+
 
 const DEFAULT_GUIDANCE_STEPS = (
   category: string,
   knownUsage?: string | null,
-  facets?: QuestionFacets | null
+  facets?: QuestionFacets | null,
+  knownSpecies?: string | null
 ) => {
   const budgetOptions = facets && facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
   return [
-    ...(knownUsage ? [] : [{
-      title: "نوع حیوان و نیاز",
-      question: `${category ? category + " رو ' " : ""}برای چه حیوان و نیازی می‌خوای؟`.replace(" ' ", " "),
+    // Species is asked only when the user hasn't already named their pet.
+    ...(knownSpecies ? [] : [{
+      title: "نوع حیوان",
+      question: "برای چه حیوانی می‌خوای؟",
       options: [
         { label: "سگ" },
         { label: "گربه" },
@@ -1050,27 +1078,37 @@ const DEFAULT_GUIDANCE_STEPS = (
         { label: "سایر حیوانات خانگی" },
       ],
     }]),
-    // Budget is asked only when the real candidate set supports real ranges.
+    {
+      title: "نیازها",
+      question: knownSpecies
+        ? `برای ${knownSpecies}‌ت دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)`
+        : "دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)",
+      multi: true,
+      options: [
+        { label: "غذا و تشویقی" },
+        { label: "بهداشت و نگهداری" },
+        { label: "اسباب‌بازی و سرگرمی" },
+        { label: "لوازم جانبی و حمل" },
+        { label: "مکمل و سلامت" },
+      ],
+    },
     ...(budgetOptions ? [{
       title: "بودجه",
       question: "بودجه‌ات حدوداً چقدره؟",
       options: budgetOptions,
     }] : []),
-    {
+    ...(knownUsage ? [] : [{
       title: "اولویت",
       question: "چه چیزی برات مهم‌تره؟",
       options: [
         { label: "کیفیت و مواد اولیه" },
-        { label: "مناسب حساسیت‌های گوارشی" },
         { label: "برند شناخته‌شده" },
         { label: "بسته‌بندی اقتصادی" },
         { label: "بهترین قیمت" },
       ],
-    },
+    }]),
   ];
 };
-
-
 
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
@@ -1176,6 +1214,7 @@ serve(async (req) => {
     const wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
+    const knownSpecies = detectSpecies(lastUserText);
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
     // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
     const facetFamily = /خشک/.test(normLastUser)
@@ -1203,7 +1242,7 @@ serve(async (req) => {
     };
 
     if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` نیاز رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: نوع حیوان → بودجه → اولویت."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
+      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده${knownSpecies ? ` نوع حیوانش رو خودش گفته («${knownSpecies}») پس هرگز نپرس برای چه حیوانی؛` : ""} و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` نیاز رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: نوع حیوان → نیازها (multi) → بودجه."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
     }
 
 
@@ -1297,7 +1336,7 @@ serve(async (req) => {
             ? {
                 kind: "steps",
                 helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
+                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
               }
             : null);
         const card = rawCard ? groundClarification(rawCard, facets) : null;
@@ -1310,7 +1349,7 @@ serve(async (req) => {
         const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
         };
         const fallbackResponse = clarificationResponse(fallbackCard, "guidance-fallback");
         if (fallbackResponse) return fallbackResponse;
@@ -1344,20 +1383,28 @@ serve(async (req) => {
         (Array.isArray(arr) ? arr : [])
           .map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint }))
           .filter((o: any) => typeof o.label === "string" && o.label.trim());
+      const SPECIES_QUESTION_RE = /(چه|کدوم|نوع)\s*(حیوان|پت)|حیوان\s*خونگی|حیوان\s*خانگی/;
       const steps = (Array.isArray(payload.steps) ? payload.steps : [])
-        .map((s: any) => ({ title: s?.title || "", question: s?.question || "", options: normOptions(s?.options) }))
-        .filter((s: any) => s.question && s.options.length > 0);
+        .map((s: any) => ({
+          title: s?.title || "",
+          question: s?.question || "",
+          multi: s?.multi === true,
+          options: normOptions(s?.options),
+        }))
+        .filter((s: any) => s.question && s.options.length > 0)
+        // The user already named their pet — never ask which animal again.
+        .filter((s: any) => !(knownSpecies && SPECIES_QUESTION_RE.test(normalizePersian(s.question))));
       const options = normOptions(payload.options);
       if (steps.length > 0 || options.length > 0) {
         const facets = await getFacets();
         const rawCard = steps.length > 0
           ? { kind: "steps", helper: payload.helper || "", steps }
-          : { kind: "single", question: payload.question || "", helper: payload.helper || "", options };
+          : { kind: "single", question: payload.question || "", helper: payload.helper || "", multi: payload.multi === true, options };
         const grounded = groundClarification(rawCard, facets);
         const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets),
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
         };
         const cardResponse = clarificationResponse(grounded, "ask-tool-grounded") ||
           clarificationResponse(fallbackCard, "ask-tool-fallback");
@@ -1372,7 +1419,7 @@ serve(async (req) => {
         const fallbackCard = {
           kind: "steps",
           helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets()),
+          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
         };
         const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
         if (fallbackResponse) return fallbackResponse;

@@ -197,7 +197,6 @@ export const ChatLanding = ({
 
         {/* Logo & Welcome */}
         <div className="relative z-10 flex flex-col items-center text-center gap-4 mb-6 xl:mb-8">
-          <PetabadMark size="hero" imageUrl={firstPageLogo.imageUrl || undefined} alt="پت آباد" className="mx-auto" />
           <PetabadWordmark className="mx-auto" />
           <p className="text-muted-foreground text-center leading-none">{firstPageLogo.subtitle || 'دستیار خرید هوشمند شما'}</p>
         </div>

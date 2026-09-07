@@ -211,7 +211,6 @@ export const MobileChatLanding = ({
       <div className="relative z-10 flex flex-col">
         {/* Inside logo + subtitle */}
         <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
-          <PetabadMark size="hero" className="mb-3 h-[4.1rem] w-[4.1rem]" alt="پت آباد" />
           <PetabadWordmark className="mb-1" />
           <p className="text-muted-foreground leading-tight max-w-[280px]" style={{ fontSize: "0.78rem", letterSpacing: "-0.01em" }}>
             یک دستیار خرید واقعاً باهوش :)

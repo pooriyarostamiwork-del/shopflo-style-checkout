@@ -1,5 +1,5 @@
 import petabadIcon from "@/assets/petabad-logo.svg";
-import petabadLogotype from "@/assets/petabad-logotype.svg";
+import petabadFullLogo from "@/assets/petabad-logo-full.svg";
 import { cn } from "@/lib/utils";
 
 type MarkSize = "hero" | "brand" | "chat" | "avatar";
@@ -12,10 +12,11 @@ const markSizes: Record<MarkSize, string> = {
   avatar: "h-8 w-8 rounded-full",
 };
 
+// Full logo aspect ratio is ~331 x 52 (6.4:1)
 const wordmarkSizes: Record<WordmarkSize, string> = {
-  brand: "h-[35px] w-[115px]",
-  chat: "h-[31px] w-[101px]",
-  compact: "h-[25px] w-[81px]",
+  brand: "h-[30px] w-[192px]",
+  chat: "h-[26px] w-[167px]",
+  compact: "h-[23px] w-[147px]",
 };
 
 export const PetabadMark = ({
@@ -52,19 +53,16 @@ export const PetabadWordmark = ({
   size?: WordmarkSize;
   className?: string;
 }) => (
-  <span className={cn("relative inline-block shrink-0 overflow-hidden", wordmarkSizes[size], className)}>
-    <img
-      src={petabadLogotype}
-      alt="PetAbad"
-      className="absolute left-1/2 top-1/2 h-[190px] w-[190px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
-      draggable={false}
-    />
-  </span>
+  <img
+    src={petabadFullLogo}
+    alt="پت آباد"
+    className={cn("block shrink-0 object-contain", wordmarkSizes[size], className)}
+    draggable={false}
+  />
 );
 
 export const PetabadBrandLockup = ({
   subtitle,
-  imageUrl,
   compact = false,
   variant = "default",
   className,
@@ -75,15 +73,8 @@ export const PetabadBrandLockup = ({
   variant?: "default" | "chat";
   className?: string;
 }) => (
-  <div className={cn("flex items-center gap-2.5", className)}>
-    <PetabadMark
-      size={compact ? "avatar" : variant === "chat" ? "chat" : "brand"}
-      imageUrl={imageUrl}
-      alt="پت آباد"
-    />
-    <div className="flex min-w-0 flex-col items-start gap-0.5">
-      <PetabadWordmark size={compact ? "compact" : variant === "chat" ? "chat" : "brand"} />
-      {subtitle ? <p className="text-xs leading-none text-muted-foreground">{subtitle}</p> : null}
-    </div>
+  <div className={cn("flex min-w-0 flex-col items-start gap-1", className)}>
+    <PetabadWordmark size={compact ? "compact" : variant === "chat" ? "chat" : "brand"} />
+    {subtitle ? <p className="text-xs leading-none text-muted-foreground">{subtitle}</p> : null}
   </div>
 );

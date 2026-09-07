@@ -1805,7 +1805,10 @@ serve(async (req) => {
             id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,
           })),
         };
+      } else if (funcName === "brand_or_general_lookup") {
+        result = await executeWebLookup(funcArgs);
       } else if (funcName === "catalog_facets") {
+
         result = await executeFacets(supabase, funcArgs, lockedSpecies);
       } else if (funcName === "recall_products") {
         const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 12) : [];

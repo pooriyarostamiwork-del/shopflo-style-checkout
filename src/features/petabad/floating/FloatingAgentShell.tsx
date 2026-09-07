@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, SquarePen, History, ChevronLeft, PawPrint } from "lucide-react";
 import { PetabadBrandLockup } from "@/components/petabad/PetabadBrand";
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
@@ -18,7 +18,6 @@ const ADDED_LINE = "می‌تونی خریدت رو ادامه بدی یا از 
 export const FloatingAgentShell = () => {
   const [open, setOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     baskets, setBaskets,
@@ -32,7 +31,6 @@ export const FloatingAgentShell = () => {
   const {
     handleSendMessage,
     handleAddToCart,
-    handleCompare,
     handleInlineProductDetails,
     handleMoreResults,
   } = useAgentMessages({
@@ -215,8 +213,6 @@ export const FloatingAgentShell = () => {
       )}
       {/* basketStates keeps every conversation isolated per chat id */}
       <span className="hidden">{Object.keys(basketStates).length}</span>
-      <span className="hidden">{handleCompare ? "" : ""}</span>
-      <span className="hidden" ref={undefined}>{inputRef ? "" : ""}</span>
     </div>
   );
 };

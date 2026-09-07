@@ -204,6 +204,18 @@ SELECTED_IDS:["id1","id2","id3"]
 - پرنده و لوازم پرنده
 - دارو و مکمل
 
+قوانین حیاتی جستجو و موجودی:
+- قفسه‌های کاتالوگ برندی‌اند (مثل «غذای خشک گربه جوسرا»). پس همیشه subcategory_family بده (مثل «غذای خشک گربه») نه یک قفسه دقیق، تا محصولات همه برندها دیده بشن.
+- اگه کاربر برند گفت، حتماً filters.brand رو پر کن. اگه اسم یک خط محصول یا مدل گفت (کتلوکس، Catelux، گلدن رتریور)، filters.product_line رو پر کن.
+- اگه کشور سازنده خواست (آلمانی، ایرانی، فرانسوی)، filters.origin_country رو پر کن؛ فیلتر کشور سازنده وجود داره و هرگز نگو ممکن نیست.
+- سن/مرحله زندگی و اندازه نژاد رو با filters.life_stage و filters.breed_size بده. نژاد رو در breed بنویس (گلدن رتریور = نژاد بزرگ).
+- نیازهای سلامتی (پوست و مو، گوارش حساس، کلیه، عقیم شده، کنترل وزن...) رو در filters.needs بده.
+- هرگز نگو «نداریم» مگه وقتی یک جستجوی دقیق با همون برند/خط محصول/کشور (بدون فیلترهای اضافه) صفر نتیجه برگردونده باشه. اگه شک داری، دوباره با filters دقیق‌تر جستجو کن.
+- برای فهرست برندها، کشورها یا معرفی برند، همیشه catalog_facets صدا بزن؛ هرگز از حافظه‌ی خودت اسم برند نساز.
+- معرفی برند = کشور سازنده و جایگاه برند + واقعیت‌های پت‌آباد (قفسه‌ها، خط‌های محصول، بازه قیمت) از catalog_facets.
+- چیزی که کاربر قبلاً گفته (حیوان، نژاد، سن، نیاز، بودجه، برند) رو دوباره نپرس؛ سؤال بعدی باید بعد سؤال‌نشده رو بپرسه.
+- در پیشنهادها تنوع بده؛ چند وزن یا چند سایز از یک خط محصول رو به‌جای گزینه‌های متفاوت نفرست.
+
 سیگنال‌ها (اختیاری، در خط‌های آخر پاسخ، فقط وقتی مطمئنی):
 REFERENCE_IDS:["id"]  محصولاتی که مرجع این درخواست بودن
 LIKED_IDS:["id"]  محصولاتی که کاربر پسندید یا انتخاب کرد
@@ -231,16 +243,34 @@ const SEARCH_TOOL = {
             "Exact subcategory from the catalog. Only use one of these exact values (leave empty if none fits): کنسرو و پوچ و غذای تر گربه | تشویقی سگ | تشویقی و بستنی گربه | کنسرو و پوچ و غذای تر سگ | غذای خشک گربه | غذای خشک سگ | اسباب بازی گربه | قلاده سگ | اسباب بازی پرندگان | شامپو و نرم کننده سگ | درخت گربه نیناپت | غذای خشک گربه رویال کنین | غذای خشک سگ رویال کنین | تشک و تخت سگ | انواع اسپری و فوم گربه | غذای خشک گربه جوسرا | مکمل های پرندگان | اسباب بازی سگ | شامپو و نرم کننده گربه | اسکرچر و درخت گربه | ظرف آب و غذا سگ | غذای خشک گربه رفلکس | غذای خشک گربه فیدار | غذای خرگوش | مکمل و ویتامین گربه | غذای خشک گربه سلبن | انواع اسپری و فوم سگ | خمیر مالت گربه | باکس حمل و نقل سگ | انواع قطره سگ | جای خواب (تخت و تشک) گربه | ظرف آب و غذا گربه | خاک گربه",
         },
 
+        subcategory_family: {
+          type: "string",
+          description:
+            "PREFERRED over subcategory. Shelf FAMILY prefix — matches every shelf that starts with it, including the brand-specific ones. Examples: غذای خشک گربه (also covers غذای خشک گربه جوسرا / رویال کنین / رفلکس ...), غذای خشک سگ, کنسرو و پوچ و غذای تر گربه, اسباب بازی سگ, شامپو و نرم کننده گربه. Use subcategory ONLY when the user named one exact brand shelf.",
+        },
         species: {
           type: "string",
           description: "Target pet species/animal, e.g. سگ، گربه، پرنده، ماهی",
+        },
+        breed: {
+          type: "string",
+          description: "Breed the user named, e.g. گلدن رتریور، پامرانیان، پرشین. Used to infer breed size.",
         },
         filters: {
           type: "object",
           properties: {
             price_min: { type: "number" },
             price_max: { type: "number" },
-            brand: { type: "string" },
+            brand: { type: "string", description: "Brand name in Persian or Latin, e.g. جوسرا / Josera" },
+            product_line: { type: "string", description: "Product line / exact model wording, e.g. Catelux، کتلوکس، Golden Retriever" },
+            origin_country: { type: "string", description: "Manufacturing country in Persian, e.g. آلمان، ایران، فرانسه" },
+            life_stage: { type: "string", enum: ["نابالغ", "بالغ", "سنیور"], description: "نابالغ = puppy/kitten, بالغ = adult, سنیور = senior" },
+            breed_size: { type: "string", enum: ["کوچک", "متوسط", "بزرگ"] },
+            needs: {
+              type: "array",
+              items: { type: "string", enum: ["پوست و مو", "گوارش حساس", "کلیه و مجاری ادرار", "عقیم شده", "کنترل وزن", "ضد حساسیت", "گلوله مویی", "داخل خانه", "درمانی", "سلامت دندان", "مفاصل"] },
+              description: "Structured health needs the user stated",
+            },
             features: { type: "array", items: { type: "string" } },
           },
         },
@@ -373,12 +403,15 @@ const FACETS_TOOL = {
   type: "function",
   function: {
     name: "catalog_facets",
-    description: "Get the COMPLETE, exact list of brands and species with product counts (plus total and price range) for a slice of the catalog. Use for 'which brands do you have', 'list them all', 'how many X do you have'. Never guess these numbers.",
+    description: "Get the COMPLETE, exact catalog facts for a slice of the catalog: brands, manufacturing countries, brands per country, life stages, breed sizes, health needs, shelves, species (plus totals and price range). Use for 'which brands do you have', 'which German/Iranian brands', 'list them all', brand profiles, and any listing/counting question. Never guess these lists or numbers.",
     parameters: {
       type: "object",
       properties: {
         subcategory: { type: "string", description: "Exact subcategory, e.g. غذای خشک سگ، کنسرو و پوچ و غذای تر گربه" },
         species: { type: "string", description: "Exact species filter, e.g. سگ" },
+        subcategory_family: { type: "string", description: "Shelf family prefix, e.g. غذای خشک گربه — covers brand-specific shelves too" },
+        brand: { type: "string", description: "Restrict to one brand, e.g. جوسرا" },
+        origin_country: { type: "string", description: "Restrict to one manufacturing country, e.g. آلمان" },
         query_text: { type: "string", description: "Free-text narrowing when there is no exact subcategory" },
         criterion: { type: "string", description: "Extra wording requirement, e.g. ارگانیک" },
         include_counts: { type: "boolean", description: "true ONLY when the user asked about quantities/totals/price range. Otherwise names only." },
@@ -461,33 +494,121 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 }
 
 // ── Execute tool calls ──
+// Breed → breed size (and default life stage) mapping. Category-agnostic fallback: unknown breeds are ignored.
+const BREED_SIZE: Array<[RegExp, string]> = [
+  [/گلدن|رتریور|لابرادور|ژرمن|شپرد|روتوایلر|هاسکی|سنت\s*برنارد|دوبرمن|قفقازی|آکیتا|بوکسر|دوگ|مالاموت|بلک\s*راشن/, "بزرگ"],
+  [/بردر\s*کولی|بیگل|کوکر|اسپانیل|پیت\s*بول|بول\s*تریر|سامویید|شارپی|چاو/, "متوسط"],
+  [/پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\s*راسل/, "کوچک"],
+];
+
+// Breed → the wording a breed-specific product actually uses in its title.
+const BREED_LINE: Array<[RegExp, string]> = [
+  [/گلدن|golden/i, "Golden Retriever"],
+  [/لابرادور|labrador/i, "Labrador"],
+  [/ژرمن|شپرد|german\s*shepherd/i, "German Shepherd"],
+  [/پامرانیان|pomeranian/i, "Pomeranian"],
+  [/شیتزو|shih/i, "Shih Tzu"],
+  [/یورک|yorkshire/i, "Yorkshire"],
+  [/چیهواهوا|chihuahua/i, "Chihuahua"],
+  [/پودل|poodle/i, "Poodle"],
+  [/هاسکی|husky/i, "Husky"],
+  [/بولداگ|bulldog/i, "Bulldog"],
+  [/روتوایلر|rottweiler/i, "Rottweiler"],
+  [/پرشین|persian/i, "Persian"],
+  [/مین\s*کون|maine/i, "Maine Coon"],
+  [/بریتیش|british/i, "British"],
+  [/اسکاتیش|scottish/i, "Scottish"],
+  [/سیامی|siamese/i, "Siamese"],
+  [/پاگ|pug/i, "Pug"],
+  [/بیگل|beagle/i, "Beagle"],
+];
+
+function inferBreedLine(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, line] of BREED_LINE) if (re.test(norm)) return line;
+  return null;
+}
+
+function inferBreedSize(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  for (const [re, size] of BREED_SIZE) if (re.test(norm)) return size;
+  return null;
+}
+
 async function executeSearch(supabase: any, args: any, precomputedEmbedding: number[] | null): Promise<any> {
-  const { query_text, subcategory, species, filters, sort_by, evidence_terms, limit, offset } = args;
+  const { query_text, subcategory, subcategory_family, species, breed, filters, sort_by, evidence_terms, limit, offset } = args;
   const normalizedQuery = normalizePersian(query_text || "");
 
   const rpcParams: any = { p_store_id: PETABAD_STORE_ID, p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
-  if (subcategory) rpcParams.p_subcategory = subcategory;
+  // A single exact shelf is a hard filter only when the user named a brand shelf;
+  // otherwise search the whole shelf family so brand-split shelves stay visible.
+  const family = subcategory_family || (subcategory && !/(جوسرا|رویال کنین|رفلکس|فیدار|سلبن|نیناپت)/.test(subcategory)
+    ? subcategory
+    : null);
+  if (family) rpcParams.p_subcategory_prefix = family;
+  else if (subcategory) rpcParams.p_subcategory = subcategory;
   if (species) rpcParams.p_species = species;
+  if (filters?.brand) rpcParams.p_brand = filters.brand;
+  if (filters?.product_line) rpcParams.p_product_line = filters.product_line;
+  if (filters?.origin_country) rpcParams.p_origin_country = filters.origin_country;
+  if (filters?.life_stage) rpcParams.p_life_stage = filters.life_stage;
+  const breedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`);
+  if (breedSize) rpcParams.p_breed_size = breedSize;
+  if (Array.isArray(filters?.needs) && filters.needs.length > 0) rpcParams.p_needs = filters.needs;
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
 
-  let { data, error } = await supabase.rpc("pet_hybrid_search", rpcParams);
+  const runSearch = async (params: any) => {
+    const { data, error } = await supabase.rpc("pet_hybrid_search", params);
+    if (error) {
+      console.error("Hybrid search error:", error);
+      return null;
+    }
+    return data || [];
+  };
 
-  if (error) {
-    console.error("Hybrid search error:", error);
-    return { products: [], message: "جستجو با مشکل مواجه شد" };
+  let data = await runSearch(rpcParams);
+  if (data === null) return { products: [], message: "جستجو با مشکل مواجه شد" };
+
+  // Progressive widening: never report "we don't have it" because a filter was too tight.
+  const relaxations: Array<(p: any) => void> = [
+    (p) => { delete p.p_needs; },
+    (p) => { delete p.p_breed_size; delete p.p_life_stage; },
+    (p) => { delete p.p_subcategory_prefix; delete p.p_subcategory; },
+    (p) => { delete p.p_max_price; delete p.p_min_price; },
+  ];
+  const relaxed: string[] = [];
+  for (const relax of relaxations) {
+    if (data.length > 0) break;
+    const next = { ...rpcParams };
+    for (let i = 0; i <= relaxations.indexOf(relax); i++) relaxations[i](next);
+    const retry = await runSearch(next);
+    if (retry && retry.length > 0) {
+      data = retry;
+      relaxed.push("filters_relaxed");
+      break;
+    }
   }
 
-  let results = data || [];
+  let results = data;
 
-  // pet_hybrid_search has no p_brand / p_evidence params — apply as a post-filter
-  // so brand and unstructured-feature requests still narrow the result set.
-  const brandFilter = typeof filters?.brand === "string" ? normalizePersian(filters.brand) : "";
-  if (brandFilter) {
-    const filtered = results.filter((p: any) => normalizePersian(String(p.brand || "")).includes(brandFilter));
-    if (filtered.length > 0) results = filtered;
+  // A breed-specific product (e.g. Royal Canin Golden Retriever) must lead the answer.
+  const breedLine = filters?.product_line ? null : inferBreedLine(`${breed || ""} ${query_text || ""}`);
+  if (breedLine) {
+    const exact = await runSearch({
+      p_store_id: PETABAD_STORE_ID,
+      p_query: normalizedQuery,
+      p_in_stock: true,
+      p_product_line: breedLine,
+      ...(rpcParams.p_species ? { p_species: rpcParams.p_species } : {}),
+      p_limit: 6,
+    });
+    if (exact && exact.length > 0) {
+      const seen = new Set(exact.map((p: any) => p.id));
+      results = [...exact, ...results.filter((p: any) => !seen.has(p.id))];
+    }
   }
 
   const terms = [
@@ -499,7 +620,7 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
     const normTerms = terms.map((t) => normalizePersian(t));
     const filtered = results.filter((p: any) => {
       const haystack = normalizePersian(
-        `${p.name_fa || ""} ${p.description_fa || ""} ${(p.tags || []).join(" ")}`
+        `${p.name_fa || ""} ${p.description_fa || ""} ${(p.tags || []).join(" ")} ${(p.health_needs || []).join(" ")}`
       );
       return normTerms.some((t) => haystack.includes(t));
     });
@@ -513,11 +634,19 @@ async function executeSearch(supabase: any, args: any, precomputedEmbedding: num
   else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
   else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
 
-  const matchedTotal = results[0]?.final_score !== undefined ? (data || []).length : results.length;
   return {
-    matched_total: matchedTotal,
+    matched_total: results.length,
     shown: results.length,
     evidence_unconfirmed: evidenceUnconfirmed,
+    filters_relaxed: relaxed.length > 0,
+    searched_with: {
+      family: rpcParams.p_subcategory_prefix || rpcParams.p_subcategory || null,
+      brand: rpcParams.p_brand || null,
+      product_line: rpcParams.p_product_line || null,
+      origin_country: rpcParams.p_origin_country || null,
+      life_stage: rpcParams.p_life_stage || null,
+      breed_size: rpcParams.p_breed_size || null,
+    },
     products: results,
   };
 }
@@ -526,7 +655,10 @@ async function executeFacets(supabase: any, args: any): Promise<any> {
   const { data, error } = await supabase.rpc("pet_question_facets", {
     p_query: args?.query_text ? normalizePersian(args.query_text) : null,
     p_subcategory: args?.subcategory || null,
+    p_subcategory_prefix: args?.subcategory_family || null,
     p_species: args?.species || null,
+    p_brand: args?.brand || null,
+    p_origin_country: args?.origin_country || null,
     p_in_stock: true,
   });
   if (error) {
@@ -538,7 +670,13 @@ async function executeFacets(supabase: any, args: any): Promise<any> {
   if (args?.include_counts === true) return data;
   return {
     brands: (data?.brands || []).map((b: any) => b?.brand).filter(Boolean),
-    species: (data?.species || []).map((s: any) => s?.value).filter(Boolean),
+    countries: (data?.countries || []).map((c: any) => c?.value).filter(Boolean),
+    brands_by_country: (data?.brands_by_country || []).map((b: any) => ({ country: b?.country, brand: b?.brand })),
+    life_stages: (data?.life_stages || []).map((l: any) => l?.value).filter(Boolean),
+    breed_sizes: (data?.breed_sizes || []).map((b: any) => b?.value).filter(Boolean),
+    needs: (data?.needs || []).map((n: any) => n?.value).filter(Boolean),
+    subcategories: (data?.subcategories || []).map((sc: any) => sc?.value).filter(Boolean),
+    species: (data?.species || []).map((sp: any) => sp?.value).filter(Boolean),
     counts_hidden: true,
   };
 }
@@ -566,7 +704,8 @@ async function fetchQuestionFacets(
   supabase: any,
   queryText: string,
   subcategory?: string | null,
-  species?: string | null
+  species?: string | null,
+  subcategoryFamily?: string | null
 ): Promise<QuestionFacets | null> {
   try {
     const cleaned = normalizePersian(queryText || "")
@@ -577,6 +716,7 @@ async function fetchQuestionFacets(
     const { data, error } = await supabase.rpc("pet_question_facets", {
       p_query: cleaned || null,
       p_subcategory: subcategory || null,
+      p_subcategory_prefix: subcategoryFamily || null,
       p_species: species || null,
       p_in_stock: true,
     });
@@ -1037,18 +1177,24 @@ serve(async (req) => {
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
-    const facetSubcategory = /غذای\s*سگ/.test(normLastUser) ? "غذای سگ" : /غذای\s*گربه/.test(normLastUser) ? "غذای گربه" : null;
+    // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
+    const facetFamily = /خشک/.test(normLastUser)
+      ? (/سگ/.test(normLastUser) ? "غذای خشک سگ" : /گربه/.test(normLastUser) ? "غذای خشک گربه" : null)
+      : /کنسرو|پوچ|غذای\s*تر/.test(normLastUser)
+        ? (/سگ/.test(normLastUser) ? "کنسرو و پوچ و غذای تر سگ" : /گربه/.test(normLastUser) ? "کنسرو و پوچ و غذای تر گربه" : null)
+        : null;
+    const facetSubcategory = null;
     const facetSpecies = /سگ/.test(normLastUser) ? "سگ" : /گربه/.test(normLastUser) ? "گربه" : null;
 
     // ── Catalog snapshot: question options must come from real products ──
     let questionFacets: QuestionFacets | null = null;
     let facetsPromise: Promise<QuestionFacets | null> | null = null;
     if (wantsGuidance) {
-      questionFacets = await fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies);
+      questionFacets = await fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies, facetFamily);
       const snap = snapshotLine(questionFacets);
       if (snap) systemPrompt += `\n\n${snap}`;
     } else if (effectiveMode === "agentic" || effectiveMode === "discovery") {
-      facetsPromise = fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies);
+      facetsPromise = fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies, facetFamily);
     }
     const getFacets = async (): Promise<QuestionFacets | null> => {
       if (questionFacets) return questionFacets;

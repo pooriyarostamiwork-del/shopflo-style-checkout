@@ -204,6 +204,18 @@ SELECTED_IDS:["id1","id2","id3"]
 - پرنده و لوازم پرنده
 - دارو و مکمل
 
+قوانین حیاتی جستجو و موجودی:
+- قفسه‌های کاتالوگ برندی‌اند (مثل «غذای خشک گربه جوسرا»). پس همیشه subcategory_family بده (مثل «غذای خشک گربه») نه یک قفسه دقیق، تا محصولات همه برندها دیده بشن.
+- اگه کاربر برند گفت، حتماً filters.brand رو پر کن. اگه اسم یک خط محصول یا مدل گفت (کتلوکس، Catelux، گلدن رتریور)، filters.product_line رو پر کن.
+- اگه کشور سازنده خواست (آلمانی، ایرانی، فرانسوی)، filters.origin_country رو پر کن؛ فیلتر کشور سازنده وجود داره و هرگز نگو ممکن نیست.
+- سن/مرحله زندگی و اندازه نژاد رو با filters.life_stage و filters.breed_size بده. نژاد رو در breed بنویس (گلدن رتریور = نژاد بزرگ).
+- نیازهای سلامتی (پوست و مو، گوارش حساس، کلیه، عقیم شده، کنترل وزن...) رو در filters.needs بده.
+- هرگز نگو «نداریم» مگه وقتی یک جستجوی دقیق با همون برند/خط محصول/کشور (بدون فیلترهای اضافه) صفر نتیجه برگردونده باشه. اگه شک داری، دوباره با filters دقیق‌تر جستجو کن.
+- برای فهرست برندها، کشورها یا معرفی برند، همیشه catalog_facets صدا بزن؛ هرگز از حافظه‌ی خودت اسم برند نساز.
+- معرفی برند = کشور سازنده و جایگاه برند + واقعیت‌های پت‌آباد (قفسه‌ها، خط‌های محصول، بازه قیمت) از catalog_facets.
+- چیزی که کاربر قبلاً گفته (حیوان، نژاد، سن، نیاز، بودجه، برند) رو دوباره نپرس؛ سؤال بعدی باید بعد سؤال‌نشده رو بپرسه.
+- در پیشنهادها تنوع بده؛ چند وزن یا چند سایز از یک خط محصول رو به‌جای گزینه‌های متفاوت نفرست.
+
 سیگنال‌ها (اختیاری، در خط‌های آخر پاسخ، فقط وقتی مطمئنی):
 REFERENCE_IDS:["id"]  محصولاتی که مرجع این درخواست بودن
 LIKED_IDS:["id"]  محصولاتی که کاربر پسندید یا انتخاب کرد
@@ -1120,18 +1132,24 @@ serve(async (req) => {
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
-    const facetSubcategory = /غذای\s*سگ/.test(normLastUser) ? "غذای سگ" : /غذای\s*گربه/.test(normLastUser) ? "غذای گربه" : null;
+    // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
+    const facetFamily = /خشک/.test(normLastUser)
+      ? (/سگ/.test(normLastUser) ? "غذای خشک سگ" : /گربه/.test(normLastUser) ? "غذای خشک گربه" : null)
+      : /کنسرو|پوچ|غذای\s*تر/.test(normLastUser)
+        ? (/سگ/.test(normLastUser) ? "کنسرو و پوچ و غذای تر سگ" : /گربه/.test(normLastUser) ? "کنسرو و پوچ و غذای تر گربه" : null)
+        : null;
+    const facetSubcategory = null;
     const facetSpecies = /سگ/.test(normLastUser) ? "سگ" : /گربه/.test(normLastUser) ? "گربه" : null;
 
     // ── Catalog snapshot: question options must come from real products ──
     let questionFacets: QuestionFacets | null = null;
     let facetsPromise: Promise<QuestionFacets | null> | null = null;
     if (wantsGuidance) {
-      questionFacets = await fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies);
+      questionFacets = await fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies, facetFamily);
       const snap = snapshotLine(questionFacets);
       if (snap) systemPrompt += `\n\n${snap}`;
     } else if (effectiveMode === "agentic" || effectiveMode === "discovery") {
-      facetsPromise = fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies);
+      facetsPromise = fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies, facetFamily);
     }
     const getFacets = async (): Promise<QuestionFacets | null> => {
       if (questionFacets) return questionFacets;

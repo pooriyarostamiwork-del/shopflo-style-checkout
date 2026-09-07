@@ -24,7 +24,7 @@ import {
   AddressShippingSelector,
   MerchantShipping,
 } from "@/components/petabad/AddressShippingSelector";
-import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
 import { PetabadMark } from "@/components/petabad/PetabadBrand";
@@ -215,7 +215,11 @@ export const MobileChatThread = ({
               {/* Interactive clarification card */}
               {msg.clarification && (
                 <div className="pr-1">
-                  <ClarificationBlock clarification={msg.clarification} onAnswer={onSendMessage} />
+                  <ClarificationBlock
+                    clarification={msg.clarification}
+                    onAnswer={onSendMessage}
+                    resolvedWith={answerAfter(messages, msg.id)}
+                  />
                 </div>
               )}
 

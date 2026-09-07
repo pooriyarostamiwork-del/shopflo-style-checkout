@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { ChatMessage, Product, QuickReply, CartItem } from "@/data/petabadData";
-import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
 import { QuickReplyButtons } from "@/components/petabad/AgenticMessageComponents";
 import { ProductDetailsModal } from "@/components/petabad/ProductDetailsModal";
@@ -33,7 +33,6 @@ interface Props {
   onAddToCart: (p: Product) => void;
   onInlineDetails?: (p: Product) => void;
   onQuickReply?: (r: QuickReply) => void;
-  emptyState?: React.ReactNode;
 }
 
 /**
@@ -48,7 +47,6 @@ export const FloatingChatThread = ({
   onAddToCart,
   onInlineDetails,
   onQuickReply,
-  emptyState,
 }: Props) => {
   const [value, setValue] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -68,7 +66,7 @@ export const FloatingChatThread = ({
 
   useEffect(() => {
     if (!taRef.current) return;
-    taRef.current.style.height = "44px";
+    taRef.current.style.height = "36px";
     taRef.current.style.height = `${Math.min(taRef.current.scrollHeight, 132)}px`;
   }, [value]);
 
@@ -84,7 +82,6 @@ export const FloatingChatThread = ({
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/30" dir="rtl">
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        {!messages.some((m) => m.role === "user") && emptyState}
 
         <div className="space-y-5">
           {messages.map((msg) => (
@@ -110,7 +107,11 @@ export const FloatingChatThread = ({
 
               {msg.clarification && (
                 <div className="ps-9">
-                  <ClarificationBlock clarification={msg.clarification} onAnswer={onSendMessage} />
+                  <ClarificationBlock
+                    clarification={msg.clarification}
+                    onAnswer={onSendMessage}
+                    resolvedWith={answerAfter(messages, msg.id)}
+                  />
                 </div>
               )}
 
@@ -171,7 +172,7 @@ export const FloatingChatThread = ({
             e.preventDefault();
             send();
           }}
-          className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 transition-colors focus-within:border-primary/50"
+          className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2 transition-colors focus-within:border-primary/50"
         >
           <div className="relative flex-1">
             <textarea
@@ -186,10 +187,10 @@ export const FloatingChatThread = ({
               }}
               disabled={isProcessing}
               dir="rtl"
-              className="max-h-[132px] min-h-[44px] w-full resize-none bg-transparent px-2 py-2.5 text-[13px] leading-6 text-foreground outline-none"
+              className="max-h-[132px] min-h-[36px] w-full resize-none bg-transparent px-2 py-1.5 text-[13px] leading-6 text-foreground outline-none"
             />
             {!value && (
-              <div className="pointer-events-none absolute inset-0 flex items-start px-2 py-2.5" dir="rtl">
+              <div className="pointer-events-none absolute inset-0 flex items-center px-2" dir="rtl">
                 <TypingText
                   key={placeholderIndex}
                   text={PLACEHOLDERS[placeholderIndex]}

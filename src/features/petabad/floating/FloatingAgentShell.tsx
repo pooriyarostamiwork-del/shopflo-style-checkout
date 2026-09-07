@@ -3,7 +3,7 @@ import { X, SquarePen, History, ChevronLeft, PawPrint } from "lucide-react";
 import { PetabadBrandLockup } from "@/components/petabad/PetabadBrand";
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
 import { useAgentMessages } from "../hooks/useAgentMessages";
-import { FloatingAgentEmptyState } from "./FloatingAgentEmptyState";
+
 import { FloatingChatThread } from "./FloatingChatThread";
 import type { Basket } from "@/components/petabad/Sidebar";
 import type { ChatMessage, Product, QuickReply } from "@/data/petabadData";
@@ -198,7 +198,6 @@ export const FloatingAgentShell = () => {
                   onAddToCart={onAdd}
                   onInlineDetails={handleInlineProductDetails}
                   onQuickReply={handleQuickReply}
-                  emptyState={<FloatingAgentEmptyState onPick={(q) => handleSendMessage(q)} />}
                 />
               )}
 

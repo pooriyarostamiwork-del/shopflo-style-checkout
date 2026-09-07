@@ -15,7 +15,7 @@ import {
   PaymentSelector,
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
-import { ClarificationBlock } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
 import { PetabadMark } from "@/components/petabad/PetabadBrand";
@@ -195,7 +195,11 @@ export const ChatThread = ({
               {/* Interactive clarification card */}
               {msg.clarification && (
                 <div className="mr-11 max-w-[520px]">
-                  <ClarificationBlock clarification={msg.clarification} onAnswer={onSendMessage} />
+                  <ClarificationBlock
+                    clarification={msg.clarification}
+                    onAnswer={onSendMessage}
+                    resolvedWith={answerAfter(messages, msg.id)}
+                  />
                 </div>
               )}
 

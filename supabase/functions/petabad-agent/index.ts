@@ -218,6 +218,11 @@ SELECTED_IDS:["id1","id2","id3"]
 - معرفی برند = کشور سازنده و جایگاه برند + واقعیت‌های پت‌آباد (قفسه‌ها، خط‌های محصول، بازه قیمت) از catalog_facets.
 - چیزی که کاربر قبلاً گفته (حیوان، نژاد، سن، نیاز، بودجه، برند) رو دوباره نپرس؛ سؤال بعدی باید بعد سؤال‌نشده رو بپرسه.
 - در پیشنهادها تنوع بده؛ چند وزن یا چند سایز از یک خط محصول رو به‌جای گزینه‌های متفاوت نفرست.
+- نوع محصول (غذای تر، کنسرو، پوچ، غذای خشک، تشویقی، خاک، شامپو، مکمل، اسباب‌بازی...) رو همون‌طور که کاربر گفته در query_text بیار؛ سیستم خودش کل قفسه‌های اون نوع رو فیلتر می‌کنه. برای «غذای تر» هر سه نوع کنسرو، پوچ و سوپ در نظر گرفته می‌شه، پس ۴ تا ۶ گزینه‌ی متنوع نشون بده، نه یکی.
+- هیچ‌وقت درباره‌ی محصولی که در نتایج هست ولی به حیوون کاربر نمی‌خوره حرف نزن و توضیح نده؛ فقط گزینه‌های درست رو معرفی کن. تعداد گزینه‌هایی که در متن می‌شماری باید دقیقاً برابر تعداد کارت‌ها باشه.
+- برای سؤال‌های دانشی و معرفی برند بیرون از داده‌های فروشگاه (مثل «در مورد برند فیدار بهم بگو») از brand_or_general_lookup استفاده کن و بعد جواب رو کوتاه و انسانی بگو؛ قیمت و موجودی همیشه از کاتالوگ.
+
+
 
 سیگنال‌ها (اختیاری، در خط‌های آخر پاسخ، فقط وقتی مطمئنی):
 REFERENCE_IDS:["id"]  محصولاتی که مرجع این درخواست بودن
@@ -402,6 +407,58 @@ const RECALL_TOOL = {
   },
 };
 
+const WEB_LOOKUP_TOOL = {
+  type: "function",
+  function: {
+    name: "brand_or_general_lookup",
+    description:
+      "Look up general knowledge on the web — brand background ('در مورد برند فیدار بهم بگو'), a company's origin/reputation, or pet-care facts that are NOT catalog data. Never use it for prices, stock or which products exist; those come from the catalog tools.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Short Persian or Latin search query, e.g. برند فیدار غذای حیوانات" },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+};
+
+/** Firecrawl web search (direct API connection). Returns compact snippets only. */
+async function executeWebLookup(args: any): Promise<any> {
+  const key = Deno.env.get("FIRECRAWL_API_KEY");
+  const query = String(args?.query || "").trim();
+  if (!key || !query) {
+    return { available: false, note: "دسترسی به اطلاعات بیرون از فروشگاه در دسترس نیست؛ فقط بر اساس کاتالوگ پاسخ بده." };
+  }
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/search", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query, limit: 4, lang: "fa" }),
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!res.ok) {
+      console.error(`Firecrawl search failed [${res.status}]: ${await res.text()}`);
+      return { available: false, note: "جستجوی وب ناموفق بود؛ فقط بر اساس کاتالوگ پاسخ بده." };
+    }
+    const json = await res.json();
+    const rows = Array.isArray(json?.data) ? json.data : Array.isArray(json?.data?.web) ? json.data.web : [];
+    return {
+      available: true,
+      results: rows.slice(0, 4).map((r: any) => ({
+        title: String(r?.title || "").slice(0, 140),
+        snippet: String(r?.description || r?.markdown || "").slice(0, 600),
+      })),
+    };
+  } catch (e) {
+    console.error("Firecrawl search error:", e);
+    return { available: false, note: "جستجوی وب ناموفق بود؛ فقط بر اساس کاتالوگ پاسخ بده." };
+  }
+}
+
+
+
 const FACETS_TOOL = {
   type: "function",
   function: {
@@ -476,8 +533,9 @@ const CLARIFY_TOOL = {
 
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
-  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL],
-  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL],
+  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL, WEB_LOOKUP_TOOL],
+  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, WEB_LOOKUP_TOOL],
+
   comparison: [],
   info_retrieval: [DETAILS_TOOL],
   conversational: [],
@@ -540,6 +598,55 @@ function inferBreedSize(text: string): string | null {
   return null;
 }
 
+/**
+ * Functional product taxonomy: a shopper word ("غذای تر", "کنسرو", "خاک", "شامپو")
+ * maps to the catalog's product_type values, so a request never depends on the
+ * literal wording appearing inside a product name.
+ */
+const TYPE_SYNONYMS: Array<[RegExp, string[]]> = [
+  [/غذای\s*تر|غذای\s*مرطوب|وت\s*فود/, ["کنسرو", "پوچ", "سوپ", "غذای تر"]],
+  [/کنسرو/, ["کنسرو"]],
+  [/پوچ|کاسه\s*ای|موس/, ["پوچ"]],
+  [/سوپ/, ["سوپ"]],
+  [/غذای\s*خشک|دراي|درای|خشک/, ["غذای خشک"]],
+  [/تشویقی|بیسکویت|اسنک|بستنی/, ["تشویقی"]],
+  [/شیر\s*خشک/, ["شیر خشک"]],
+  [/غذای\s*درمانی|رژیم\s*درمانی/, ["غذای درمانی"]],
+  [/خاک|بستر\s*بهداشتی|ظرف\s*بهداشتی|توالت/, ["خاک و ظرف بهداشتی"]],
+  [/شامپو|نرم\s*کننده|صابون/, ["شامپو و نرم‌کننده"]],
+  [/اسپری|فوم|ادکلن|عطر|بو\s*گیر/, ["اسپری و فوم"]],
+  [/مسواک|خمیر\s*دندان|خمیردندان|بهداشت\s*دهان/, ["بهداشت دهان"]],
+  [/برس|پرزگیر|شانه|ناخن\s*گیر|قیچی|ماشین\s*اصلاح/, ["ابزار آرایش و نظافت"]],
+  [/قطره|شربت|قرص|ضد\s*انگل|پماد|دارو|درمان\s*کرم/, ["دارو و درمان"]],
+  [/مکمل|ویتامین|پروبیوتیک|کلسیم|امگا/, ["مکمل و ویتامین"]],
+  [/خمیر\s*مالت|گلوله\s*مویی/, ["خمیر مالت"]],
+  [/اسکرچر|درخت\s*گربه/, ["اسکرچر و درخت"]],
+  [/اسباب\s*بازی|توپ|تونل|عروسک|لیزر/, ["اسباب‌بازی"]],
+  [/ظرف\s*آب|آبخوری|فواره|غذاخوری|ظرف\s*غذا/, ["ظرف آب و غذا"]],
+  [/تخت|تشک|جای\s*خواب|لانه|پتو/, ["جای خواب"]],
+  [/باکس\s*حمل|کریر|حمل\s*و\s*نقل|کوله/, ["حمل و نقل"]],
+  [/قلاده|هارنس|افسار|پلاک/, ["قلاده و هارنس"]],
+  [/لباس|کاپشن|بارانی/, ["لباس"]],
+  [/قفس|آکواریوم|اکواریوم|فیلتر\s*آب/, ["قفس و آکواریوم"]],
+];
+
+/** All product_type values implied by the shopper's wording (longest intent wins first). */
+function detectProductTypes(text: string): string[] {
+  const norm = normalizePersian(text || "");
+  const out: string[] = [];
+  for (const [re, types] of TYPE_SYNONYMS) {
+    if (re.test(norm)) for (const t of types) if (!out.includes(t)) out.push(t);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+/** Words already handled by the taxonomy must not also be used as text evidence. */
+const TAXONOMY_WORDS =
+  /غذای\s*تر|غذای\s*مرطوب|کنسرو|پوچ|سوپ|غذای\s*خشک|تشویقی|خاک|شامپو|اسپری|مسواک|مکمل|ویتامین|اسکرچر|اسباب\s*بازی|قلاده|جای\s*خواب|ظرف/;
+
+
+
 async function executeSearch(
   supabase: any,
   args: any,
@@ -572,7 +679,18 @@ async function executeSearch(
   if (Array.isArray(filters?.needs) && filters.needs.length > 0) rpcParams.p_needs = filters.needs;
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
+  // Deterministic taxonomy: the shopper's category word decides the shelf, not the
+  // literal product names. When it resolves, it replaces the model's shelf guess.
+  const requestedTypes = detectProductTypes(
+    `${query_text || ""} ${Array.isArray(evidence_terms) ? evidence_terms.join(" ") : ""}`
+  );
+  if (requestedTypes.length > 0) {
+    rpcParams.p_product_types = requestedTypes;
+    delete rpcParams.p_subcategory;
+    delete rpcParams.p_subcategory_prefix;
+  }
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
+
 
   const runSearch = async (params: any) => {
     const { data, error } = await supabase.rpc("pet_hybrid_search", params);
@@ -592,6 +710,8 @@ async function executeSearch(
     (p) => { delete p.p_breed_size; delete p.p_life_stage; },
     (p) => { delete p.p_subcategory_prefix; delete p.p_subcategory; },
     (p) => { delete p.p_max_price; delete p.p_min_price; },
+    (p) => { delete p.p_product_types; },
+
   ];
   const relaxed: string[] = [];
   for (const relax of relaxations) {
@@ -632,7 +752,13 @@ async function executeSearch(
   const terms = [
     ...(Array.isArray(evidence_terms) ? evidence_terms : []),
     ...(Array.isArray(filters?.features) ? filters.features : []),
-  ].filter((t: any) => typeof t === "string" && t.trim()).slice(0, 8);
+  ]
+    .filter((t: any) => typeof t === "string" && t.trim())
+    // A word the taxonomy already enforced must not shrink the shelf again:
+    // catalog names rarely spell out "غذای تر", so text evidence would wrongly empty it.
+    .filter((t: string) => !(requestedTypes.length > 0 && TAXONOMY_WORDS.test(normalizePersian(t))))
+    .slice(0, 8);
+
   let evidenceUnconfirmed = false;
   if (terms.length > 0) {
     const normTerms = terms.map((t) => normalizePersian(t));
@@ -1090,8 +1216,9 @@ function detectSpecies(text: string): string | null {
 // the experience: not a card, not a sentence, not an explanation.
 
 const SPECIES_TOKENS: Array<[string, RegExp]> = [
-  ["گربه", /گربه|پیشی|cat/i],
-  ["سگ", /سگ|dog|پاپی/i],
+  ["گربه", /گربه|گربم|گربه\s*م|پیشی|پیشیم|بچه\s*گربه|cat/i],
+  ["سگ", /سگ|سگم|توله|پاپی|dog/i],
+
   ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
   ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],
   ["سایر حیوانات خانگی", /جونده|جوندگان|خرگوش|همستر|خوکچه|خزنده|لاک\s*پشت|موش|سنجاب|فرت/],
@@ -1683,7 +1810,10 @@ serve(async (req) => {
             id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,
           })),
         };
+      } else if (funcName === "brand_or_general_lookup") {
+        result = await executeWebLookup(funcArgs);
       } else if (funcName === "catalog_facets") {
+
         result = await executeFacets(supabase, funcArgs, lockedSpecies);
       } else if (funcName === "recall_products") {
         const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 12) : [];

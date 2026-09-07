@@ -172,6 +172,7 @@ export type Database = {
           original_price: number | null
           price: number
           product_line: string | null
+          product_type: string | null
           rating: number
           review_count: number
           search_vector: unknown
@@ -183,6 +184,7 @@ export type Database = {
           taxonomy_level1: string | null
           taxonomy_level2: string | null
           taxonomy_level3: string | null
+          type_group: string | null
           updated_at: string
           weight: string | null
         }
@@ -205,6 +207,7 @@ export type Database = {
           original_price?: number | null
           price?: number
           product_line?: string | null
+          product_type?: string | null
           rating?: number
           review_count?: number
           search_vector?: unknown
@@ -216,6 +219,7 @@ export type Database = {
           taxonomy_level1?: string | null
           taxonomy_level2?: string | null
           taxonomy_level3?: string | null
+          type_group?: string | null
           updated_at?: string
           weight?: string | null
         }
@@ -238,6 +242,7 @@ export type Database = {
           original_price?: number | null
           price?: number
           product_line?: string | null
+          product_type?: string | null
           rating?: number
           review_count?: number
           search_vector?: unknown
@@ -249,6 +254,7 @@ export type Database = {
           taxonomy_level1?: string | null
           taxonomy_level2?: string | null
           taxonomy_level3?: string | null
+          type_group?: string | null
           updated_at?: string
           weight?: string | null
         }
@@ -968,6 +974,10 @@ export type Database = {
         }[]
       }
       normalize_persian: { Args: { input: string }; Returns: string }
+      pet_derive_product_type: {
+        Args: { p_category: string; p_name: string; p_subcategory: string }
+        Returns: string
+      }
       pet_extract_breed_size: { Args: { p_text: string }; Returns: string }
       pet_extract_country: {
         Args: { p_current: string; p_specs: Json; p_tags: string[] }
@@ -976,56 +986,111 @@ export type Database = {
       pet_extract_life_stage: { Args: { p_text: string }; Returns: string }
       pet_extract_line: { Args: { p_name: string }; Returns: string }
       pet_extract_needs: { Args: { p_text: string }; Returns: string[] }
-      pet_hybrid_search: {
-        Args: {
-          p_brand?: string
-          p_breed_size?: string
-          p_category?: string
-          p_diversify?: boolean
-          p_embedding?: string
-          p_in_stock?: boolean
-          p_life_stage?: string
-          p_limit?: number
-          p_max_price?: number
-          p_min_price?: number
-          p_needs?: string[]
-          p_offset?: number
-          p_origin_country?: string
-          p_product_line?: string
-          p_query?: string
-          p_species?: string
-          p_store_id?: string
-          p_subcategory?: string
-          p_subcategory_prefix?: string
-        }
-        Returns: {
-          brand: string
-          breed_size: string
-          category: string
-          description_fa: string
-          final_score: number
-          health_needs: string[]
-          id: string
-          image_url: string
-          image_urls: string[]
-          in_stock: boolean
-          life_stage: string
-          matched_total: number
-          name_fa: string
-          origin_country: string
-          original_price: number
-          price: number
-          product_line: string
-          rating: number
-          review_count: number
-          species: string
-          specs: Json
-          stock_qty: number
-          subcategory: string
-          tags: string[]
-          weight: string
-        }[]
-      }
+      pet_hybrid_search:
+        | {
+            Args: {
+              p_brand?: string
+              p_breed_size?: string
+              p_category?: string
+              p_diversify?: boolean
+              p_embedding?: string
+              p_in_stock?: boolean
+              p_life_stage?: string
+              p_limit?: number
+              p_max_price?: number
+              p_min_price?: number
+              p_needs?: string[]
+              p_offset?: number
+              p_origin_country?: string
+              p_product_line?: string
+              p_query?: string
+              p_species?: string
+              p_store_id?: string
+              p_subcategory?: string
+              p_subcategory_prefix?: string
+            }
+            Returns: {
+              brand: string
+              breed_size: string
+              category: string
+              description_fa: string
+              final_score: number
+              health_needs: string[]
+              id: string
+              image_url: string
+              image_urls: string[]
+              in_stock: boolean
+              life_stage: string
+              matched_total: number
+              name_fa: string
+              origin_country: string
+              original_price: number
+              price: number
+              product_line: string
+              rating: number
+              review_count: number
+              species: string
+              specs: Json
+              stock_qty: number
+              subcategory: string
+              tags: string[]
+              weight: string
+            }[]
+          }
+        | {
+            Args: {
+              p_brand?: string
+              p_breed_size?: string
+              p_category?: string
+              p_diversify?: boolean
+              p_embedding?: string
+              p_in_stock?: boolean
+              p_life_stage?: string
+              p_limit?: number
+              p_max_price?: number
+              p_min_price?: number
+              p_needs?: string[]
+              p_offset?: number
+              p_origin_country?: string
+              p_product_line?: string
+              p_product_types?: string[]
+              p_query?: string
+              p_species?: string
+              p_store_id?: string
+              p_subcategory?: string
+              p_subcategory_prefix?: string
+              p_type_group?: string
+            }
+            Returns: {
+              brand: string
+              breed_size: string
+              category: string
+              description_fa: string
+              final_score: number
+              health_needs: string[]
+              id: string
+              image_url: string
+              image_urls: string[]
+              in_stock: boolean
+              life_stage: string
+              matched_total: number
+              name_fa: string
+              origin_country: string
+              original_price: number
+              price: number
+              product_line: string
+              product_type: string
+              rating: number
+              review_count: number
+              species: string
+              specs: Json
+              stock_qty: number
+              subcategory: string
+              tags: string[]
+              type_group: string
+              weight: string
+            }[]
+          }
       pet_question_facets: {
         Args: {
           p_brand?: string
@@ -1039,6 +1104,7 @@ export type Database = {
         }
         Returns: Json
       }
+      pet_type_group: { Args: { p_type: string }; Returns: string }
       product_facets: {
         Args: {
           p_criterion?: string

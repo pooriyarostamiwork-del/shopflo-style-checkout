@@ -2,6 +2,20 @@ import { useMemo, useState } from "react";
 import { Check, ChevronLeft, Sparkles, SlidersHorizontal } from "lucide-react";
 import type { Clarification, ClarificationOption } from "@/data/petabadData";
 
+/**
+ * The shopper reply that came after this message, if any.
+ * `undefined` → the card is still awaiting an answer and stays interactive.
+ */
+export const answerAfter = (
+  messages: Array<{ id: string; role: string; content: string }>,
+  messageId: string
+): string | undefined => {
+  const at = messages.findIndex((m) => m.id === messageId);
+  if (at < 0) return undefined;
+  const next = messages.slice(at + 1).find((m) => m.role === "user");
+  return next ? next.content : undefined;
+};
+
 const Shell = ({
   icon,
   eyebrow,
@@ -102,9 +116,12 @@ const ConfirmButton = ({
 export const ClarificationBlock = ({
   clarification,
   onAnswer,
+  resolvedWith,
 }: {
   clarification: Clarification;
   onAnswer: (message: string) => void;
+  /** Set once the shopper answered: the card collapses to a static summary. */
+  resolvedWith?: string;
 }) => {
   const [done, setDone] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
@@ -112,6 +129,21 @@ export const ClarificationBlock = ({
   const [picked, setPicked] = useState<string[]>([]);
 
   const steps = useMemo(() => clarification.steps ?? [], [clarification.steps]);
+
+  // History must never stay tappable — only the newest, unanswered card is live.
+  if (resolvedWith !== undefined) {
+    const summary = resolvedWith.trim();
+    if (!summary) return null;
+    return (
+      <div
+        dir="rtl"
+        className="flex items-start gap-2 rounded-2xl border border-border/70 bg-muted/40 px-3 py-2 text-[11px] leading-5 text-muted-foreground"
+      >
+        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="min-w-0">{summary}</span>
+      </div>
+    );
+  }
 
   if (done) {
     // Answer is sent as a normal chat message; nothing extra should linger here.

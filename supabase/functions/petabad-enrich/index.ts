@@ -99,8 +99,23 @@ Deno.serve(async (req) => {
     const dryRun = body.dry_run === true;
 
     if (body.report === true) {
-      const { data } = await supabase.rpc("pet_enrichment_coverage");
-      return json({ coverage: data });
+      const countOf = async (build: (q: any) => any) => {
+        const { count } = await build(
+          supabase.from("pet_products").select("id", { count: "exact", head: true }),
+        );
+        return count ?? 0;
+      };
+      return json({
+        coverage: {
+          total: await countOf((q: any) => q),
+          missing_country: await countOf((q: any) => q.is("origin_country", null)),
+          missing_life_stage: await countOf((q: any) => q.is("life_stage", null)),
+          missing_breed_size: await countOf((q: any) => q.is("breed_size", null)),
+          missing_product_line: await countOf((q: any) => q.is("product_line", null)),
+          missing_needs: await countOf((q: any) => q.eq("health_needs", "{}")),
+          not_enriched: await countOf((q: any) => q.is("enriched_at", null)),
+        },
+      });
     }
 
     let processed = 0;

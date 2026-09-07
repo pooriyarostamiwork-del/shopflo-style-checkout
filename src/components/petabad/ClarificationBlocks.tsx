@@ -43,10 +43,12 @@ const Shell = ({
 const OptionButton = ({
   option,
   selected,
+  multi,
   onClick,
 }: {
   option: ClarificationOption;
   selected?: boolean;
+  multi?: boolean;
   onClick: () => void;
 }) => (
   <button
@@ -59,9 +61,9 @@ const OptionButton = ({
   >
     <div className="flex items-center gap-2">
       <span
-        className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-          selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
-        }`}
+        className={`w-4 h-4 border flex items-center justify-center shrink-0 ${
+          multi ? "rounded-[5px]" : "rounded-full"
+        } ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
       >
         {selected && <Check className="w-3 h-3" />}
       </span>
@@ -75,9 +77,26 @@ const OptionButton = ({
   </button>
 );
 
+const ConfirmButton = ({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    disabled={count === 0}
+    className="mt-2.5 w-full rounded-xl bg-primary px-3 py-2.5 text-[13px] font-medium text-primary-foreground transition-opacity disabled:opacity-40"
+  >
+    {count > 0 ? `ادامه (${count.toLocaleString("fa-IR")} مورد انتخاب شد)` : "یکی یا چند مورد انتخاب کن"}
+  </button>
+);
+
 /**
  * Renders an agent-supplied clarification as an interactive card.
  * Single question → quiz card. Multiple attributes → step-by-step selector.
+ * Steps flagged `multi` let the shopper pick several needs at once.
  * The answer is sent back as a normal chat message.
  */
 export const ClarificationBlock = ({
@@ -90,6 +109,7 @@ export const ClarificationBlock = ({
   const [done, setDone] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [picked, setPicked] = useState<string[]>([]);
 
   const steps = useMemo(() => clarification.steps ?? [], [clarification.steps]);
 
@@ -98,30 +118,30 @@ export const ClarificationBlock = ({
     return null;
   }
 
-
   if (clarification.kind === "steps" && steps.length > 0) {
     const step = steps[Math.min(stepIndex, steps.length - 1)];
-    const pick = (label: string) => {
+    const finish = (nextAnswers: Record<string, string>) => {
+      setDone(true);
+      onAnswer(
+        Object.entries(nextAnswers)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("، ")
+      );
+    };
+    const advance = (label: string) => {
       const nextAnswers = { ...answers, [step.title]: label };
       setAnswers(nextAnswers);
-      if (stepIndex + 1 < steps.length) {
-        setStepIndex(stepIndex + 1);
-      } else {
-        setDone(true);
-        onAnswer(
-          Object.entries(nextAnswers)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join("، ")
-        );
-      }
+      setPicked([]);
+      if (stepIndex + 1 < steps.length) setStepIndex(stepIndex + 1);
+      else finish(nextAnswers);
     };
 
     return (
       <Shell
         icon={<SlidersHorizontal className="w-4 h-4" />}
-        eyebrow={`مرحله ${stepIndex + 1} از ${steps.length}`}
+        eyebrow={`مرحله ${(stepIndex + 1).toLocaleString("fa-IR")} از ${steps.length.toLocaleString("fa-IR")}`}
         title={step.question}
-        helper={clarification.helper}
+        helper={step.multi ? "می‌تونی چند گزینه انتخاب کنی" : clarification.helper}
         onSkip={() => {
           setDone(true);
           onAnswer("فرقی نمی‌کنه، خودت انتخاب کن");
@@ -129,12 +149,30 @@ export const ClarificationBlock = ({
       >
         <div className="space-y-2">
           {step.options.map((o, i) => (
-            <OptionButton key={`${o.label}-${i}`} option={o} onClick={() => pick(o.label)} />
+            <OptionButton
+              key={`${o.label}-${i}`}
+              option={o}
+              multi={step.multi}
+              selected={step.multi ? picked.includes(o.label) : undefined}
+              onClick={() => {
+                if (step.multi) {
+                  setPicked((prev) =>
+                    prev.includes(o.label) ? prev.filter((p) => p !== o.label) : [...prev, o.label]
+                  );
+                } else {
+                  advance(o.label);
+                }
+              }}
+            />
           ))}
         </div>
+        {step.multi && <ConfirmButton count={picked.length} onClick={() => advance(picked.join(" و "))} />}
         {stepIndex > 0 && (
           <button
-            onClick={() => setStepIndex(stepIndex - 1)}
+            onClick={() => {
+              setPicked([]);
+              setStepIndex(stepIndex - 1);
+            }}
             className="mt-2.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="w-3 h-3" />
@@ -153,7 +191,7 @@ export const ClarificationBlock = ({
       icon={<Sparkles className="w-4 h-4" />}
       eyebrow="برای دقیق‌تر شدن پیشنهادها"
       title={clarification.question || "کدوم گزینه برات مناسب‌تره؟"}
-      helper={clarification.helper}
+      helper={clarification.multi ? "می‌تونی چند گزینه انتخاب کنی" : clarification.helper}
       onSkip={() => {
         setDone(true);
         onAnswer("فرقی نمی‌کنه، خودت انتخاب کن");
@@ -164,13 +202,30 @@ export const ClarificationBlock = ({
           <OptionButton
             key={`${o.label}-${i}`}
             option={o}
+            multi={clarification.multi}
+            selected={clarification.multi ? picked.includes(o.label) : undefined}
             onClick={() => {
-              setDone(true);
-              onAnswer(o.label);
+              if (clarification.multi) {
+                setPicked((prev) =>
+                  prev.includes(o.label) ? prev.filter((p) => p !== o.label) : [...prev, o.label]
+                );
+              } else {
+                setDone(true);
+                onAnswer(o.label);
+              }
             }}
           />
         ))}
       </div>
+      {clarification.multi && (
+        <ConfirmButton
+          count={picked.length}
+          onClick={() => {
+            setDone(true);
+            onAnswer(picked.join(" و "));
+          }}
+        />
+      )}
     </Shell>
   );
 };

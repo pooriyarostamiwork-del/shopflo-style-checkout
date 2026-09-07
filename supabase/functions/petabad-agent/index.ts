@@ -652,6 +652,8 @@ async function executeSearch(
     (p) => { delete p.p_breed_size; delete p.p_life_stage; },
     (p) => { delete p.p_subcategory_prefix; delete p.p_subcategory; },
     (p) => { delete p.p_max_price; delete p.p_min_price; },
+    (p) => { delete p.p_product_types; },
+
   ];
   const relaxed: string[] = [];
   for (const relax of relaxations) {

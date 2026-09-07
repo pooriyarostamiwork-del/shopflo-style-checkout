@@ -1204,6 +1204,10 @@ const GUIDANCE_RE =
 const COUNT_QUESTION_RE =
   /(چند\s*(تا|مدل|عدد|نوع)|چندتا|تعداد|چقدر|قیمت(ش|شون)?\s*(چند|چقدر)|ارزون\s*ترین|گرون\s*ترین|بازه\s*قیمت|از\s*چند)/;
 
+// "چندتا ... پیشنهاد بده" asks for a few products, not for a count.
+const ASKS_FOR_SOME_RE = /(چند\s*تا|چندتا|چند\s*مدل)[^؟]{0,40}(پیشنهاد|معرفی|بگو|بده|نشون|بیار)/;
+
+
 /**
  * Turns a reply that asked questions in plain text into a card.
  * Handles both a single question with bullet options and several question blocks.

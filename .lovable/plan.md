@@ -36,10 +36,21 @@ Scope: `/petabad` + `/m/petabad` only — the pet catalog, `pet_hybrid_search`, 
 **Issue 6 — brand questions deserve a real answer**
 - "در مورد برند جوسرا بهم بگو" produces a proper introduction: origin country, positioning and what the brand is known for, plus the real پت‌آباد facts (how many products, which shelves, price range, notable lines) and a few tappable follow-ups. The web is consulted for brand background where available; catalog numbers always come from the database, and general brand background is clearly separated from catalog facts.
 
+## Catalog enrichment with AI (data quality pass)
+
+Deterministic parsing fixes most gaps cheaply; AI fills what text parsing can't.
+
+1. **Rule-based pass first (free, exact):** origin country from the کشور سازنده/کشور مبدا attribute text, weight, life stage, breed size, product line and flavour from the product title. This alone covers most of the ~1,080 empty country rows.
+2. **AI pass for the leftovers:** a `petabad-enrich` edge function batches the remaining products (name + description + attributes) through the Lovable AI gateway and returns structured fields only — origin country, species, life stage, breed size, product line, health needs (پوست و مو، گوارش حساس، کلیه، عقیم‌شده، کنترل وزن…), flavour, and a clean 2-sentence Persian description where one is missing. Values are constrained to the catalog's existing vocabularies so nothing new is invented; anything the model is unsure about stays empty rather than guessed.
+3. **Safety:** batches of ~15 with resume-by-offset, only fills empty fields (never overwrites real data), writes an enrichment timestamp so re-runs skip finished rows, and refreshes search text and embeddings for changed rows.
+4. **Coverage report** afterwards: how many products now have country, life stage, breed size, needs and product line, so we can see the catalog quality before/after.
+
 ## Technical notes
 
-- Migration: `pet_products` gains `origin_country` backfill from `tags`/`specs`, plus generated/derived columns for `life_stage`, `breed_size` and `product_line`, with matching indexes and refreshed `search_vector`.
-- `pet_hybrid_search` gains `p_subcategory_prefix` (family match), `p_origin_country`, `p_product_line`, `p_life_stage`, `p_breed_size`, exact-shelf/line bonuses, and per-line diversification via `DISTINCT ON`-style windowing before the final limit.
-- `pet_question_facets` gains `origin_country` and `life_stage` facets and honours the same family/brand/country filters, so question options remain grounded.
+- Migration: `pet_products` gains `origin_country` backfill from `tags`/`specs`, plus derived columns for `life_stage`, `breed_size`, `product_line`, `health_needs text[]`, and an `enriched_at` timestamp, with matching indexes and refreshed `search_vector`.
+- New edge function `petabad-enrich` (isolated, PetAbad-only) using the Lovable AI gateway with a strict JSON schema and controlled vocabularies; `petabad-embeddings` re-runs for rows whose text changed.
+- `pet_hybrid_search` gains `p_subcategory_prefix` (family match), `p_origin_country`, `p_product_line`, `p_life_stage`, `p_breed_size`, exact-shelf/line bonuses, and per-line diversification via windowing before the final limit.
+- `pet_question_facets` gains `origin_country`, `life_stage` and `health_needs` facets and honours the same family/brand/country filters, so question options remain grounded.
 - `petabad-agent`: pass `p_brand`/country/line/stage into the RPC (drop the post-filter), add breed→size/stage mapping, add a session shopping profile injected into every tool call, add an availability-denial guard requiring a zero-row full-catalog check, add a brand-profile response path, and widen tool descriptions with the real shelf families.
 - Verification: replay all seven transcripts against the deployed function and confirm Josera Catelux, the Royal Canin Golden Retriever product, German/Iranian brand lists, and diversified adult-dog results.
+

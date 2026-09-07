@@ -55,6 +55,8 @@ interface ChatThreadProps {
   onAddNewAddress?: (address: Omit<DeliveryAddress, "id">) => void;
   onPaymentSelect?: (paymentId: string) => void;
   agenticState?: AgenticState;
+  /** Embedded (floating widget) mode: no storefront top bar, fills its container. */
+  embedded?: boolean;
 }
 
 export const ChatThread = ({
@@ -82,6 +84,7 @@ export const ChatThread = ({
   onAddNewAddress,
   onPaymentSelect,
   agenticState,
+  embedded = false,
 }: ChatThreadProps) => {
   const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -135,7 +138,7 @@ export const ChatThread = ({
   return (
 
     <div
-      className="flex-1 flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5"
+      className={`flex-1 flex flex-col ${embedded ? "h-full" : "h-screen"} bg-gradient-to-br from-background via-background to-primary/5`}
       dir="rtl"
       style={{
         marginLeft: isCartOpen ? '340px' : '0',
@@ -143,6 +146,7 @@ export const ChatThread = ({
       }}
     >
       {/* Fixed Top Bar */}
+      {!embedded && (
       <div
         className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
         style={{
@@ -155,6 +159,7 @@ export const ChatThread = ({
           <span className="text-foreground/80">همراه پت آباد، خیالت از خرید لوازم حیوان خانگی راحت باشه!</span>
         </div>
       </div>
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">

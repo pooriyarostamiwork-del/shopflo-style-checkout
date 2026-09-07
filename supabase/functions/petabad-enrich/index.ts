@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-3.1-flash-lite",
           messages: [
             { role: "system", content: SYSTEM },
             { role: "user", content: buildUserPayload(rows) },

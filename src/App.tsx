@@ -18,6 +18,8 @@ import Playground from "./pages/Playground";
 import PlaygroundMobile from "./pages/PlaygroundMobile";
 import PetAbad from "./pages/PetAbad";
 import MobilePetAbad from "./pages/MobilePetAbad";
+import PetabadFloating from "./pages/PetabadFloating";
+
 import { FarsiLayout } from "./components/LanguageLayout";
 import { HomepageSettingsProvider } from "./contexts/HomepageSettingsContext";
 const queryClient = new QueryClient();
@@ -52,7 +54,9 @@ const App = () => (
 
             {/* Product 4: PetAbad — pet-category AI storefront clone */}
             <Route path="/petabad" element={<PetAbad />} />
+            <Route path="/petabad/floating" element={<PetabadFloating />} />
             <Route path="/m/petabad" element={<MobilePetAbad />} />
+
 
             {/* Catch-all */}
             {/* Component playground (isolated testing environment) */}

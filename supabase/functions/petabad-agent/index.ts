@@ -528,8 +528,9 @@ const CLARIFY_TOOL = {
 
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
-  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL],
-  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL],
+  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL, WEB_LOOKUP_TOOL],
+  discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, WEB_LOOKUP_TOOL],
+
   comparison: [],
   info_retrieval: [DETAILS_TOOL],
   conversational: [],

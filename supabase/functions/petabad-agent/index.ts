@@ -1103,6 +1103,22 @@ function speciesRe(label: string | null): RegExp | null {
   return null;
 }
 
+/** The animal named LAST in this text — a message can mention two. */
+function lastNamedSpecies(text: string): string | null {
+  const norm = normalizePersian(text || "");
+  let best: string | null = null;
+  let bestAt = -1;
+  for (const [name, re] of SPECIES_TOKENS) {
+    const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+    let m: RegExpExecArray | null;
+    while ((m = g.exec(norm)) !== null) {
+      if (m.index >= bestAt) { bestAt = m.index; best = name; }
+      if (m.index === g.lastIndex) g.lastIndex++;
+    }
+  }
+  return best;
+}
+
 /** Is this catalog row acceptable for the locked species? */
 function rowMatchesSpecies(row: any, locked: string): boolean {
   const own = speciesRe(locked);
@@ -1351,14 +1367,22 @@ serve(async (req) => {
     const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
 
-    // ── Species lock: newest mention across the whole conversation wins ──
+    // ── Species lock, re-resolved on every turn ──
+    // The animal named LAST wins: last mention inside the newest message first,
+    // then walking back. Switching animals mid-conversation is normal shopping.
     const userTurns = (userMessages || []).filter((m: any) => m.role === "user").map((m: any) => String(m.content || ""));
     let lockedSpecies: string | null = null;
     let lockedStage: string | null = null;
+    let lockedFromTurn = 0;
     for (let i = userTurns.length - 1; i >= 0; i--) {
-      if (!lockedSpecies) lockedSpecies = detectSpecies(userTurns[i]);
-      if (!lockedStage) lockedStage = detectLifeStage(userTurns[i]);
-      if (lockedSpecies && lockedStage) break;
+      const found = lastNamedSpecies(userTurns[i]);
+      if (found) { lockedSpecies = found; lockedFromTurn = i; break; }
+    }
+    // Life stage counts only from the turn that named the current animal onwards,
+    // so an earlier kitten mention cannot stick to a dog the shopper switched to.
+    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+      const stage = detectLifeStage(userTurns[i]);
+      if (stage) { lockedStage = stage; break; }
     }
     const speciesLock = { species: lockedSpecies, lifeStage: lockedStage };
     knownSpecies = lockedSpecies || knownSpecies;
@@ -1379,7 +1403,9 @@ serve(async (req) => {
       : (/سگ/.test(normLastUser) ? "سگ" : /گربه/.test(normLastUser) ? "گربه" : null);
 
     if (lockedSpecies) {
-      systemPrompt += `\n\nSPECIES_LOCK: خرید این گفتگو فقط و فقط برای «${lockedSpecies}» است.
+      systemPrompt += `\n\nSPECIES_LOCK: در این نوبت خرید برای «${lockedSpecies}» است.
+- هرگز نگو پت‌آباد فقط برای «${lockedSpecies}» محصول داره یا برای حیوان دیگه‌ای خدمات نداره؛ فروشگاه برای همه حیوانات خانگی محصول داره.
+- اگر کاربر در پیام جدیدش حیوان دیگری رو نام برد، بدون مقاومت و بدون توضیح اضافه همون حیوان جدید رو ادامه بده.
 - هیچ محصول، جمله، توضیح یا مقایسه‌ای مربوط به حیوان دیگری (پرنده، سگ، گربه، ماهی، جوندگان یا هر حیوان دیگر جز «${lockedSpecies}») نباید در پاسخت بیاد.
 - هرگز توضیح نده که نتایج پیداشده مربوط به حیوان دیگری بودن؛ درباره فرایند داخلی جستجو حرف نزن.
 - اگر برای یک نیاز محصول مناسب «${lockedSpecies}» پیدا نشد، فقط صادقانه بگو برای همون بخش گزینه مناسبی پیدا نکردی و محصول جایگزین از حیوان دیگه پیشنهاد نده.`;

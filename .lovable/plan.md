@@ -147,6 +147,47 @@ A replayable PetAbad eval set (~30 real Persian cases, including all of yours) r
 - UI checks with Playwright on `/petabad`, `/m/petabad` and `/petabad/floating`: cards render, counts match numbered items, no console errors.
 - Regression gate: the full eval set must pass before I report any part of this work complete, and it re-runs after every later change.
 
+## Part 8 — Automated replay suite for the failing Persian prompts
+
+A runnable script that replays every failing prompt you have reported against the deployed PetAbad assistant and grades the answer: were products returned, were they the right species/life stage/need, was the requested brand or origin actually honoured, and did the visible text match the cards.
+
+### Tests
+- Each case carries SQL ground truth (e.g. German skin-and-coat cat dry food), so a "no products" answer only passes when the catalog truly has none.
+- Output is a pass/fail table naming the broken assertion and the latency per case.
+- Suite runs on demand and again after every later PetAbad change.
+
+## Part 9 — Confidence scoring and honest fallback
+
+Every inferred filter (brand, origin country, species, life stage, skin-and-coat style needs) gets a match confidence. Retrieval reports how well each candidate satisfies each filter instead of silently dropping rows.
+
+- High confidence: answer normally.
+- Partial: return the closest genuine matches and say plainly which condition could not be fully met.
+- Low or no confidence: say the exact request is not available and offer the nearest real option, never an unrelated product.
+- Unrelated filler suggestions are removed as a behaviour: a suggestion must satisfy at least the species and the core need.
+
+### Tests
+- Replay the German-brand case: partial-match wording appears when only non-German skin-and-coat food exists, with no unrelated items.
+- Replay a deliberately impossible request: honest unavailability, nearest real alternative, no invented brand.
+- Assert no returned product ever violates species or the core need.
+
+## Part 10 — Scheduled enrichment validation
+
+A scheduled validator that scans the pet catalog for missing or self-contradictory enrichment (breed size on non-dogs, life stage conflicting with the product name, needs absent while the title states them, missing origin country) and re-runs enrichment only for the affected rows, writing a short report each run.
+
+### Tests
+- Seed a known bad row, run the validator, confirm it is flagged, repaired, and that untouched rows are byte-identical.
+- Confirm the second consecutive run reports zero new issues (idempotent).
+- Confirm the report lists issue counts by type before and after.
+
+## Part 11 — Inferred-filter chips in the PetAbad UI
+
+On `/petabad`, `/m/petabad` and `/petabad/floating`, the assistant shows small chips above the results for the conditions it inferred from your sentence (animal, age, brand, origin, need, budget). Each chip can be removed, and one tap re-runs the search without it; a chip can also be corrected. Chips reflect only conditions actually applied to the search, so what the assistant is doing is visible.
+
+### Tests
+- Chips shown match exactly the filters the search used; nothing invented, nothing hidden.
+- Removing a chip re-runs the search and returns a broader, still-valid result set.
+- RTL and Persian digits verified on desktop, mobile and floating; Playwright screenshots with no console errors.
+
 ## Technical summary
 
 - Migrations: taxonomy tables + seed from catalog; `pet_products` gains per-field provenance/confidence columns and `taxonomy_version`; weighted `search_vector` rebuild; `pet_hybrid_search` v2 (three-valued scoring, country soft, coverage-based text scoring, tiered relaxation metadata); `pet_question_facets` reads the taxonomy.

@@ -197,7 +197,7 @@ A single command prints a per-case table with status, latency and the exact brok
 ### Definition of done
 Known critical failures and representative missions are replayable; every case has explicit assertions and SQL ground truth where determinable; species/product-type violations blocked; essential constraints protected; product–need fit and Exact/Partial/Fallback/Invalid classification evaluated; UNKNOWN never counted as satisfied; brand, origin, life-stage and relaxation behaviour tested; unsupported claims, invented products and false unavailability detected; backend and visible cards consistent; latency reported; suite runnable on demand as the standing regression gate.
 
-## Part 9 — Confidence scoring and honest fallback
+## Part 8 — Confidence scoring and honest fallback
 
 Every inferred filter (brand, origin country, species, life stage, skin-and-coat style needs) gets a match confidence. Retrieval reports how well each candidate satisfies each filter instead of silently dropping rows.
 
@@ -211,7 +211,7 @@ Every inferred filter (brand, origin country, species, life stage, skin-and-coat
 - Replay a deliberately impossible request: honest unavailability, nearest real alternative, no invented brand.
 - Assert no returned product ever violates species or the core need.
 
-## Part 10 — Scheduled enrichment validation
+## Part 9 — Scheduled enrichment validation
 
 A scheduled validator that scans the pet catalog for missing or self-contradictory enrichment (breed size on non-dogs, life stage conflicting with the product name, needs absent while the title states them, missing origin country) and re-runs enrichment only for the affected rows, writing a short report each run.
 
@@ -220,7 +220,7 @@ A scheduled validator that scans the pet catalog for missing or self-contradicto
 - Confirm the second consecutive run reports zero new issues (idempotent).
 - Confirm the report lists issue counts by type before and after.
 
-## Part 11 — Inferred-filter chips in the PetAbad UI
+## Part 10 — Inferred-filter chips in the PetAbad UI
 
 On `/petabad`, `/m/petabad` and `/petabad/floating`, the assistant shows small chips above the results for the conditions it inferred from your sentence (animal, age, brand, origin, need, budget). Each chip can be removed, and one tap re-runs the search without it; a chip can also be corrected. Chips reflect only conditions actually applied to the search, so what the assistant is doing is visible.
 

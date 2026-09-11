@@ -155,26 +155,49 @@ Goal: **every one of the 1,721 rows** labelled on every applicable dimension, wi
 - Coverage gate: final report shows life stage, breed size (dogs), product line, needs and country at ~100% of applicable rows; the before/after table is reported to you.
 - Post-enrichment search test: the سنیور cat-food query now returns a materially larger, correct set than the 2 rows it had.
 
-## Part 7 — Evaluation (so this stays fixed)
+## Part 7 — Automated evaluation & regression suite
 
-A replayable PetAbad eval set (~30 real Persian cases, including all of yours) run against the deployed function, asserting per case: a search actually executed, species/stage discipline held, result count > 0 where products provably exist, text↔card parity, no invented product or brand, no unrequested counts, and latency.
+One replayable evaluation system — not two — combining known historical PetAbad failures with representative Persian shopping missions. It is the permanent regression gate. It does not merely ask "did products come back?" but "did PetAbad understand the shopping mission, return products that genuinely satisfy it, handle missing requirements and relaxation correctly, and communicate the same thing in text and in cards?"
 
-### Tests
-- The eval set itself is the test harness: a single script prints a pass/fail table per case with the failing assertion named.
-- Ground truth per case is a SQL query proving what the catalog actually contains, so "zero results" is only ever accepted when SQL agrees.
-- UI checks with Playwright on `/petabad`, `/m/petabad` and `/petabad/floating`: cards render, counts match numbered items, no console errors.
-- Regression gate: the full eval set must pass before I report any part of this work complete, and it re-runs after every later change.
+Flow per case: Persian prompt → deployed PetAbad → response + products → automated assertions → SQL ground truth → UI/card verification → PASS/FAIL + named failing assertion + latency. Cases run against the real deployed function, not mocked retrieval.
 
-## Part 8 — Automated replay suite for the failing Persian prompts
+Each case declares: `id`, prompt, expected shopping mission, species, product type/type group, life stage, health/functional need, brand, origin, budget, critical constraints, expected fit classification, SQL ground-truth query, expected relaxation behaviour, UI expectations — all expressed in the same canonical taxonomy the product uses, not a second test vocabulary.
 
-A runnable script that replays every failing prompt you have reported against the deployed PetAbad assistant and grades the answer: were products returned, were they the right species/life stage/need, was the requested brand or origin actually honoured, and did the visible text match the cards.
+### Assertion categories
+1. **Search execution** — a real search ran for every discovery turn; no unavailability claim without one.
+2. **Species correctness** — a cat mission never surfaces dog/bird/fish products, even after full relaxation, unless the user changes the mission.
+3. **Product-type correctness** — food never becomes a supplement, dry never becomes wet, shampoo never becomes a supplement; semantic similarity never overrides type compatibility.
+4. **Essential-constraint protection** — Tier-0/Tier-1 constraints from Part 3 are never silently violated; a violating product is classified invalid and not recommended as satisfying the request.
+5. **Product–need fit** — explicitly supported / contradicted / unknown are distinguished; UNKNOWN is never treated as TRUE; Exact Fit ranks above Partial and Fallback; Invalid Fit is excluded.
+6. **Brand & origin compliance** — an explicitly requested brand or origin is actually returned when it exists; if relaxed, the reply discloses it instead of presenting an alternative as exact.
+7. **Life-stage correctness** — a senior or kitten request is not silently served adult products; a missing critical stage is reported with an offered fallback.
+8. **Relaxation correctness** — which constraint was relaxed, why, whether it was legally relaxable, the resulting scope, whether it was disclosed, and whether the result is labelled Partial/Fallback.
+9. **Evidence-backed claims** — every attribute claim (health, life stage, country, breed, ingredient) is supported by catalog evidence; unsupported or invented characteristics fail.
+10. **No invented products or brands** — names, brands, variants, prices and attributes must exist in the catalog.
+11. **False-unavailable protection** — «نداریم / موجود نیست / پیدا نشد» passes only when SQL ground truth agrees; turn-level only, never a persistent state.
 
-### Tests
-- Each case carries SQL ground truth (e.g. German skin-and-coat cat dry food), so a "no products" answer only passes when the catalog truly has none.
-- Output is a pass/fail table naming the broken assertion and the latency per case.
-- Suite runs on demand and again after every later PetAbad change.
+### SQL ground truth
+Every case with objectively determinable availability carries a `pet_products` query establishing what the catalog contains, independent of the model. A zero-product answer is never accepted just because the agent returned zero.
 
-## Part 9 — Confidence scoring and honest fallback
+### UI / card verification
+Playwright on `/petabad`, `/m/petabad` and `/petabad/floating`: cards render, rendered products equal backend products, any stated count matches visible cards, no missing/duplicate/invented cards, card name/brand/price match backend data, no console errors affecting shopping. This directly catches "9 products claimed, 6 cards rendered".
+
+### Text ↔ card parity
+Explicit failing assertions when prose and cards disagree — different product, wrong origin, wrong stage, mismatched count, mismatched price.
+
+### Latency
+Per case: total latency, agent rounds, search latency where available. Latency regressions stay visible even when functional assertions pass.
+
+### Dataset
+~30 real Persian shopping missions: all known failures (wrong species, wrong product type, life stage, health need, brand, origin, false unavailable, follow-up context loss, products present but unretrieved, count/card mismatch, unsupported claims) plus normal and edge cases, so the suite is a quality bar and not just a bug archive.
+
+### Output & regression gate
+A single command prints a per-case table with status, latency and the exact broken assertion, plus a pass rate. The full suite must pass before I report any PetAbad work complete, and re-runs after every change that can affect discovery: taxonomy, enrichment, retrieval, ranking, agent/prompt, tool schemas, relaxation logic, cards, backend.
+
+### Definition of done
+Known critical failures and representative missions are replayable; every case has explicit assertions and SQL ground truth where determinable; species/product-type violations blocked; essential constraints protected; product–need fit and Exact/Partial/Fallback/Invalid classification evaluated; UNKNOWN never counted as satisfied; brand, origin, life-stage and relaxation behaviour tested; unsupported claims, invented products and false unavailability detected; backend and visible cards consistent; latency reported; suite runnable on demand as the standing regression gate.
+
+## Part 8 — Confidence scoring and honest fallback
 
 Every inferred filter (brand, origin country, species, life stage, skin-and-coat style needs) gets a match confidence. Retrieval reports how well each candidate satisfies each filter instead of silently dropping rows.
 
@@ -188,7 +211,7 @@ Every inferred filter (brand, origin country, species, life stage, skin-and-coat
 - Replay a deliberately impossible request: honest unavailability, nearest real alternative, no invented brand.
 - Assert no returned product ever violates species or the core need.
 
-## Part 10 — Scheduled enrichment validation
+## Part 9 — Scheduled enrichment validation
 
 A scheduled validator that scans the pet catalog for missing or self-contradictory enrichment (breed size on non-dogs, life stage conflicting with the product name, needs absent while the title states them, missing origin country) and re-runs enrichment only for the affected rows, writing a short report each run.
 
@@ -197,7 +220,7 @@ A scheduled validator that scans the pet catalog for missing or self-contradicto
 - Confirm the second consecutive run reports zero new issues (idempotent).
 - Confirm the report lists issue counts by type before and after.
 
-## Part 11 — Inferred-filter chips in the PetAbad UI
+## Part 10 — Inferred-filter chips in the PetAbad UI
 
 On `/petabad`, `/m/petabad` and `/petabad/floating`, the assistant shows small chips above the results for the conditions it inferred from your sentence (animal, age, brand, origin, need, budget). Each chip can be removed, and one tap re-runs the search without it; a chip can also be corrected. Chips reflect only conditions actually applied to the search, so what the assistant is doing is visible.
 

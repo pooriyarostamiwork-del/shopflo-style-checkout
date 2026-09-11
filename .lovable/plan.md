@@ -41,21 +41,39 @@ The retrieval layer adopts TRUE / FALSE / UNKNOWN explicitly.
 - Text-evidence case: a product whose `life_stage` is null but whose title says «بالغ» ranks above a row with no evidence at all.
 - Regression: for 10 representative queries, result count after the change is ≥ result count before, and no query regresses to zero.
 
-## Part 3 — Intelligent constraint relaxation
+## Part 3 — Context-aware constraint relaxation
 
-Constraints get an **importance tier**, derived from the user's own words, not from filter order:
+Constraint importance is **not a single fixed ladder**. A tier is derived from three inputs together: the user's wording, the nature of the requirement (medical vs functional vs cosmetic vs taste), and **the product category being shopped for**. The agent first resolves *what is being bought*, then assigns importance relative to that category.
 
-- **Essential** (never relaxed): species, product category/type group, an explicitly stated hard budget.
-- **Strong** (relaxed last, and disclosed): the functional need (پوست و مو), stated brand, stated country, life stage, breed size
-- **Soft** (relaxed first, silently): flavour, product line, shelf name, sort.
+- **Tier 0 — Hard compatibility (never auto-relaxed):** species, product type / product group, an explicit hard budget, explicit contraindication or incompatible condition. گربه never becomes سگ, غذای خشک never becomes مکمل, «زیر ۵۰۰ هزار» never returns ۹۰۰ هزار without permission.
+- **Tier 1 — Critical fit (non-relaxable when it applies):** medical / therapeutic conditions (کلیه، مجاری ادراری، دیابت، گوارش درمانی), explicitly stated life stage, special conditions (عقیم‌شده، باردار، شیرده), and breed size when it is materially relevant to that category. «غذای درمانی کلیه» must never quietly become ordinary cat food. When no exact match exists the answer states that honestly and *offers* the nearest option as an explicit choice: «غذای مخصوص بچه‌گربه پیدا نکردم؛ اگر بخوای نزدیک‌ترین گزینه‌های گربه رو برات بررسی می‌کنم» — a fallback the user accepts, not a silent substitution.
+- **Tier 2 — Strong preference (relaxed with disclosure):** cosmetic/functional needs such as پوست و مو, stated brand, stated country, life stage or breed size when not critical for that category. «آلمانی نداشتیم برای این نیاز، این‌ها نزدیک‌ترین گزینه‌ها هستن».
+- **Tier 3 — Soft preference (relaxed first, quietly):** flavour, product line, shelf name, sorting, secondary attributes.
 
-The widening ladder walks soft → strong, one tier at a time, and every relaxation is recorded and surfaced in the reply in natural Persian («آلمانی نداشتیم برای این نیاز، این‌ها نزدیک‌ترین گزینه‌ها هستن»). Zero results triggger a second, *broader* pass (drop shelf, keep species + need, lean on semantic vectors) before any negative answer.
+**Category-dependent importance matrix** (stored as data alongside the taxonomy, so it is revisable):
+
+```text
+requirement      | food            | toy             | hygiene
+-----------------|-----------------|-----------------|-----------------
+species          | hard            | hard            | hard
+product type     | hard            | hard            | hard
+medical need     | critical        | n/a             | critical if stated
+life stage       | critical/strong | strong/soft     | soft/strong
+breed size       | strong          | strong          | soft/strong
+country          | preference      | preference      | preference
+brand            | preference      | preference      | preference
+flavour          | soft            | n/a             | n/a
+```
+
+The widening ladder walks Tier 3 → Tier 2 only. Tier 1 is never crossed automatically: instead the turn returns an honest "not found for this critical requirement" plus an offered fallback. Every relaxation is recorded in the trace and surfaced in natural Persian. Zero results still trigger a broader Tier-3/Tier-2 pass (drop shelf, keep species + critical requirements, lean on semantic vectors) before any negative answer.
 
 ### Tests
-- Impossible-combination case («غذای خشک گربه آلمانی برای کلیه زیر ۵۰۰ هزار تومان»): assert the reply still returns products, the trace lists exactly which tier was relaxed, and the Persian text discloses it.
-- Essential-tier test: a cat query never returns a dog row even after full relaxation; a stated budget ceiling is never exceeded in returned prices.
-- Ladder-order test (unit): given a zero-result first pass, relaxations fire soft → strong in order, and stop at the first non-empty pass.
-- Disclosure test: every response whose trace has `relaxed: true` contains a disclosure sentence; every response with `relaxed: false` contains none.
+- Medical case («غذای گربه برای بیماری کلیه»): assert either true kidney-support products, or an honest not-found plus an offered alternative — never ordinary food presented as a match.
+- Life-stage case («غذای بچه گربه») with kitten rows suppressed: assert the reply names the gap and offers the adult option as a choice; assert no adult product is presented as a kitten match.
+- Category-dependence test: «غذای شیتزو» treats breed size as strong, «اسباب‌بازی برای شیتزو» treats it as a ranking signal only; both assert the expected tier in the trace.
+- Tier-0 test: a cat query never returns a dog row after full relaxation; a stated budget ceiling is never exceeded.
+- Ladder-order test (unit): relaxations fire Tier 3 → Tier 2 and stop at the first non-empty pass; Tier 1 is never auto-relaxed in any generated ladder.
+- Disclosure test: every response with `relaxed: true` contains a disclosure sentence; `relaxed: false` contains none.
 
 ## Part 4 — Multi-source retrieval
 

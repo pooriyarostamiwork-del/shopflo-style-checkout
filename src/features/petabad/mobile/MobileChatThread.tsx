@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
-import { toPersianNumber } from "@/data/petabadData";
+import { toPersianNumber, encodeJourneyAnswer } from "@/data/petabadData";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -24,7 +24,7 @@ import {
   AddressShippingSelector,
   MerchantShipping,
 } from "@/components/petabad/AddressShippingSelector";
-import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, JourneyCard, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
 import { PetabadMark } from "@/components/petabad/PetabadBrand";

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
-import { ChatMessage, Product, QuickReply, CartItem } from "@/data/petabadData";
-import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
+import { ChatMessage, Product, QuickReply, CartItem, encodeJourneyAnswer } from "@/data/petabadData";
+import { ClarificationBlock, JourneyCard, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
 import { QuickReplyButtons } from "@/components/petabad/AgenticMessageComponents";
 import { ProductDetailsModal } from "@/components/petabad/ProductDetailsModal";

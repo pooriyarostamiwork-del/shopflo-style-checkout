@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem } from "@/data/petabadData";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem, encodeJourneyAnswer } from "@/data/petabadData";
 import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { ProductDetailsModal } from "./ProductDetailsModal";
@@ -15,7 +15,7 @@ import {
   PaymentSelector,
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
-import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, JourneyCard, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
 import { PetabadMark } from "@/components/petabad/PetabadBrand";

@@ -1026,8 +1026,9 @@ async function executeSearch(
   results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
 
 
-  // Honest fallback signal: the shopper named a brand we cannot actually serve.
-  const requestedBrand = filters?.brand ? String(filters.brand).trim() : "";
+  // Honest fallback signal: the shopper named a REAL brand we cannot serve.
+  // Colloquial words misread as brands never produce this claim.
+  const requestedBrand = filters?.brand && brandClass !== "not-a-brand" ? String(filters.brand).trim() : "";
   const brandUnavailable =
     requestedBrand.length > 0 &&
     !results.some((r: any) =>
@@ -1039,6 +1040,7 @@ async function executeSearch(
     shown: results.length,
     requested_brand: requestedBrand || null,
     brand_unavailable: brandUnavailable,
+
     evidence_unconfirmed: evidenceUnconfirmed,
     filters_relaxed: relaxedLabels.length > 0,
     relaxed_filters: relaxedLabels,

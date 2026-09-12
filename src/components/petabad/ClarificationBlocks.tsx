@@ -210,7 +210,7 @@ export const ClarificationBlock = ({
   return (
     <Shell
       icon={<Sparkles className="w-4 h-4" />}
-      eyebrow="برای دقیق‌تر شدن پیشنهادها"
+      eyebrow={clarification.progress || "برای دقیق‌تر شدن پیشنهادها"}
       title={clarification.question || "کدوم گزینه برات مناسب‌تره؟"}
       helper={clarification.multi ? "می‌تونی چند گزینه انتخاب کنی" : clarification.helper}
       onSkip={() => {

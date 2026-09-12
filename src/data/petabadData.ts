@@ -133,6 +133,11 @@ export interface ClarificationStep {
 
 export interface Clarification {
   kind: 'single' | 'steps';
+  /** Server question id / title when the card belongs to an adaptive question flow. */
+  id?: string;
+  title?: string;
+  /** e.g. «سؤال ۲ از حدود ۴» */
+  progress?: string;
   question?: string;
   helper?: string;
   multi?: boolean;

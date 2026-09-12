@@ -1218,6 +1218,7 @@ export type Database = {
           p_exclude_brands?: string[]
           p_foreign_only?: boolean
           p_in_stock?: boolean
+          p_life_stage?: string
           p_needs?: string[]
           p_origin_country?: string
           p_product_types?: string[]

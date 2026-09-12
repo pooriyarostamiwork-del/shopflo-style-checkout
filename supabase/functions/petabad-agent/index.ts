@@ -1,5 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  detectGoal,
+  isFlow,
+  nextQuestion,
+  recordAnswer,
+  startFlow,
+  summarize,
+  type FlowDeps,
+  type FlowSummary,
+  type QuestionFlow,
+} from "./questionFlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -174,7 +185,7 @@ SELECTED_IDS:["id1","id2","id3"]
 
 پرسیدن سؤال (قانون قطعی):
 - هیچ‌وقت سؤال‌هات رو به شکل متن یا لیست بولت‌دار در پاسخ ننویس. هر سؤالی که از کاربر داری فقط و فقط با ask_clarification پرسیده میشه (کارت تعاملی)
-- درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification با steps (نوع حیوان → نیازها → بودجه) و هر مرحله ۳ تا ۵ گزینه کوتاه
+- درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification فقط با یک سؤال (options) در هر نوبت؛ سؤال بعدی بر اساس جواب قبلی پرسیده میشه. ترتیب: اول فهم نیاز (حیوان، سن، نیاز، اقلام)، بعد ترجیح برند، و قیمت همیشه آخر. فقط گزینه‌هایی بده که واقعاً در کاتالوگ موجودن
 - هر چیزی که کاربر خودش گفته (مثل نوع حیوان: گربه/سگ) رو دوباره نپرس؛ اون مرحله رو حذف کن
 - مرحله‌ای که کاربر می‌تونه چند جواب داشته باشه (مثل «چه چیزهایی لازم داری» یا نیازها/دسته‌ها) رو با multi: true بفرست تا کاربر چندتایی انتخاب کنه
 - اگه کاربر چند دسته انتخاب کرد (مثل غذا + بهداشت + اسباب‌بازی) برای هر دسته جداگانه جست‌وجو کن و یک سبد چنددسته‌ای پیشنهاد بده، نه فقط یک دسته
@@ -1140,13 +1151,18 @@ async function executeSearch(
   }
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
 
+  // Tier-1 life-stage protection: a stated stage is enforced on every attempt, so a
+  // kitten-only result set counts as "nothing found" and relaxation continues
+  // (price widens before the stage itself is ever dropped).
+  const stageLock: string | null = lock?.lifeStage || canonStage || null;
   const runSearch = async (params: any) => {
     const { data, error } = await supabase.rpc("pet_hybrid_search", params);
     if (error) {
       console.error("Hybrid search error:", error);
       return null;
     }
-    return data || [];
+    const rows = data || [];
+    return params.p_life_stage ? stageStrict(rows, params.p_life_stage) : rows;
   };
 
   let data = await runSearch(rpcParams);
@@ -1208,6 +1224,17 @@ async function executeSearch(
             label: "needs",
             apply: (p: any) => {
               delete p.p_needs;
+            },
+          },
+        ]
+      : []),
+    ...(rpcParams.p_max_price || rpcParams.p_min_price
+      ? [
+          {
+            label: "price_range",
+            apply: (p: any) => {
+              if (p.p_max_price) p.p_max_price = Math.round(Number(p.p_max_price) * 1.6);
+              delete p.p_min_price;
             },
           },
         ]
@@ -1308,7 +1335,7 @@ async function executeSearch(
 
   // Stated life stage: matching rows lead, contradictory rows are kept but deprioritized
   // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
-  results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
+  results = applyStagePreference(results, stageLock);
 
   // Honest fallback signal: the shopper named a REAL brand we cannot serve.
   // Colloquial words misread as brands never produce this claim.
@@ -1686,7 +1713,25 @@ const faNum = (n: number | string) => String(n).replace(/\d/g, (d) => FA_DIGITS[
  * Used whenever the answer model returns empty or shapeless content, so the shopper
  * never sees a bare placeholder sentence.
  */
-function composeProductAnswer(products: any[], query: string): string {
+const RELAXED_LABEL_FA: Record<string, string> = {
+  life_stage: "رده سنی",
+  medical_needs: "نیاز درمانی",
+  needs: "نیاز خاص",
+  price_range: "بازه قیمت",
+  brand: "برند",
+  origin_country: "کشور سازنده",
+  breed_size: "اندازه نژاد",
+  product_line: "خط محصول",
+  non_critical_needs: "ترجیح‌های فرعی",
+};
+/** Honest one-line disclosure when the catalog could not satisfy every stated condition. */
+function relaxationIntro(relaxed: string[] | undefined): string {
+  const names = (relaxed || []).map((r) => RELAXED_LABEL_FA[r]).filter(Boolean);
+  if (names.length === 0) return "";
+  return `دقیقاً با همهٔ شرایطت (${names.join("، ")}) چیزی موجود نبود؛ نزدیک‌ترین گزینه‌ها اینان:`;
+}
+
+function composeProductAnswer(products: any[], query: string, introOverride?: string): string {
   const list = (products || []).filter(Boolean);
   if (list.length === 0) {
     return "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
@@ -1702,7 +1747,11 @@ function composeProductAnswer(products: any[], query: string): string {
         : /پرنده|مرغ عشق|طوطی/.test(q)
           ? "پرنده"
           : "";
-  const intro = animal ? `چند گزینه خوب برای ${animal}ت دارم:` : "چند گزینه خوب برات پیدا کردم:";
+  const intro = introOverride?.trim()
+    ? introOverride.trim()
+    : animal
+      ? `چند گزینه خوب برای ${animal}ت دارم:`
+      : "چند گزینه خوب برات پیدا کردم:";
 
   const blocks = list.map((p: any, i: number) => {
     const name = p.name_fa || p.name || "محصول";
@@ -1936,11 +1985,44 @@ function detectLifeStage(text: string): string | null {
 }
 
 /** Soft stage ordering: matching stage first, contradictory stage dropped. */
+// Tier-1 life-stage protection: when the shopper named a stage, products explicitly
+// labelled (or named) for another stage are dropped; unknown-stage rows stay eligible
+// and exact matches sort first. Never empties the list — falls back to soft ordering.
+const STAGE_NAME_HINTS: Record<string, RegExp> = {
+  "نابالغ": /بچه\s*گربه|بچه\s*سگ|توله|kitten|puppy|junior|جونیور/i,
+  "سنیور": /سنیور|senior|مسن|سالمند/i,
+  "بالغ": /adult|بالغ/i,
+};
+function stageConflicts(r: any, stage: string): boolean {
+  if (r?.life_stage && r.life_stage !== stage) return true;
+  if (!r?.life_stage) {
+    for (const [k, re] of Object.entries(STAGE_NAME_HINTS)) {
+      if (k !== stage && re.test(String(r?.name_fa || r?.name || ""))) return true;
+    }
+  }
+  return false;
+}
+/** Strict: drops rows for another stage (may return an empty list). */
+function stageStrict(rows: any[], stage: string | null): any[] {
+  if (!stage) return rows;
+  return (rows || []).filter((r) => !stageConflicts(r, stage));
+}
 function applyStagePreference(rows: any[], stage: string | null): any[] {
   if (!stage) return rows;
+  const conflicts = (r: any) => {
+    if (r?.life_stage && r.life_stage !== stage) return true;
+    if (!r?.life_stage) {
+      for (const [k, re] of Object.entries(STAGE_NAME_HINTS)) {
+        if (k !== stage && re.test(String(r?.name_fa || ""))) return true;
+      }
+    }
+    return false;
+  };
   const exact = (rows || []).filter((r) => r?.life_stage === stage);
-  const rest = (rows || []).filter((r) => r?.life_stage !== stage);
-  return [...exact, ...rest];
+  const unknown = (rows || []).filter((r) => r?.life_stage !== stage && !conflicts(r));
+  const kept = [...exact, ...unknown];
+  if (kept.length > 0) return kept;
+  return [...exact, ...(rows || []).filter((r) => r?.life_stage !== stage)];
 }
 
 // ── Multi-need bundle shopping ──────────────────────────────────────────
@@ -2097,6 +2179,7 @@ type ToolRoundResult = {
   bundleGroups: Array<{ label: string; products: any[] }>;
   emptyNeedLabels: string[];
   unavailableBrand: string | null;
+  relaxed?: string[];
 };
 
 async function runToolRound(
@@ -2137,6 +2220,9 @@ async function runToolRound(
       const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
       if (searched.products) result.products = [...result.products, ...searched.products];
       if (searched.brand_unavailable && searched.requested_brand) result.unavailableBrand = searched.requested_brand;
+      if (Array.isArray(searched.relaxed_filters) && searched.relaxed_filters.length > 0) {
+        result.relaxed = [...new Set([...(result.relaxed || []), ...searched.relaxed_filters])];
+      }
       toolResult = {
         matched_total: searched.matched_total ?? 0,
         shown: searched.shown ?? 0,
@@ -2303,6 +2389,7 @@ serve(async (req) => {
       scope_hint,
       shopping_context,
       reference_hint,
+      question_flow,
     } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -2387,7 +2474,7 @@ serve(async (req) => {
     // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
     const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
     const normLastUser = normalizePersian(lastUserText);
-    const wantsGuidance = GUIDANCE_RE.test(normLastUser);
+    let wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser) && !ASKS_FOR_SOME_RE.test(normLastUser);
     const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
     // Assortment/brand knowledge questions are answered in words (facts, brand names),
@@ -2488,6 +2575,66 @@ serve(async (req) => {
         break;
       }
     }
+    // ── Adaptive question flow: one catalog-grounded question per turn ──
+    // Guidance («راهنماییم کن») and bundle («پک کامل») requests are answered by a
+    // deterministic flow: every option is checked against stock, questions are asked
+    // only when they split the candidate set, and price comes last.
+    let flowSummary: FlowSummary | null = null;
+    let bundleNeeds: NeedSpec[] = detectNeeds(lastUserText);
+    if (effectiveMode === "agentic" && !isInfoQuestion && !isBusinessQuestion && !isCompareQuestion) {
+      const flowDeps: FlowDeps = {
+        supabase,
+        normalize: normalizePersian,
+        formatToman,
+        detectSpecies,
+        concreteSpecies: concreteSpeciesWord,
+        buildBudgetOptions,
+        needSpecs: NEED_SPECS,
+      };
+      let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
+      if (flow && flow.pending && !flow.done) {
+        // A reply that names another animal or is a long new request abandons the flow.
+        const named = lastNamedSpecies(lastUserText);
+        const switched = named && flow.species && named !== flow.species;
+        if (switched || lastUserText.length > 60) flow = null;
+        else flow = recordAnswer(flow, lastUserText);
+      }
+      if (!flow || flow.done) {
+        const goal = detectGoal(normLastUser);
+        const explicitBundle = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
+        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies);
+        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies);
+        else flow = null;
+      }
+      if (flow && !flow.done) {
+        const { card, flow: nf } = await nextQuestion(flowDeps, flow);
+        if (card) {
+          console.log("Flow question:", JSON.stringify({ goal: nf.goal, id: card.id, options: card.options.length }));
+          const cardResponse = clarificationResponse(card, `flow-${card.id}`);
+          if (cardResponse) {
+            const payload = await cardResponse.json();
+            return new Response(JSON.stringify({ ...payload, question_flow: nf }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        flow = nf;
+      }
+      if (flow?.done) {
+        flowSummary = summarize(flowDeps, flow);
+        if (!lockedSpecies && flowSummary.species) {
+          lockedSpecies = flowSummary.species;
+          if (!SPECIES_TOKENS.some(([n]) => n === lockedSpecies)) lockedSpecies = detectSpecies(lockedSpecies) || lockedSpecies;
+        }
+        if (flowSummary.lifeStage) lockedStage = flowSummary.lifeStage;
+        if (flowSummary.foreignOnly !== null) stickyForeign = flowSummary.foreignOnly;
+        if (flowSummary.needKeys.length > 0) bundleNeeds = NEED_SPECS.filter((n) => flowSummary!.needKeys.includes(n.key));
+        wantsGuidance = false;
+        systemPrompt += `\n\n${flowSummary.promptBlock}`;
+        console.log("Flow complete:", JSON.stringify({ goal: flow.goal, answers: flow.answers }));
+      }
+    }
+
     const speciesLock = {
       species: lockedSpecies,
       lifeStage: lockedStage,
@@ -2504,8 +2651,9 @@ serve(async (req) => {
     }
     knownSpecies = lockedSpecies || knownSpecies;
 
-    const bundleNeeds = detectNeeds(lastUserText);
-    const isBundleTurn = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
+    const isBundleTurn = flowSummary
+      ? flowSummary.goal === "bundle" && bundleNeeds.length >= 1 && Boolean(lockedSpecies)
+      : Boolean(lockedSpecies) && bundleNeeds.length >= 2;
 
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
     // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
@@ -2574,7 +2722,10 @@ serve(async (req) => {
     const tools = MODE_TOOLS[effectiveMode] || [];
 
     // ── Start embedding generation in parallel for discovery mode ──
-    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
+    // After a question flow, the embedding/intro must follow the original request, not the last option label.
+    const originalQuery = flowSummary
+      ? `${flowSummary.seed} ${flowSummary.species || ""} ${flowSummary.healthNeeds.join(" ")}`.trim()
+      : userMessages[userMessages.length - 1]?.content || "";
     let embeddingPromise: Promise<number[] | null> | null = null;
     if (effectiveMode === "discovery" || effectiveMode === "agentic") {
       embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));
@@ -2590,6 +2741,7 @@ serve(async (req) => {
     let allProducts: any[] = [];
     let extractedIntent: any = null;
     let unavailableBrand: string | null = null;
+    let relaxedFilters: string[] = [];
     let searchExecuted = false;
     let toolTrace: string[] = [];
     let bundleGroups: Array<{ label: string; products: any[] }> = [];
@@ -2691,9 +2843,17 @@ serve(async (req) => {
           const options = normOptions(payload.options);
           if (steps.length > 0 || options.length > 0) {
             const facets = await getFacets();
+            // One question per turn: a multi-step card is reduced to its first step so
+            // the next question can adapt to this answer.
             const rawCard =
               steps.length > 0
-                ? { kind: "steps", helper: payload.helper || "", steps }
+                ? {
+                    kind: "single",
+                    question: steps[0].question,
+                    helper: payload.helper || "",
+                    multi: steps[0].multi === true,
+                    options: steps[0].options,
+                  }
                 : {
                     kind: "single",
                     question: payload.question || "",
@@ -2766,9 +2926,10 @@ serve(async (req) => {
         lockedSpecies,
         isBundleTurn,
         bundleNeeds,
-        lastUserText,
+        flowSummary ? `${flowSummary.seed} ${lastUserText}` : lastUserText,
       );
       if (roundResult.unavailableBrand) unavailableBrand = roundResult.unavailableBrand;
+      if (roundResult.relaxed?.length) relaxedFilters = [...new Set([...relaxedFilters, ...roundResult.relaxed])];
       if (roundResult.searchExecuted) {
         searchExecuted = true;
         extractedIntent = roundResult.extractedIntent;
@@ -2970,7 +3131,12 @@ serve(async (req) => {
         const pool = lockedSpecies === "گربه" || lockedSpecies === "سگ" ? filterBySpecies(allProducts, lockedSpecies) : allProducts;
         if (pool.length > 0) {
           cards = pool.slice(0, maxShown);
-          visible = composeProductAnswer(cards, originalQuery);
+          // When filters really were relaxed, the model's "we don't have exactly that" is
+          // honest — keep its first short line as the intro instead of discarding it.
+          const honest = relaxedFilters.length > 0
+            ? (visible.split("\n").map((l) => l.trim()).filter(Boolean)[0] || relaxationIntro(relaxedFilters))
+            : "";
+          visible = composeProductAnswer(cards, originalQuery, honest);
           forced.push("denial_override");
         }
       }
@@ -3251,7 +3417,7 @@ serve(async (req) => {
     // numbered products next to product cards), compose the answer from catalog data
     // so the shape is always intro + product + why.
     if (!isInfoQuestion && selectedProducts.length > 0 && (!finalContent || !hasNumberedProducts(finalContent))) {
-      finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
+      finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery, relaxationIntro(relaxedFilters));
       console.log("Composed deterministic product answer");
       answerSource = "composer";
     } else if (!finalContent) {

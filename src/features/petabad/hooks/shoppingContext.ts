@@ -10,6 +10,8 @@ export interface ShoppingContext {
   budgetByCategory?: Record<string, { min?: number; max?: number }>;
   preferences?: string[];    // liked attributes
   exclusions?: string[];     // things to avoid
+  /** Server-driven adaptive question flow (opaque; echoed back on every turn). */
+  questionFlow?: any;
 }
 
 export const createEmptyShoppingContext = (): ShoppingContext => ({

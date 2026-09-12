@@ -2647,7 +2647,10 @@ serve(async (req) => {
     const tools = MODE_TOOLS[effectiveMode] || [];
 
     // ── Start embedding generation in parallel for discovery mode ──
-    const originalQuery = userMessages[userMessages.length - 1]?.content || "";
+    // After a question flow, the embedding/intro must follow the original request, not the last option label.
+    const originalQuery = flowSummary
+      ? `${flowSummary.seed} ${flowSummary.species || ""} ${flowSummary.healthNeeds.join(" ")}`.trim()
+      : userMessages[userMessages.length - 1]?.content || "";
     let embeddingPromise: Promise<number[] | null> | null = null;
     if (effectiveMode === "discovery" || effectiveMode === "agentic") {
       embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));

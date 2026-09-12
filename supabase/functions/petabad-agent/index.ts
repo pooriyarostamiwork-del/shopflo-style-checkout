@@ -3138,11 +3138,14 @@ serve(async (req) => {
       if (!wantsCounts) visible = stripCountTalk(visible);
       const numberedCount = (visible.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
 
-      // Cards: explicit ids first, then names the answer actually mentions from this turn's results.
+      // ── Cards = exactly the products the answer names ──
+      // Ids are the binding: they resolve against this turn's results and, when the model
+      // re-introduces something from memory, straight from the catalog. Nothing is ever
+      // padded with unrelated search results.
       const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
       const explicitIds = [
         ...finalSig.selectedIds,
-        ...finalSig.referenceIds,
+        ...(finalSig.selectedIds.length === 0 && numberedCount > 0 ? finalSig.referenceIds : []),
         ...((finalSig.text.match(UUID_RE) || []) as string[]),
       ];
       let cards: any[] = [];
@@ -3156,48 +3159,16 @@ serve(async (req) => {
       for (const id of explicitIds) pushCard(idToProduct.get(id));
       const missingIds = explicitIds.filter((id) => !seen.has(id));
       if (missingIds.length > 0) for (const p of await hydrateProducts(supabase, missingIds)) pushCard(p);
-      if (numberedCount > 0) {
-        // Token-overlap matching of each numbered line to this turn's tool results (model may
-        // abbreviate names), in the order the text lists them.
-        const tokens = (t: string) =>
-          normalizePersian(String(t || ""))
-            .toLowerCase()
-            .split(/[\s،,()\-–—:؛]+/)
-            .filter((w) => w.length > 1);
-        const numberedLines = visible.split("\n").filter((l) => /^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/u.test(l));
+      const numberedLines = visible.split("\n").filter((l) => NUMBERED_HEAD_RE.test(l));
+      // Last resort only: near-exact name match, same species.
+      if (cards.length < numberedLines.length) {
         for (const line of numberedLines) {
-          const lineTok = new Set(tokens(line.replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))));
-          let best: any = null;
-          let bestScore = 0;
-          for (const p of allProducts) {
-            if (seen.has(p.id)) continue;
-            const nt = tokens(p.name_fa || p.name || "");
-            if (nt.length === 0) continue;
-            const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
-            if (hit > bestScore) {
-              bestScore = hit;
-              best = p;
-            }
-          }
-          if (best && bestScore >= 0.5) pushCard(best);
+          if (cards.length >= numberedLines.length) break;
+          const m = strictMatchProduct(line, allProducts, seen, lockedSpecies);
+          if (m) pushCard(m);
         }
       }
-
-      // Species safety only for the two main species; umbrella species (rodents, birds...) keep
-      // whatever the model deliberately listed. Rows without a species (accessories) always stay.
-      if (lockedSpecies === "گربه" || lockedSpecies === "سگ") {
-        cards = cards.filter((p: any) => !p.species || filterBySpecies([p], lockedSpecies).length > 0);
-      }
-      // Parity fill: the model listed more items than we could match by name → the rest of
-      // this turn's results are what it was reading from, so fill in order.
-      if (numberedCount > 0 && cards.length < numberedCount) {
-        for (const p of allProducts) {
-          if (cards.length >= numberedCount) break;
-          if (seen.has(p.id)) continue;
-          if ((lockedSpecies === "گربه" || lockedSpecies === "سگ") && p.species && filterBySpecies([p], lockedSpecies).length === 0) continue;
-          pushCard(p);
-        }
-      }
+      if (lockedSpecies) cards = cards.filter((p: any) => rowMatchesSpecies(p, lockedSpecies));
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);
       // Informational answers never carry cards unless the text itself lists products.
@@ -3206,8 +3177,9 @@ serve(async (req) => {
       if (numberedCount === 0 && finalSig.selectedIds.length === 0 && !cards.some((p: any) => visible.includes(String(p.name_fa || p.name || "").slice(0, 18)))) {
         cards = [];
       }
-      // Parity trim: never more cards than numbered items when the answer is a numbered list.
-      if (numberedCount > 0 && cards.length > numberedCount) cards = cards.slice(0, numberedCount);
+      // Same products, same order, catalog names and prices — in both directions.
+      if (cards.length > 0 && numberedCount > 0) visible = alignAnswerText(visible, cards);
+
 
       // Model wrote the ask_clarification payload inline instead of calling the tool → parse it.
       const inlineAsk = visible.match(/\{\s*"ask_clarification"\s*:\s*(\{[\s\S]*\})\s*\}\s*$/);

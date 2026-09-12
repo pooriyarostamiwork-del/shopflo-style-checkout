@@ -1374,10 +1374,8 @@ function detectLifeStage(text: string): string | null {
 /** Soft stage ordering: matching stage first, contradictory stage dropped. */
 function applyStagePreference(rows: any[], stage: string | null): any[] {
   if (!stage) return rows;
-  const opposite = stage === "نابالغ" ? "سنیور" : stage === "سنیور" ? "نابالغ" : null;
-  const kept = (rows || []).filter((r) => !(opposite && r?.life_stage === opposite));
-  const exact = kept.filter((r) => r?.life_stage === stage);
-  const rest = kept.filter((r) => r?.life_stage !== stage);
+  const exact = (rows || []).filter((r) => r?.life_stage === stage);
+  const rest = (rows || []).filter((r) => r?.life_stage !== stage);
   return [...exact, ...rest];
 }
 

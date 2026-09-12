@@ -770,7 +770,66 @@ function canonicalTerm(tax: TaxonomyMap, dimension: string, value: string | null
   return dim[normalizePersian(String(value))] || null;
 }
 
+
+// ── Catalog brand vocabulary ────────────────────────────────────────────────
+// Brands are recognised ONLY from the real catalog (+ alias table). Colloquial
+// Persian words the model sometimes mistakes for a brand («چیا» in «چانک چیا
+// دارین») must never become a brand filter or an "we don't carry it" claim.
+let BRAND_CACHE: { canonical: string[]; keys: Set<string> } | null = null;
+const BRAND_STOPWORDS = new Set(
+  [
+    "چیا", "چیه", "چی", "چه", "کدوم", "کدام", "دارین", "دارید", "داری", "دارین؟",
+    "خارجی", "داخلی", "ایرانی", "اصل", "ارزون", "گران", "گرون", "خوب", "بهترین",
+    "چانک", "پوچ", "کنسرو", "غذا", "تشویقی", "گربه", "سگ", "خرگوش", "پرنده",
+    "برند", "مارک", "لیست", "همه", "موجود", "بگو", "معرفی",
+  ].map((w) => normalizePersian(w)),
+);
+
+async function loadBrands(supabase: any): Promise<{ canonical: string[]; keys: Set<string> }> {
+  if (BRAND_CACHE) return BRAND_CACHE;
+  const keys = new Set<string>();
+  const canonical: string[] = [];
+  try {
+    const [prods, aliases] = await Promise.all([
+      supabase.from("pet_products").select("brand").not("brand", "is", null),
+      supabase.from("brand_aliases").select("alias_key, canonical"),
+    ]);
+    for (const row of prods.data || []) {
+      const b = String(row.brand || "").trim();
+      if (!b) continue;
+      if (!canonical.includes(b)) canonical.push(b);
+      keys.add(normalizePersian(b));
+    }
+    for (const a of aliases.data || []) {
+      if (a.alias_key) keys.add(normalizePersian(String(a.alias_key)));
+      if (a.canonical) keys.add(normalizePersian(String(a.canonical)));
+    }
+    BRAND_CACHE = { canonical, keys };
+  } catch (e) {
+    console.log("Brand vocabulary load failed:", String(e));
+  }
+  return BRAND_CACHE || { canonical, keys };
+}
+
+/**
+ * 'catalog'  → a brand we actually stock (filter it)
+ * 'unknown'  → looks like a brand name but we don't stock it (honest disclosure)
+ * 'not-a-brand' → a colloquial word the model mislabelled (ignore silently)
+ */
+function classifyBrand(raw: string, vocab: { keys: Set<string> }): "catalog" | "unknown" | "not-a-brand" {
+  const n = normalizePersian(raw).trim();
+  if (!n) return "not-a-brand";
+  if (BRAND_STOPWORDS.has(n)) return "not-a-brand";
+  for (const key of vocab.keys) {
+    if (key.length >= 3 && (key.includes(n) || n.includes(key))) return "catalog";
+  }
+  const latin = /^[a-z0-9\s&'.-]+$/i.test(n);
+  if (latin && n.length >= 3) return "unknown";
+  return n.length >= 4 ? "unknown" : "not-a-brand";
+}
+
 async function executeSearch(
+
   supabase: any,
   args: any,
   precomputedEmbedding: number[] | null,

@@ -204,8 +204,13 @@ const CASES: Case[] = [
     prompt: "همون دوتای قبلی رو دوباره نشونم بده",
     species: "سگ",
     nameNoneOf: [/گربه/],
-    expectProducts: true,
+    // the model may recap in prose; what must never happen is unrelated cards
+    expectProducts: false,
+    allowProducts: true,
+    contentAnyOf: [/فیدار/, /جوسرا|Josera/i],
+    contentNoneOf: [/قلاده/, /کریر/, /پرزگیر/, /گربه/],
     maxSeconds: 30,
+
   },
 ];
 

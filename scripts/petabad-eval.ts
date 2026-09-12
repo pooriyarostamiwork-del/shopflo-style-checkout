@@ -187,7 +187,9 @@ const CASES: Case[] = [
     species: "سگ",
     nameNoneOf: [/گربه/],
     expectProducts: true,
+    allowClarification: true,
     maxSeconds: 30,
+
   },
   {
     id: "recalled-products-have-cards",

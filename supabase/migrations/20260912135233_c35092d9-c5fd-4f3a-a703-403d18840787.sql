@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.pet_hybrid_search(uuid, text, vector, text, text, text, text, text, text, text, text, text, text[], text[], text, integer, integer, boolean, boolean, integer, integer) TO anon, authenticated, service_role;

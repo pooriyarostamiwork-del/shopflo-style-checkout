@@ -146,6 +146,32 @@ const CASES: Case[] = [
     minProducts: 4,
     maxSeconds: 30,
   },
+  // ── Full-catalog scope: foreign-only, brand diversity, "other brands" ──
+  {
+    id: "foreign-skin-coat-all",
+    prompt: "همه محصولات خارجی که برای پوست و موی گربم مناسبن رو بده غذا",
+    species: "گربه",
+    expectProducts: true,
+    minProducts: 5,
+    maxSeconds: 30,
+  },
+  {
+    id: "other-brands-no-repeat",
+    history: [
+      { role: "user", content: "همه محصولات خارجی که برای پوست و موی گربم مناسبن رو بده غذا" },
+      {
+        role: "assistant",
+        content:
+          "۱. غذای خشک گربه مراقبت از پوست و مو رویال کنین Royal Canin Hair & Skin Care وزن ۲ کیلوگرم\n۲. غذای خشک گربه جوسرا کتلوکس مناسب سلامت پوست و مو Josera Catelux وزن ۱ کیلوگرم\n۳. غذای خشک درمانی گربه بالغ پروپلن Proplan Derma Care وزن ۱.۵ کیلوگرم",
+      },
+    ],
+    prompt: "بجز این برندها از برندهای دیگه هم بده",
+    species: "گربه",
+    expectProducts: true,
+    nameNoneOf: [/جوسرا|Josera/i, /رویال کنین|Royal Canin/i, /پروپلن|Proplan/i],
+    contentNoneOf: [/محدود می‌شود|محدود میشه/],
+    maxSeconds: 30,
+  },
 ];
 
 const FA = /[۰-۹]/;

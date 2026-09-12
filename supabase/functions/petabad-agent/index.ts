@@ -1784,6 +1784,99 @@ function hasNumberedProducts(text: string): boolean {
   return (text.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length > 0;
 }
 
+const NUMBERED_HEAD_RE = /^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/u;
+
+/** Splits an answer into its intro and one block per numbered product. */
+function numberedBlocks(text: string): { intro: string; blocks: string[] } {
+  const lines = (text || "").split("\n");
+  const firstIdx = lines.findIndex((l) => NUMBERED_HEAD_RE.test(l));
+  if (firstIdx === -1) return { intro: (text || "").trim(), blocks: [] };
+  const intro = lines.slice(0, firstIdx).join("\n").trim();
+  const blocks: string[][] = [];
+  for (let i = firstIdx; i < lines.length; i++) {
+    if (NUMBERED_HEAD_RE.test(lines[i])) blocks.push([lines[i]]);
+    else if (blocks.length > 0) blocks[blocks.length - 1].push(lines[i]);
+  }
+  return { intro, blocks: blocks.map((b) => b.join("\n").trim()).filter(Boolean) };
+}
+
+/**
+ * Text and cards must describe the same products: one block per card, in the same
+ * order, with the name and price rewritten from the catalog row (never the model's).
+ */
+function alignAnswerText(text: string, cards: any[]): string {
+  const { intro, blocks } = numberedBlocks(text);
+  if (blocks.length === 0 || cards.length === 0) return text;
+  const out = blocks.slice(0, cards.length).map((block, i) => {
+    const p = cards[i];
+    const why = block.split("\n").slice(1).map((l) => l.trim()).filter(Boolean).join(" ");
+    const name = p.name_fa || p.name || "محصول";
+    const price = typeof p.price === "number" ? ` — ${faNum(p.price.toLocaleString("en-US"))} تومان` : "";
+    const reason = why || (composeProductAnswer([p], "").split("\n").filter(Boolean).pop() || "");
+    return `${faNum(i + 1)}. ${name}${price}\n${reason}`;
+  });
+  return `${intro ? `${intro}\n\n` : ""}${out.join("\n\n")}`.trim();
+}
+
+const answerTokens = (t: string) =>
+  normalizePersian(String(t || ""))
+    .toLowerCase()
+    .replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))
+    .split(/[\s،,()\-–—:؛]+/)
+    .filter((w) => w.length > 1);
+
+/**
+ * Last-resort binding of one numbered line to a catalog row: near-exact name overlap
+ * only, same species. Loose overlap used to pick the wrong animal's product.
+ */
+function strictMatchProduct(line: string, pool: any[], used: Set<string>, locked: string | null): any | null {
+  const lineTok = new Set(answerTokens(line));
+  let best: any = null;
+  let bestScore = 0;
+  for (const p of pool || []) {
+    if (!p || used.has(p.id)) continue;
+    if (locked && !rowMatchesSpecies(p, locked)) continue;
+    const nt = answerTokens(p.name_fa || p.name || "");
+    if (nt.length < 3) continue;
+    const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
+    if (hit > bestScore) {
+      bestScore = hit;
+      best = p;
+    }
+  }
+  return bestScore >= 0.8 ? best : null;
+}
+
+/**
+ * The answer names a product that is not in this turn's results (typically re-introduced
+ * from earlier in the conversation): find that exact row in the catalog so it gets a card.
+ */
+async function lookupByNameLine(
+  supabase: any,
+  line: string,
+  used: Set<string>,
+  locked: string | null,
+): Promise<any | null> {
+  const cleaned = line
+    .replace(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*/u, "")
+    .split(/[—–]/)[0]
+    .replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)));
+  const tokens = cleaned
+    .split(/[\s،,()\-:؛/]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 2 && !/^\d+$/.test(w))
+    .slice(0, 5);
+  if (tokens.length < 2) return null;
+  let q = supabase.from("pet_products").select("*").limit(8);
+  for (const t of tokens) q = q.ilike("name", `%${t}%`);
+  const { data } = await q;
+  if (!data?.length) return null;
+  return strictMatchProduct(line, data, used, locked) || (locked && !rowMatchesSpecies(data[0], locked) ? null : data[0]);
+}
+
+
+
+
 /** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
 /** Removes unrequested totals / candidate-count / internal-process sentences. */
 function stripCountTalk(raw: string): string {
@@ -1906,10 +1999,16 @@ function detectUsage(text: string): string | null {
   return null;
 }
 
+// Breed names imply the animal: «شیتزوم» must lock the dog just like «سگم».
+const DOG_BREED_SRC =
+  "پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\\s*راسل|هاسکی|ژرمن|شپرد|گلدن|رتریور|لابرادور|روتوایلر|دوبرمن|بولداگ|باکسر|بیگل|کورگی|سامویید|آکیتا|شیبا";
+const CAT_BREED_SRC =
+  "پرشین|پرشیا|اسکاتیش|بنگال|رگدال|رگ\\s*دال|سیامی|هیمالین|شیرازی|آنگورا|مین\\s*کون|اگزوتیک|ابیسینین|برمه";
+
 /** Species the user already named — that guidance step is then skipped. */
 const SPECIES_HINTS: Array<[RegExp, string]> = [
-  [/گربه|بچه\s*گربه|پیشی|cat/i, "گربه"],
-  [/سگ|توله\s*سگ|dog|پاپی/i, "سگ"],
+  [new RegExp(`گربه|بچه\\s*گربه|پیشی|cat|${CAT_BREED_SRC}`, "i"), "گربه"],
+  [new RegExp(`سگ|توله\\s*سگ|dog|پاپی|${DOG_BREED_SRC}`, "i"), "سگ"],
   [/پرنده|مرغ\s*عشق|طوطی|قناری|کاسکو/, "پرنده"],
   [/ماهی|آکواریوم|اکواریوم/, "ماهی و آکواریوم"],
   [/خرگوش|همستر|جوندگان|لاک\s*پشت|خوکچه/, "سایر حیوانات خانگی"],
@@ -1926,8 +2025,9 @@ function detectSpecies(text: string): string | null {
 // the experience: not a card, not a sentence, not an explanation.
 
 const SPECIES_TOKENS: Array<[string, RegExp]> = [
-  ["گربه", /گربه|گربم|گربه\s*م|پیشی|پیشیم|بچه\s*گربه|cat/i],
-  ["سگ", /سگ|سگم|توله|پاپی|dog/i],
+  ["گربه", new RegExp(`گربه|گربم|گربه\\s*م|پیشی|پیشیم|بچه\\s*گربه|cat|${CAT_BREED_SRC}`, "i")],
+  ["سگ", new RegExp(`سگ|سگم|توله|پاپی|dog|${DOG_BREED_SRC}`, "i")],
+
 
   ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
   ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],
@@ -1965,14 +2065,26 @@ function lastNamedSpecies(text: string): string | null {
 function rowMatchesSpecies(row: any, locked: string): boolean {
   const own = speciesRe(locked);
   if (!own) return true;
+  const name = normalizePersian(String(row?.name_fa || row?.name || ""));
+  // The product NAME wins over the stored species field: a handful of rows are
+  // mislabelled, and "غذای خشک سگ ..." must never be shown as a cat product.
+  if (locked === "گربه" || locked === "سگ") {
+    const other = locked === "گربه" ? "سگ" : "گربه";
+    const otherRe = speciesRe(other);
+    const nameSaysOwn = own.test(name);
+    const nameSaysOther = !!otherRe && otherRe.test(name);
+    if (nameSaysOther && !nameSaysOwn) return false;
+    if (nameSaysOwn) return true;
+  }
   const speciesText = normalizePersian(String(row?.species || ""));
   const shelf = normalizePersian(`${row?.subcategory || ""} ${row?.category || ""}`);
   const haystack = `${speciesText} ${shelf}`;
   if (own.test(haystack)) return true;
   // No species signal at all → allow only when no OTHER animal is named either.
-  const foreign = SPECIES_TOKENS.some(([name, re]) => name !== locked && re.test(haystack));
+  const foreign = SPECIES_TOKENS.some(([name2, re]) => name2 !== locked && re.test(haystack));
   return !foreign;
 }
+
 
 function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
   if (!locked) return rows;
@@ -3055,11 +3167,14 @@ serve(async (req) => {
       if (!wantsCounts) visible = stripCountTalk(visible);
       const numberedCount = (visible.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
 
-      // Cards: explicit ids first, then names the answer actually mentions from this turn's results.
+      // ── Cards = exactly the products the answer names ──
+      // Ids are the binding: they resolve against this turn's results and, when the model
+      // re-introduces something from memory, straight from the catalog. Nothing is ever
+      // padded with unrelated search results.
       const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
       const explicitIds = [
         ...finalSig.selectedIds,
-        ...finalSig.referenceIds,
+        ...(finalSig.selectedIds.length === 0 && numberedCount > 0 ? finalSig.referenceIds : []),
         ...((finalSig.text.match(UUID_RE) || []) as string[]),
       ];
       let cards: any[] = [];
@@ -3073,48 +3188,25 @@ serve(async (req) => {
       for (const id of explicitIds) pushCard(idToProduct.get(id));
       const missingIds = explicitIds.filter((id) => !seen.has(id));
       if (missingIds.length > 0) for (const p of await hydrateProducts(supabase, missingIds)) pushCard(p);
-      if (numberedCount > 0) {
-        // Token-overlap matching of each numbered line to this turn's tool results (model may
-        // abbreviate names), in the order the text lists them.
-        const tokens = (t: string) =>
-          normalizePersian(String(t || ""))
-            .toLowerCase()
-            .split(/[\s،,()\-–—:؛]+/)
-            .filter((w) => w.length > 1);
-        const numberedLines = visible.split("\n").filter((l) => /^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/u.test(l));
+      const numberedLines = visible.split("\n").filter((l) => NUMBERED_HEAD_RE.test(l));
+      // Last resort only: near-exact name match, same species.
+      if (cards.length < numberedLines.length) {
         for (const line of numberedLines) {
-          const lineTok = new Set(tokens(line.replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))));
-          let best: any = null;
-          let bestScore = 0;
-          for (const p of allProducts) {
-            if (seen.has(p.id)) continue;
-            const nt = tokens(p.name_fa || p.name || "");
-            if (nt.length === 0) continue;
-            const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
-            if (hit > bestScore) {
-              bestScore = hit;
-              best = p;
-            }
-          }
-          if (best && bestScore >= 0.5) pushCard(best);
+          if (cards.length >= numberedLines.length) break;
+          const m = strictMatchProduct(line, allProducts, seen, lockedSpecies);
+          if (m) pushCard(m);
+        }
+      }
+      // Products re-introduced from earlier turns are not in this turn's results: fetch them by name.
+      if (cards.length < numberedLines.length) {
+        for (const line of numberedLines) {
+          if (cards.length >= numberedLines.length) break;
+          const m = await lookupByNameLine(supabase, line, seen, lockedSpecies);
+          if (m) pushCard(m);
         }
       }
 
-      // Species safety only for the two main species; umbrella species (rodents, birds...) keep
-      // whatever the model deliberately listed. Rows without a species (accessories) always stay.
-      if (lockedSpecies === "گربه" || lockedSpecies === "سگ") {
-        cards = cards.filter((p: any) => !p.species || filterBySpecies([p], lockedSpecies).length > 0);
-      }
-      // Parity fill: the model listed more items than we could match by name → the rest of
-      // this turn's results are what it was reading from, so fill in order.
-      if (numberedCount > 0 && cards.length < numberedCount) {
-        for (const p of allProducts) {
-          if (cards.length >= numberedCount) break;
-          if (seen.has(p.id)) continue;
-          if ((lockedSpecies === "گربه" || lockedSpecies === "سگ") && p.species && filterBySpecies([p], lockedSpecies).length === 0) continue;
-          pushCard(p);
-        }
-      }
+      if (lockedSpecies) cards = cards.filter((p: any) => rowMatchesSpecies(p, lockedSpecies));
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);
       // Informational answers never carry cards unless the text itself lists products.
@@ -3123,8 +3215,9 @@ serve(async (req) => {
       if (numberedCount === 0 && finalSig.selectedIds.length === 0 && !cards.some((p: any) => visible.includes(String(p.name_fa || p.name || "").slice(0, 18)))) {
         cards = [];
       }
-      // Parity trim: never more cards than numbered items when the answer is a numbered list.
-      if (numberedCount > 0 && cards.length > numberedCount) cards = cards.slice(0, numberedCount);
+      // Same products, same order, catalog names and prices — in both directions.
+      if (cards.length > 0 && numberedCount > 0) visible = alignAnswerText(visible, cards);
+
 
       // Model wrote the ask_clarification payload inline instead of calling the tool → parse it.
       const inlineAsk = visible.match(/\{\s*"ask_clarification"\s*:\s*(\{[\s\S]*\})\s*\}\s*$/);
@@ -3171,8 +3264,13 @@ serve(async (req) => {
         cards.length === 0 &&
         numberedCount === 0 &&
         !isBusinessQuestion &&
+        // recall / "tell me more" turns are about products already on the table:
+        // a fresh catalog search there would answer a question nobody asked.
+        !(toolTrace.some((t) => t.startsWith("recall_products")) &&
+          !toolTrace.some((t) => t.startsWith("search_products"))) &&
         /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|محدود می‌شود|محدود میشه)/.test(visible)
       ) {
+
         const verify = await executeSearch(
           supabase,
           {
@@ -3260,8 +3358,15 @@ serve(async (req) => {
     let answerSource = "reranker_fallback";
     // A turn that only looked up details/FAQ/memory (no catalog search) is an explanation turn,
     // not a recommendation turn → compose prose, never a fresh product list.
+    // "درباره این ... بیشتر توضیح بده" about something already on the table is an explanation turn
+    // even if a search happened to run: the shopper asked about one product, not for a new list.
+    const asksAboutShownItem =
+      /(بیشتر\s*(بهم\s*)?(توضیح|بگو)|توضیح\s*(بیشتر|بده|میدی|می‌دی)|جزئیات|مشخصات|فرق(ش|شون)?|چطوره|خوبه؟?)/.test(lastUserText) &&
+      /(این|همین|همون|اولی|دومی|سومی|محصول\s*(اول|دوم|سوم))/.test(lastUserText);
     const explanationOnly =
-      !searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t));
+      asksAboutShownItem ||
+      (!searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t)));
+
     const candidatesForRerank = explanationOnly
       ? []
       : isBundleTurn
@@ -3386,36 +3491,51 @@ serve(async (req) => {
     const rejectedIds = sig.rejectedIds;
     const goalSignal = sig.goal;
 
-    let selectedProducts = allProducts.slice(0, maxShown);
-    if (sig.selectedIds.length > 0) {
-      const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
-      const reordered = sig.selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
-      if (reordered.length > 0) selectedProducts = reordered;
-      console.log(`Re-ranker selected ${reordered.length} products`);
-    }
-
     const numberedCount = (finalContent.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
     const parityCap = Math.min(Math.max(maxShown, numberedCount), 12);
-    if (numberedCount > selectedProducts.length) {
-      const have = new Set(selectedProducts.map((p: any) => p.id));
-      for (const p of candidatesForRerank) {
-        if (selectedProducts.length >= parityCap) break;
-        if (!have.has(p.id)) {
-          selectedProducts.push(p);
-          have.add(p.id);
-        }
+    const numberedLinesF = finalContent.split("\n").filter((l) => NUMBERED_HEAD_RE.test(l));
+
+    // Cards are the ids the composer chose — hydrated from the catalog when they are not
+    // in this turn's pool — never a rank-ordered slice, never padded with strangers.
+    let selectedProducts: any[] = [];
+    const seenF = new Set<string>();
+    const pushF = (p: any) => {
+      if (p && !seenF.has(p.id)) {
+        seenF.add(p.id);
+        selectedProducts.push(p);
       }
-      console.log(`Parity fill → ${selectedProducts.length} cards for ${numberedCount} numbered items`);
+    };
+    const idPool = new Map(allProducts.map((p: any) => [p.id, p]));
+    for (const id of sig.selectedIds) pushF(idPool.get(id));
+    const missingF = sig.selectedIds.filter((id: string) => !seenF.has(id));
+    if (missingF.length > 0) for (const p of await hydrateProducts(supabase, missingF)) pushF(p);
+    if (selectedProducts.length < numberedLinesF.length) {
+      const pool = candidatesForRerank.length > 0 ? candidatesForRerank : allProducts;
+      for (const line of numberedLinesF) {
+        if (selectedProducts.length >= numberedLinesF.length) break;
+        const m = strictMatchProduct(line, pool, seenF, lockedSpecies);
+        if (m) pushF(m);
+      }
     }
-    if (numberedCount > 0 && selectedProducts.length > numberedCount) {
-      selectedProducts = selectedProducts.slice(0, numberedCount);
-      console.log(`Parity trim → ${numberedCount} cards`);
-    }
+    console.log(`Fallback binding: ${selectedProducts.length} cards for ${numberedCount} numbered items`);
 
     if (selectedProducts.length === 0) {
       const mentionedIds = [...((finalContent.match(UUID_RE) || []) as string[]), ...likedIds];
       selectedProducts = await hydrateProducts(supabase, mentionedIds);
     }
+    // Prose with no list at all (and a real candidate set) → the deterministic composer
+    // below writes intro + product + why from the catalog rows themselves.
+    if (
+      selectedProducts.length === 0 &&
+      numberedCount === 0 &&
+      !isInfoQuestion &&
+      !isBusinessQuestion &&
+      !explanationOnly &&
+      candidatesForRerank.length > 0
+    ) {
+      selectedProducts = filterBySpecies(candidatesForRerank, lockedSpecies).slice(0, maxShown);
+    }
+
 
     finalContent = sanitizeVisibleText(finalContent);
     if (!wantsCounts) finalContent = stripCountTalk(finalContent);
@@ -3445,6 +3565,10 @@ serve(async (req) => {
       finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery, relaxationIntro(relaxedFilters));
       console.log("Composed deterministic product answer");
       answerSource = "composer";
+    } else if (selectedProducts.length > 0 && hasNumberedProducts(finalContent)) {
+      // Same products, same order, catalog names and prices.
+      finalContent = alignAnswerText(finalContent, selectedProducts);
+
     } else if (!finalContent) {
       // A brand/assortment question always has a real answer in the catalog.
       const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;

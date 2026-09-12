@@ -220,16 +220,8 @@ A scheduled validator that scans the pet catalog for missing or self-contradicto
 - Confirm the second consecutive run reports zero new issues (idempotent).
 - Confirm the report lists issue counts by type before and after.
 
-## Part 10 — Inferred-filter chips in the PetAbad UI
 
-On `/petabad`, `/m/petabad` and `/petabad/floating`, the assistant shows small chips above the results for the conditions it inferred from your sentence (animal, age, brand, origin, need, budget). Each chip can be removed, and one tap re-runs the search without it; a chip can also be corrected. Chips reflect only conditions actually applied to the search, so what the assistant is doing is visible.
-
-### Tests
-- Chips shown match exactly the filters the search used; nothing invented, nothing hidden.
-- Removing a chip re-runs the search and returns a broader, still-valid result set.
-- RTL and Persian digits verified on desktop, mobile and floating; Playwright screenshots with no console errors.
-
-## Part 11 — Flowcart (`/gptcommerce`, `/m/gptcommerce`): the same discipline, fitted to an electronics catalog
+## Part 10 — Flowcart (`/gptcommerce`, `/m/gptcommerce`): the same discipline, fitted to an electronics catalog
 
 Scope: `products`, `hybrid_product_search`, `product_facets`, `product_question_facets`, `brand_aliases`, `gpt-commerce-agent`, `enrich-products`, `generate-embeddings`, and the GPTCommerce desktop/mobile threads. Shift and PetAbad code stay untouched; Flowcart keeps its own function and tables (no cross-product imports), but the two agents stop drifting by sharing pure helpers.
 
@@ -272,6 +264,6 @@ Pure, catalog-agnostic helpers that both agents need (bounded tool loop, count s
 - Migrations: taxonomy tables + seed from catalog; `pet_products` gains per-field provenance/confidence columns and `taxonomy_version`; weighted `search_vector` rebuild; `pet_hybrid_search` v2 (three-valued scoring, country soft, coverage-based text scoring, tiered relaxation metadata); `pet_question_facets` reads the taxonomy.
 - `petabad-agent`: bounded multi-round tool loop, discovery guard, taxonomy-generated tool enums, alias normalization, evidence re-ranking instead of filtering, importance-tiered relaxation with disclosure, no-results proof requirement, dev trace.
 - `petabad-enrich`: taxonomy-schema-driven, deterministic-first, confidence/evidence/provenance, resumable, dry-run, coverage report.
-- Flowcart mirror (Part 11): `gc_taxonomy_*` tables, canonical category tree, `products` provenance columns, `hybrid_product_search` v2, `gpt-commerce-agent` on the shared helpers, `enrich-products` rewrite, full embedding backfill, electronics eval dataset.
+- Flowcart mirror (Part 10): `gc_taxonomy_*` tables, canonical category tree, `products` provenance columns, `hybrid_product_search` v2, `gpt-commerce-agent` on the shared helpers, `enrich-products` rewrite, full embedding backfill, electronics eval dataset.
 - `supabase/functions/_shared/`: catalog-agnostic helpers imported by both agents; no duplicated logic added.
 - Models stay as they are (`google/gemini-3.1-flash-lite` for PetAbad, `google/gemini-2.5-flash` for Flowcart); the extra tool round is budgeted so turns stay in the current latency range.

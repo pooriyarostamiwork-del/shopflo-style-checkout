@@ -130,7 +130,11 @@ function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: 
 // ── Deterministic hints (no model call) ──
 const ENUMERATION_RE = /(چیا داری|چی داری|چه (برند|مدل|مارک)|همه(ی)? ?(محصولات|مدل ?ها|گزینه ?ها)?|لیست|چند تا|چندتا|کدوم برند|برند ?های|موجودی)/;
 const EXISTENCE_RE = /(داری|دارید|موجوده|موجود هست|هست)\s*\??$/;
-const REFERENCE_RE = /(این|اینا|اینها|همون|همین|اون ?ها|اونا|قبلی|همون ?ها|برای این|با این)/;
+const REFERENCE_RE = /(این|اینا|اینها|همون|همین|اون ?ها|اونا|قبلی|همون ?ها|برای این|با این|اولی|اولو|اول|دومی|دوم|سومی|سوم|شماره ?\d)/;
+const ORDINALS: Record<string, number> = {
+  'اولی': 1, 'اولو': 1, 'اول': 1, 'دومی': 2, 'دوم': 2, 'سومی': 3, 'سوم': 3,
+  'چهارمی': 4, 'چهارم': 4, 'پنجمی': 5, 'پنجم': 5, 'ششمی': 6, 'ششم': 6,
+};
 
 function buildScopeHint(message: string): string | undefined {
   const t = message.replace(/\u200c/g, " ");
@@ -142,12 +146,28 @@ function buildScopeHint(message: string): string | undefined {
 
 function buildReferenceHint(message: string, memory: ProductMemory): string | undefined {
   if (!REFERENCE_RE.test(message)) return undefined;
-  const focus = memory.focus?.productIds?.length
-    ? memory.focus.productIds
-    : (memory.groups[memory.groups.length - 1]?.productIds ?? []);
+  const latest = memory.groups[memory.groups.length - 1]?.productIds ?? [];
+  const focus = memory.focus?.productIds?.length ? memory.focus.productIds : latest;
   if (!focus.length) return undefined;
+
+  // «محصول اول/دومی/شماره ۲» points at one concrete product — name it for the model.
+  const t = message.replace(/\u200c/g, " ").replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  let ordinal: number | undefined;
+  const numMatch = t.match(/(?:شماره|محصول)\s*(\d+)/);
+  if (numMatch) ordinal = parseInt(numMatch[1]);
+  if (!ordinal) {
+    for (const [word, n] of Object.entries(ORDINALS)) {
+      if (new RegExp(`(^|\\s)${word}(\\s|$|و|ی|رو|را)`).test(t)) { ordinal = n; break; }
+    }
+  }
+  const namedId = ordinal ? latest[ordinal - 1] : undefined;
+  const namedProduct = namedId ? memory.entries[namedId]?.product : undefined;
+  if (namedProduct) {
+    return `کاربر به «محصول ${ordinal}» از آخرین لیست اشاره کرده؛ منظورش دقیقاً این محصوله: ${namedProduct.name} (id: ${namedProduct.id}). در پاسخ نام همین محصول را بیاور و جواب سؤالش را دربارهٔ همین محصول بده؛ لیست جدید نساز.`;
+  }
   return `کاربر با ضمیر به محصولات قبلی اشاره کرده. محصولات مرجع: ${focus.slice(0, 6).join(", ")}. اینها موضوع جدید نیستند مگر صریح گفته شود.`;
 }
+
 
 export const useAgentMessages = ({
   updateCurrentBasket,

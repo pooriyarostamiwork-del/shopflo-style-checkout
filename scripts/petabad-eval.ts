@@ -167,7 +167,46 @@ const CASES: Case[] = [
     contentNoneOf: [/محدود می‌شود|محدود میشه/],
     maxSeconds: 30,
   },
+  // ── Text/card binding: the cards must be the products the answer names ──
+  {
+    id: "shihtzu-dog-food",
+    prompt: "برای سگ شیتزوم غذا می‌خوام",
+    species: "سگ",
+    nameNoneOf: [/گربه/],
+    expectProducts: true,
+    allowClarification: true,
+    maxSeconds: 30,
+  },
+  {
+    id: "breed-only-species-lock",
+    history: [
+      { role: "user", content: "شیتزو دارم" },
+      { role: "assistant", content: "چه کمکی می‌تونم بکنم؟" },
+    ],
+    prompt: "غذای خشک مناسبش رو بده",
+    species: "سگ",
+    nameNoneOf: [/گربه/],
+    expectProducts: true,
+    maxSeconds: 30,
+  },
+  {
+    id: "recalled-products-have-cards",
+    history: [
+      { role: "user", content: "برای سگ نژاد کوچکم غذای خشک میخوام" },
+      {
+        role: "assistant",
+        content:
+          "۱. غذای خشک سگ بالغ مدل نژاد کوچک فیدار وزن ۸ کیلوگرم — ۳,۳۴۰,۰۰۰ تومان\nبرای نژاد کوچک فرموله شده.\n\n۲. غذای خشک سگ جوسرا مخصوص نژاد کوچک Josera Adult Mini Delux وزن ۱ کیلوگرم — ۱,۸۵۰,۰۰۰ تومان\nاز برند جوسرا ساخت آلمان.",
+      },
+    ],
+    prompt: "همون دوتای قبلی رو دوباره نشونم بده",
+    species: "سگ",
+    nameNoneOf: [/گربه/],
+    expectProducts: true,
+    maxSeconds: 30,
+  },
 ];
+
 
 const FA = /[۰-۹]/;
 const numberedLines = (t: string) => (t.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;

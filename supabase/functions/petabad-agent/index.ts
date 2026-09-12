@@ -3358,8 +3358,15 @@ serve(async (req) => {
     let answerSource = "reranker_fallback";
     // A turn that only looked up details/FAQ/memory (no catalog search) is an explanation turn,
     // not a recommendation turn → compose prose, never a fresh product list.
+    // "درباره این ... بیشتر توضیح بده" about something already on the table is an explanation turn
+    // even if a search happened to run: the shopper asked about one product, not for a new list.
+    const asksAboutShownItem =
+      /(بیشتر\s*(بهم\s*)?(توضیح|بگو)|توضیح\s*(بیشتر|بده|میدی|می‌دی)|جزئیات|مشخصات|فرق(ش|شون)?|چطوره|خوبه؟?)/.test(lastUserText) &&
+      /(این|همین|همون|اولی|دومی|سومی|محصول\s*(اول|دوم|سوم))/.test(lastUserText);
     const explanationOnly =
-      !searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t));
+      asksAboutShownItem ||
+      (!searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t)));
+
     const candidatesForRerank = explanationOnly
       ? []
       : isBundleTurn

@@ -1,6 +1,124 @@
-import { useMemo, useState } from "react";
-import { Check, ChevronLeft, Sparkles, SlidersHorizontal } from "lucide-react";
-import type { Clarification, ClarificationOption } from "@/data/petabadData";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronLeft, Pencil, Sparkles, SlidersHorizontal } from "lucide-react";
+import type { Clarification, ClarificationOption, QuestionJourney } from "@/data/petabadData";
+import { ShiningText } from "./ShiningText";
+
+/**
+ * One card for the whole guidance journey. Answered questions collapse into a
+ * list (question → answer, changeable while the journey is live), the current
+ * question sits below with its options, and a shimmer shows while the next
+ * question is being checked against stock. Read-only once done or abandoned.
+ */
+export const JourneyCard = ({
+  journey,
+  onAnswer,
+  onRedo,
+}: {
+  journey: QuestionJourney;
+  onAnswer: (answer: string) => void;
+  onRedo: (stepIndex: number) => void;
+}) => {
+  const [picked, setPicked] = useState<string[]>([]);
+  const current = journey.current;
+  const live = journey.status === "asking" || journey.status === "checking";
+  const busy = journey.status === "checking";
+
+  // A fresh question always starts with an empty selection.
+  useEffect(() => setPicked([]), [current?.id, current?.question]);
+
+  if (!current && journey.steps.length === 0) return null;
+
+  const title =
+    journey.status === "asking" && current
+      ? current.question || "کدوم گزینه برات مناسب‌تره؟"
+      : busy
+        ? "یک لحظه…"
+        : "انتخاب‌هات";
+  const eyebrow = journey.status === "asking" && current?.progress ? current.progress : "راهنمای انتخاب";
+
+  return (
+    <div dir="rtl" className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-start gap-2.5 p-3.5 pb-3">
+        <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <SlidersHorizontal className="w-4 h-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-medium tracking-wide text-primary">{eyebrow}</p>
+          <p className="text-sm font-semibold leading-6 mt-0.5">{title}</p>
+          {journey.status === "asking" && current && (current.multi || current.helper) && (
+            <p className="text-[11px] leading-5 text-muted-foreground mt-1">
+              {current.multi ? "می‌تونی چند گزینه انتخاب کنی" : current.helper}
+            </p>
+          )}
+        </div>
+        {journey.status === "asking" && current && (
+          <button
+            onClick={() => onAnswer("فرقی نمی‌کنه، خودت انتخاب کن")}
+            className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted"
+          >
+            رد می‌کنم
+          </button>
+        )}
+      </div>
+
+      {journey.steps.length > 0 && (
+        <div className="mx-3.5 mb-3 rounded-xl border border-border divide-y divide-border overflow-hidden">
+          {journey.steps.map((s, i) => {
+            const answer = s.answer.trim() || "فرقی نمی‌کنه";
+            const row = (
+              <div className="flex items-center gap-2 px-3 py-2">
+                <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                  <Check className="w-3 h-3" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[11px] text-muted-foreground leading-4">{s.card.title || s.card.question}</span>
+                  <span className="block text-[13px] font-medium leading-5 truncate">{answer}</span>
+                </span>
+                {live && !busy && <Pencil className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+              </div>
+            );
+            return live && !busy ? (
+              <button key={`${s.card.id}-${i}`} onClick={() => onRedo(i)} className="w-full text-right hover:bg-muted/60 transition-colors">
+                {row}
+              </button>
+            ) : (
+              <div key={`${s.card.id}-${i}`}>{row}</div>
+            );
+          })}
+        </div>
+      )}
+
+      {busy && (
+        <div className="px-3.5 pb-3.5 text-[12px]">
+          <ShiningText text="دارم گزینه‌های بعدی رو از موجودی چک می‌کنم…" />
+        </div>
+      )}
+
+      {journey.status === "asking" && current && (current.options?.length ?? 0) > 0 && (
+        <div className="px-3.5 pb-3.5">
+          <div className="space-y-2">
+            {current.options!.map((o, i) => (
+              <OptionButton
+                key={`${o.label}-${i}`}
+                option={o}
+                multi={current.multi}
+                selected={current.multi ? picked.includes(o.label) : undefined}
+                onClick={() => {
+                  if (current.multi) {
+                    setPicked((prev) => (prev.includes(o.label) ? prev.filter((p) => p !== o.label) : [...prev, o.label]));
+                  } else {
+                    onAnswer(o.label);
+                  }
+                }}
+              />
+            ))}
+          </div>
+          {current.multi && <ConfirmButton count={picked.length} onClick={() => onAnswer(picked.join(" و "))} />}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /**
  * The shopper reply that came after this message, if any.

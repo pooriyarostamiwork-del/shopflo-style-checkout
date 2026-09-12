@@ -840,17 +840,30 @@ async function executeSearch(
     .filter((t: string) => !(requestedTypes.length > 0 && TAXONOMY_WORDS.test(normalizePersian(t))))
     .slice(0, 8);
 
+  // Part 2 — three-valued evidence: boost rows that mention the concept,
+  // penalize rows that do not, but never remove them entirely.
   let evidenceUnconfirmed = false;
   if (terms.length > 0) {
     const normTerms = terms.map((t) => normalizePersian(t));
-    const filtered = results.filter((p: any) => {
+    const scored = results.map((p: any) => {
+      const specText = Object.values(p.specs || {})
+        .filter((v: any) => v && typeof v === "string")
+        .join(" ");
       const haystack = normalizePersian(
-        `${p.name_fa || ""} ${p.description_fa || ""} ${(p.tags || []).join(" ")} ${(p.health_needs || []).join(" ")}`
+        `${p.name_fa || ""} ${p.description_fa || ""} ${(p.tags || []).join(" ")} ${(p.health_needs || []).join(" ")} ${specText}`
       );
-      return normTerms.some((t) => haystack.includes(t));
+      const matched = normTerms.filter((t) => haystack.includes(t)).length;
+      const boost = matched > 0 ? 0.12 + 0.04 * (matched - 1) : -0.06;
+      return { ...p, _evidence_boost: boost, _evidence_matched: matched > 0 };
     });
-    if (filtered.length > 0) results = filtered;
-    else evidenceUnconfirmed = true;
+    if (scored.every((p: any) => !p._evidence_matched)) evidenceUnconfirmed = true;
+    results = scored
+      .sort((a: any, b: any) => {
+        const scoreDiff = (b.final_score + b._evidence_boost) - (a.final_score + a._evidence_boost);
+        if (Math.abs(scoreDiff) > 0.0001) return scoreDiff;
+        return (b.rating || 0) - (a.rating || 0);
+      })
+      .map(({ _evidence_boost, _evidence_matched, ...p }: any) => p);
   }
 
   if (Number(offset) > 0) results = results.slice(Math.floor(Number(offset)));
@@ -859,7 +872,8 @@ async function executeSearch(
   else if (sort_by === "price_high") results.sort((a: any, b: any) => b.price - a.price);
   else if (sort_by === "rating") results.sort((a: any, b: any) => b.rating - a.rating);
 
-  // Stated life stage: matching rows lead, contradictory rows removed.
+  // Stated life stage: matching rows lead, contradictory rows are kept but deprioritized
+  // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
   results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
 
 

@@ -1484,6 +1484,169 @@ async function getProductDetails(supabase: any, productId: string): Promise<any>
   return { product: data };
 }
 
+// ── Bounded agentic tool loop helpers ──
+type ToolRoundResult = {
+  products: any[];
+  toolResults: any[];
+  searchExecuted: boolean;
+  extractedIntent: any;
+  bundleGroups: Array<{ label: string; products: any[] }>;
+  emptyNeedLabels: string[];
+};
+
+async function runToolRound(
+  supabase: any,
+  choice: any,
+  precomputedEmbedding: number[] | null,
+  speciesLock: { species?: string | null; lifeStage?: string | null },
+  lockedSpecies: string | null,
+  isBundleTurn: boolean,
+  bundleNeeds: NeedSpec[],
+): Promise<ToolRoundResult> {
+  const result: ToolRoundResult = {
+    products: [],
+    toolResults: [],
+    searchExecuted: false,
+    extractedIntent: null,
+    bundleGroups: [],
+    emptyNeedLabels: [],
+  };
+
+  for (const toolCall of choice.message.tool_calls) {
+    const funcName = toolCall.function?.name;
+    let funcArgs: any;
+    try {
+      funcArgs = JSON.parse(toolCall.function?.arguments || "{}");
+    } catch {
+      funcArgs = {};
+    }
+
+    console.log(`Tool: ${funcName}`, JSON.stringify(funcArgs));
+
+    let toolResult: any;
+    if (funcName === "search_products") {
+      result.searchExecuted = true;
+      result.extractedIntent = funcArgs;
+      const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
+      if (searched.products) result.products = [...result.products, ...searched.products];
+      toolResult = {
+        matched_total: searched.matched_total ?? 0,
+        shown: searched.shown ?? 0,
+        evidence_unconfirmed: searched.evidence_unconfirmed || false,
+        filters_relaxed: searched.filters_relaxed || false,
+        searched_with: searched.searched_with || {},
+        products: (searched.products || []).map((p: any) => ({
+          id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,
+        })),
+      };
+    } else if (funcName === "business_faq_lookup") {
+      toolResult = await executeFaqLookup(supabase, funcArgs, precomputedEmbedding);
+    } else if (funcName === "brand_or_general_lookup") {
+      toolResult = await executeWebLookup(funcArgs);
+    } else if (funcName === "catalog_facets") {
+      toolResult = await executeFacets(supabase, funcArgs, lockedSpecies);
+    } else if (funcName === "recall_products") {
+      const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 12) : [];
+      if (ids.length > 0) {
+        const { data: recalled } = await supabase.from("pet_products").select("*").in("id", ids);
+        const ordered = filterBySpecies(
+          ids.map((id) => (recalled || []).find((p: any) => p.id === id)).filter(Boolean),
+          lockedSpecies,
+        );
+        result.products = [...result.products, ...ordered];
+        toolResult = { products: ordered.map((p: any) => ({ id: p.id, name: p.name, price: p.price })) };
+      } else {
+        toolResult = { products: [] };
+      }
+    } else if (funcName === "get_product_details") {
+      toolResult = await getProductDetails(supabase, funcArgs.product_id);
+    } else {
+      toolResult = { error: "Unknown tool" };
+    }
+
+    result.toolResults.push({
+      role: "tool",
+      tool_call_id: toolCall.id,
+      content: JSON.stringify(toolResult),
+    });
+  }
+
+  if (isBundleTurn && result.searchExecuted) {
+    const sp = lockedSpecies as string;
+    const groups = await Promise.all(
+      bundleNeeds.slice(0, 5).map(async (need) => {
+        const queries = needShelfQueries(need, sp);
+        const found: any[] = [];
+        for (const q of queries) {
+          const r = await executeSearch(supabase, { query_text: q, species: sp, limit: 6 }, null, speciesLock);
+          for (const p of r.products || []) if (!found.some((f) => f.id === p.id)) found.push(p);
+          if (found.length >= 3) break;
+        }
+        return { label: need.label, products: found.slice(0, 2) };
+      }),
+    );
+    result.bundleGroups = groups.filter((g) => g.products.length > 0);
+    result.emptyNeedLabels = groups.filter((g) => g.products.length === 0).map((g) => g.label);
+    const bundleProducts: any[] = [];
+    for (const g of result.bundleGroups) {
+      for (const p of g.products) if (!bundleProducts.some((x) => x.id === p.id)) bundleProducts.push(p);
+    }
+    if (bundleProducts.length > 0) result.products = bundleProducts.slice(0, 9);
+  }
+
+  return result;
+}
+
+function mergeProducts(existing: any[], incoming: any[]): any[] {
+  const seen = new Set(existing.map((p) => p.id));
+  const merged = [...existing];
+  for (const p of incoming) {
+    if (p && p.id && !seen.has(p.id)) {
+      merged.push(p);
+      seen.add(p.id);
+    }
+  }
+  return merged;
+}
+
+function buildDiscoveryGuardQuery(
+  userText: string,
+  lockedSpecies: string | null,
+  lockedStage: string | null,
+  facetFamily: string | null,
+): any {
+  const norm = normalizePersian(userText);
+  const detectedTypes = detectProductTypes(userText);
+
+  const family = facetFamily ||
+    (detectedTypes.includes("غذای خشک") && lockedSpecies === "گربه" ? "غذای خشک گربه" :
+     detectedTypes.includes("غذای خشک") && lockedSpecies === "سگ" ? "غذای خشک سگ" :
+     detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "گربه" ? "کنسرو و پوچ و غذای تر گربه" :
+     detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "سگ" ? "کنسرو و پوچ و غذای تر سگ" :
+     lockedSpecies === "گربه" ? "غذای خشک گربه" :
+     lockedSpecies === "سگ" ? "غذای خشک سگ" : "");
+
+  const evidenceTerms: string[] = [];
+  if (/پوست و مو|پوست|مو|ریزش مو|hair|skin/i.test(norm)) evidenceTerms.push("پوست و مو", "پوست", "مو");
+  if (/گوارش|حساسیت|معده|digest|sensitive/i.test(norm)) evidenceTerms.push("گوارش", "حساسیت");
+  if (/کلیه|مجاری ادرار|kidney|urinary/i.test(norm)) evidenceTerms.push("کلیه", "مجاری ادرار");
+  if (/عقیم|steril/i.test(norm)) evidenceTerms.push("عقیم شده");
+  if (/وزن|رژیم|چاق|diet|weight/i.test(norm)) evidenceTerms.push("کنترل وزن");
+  if (/گلوله مویی|هربال|hairball/i.test(norm)) evidenceTerms.push("گلوله مویی", "هربال");
+  if (/دندان|مفاصل|ایمنی|سلامت/i.test(norm)) evidenceTerms.push("دندان", "مفاصل", "ایمنی");
+
+  return {
+    query_text: userText.slice(0, 80),
+    subcategory_family: family || undefined,
+    species: lockedSpecies || undefined,
+    filters: {
+      ...(lockedStage ? { life_stage: lockedStage } : {}),
+    },
+    evidence_terms: evidenceTerms.length > 0 ? Array.from(new Set(evidenceTerms)) : undefined,
+    limit: 20,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1676,62 +1839,216 @@ serve(async (req) => {
       embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));
     }
 
-    // ── Step 1: LLM call (with or without tools based on mode) ──
-    console.log(`Step 1: ${effectiveMode} LLM call...`);
-    const llmBody: any = {
-      model: "google/gemini-3.1-flash-lite",
-      messages: aiMessages,
-    };
-    if (tools.length > 0) {
-      llmBody.tools = tools;
-    }
+    // ── Bounded agentic tool loop (max 2 tool rounds, then final prose) ──
+    const MAX_TOOL_ROUNDS = 2;
+    const WALL_CLOCK_BUDGET_MS = 9000;
+    const startTime = Date.now();
+    const precomputedEmbedding = embeddingPromise ? await embeddingPromise : null;
 
-    const intentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(llmBody),
-    });
+    let roundMessages = [...aiMessages];
+    let allProducts: any[] = [];
+    let extractedIntent: any = null;
+    let searchExecuted = false;
+    let toolTrace: string[] = [];
+    let bundleGroups: Array<{ label: string; products: any[] }> = [];
+    let emptyNeedLabels: string[] = [];
+    let finalAssistantMessage: any = null;
+    let faqToolExecuted = false;
 
-    if (!intentResponse.ok) {
-      const status = intentResponse.status;
-      if (status === 429) {
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      if (Date.now() - startTime > WALL_CLOCK_BUDGET_MS) {
+        console.log(`Wall clock budget reached before tool round ${round + 1}`);
+        break;
+      }
+
+      const llmBody: any = {
+        model: "google/gemini-3.1-flash-lite",
+        messages: roundMessages,
+      };
+      if (tools.length > 0) {
+        llmBody.tools = tools;
+      }
+
+      console.log(`Tool round ${round + 1}: LLM call...`);
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(llmBody),
+      });
+
+      if (!response.ok) {
+        const status = response.status;
+        if (status === 429) {
+          return new Response(
+            JSON.stringify({ error: "سرعت درخواست‌ها زیاد شده، لطفاً کمی صبر کنید." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (status === 402) {
+          return new Response(
+            JSON.stringify({ error: "اعتبار سرویس هوش مصنوعی تمام شده." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const errText = await response.text();
+        console.error("AI gateway error:", status, errText);
         return new Response(
-          JSON.stringify({ error: "سرعت درخواست‌ها زیاد شده، لطفاً کمی صبر کنید." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "خطا در سرویس هوش مصنوعی" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (status === 402) {
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+
+      if (!choice) {
         return new Response(
-          JSON.stringify({ error: "اعتبار سرویس هوش مصنوعی تمام شده." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ content: "متوجه نشدم. می‌تونی دوباره بگی؟", products: [], quickReplies: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errText = await intentResponse.text();
-      console.error("AI gateway error:", status, errText);
-      return new Response(
-        JSON.stringify({ error: "خطا در سرویس هوش مصنوعی" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+
+      // No tool calls → this is the final assistant message, exit loop and use it
+      if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
+        finalAssistantMessage = choice.message;
+        console.log(`Tool round ${round + 1}: no tool calls, final prose`);
+        break;
+      }
+
+      const toolNames = choice.message.tool_calls.map((t: any) => t.function?.name).filter(Boolean);
+      console.log(`Tool round ${round + 1} tools:`, toolNames.join(", "));
+      toolTrace.push(...toolNames);
+
+      // Short-circuit: clarification / cart on first round only (preserves current UX)
+      if (round === 0) {
+        const clarifyCall = choice.message.tool_calls.find(
+          (t: any) => t.function?.name === "ask_clarification"
+        );
+        if (clarifyCall) {
+          let payload: any = {};
+          try {
+            payload = JSON.parse(clarifyCall.function.arguments);
+          } catch {
+            payload = {};
+          }
+          const normOptions = (arr: any) =>
+            (Array.isArray(arr) ? arr : [])
+              .map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint }))
+              .filter((o: any) => typeof o.label === "string" && o.label.trim());
+          const SPECIES_QUESTION_RE = /(چه|کدوم|نوع)\s*(حیوان|پت)|حیوان\s*خونگی|حیوان\s*خانگی/;
+          const steps = (Array.isArray(payload.steps) ? payload.steps : [])
+            .map((s: any) => ({
+              title: s?.title || "",
+              question: s?.question || "",
+              multi: s?.multi === true,
+              options: normOptions(s?.options),
+            }))
+            .filter((s: any) => s.question && s.options.length > 0)
+            .filter((s: any) => !(knownSpecies && SPECIES_QUESTION_RE.test(normalizePersian(s.question))));
+          const options = normOptions(payload.options);
+          if (steps.length > 0 || options.length > 0) {
+            const facets = await getFacets();
+            const rawCard = steps.length > 0
+              ? { kind: "steps", helper: payload.helper || "", steps }
+              : { kind: "single", question: payload.question || "", helper: payload.helper || "", multi: payload.multi === true, options };
+            const grounded = groundClarification(rawCard, facets);
+            const fallbackCard = {
+              kind: "steps",
+              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
+            };
+            const cardResponse = clarificationResponse(grounded, "ask-tool-grounded") ||
+              clarificationResponse(fallbackCard, "ask-tool-fallback");
+            if (cardResponse) return cardResponse;
+            return new Response(
+              JSON.stringify({ response_type: "message", content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.", products: [], quickReplies: [] }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (wantsGuidance) {
+            const fallbackCard = {
+              kind: "steps",
+              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
+              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
+            };
+            const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
+            if (fallbackResponse) return fallbackResponse;
+          }
+        }
+
+        const cartCall = choice.message.tool_calls.find(
+          (t: any) => t.function?.name === "execute_cart_operations"
+        );
+        if (effectiveMode === "cart_manipulation" || cartCall) {
+          const toolCall = cartCall || choice.message.tool_calls[0];
+          let cartResult: any;
+          try {
+            cartResult = JSON.parse(toolCall.function.arguments);
+          } catch {
+            cartResult = { actions: [], message: "متوجه نشدم. دوباره بگو.", needs_clarification: false };
+          }
+          console.log("Cart manipulation result:", JSON.stringify(cartResult));
+          return new Response(
+            JSON.stringify({
+              response_type: "cart",
+              cart_actions: cartResult.actions || [],
+              content: sanitizeVisibleText(cartResult.message || "") || "عملیات انجام شد.",
+              needs_clarification: cartResult.needs_clarification || false,
+              clarification_options: cartResult.clarification_options || [],
+              products: [],
+              quickReplies: [],
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Execute tools
+      const roundResult = await runToolRound(
+        supabase,
+        choice,
+        precomputedEmbedding,
+        speciesLock,
+        lockedSpecies,
+        isBundleTurn,
+        bundleNeeds,
       );
+      if (roundResult.searchExecuted) {
+        searchExecuted = true;
+        extractedIntent = roundResult.extractedIntent;
+      }
+      if (toolNames.includes("business_faq_lookup")) faqToolExecuted = true;
+      allProducts = mergeProducts(allProducts, roundResult.products);
+      if (roundResult.bundleGroups.length > 0) {
+        bundleGroups = roundResult.bundleGroups;
+        emptyNeedLabels = roundResult.emptyNeedLabels;
+      }
+
+      roundMessages.push(choice.message, ...roundResult.toolResults);
     }
 
-    const intentData = await intentResponse.json();
-    const choice = intentData.choices?.[0];
-
-    if (!choice) {
-      return new Response(
-        JSON.stringify({ content: "متوجه نشدم. می‌تونی دوباره بگی؟", products: [], quickReplies: [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // ── Discovery guard: a product-discovery turn must never end without a search ──
+    const isDiscoveryIntent = effectiveMode === "discovery" || effectiveMode === "agentic";
+    if (isDiscoveryIntent && !searchExecuted && !wantsGuidance && !isBusinessQuestion) {
+      console.log("Discovery guard: no search executed in tool loop, running deterministic search...");
+      const guardQuery = buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily);
+      const guardSearch = await executeSearch(supabase, guardQuery, precomputedEmbedding, speciesLock);
+      if (guardSearch.products?.length > 0) {
+        allProducts = mergeProducts(allProducts, guardSearch.products);
+        searchExecuted = true;
+        toolTrace.push("search_products (discovery-guard)");
+        console.log(`Discovery guard returned ${guardSearch.products.length} products`);
+      }
     }
 
-    // ── No tool call = direct response (still sanitized + card-hydrated) ──
-    if (!choice.message?.tool_calls || choice.message.tool_calls.length === 0) {
+    // ── Direct response path: no products, no discovery intent, final message exists ──
+    if (finalAssistantMessage && allProducts.length === 0 && !isDiscoveryIntent) {
       // Business/policy question answered without the FAQ tool = ungrounded. Redo it grounded.
-      if (isBusinessQuestion) {
-        const faq = await executeFaqLookup(supabase, { query: lastUserText }, await (embeddingPromise || Promise.resolve(null)));
+      if (isBusinessQuestion && !faqToolExecuted) {
+        const faq = await executeFaqLookup(supabase, { query: lastUserText }, precomputedEmbedding);
         if (faq.entries?.length > 0) {
           const kb = faq.entries.map((e: any, i: number) =>
             `${i + 1}) [${e.faq_id}] موضوع: ${e.category}\nسؤال رسمی: ${e.question}\nپاسخ رسمی: ${e.official_answer}${e.phone_numbers?.length ? `\nشماره تماس: ${e.phone_numbers.join(" / ")}` : ""}`
@@ -1765,8 +2082,8 @@ serve(async (req) => {
           }
         }
       }
-      const rawText = choice.message?.content || "";
 
+      const rawText = finalAssistantMessage.content || "";
       const sig = extractSignals(rawText);
       const mentionedIds = [
         ...((sig.text.match(UUID_RE) || []) as string[]),
@@ -1777,8 +2094,6 @@ serve(async (req) => {
       let visible = sanitizeVisibleText(sig.text);
       if (!wantsCounts) visible = stripCountTalk(visible);
 
-
-      // Safety net: questions written as text become a tappable card on any turn.
       if (hydrated.length === 0) {
         const parsed = extractQuestionCard(visible);
         const facets = parsed || wantsGuidance ? await getFacets() : null;
@@ -1796,7 +2111,6 @@ serve(async (req) => {
         if (cardResponse) return cardResponse;
       }
 
-      // A guidance turn must never end on the generic fallback line.
       if (wantsGuidance && hydrated.length === 0 && !visible) {
         const fallbackCard = {
           kind: "steps",
@@ -1806,8 +2120,6 @@ serve(async (req) => {
         const fallbackResponse = clarificationResponse(fallbackCard, "guidance-fallback");
         if (fallbackResponse) return fallbackResponse;
       }
-
-
 
       return new Response(
         JSON.stringify({
@@ -1824,236 +2136,29 @@ serve(async (req) => {
       );
     }
 
-    // ── Clarification tool call → return structured question (no second model call) ──
-    // A bundle turn already has species + needs: asking again is not allowed.
-    const clarifyToolCall = isBundleTurn ? null : choice.message.tool_calls.find(
-      (t: any) => t.function?.name === "ask_clarification"
-    );
-
-    if (clarifyToolCall) {
-      let payload: any = {};
-      try { payload = JSON.parse(clarifyToolCall.function.arguments); } catch { payload = {}; }
-      const normOptions = (arr: any) =>
-        (Array.isArray(arr) ? arr : [])
-          .map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint }))
-          .filter((o: any) => typeof o.label === "string" && o.label.trim());
-      const SPECIES_QUESTION_RE = /(چه|کدوم|نوع)\s*(حیوان|پت)|حیوان\s*خونگی|حیوان\s*خانگی/;
-      const steps = (Array.isArray(payload.steps) ? payload.steps : [])
-        .map((s: any) => ({
-          title: s?.title || "",
-          question: s?.question || "",
-          multi: s?.multi === true,
-          options: normOptions(s?.options),
-        }))
-        .filter((s: any) => s.question && s.options.length > 0)
-        // The user already named their pet — never ask which animal again.
-        .filter((s: any) => !(knownSpecies && SPECIES_QUESTION_RE.test(normalizePersian(s.question))));
-      const options = normOptions(payload.options);
-      if (steps.length > 0 || options.length > 0) {
-        const facets = await getFacets();
-        const rawCard = steps.length > 0
-          ? { kind: "steps", helper: payload.helper || "", steps }
-          : { kind: "single", question: payload.question || "", helper: payload.helper || "", multi: payload.multi === true, options };
-        const grounded = groundClarification(rawCard, facets);
-        const fallbackCard = {
-          kind: "steps",
-          helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
-        };
-        const cardResponse = clarificationResponse(grounded, "ask-tool-grounded") ||
-          clarificationResponse(fallbackCard, "ask-tool-fallback");
-        if (cardResponse) return cardResponse;
-        return new Response(
-          JSON.stringify({ response_type: "message", content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.", products: [], quickReplies: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      // Empty/invalid card payload on a guidance turn → use the built-in card.
-      if (wantsGuidance) {
-        const fallbackCard = {
-          kind: "steps",
-          helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
-        };
-        const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
-        if (fallbackResponse) return fallbackResponse;
-      }
-    }
-
-
-
-    // ── Cart operations tool call → return structured actions ──
-
-    const cartToolCall = choice.message.tool_calls.find(
-      (t: any) => t.function?.name === "execute_cart_operations"
-    );
-    if (effectiveMode === "cart_manipulation" || cartToolCall) {
-      const toolCall = cartToolCall || choice.message.tool_calls[0];
-      let cartResult: any;
-      try {
-        cartResult = JSON.parse(toolCall.function.arguments);
-      } catch {
-        cartResult = { actions: [], message: "متوجه نشدم. دوباره بگو.", needs_clarification: false };
-      }
-      console.log("Cart manipulation result:", JSON.stringify(cartResult));
-      return new Response(
-        JSON.stringify({
-          response_type: "cart",
-          cart_actions: cartResult.actions || [],
-          content: sanitizeVisibleText(cartResult.message || "") || "عملیات انجام شد.",
-          needs_clarification: cartResult.needs_clarification || false,
-          clarification_options: cartResult.clarification_options || [],
-          products: [],
-          quickReplies: [],
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Step 2: Execute tool calls + get embedding result ──
-    console.log("Step 2: Hybrid retrieval...");
-    const precomputedEmbedding = embeddingPromise ? await embeddingPromise : null;
-    const toolResults: any[] = [];
-    let allProducts: any[] = [];
-    let extractedIntent: any = null;
-
-    for (const toolCall of choice.message.tool_calls) {
-      const funcName = toolCall.function.name;
-      let funcArgs: any;
-      try {
-        funcArgs = JSON.parse(toolCall.function.arguments);
-      } catch {
-        funcArgs = {};
-      }
-
-      console.log(`Tool: ${funcName}`, JSON.stringify(funcArgs));
-
-      let result: any;
-      if (funcName === "search_products") {
-        extractedIntent = funcArgs;
-        const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
-        if (searched.products) allProducts = [...allProducts, ...searched.products];
-        // Compact tool payload — full product rows never go into the prompt.
-        result = {
-          matched_total: searched.matched_total ?? 0,
-          shown: searched.shown ?? 0,
-          evidence_unconfirmed: searched.evidence_unconfirmed || false,
-          products: (searched.products || []).map((p: any) => ({
-            id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,
-          })),
-        };
-      } else if (funcName === "business_faq_lookup") {
-        result = await executeFaqLookup(supabase, funcArgs, precomputedEmbedding);
-      } else if (funcName === "brand_or_general_lookup") {
-        result = await executeWebLookup(funcArgs);
-
-      } else if (funcName === "catalog_facets") {
-
-        result = await executeFacets(supabase, funcArgs, lockedSpecies);
-      } else if (funcName === "recall_products") {
-        const ids: string[] = Array.isArray(funcArgs.product_ids) ? funcArgs.product_ids.slice(0, 12) : [];
-        if (ids.length > 0) {
-          const { data: recalled } = await supabase.from("pet_products").select("*").in("id", ids);
-          const ordered = filterBySpecies(
-            ids.map((id) => (recalled || []).find((p: any) => p.id === id)).filter(Boolean),
-            lockedSpecies,
-          );
-          allProducts = [...allProducts, ...ordered];
-          result = { products: ordered.map((p: any) => ({ id: p.id, name: p.name, price: p.price })) };
-        } else {
-          result = { products: [] };
-        }
-
-      } else if (funcName === "get_product_details") {
-        result = await getProductDetails(supabase, funcArgs.product_id);
-      } else {
-        result = { error: "Unknown tool" };
-      }
-
-      toolResults.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(result),
-      });
-    }
-
-    // ── Multi-need bundle: one grouped answer, each shelf retrieved separately ──
-    let bundleGroups: Array<{ label: string; products: any[] }> = [];
-    let emptyNeedLabels: string[] = [];
-    if (isBundleTurn) {
-      const sp = lockedSpecies as string;
-      const groups = await Promise.all(
-        bundleNeeds.slice(0, 5).map(async (need) => {
-          const queries = needShelfQueries(need, sp);
-          const found: any[] = [];
-          for (const q of queries) {
-            const r = await executeSearch(
-              supabase,
-              { query_text: q, species: sp, limit: 6 },
-              null,
-              speciesLock,
-            );
-            for (const p of r.products || []) if (!found.some((f) => f.id === p.id)) found.push(p);
-            if (found.length >= 3) break;
-          }
-          return { label: need.label, products: found.slice(0, 2) };
-        }),
-      );
-      bundleGroups = groups.filter((g) => g.products.length > 0);
-      emptyNeedLabels = groups.filter((g) => g.products.length === 0).map((g) => g.label);
-      const bundleProducts: any[] = [];
-      for (const g of bundleGroups) {
-        for (const p of g.products) if (!bundleProducts.some((x) => x.id === p.id)) bundleProducts.push(p);
-      }
-      if (bundleProducts.length > 0) allProducts = bundleProducts.slice(0, 9);
-    }
-
-    // ── Step 3: Single follow-up LLM call for response generation + re-ranking ──
-    console.log("Step 3: Response generation...");
+    // ── Final re-ranker / prose generation ──
+    console.log("Final response generation...");
     const requestedLimit = Number(extractedIntent?.limit) || 0;
     const comprehensive = requestedLimit >= 12;
     const maxShown = isBundleTurn ? Math.min(allProducts.length, 9) : comprehensive ? 12 : 6;
-    // Card set is authoritative: the model may only write about these exact rows.
     const candidatesForRerank = isBundleTurn ? allProducts.slice(0, maxShown) : allProducts.slice(0, comprehensive ? 24 : 12);
     const candidateList = candidatesForRerank.map((p: any, i: number) =>
       `${i + 1}. [${p.id}] ${p.name_fa || p.name} — ${p.price?.toLocaleString()} تومان${p.brand ? ` — ${p.brand}` : ""}`
     ).join("\n");
 
     const bundleInstruction = isBundleTurn
-      ? `\n\nBUNDLE_TURN: کاربر چند نیاز هم‌زمان داره. پاسخ باید گروه‌بندی‌شده باشه و شماره‌گذاری محصولات پیوسته و از ۱ شروع بشه.
-- گروه‌ها و محصولات مجاز فقط همین‌ها هستن (به همین ترتیب و هیچ محصول دیگری):
-${bundleGroups.map((g) => `${g.label}: ${g.products.map((p: any) => p.name_fa || p.name).join(" | ")}`).join("\n")}
-- دقیقاً به ${maxShown} محصول اشاره کن، نه بیشتر و نه کمتر.
-${emptyNeedLabels.length ? `- برای این نیازها محصول مناسب پیدا نشد، فقط صادقانه بگو گزینه مناسبی نداریم و جایگزین از حیوان دیگه پیشنهاد نده: ${emptyNeedLabels.join("، ")}` : ""}`
+      ? `\n\nBUNDLE_TURN: کاربر چند نیاز هم‌زمان داره. پاسخ باید گروه‌بندی‌شده باشه و شماره‌گذاری محصولات پیوسته و از ۱ شروع بشه.\n- گروه‌ها و محصولات مجاز فقط همین‌ها هستن (به همین ترتیب و هیچ محصول دیگری):\n${bundleGroups.map((g) => `${g.label}: ${g.products.map((p: any) => p.name_fa || p.name).join(" | ")}`).join("\n")}\n- دقیقاً به ${maxShown} محصول اشاره کن، نه بیشتر و نه کمتر.\n${emptyNeedLabels.length ? `- برای این نیازها محصول مناسب پیدا نشد، فقط صادقانه بگو گزینه مناسبی نداریم و جایگزین از حیوان دیگه پیشنهاد نده: ${emptyNeedLabels.join("، ")}` : ""}`
       : "";
-
 
     const rerankerInstruction = candidatesForRerank.length > 0
-      ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:
-- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن
-- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن
-- ساختار پاسخ دقیقاً این‌طوریه: برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار
-- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری
-${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}
-- بدون مارک‌داون (بدون ستاره و هشتگ)
-
-
-لیست کاندیداها:
-${candidateList}
-
-مهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:
-SELECTED_IDS:["id1","id2","id3"]
-که id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
-      : "";
-
+      ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
+      : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
 
     const followUpMessages = [
-      ...aiMessages,
-      choice.message,
-      ...toolResults,
-      ...(rerankerInstruction ? [{ role: "system", content: rerankerInstruction + bundleInstruction }] : []),
+      ...roundMessages,
+      ...(finalAssistantMessage ? [finalAssistantMessage] : []),
+      { role: "system", content: rerankerInstruction + bundleInstruction },
     ];
-
 
     const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -2078,6 +2183,7 @@ SELECTED_IDS:["id1","id2","id3"]
             : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
           products: allProducts.slice(0, maxShown),
           quickReplies: [],
+          trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -2086,7 +2192,6 @@ SELECTED_IDS:["id1","id2","id3"]
     const followUpData = await followUpResponse.json();
     const rawFinal = followUpData.choices?.[0]?.message?.content || "";
 
-    // ── One shared pass: pull every machine signal out of the visible text ──
     const sig = extractSignals(rawFinal);
     let finalContent = sig.text;
     const referenceIds = sig.referenceIds;
@@ -2102,20 +2207,20 @@ SELECTED_IDS:["id1","id2","id3"]
       console.log(`Re-ranker selected ${reordered.length} products`);
     }
 
-    // Text/card parity: every product numbered in the answer must ship with its card.
     const numberedCount = (finalContent.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
     const parityCap = Math.min(Math.max(maxShown, numberedCount), 12);
     if (numberedCount > selectedProducts.length) {
       const have = new Set(selectedProducts.map((p: any) => p.id));
       for (const p of candidatesForRerank) {
         if (selectedProducts.length >= parityCap) break;
-        if (!have.has(p.id)) { selectedProducts.push(p); have.add(p.id); }
+        if (!have.has(p.id)) {
+          selectedProducts.push(p);
+          have.add(p.id);
+        }
       }
       console.log(`Parity fill → ${selectedProducts.length} cards for ${numberedCount} numbered items`);
     }
 
-
-    // Products named from memory (ids cited in the text) still get their cards.
     if (selectedProducts.length === 0) {
       const mentionedIds = [
         ...((finalContent.match(UUID_RE) || []) as string[]),
@@ -2127,10 +2232,8 @@ SELECTED_IDS:["id1","id2","id3"]
     finalContent = sanitizeVisibleText(finalContent);
     if (!wantsCounts) finalContent = stripCountTalk(finalContent);
 
-    // Last gate: nothing from another animal ships, and cards never exceed the cap.
     selectedProducts = filterBySpecies(selectedProducts, lockedSpecies);
     if (selectedProducts.length > parityCap) selectedProducts = selectedProducts.slice(0, parityCap);
-
 
     if (!finalContent) {
       finalContent = selectedProducts.length > 0
@@ -2147,13 +2250,14 @@ SELECTED_IDS:["id1","id2","id3"]
         liked_product_ids: likedIds,
         rejected_product_ids: rejectedIds,
         goal: goalSignal,
-
         quickReplies: selectedProducts.length > 0
           ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
           : [],
+        trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
     console.error("Agent error:", error);
     return new Response(

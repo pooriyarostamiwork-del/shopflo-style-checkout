@@ -2819,6 +2819,41 @@ serve(async (req) => {
       // Parity trim: never more cards than numbered items when the answer is a numbered list.
       if (numberedCount > 0 && cards.length > numberedCount) cards = cards.slice(0, numberedCount);
 
+      // Model wrote the ask_clarification payload inline instead of calling the tool → parse it.
+      const inlineAsk = visible.match(/\{\s*"ask_clarification"\s*:\s*(\{[\s\S]*\})\s*\}\s*$/);
+      if (inlineAsk && cards.length === 0) {
+        try {
+          const rawCard = JSON.parse(inlineAsk[1]);
+          const facets = await getFacets();
+          const card = groundClarification(
+            rawCard.steps ? { kind: "steps", helper: rawCard.helper || "", steps: rawCard.steps } : { kind: "single", ...rawCard },
+            facets,
+          );
+          const cardResponse = clarificationResponse(card, "inline-json");
+          if (cardResponse) return cardResponse;
+        } catch {
+          /* fall through */
+        }
+        visible = visible.replace(/\{\s*"ask_clarification"[\s\S]*$/, "").trim();
+      }
+      // Denial the catalog contradicts: the search returned real matches → compose from them.
+      if (
+        cards.length === 0 &&
+        numberedCount === 0 &&
+        searchExecuted &&
+        allProducts.length > 0 &&
+        !isInfoQuestion &&
+        !isBusinessQuestion &&
+        /(نداریم|ندارم|موجود نیست|پیدا نکردم|در موجودی نداریم)/.test(visible)
+      ) {
+        const pool = lockedSpecies === "گربه" || lockedSpecies === "سگ" ? filterBySpecies(allProducts, lockedSpecies) : allProducts;
+        if (pool.length > 0) {
+          cards = pool.slice(0, maxShown);
+          visible = composeProductAnswer(cards, originalQuery);
+          forced.push("denial_override");
+        }
+      }
+      const numberedAfter = (visible.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
       if (cards.length === 0) {
         const parsed = extractQuestionCard(visible);
         const facets = parsed || wantsGuidance ? await getFacets() : null;

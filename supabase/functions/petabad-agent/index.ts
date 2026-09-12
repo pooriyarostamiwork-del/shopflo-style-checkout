@@ -785,27 +785,35 @@ async function executeSearch(
   let data = await runSearch(rpcParams);
   if (data === null) return { products: [], message: "جستجو با مشکل مواجه شد" };
 
-  // Progressive widening: never report "we don't have it" because a filter was too tight.
-  const relaxations: Array<(p: any) => void> = [
-    (p) => { delete p.p_needs; },
-    (p) => { delete p.p_breed_size; delete p.p_life_stage; },
-    (p) => { delete p.p_subcategory_prefix; delete p.p_subcategory; },
-    (p) => { delete p.p_max_price; delete p.p_min_price; },
-    (p) => { delete p.p_product_types; },
-
+  // Part 3 — Pet-specific context-aware relaxation tiers.
+  // Tier 0 hard compatibility is never removed: species, product type/group, subcategory, price, stock.
+  // Tier 1 critical fit (life stage, medical needs, explicit breed size) is kept unless relaxation is unavoidable.
+  // Tier 2 strong preference (non-critical needs, brand, country) is relaxed with disclosure.
+  // Tier 3 soft preference (flavour, product line, sorting) is relaxed first.
+  const relaxedLabels: string[] = [];
+  const tieredRelaxations: Array<{ label: string; apply: (p: any) => void }> = [
+    { label: "product_line", apply: (p) => { delete p.p_product_line; } },
+    { label: "non_critical_needs", apply: (p) => { delete p.p_needs; } },
+    { label: "brand", apply: (p) => { delete p.p_brand; } },
+    { label: "origin_country", apply: (p) => { delete p.p_origin_country; } },
+    { label: "breed_size", apply: (p) => { delete p.p_breed_size; } },
+    { label: "life_stage", apply: (p) => { delete p.p_life_stage; } },
   ];
-  const relaxed: string[] = [];
-  for (const relax of relaxations) {
+
+  let currentParams = { ...rpcParams };
+  for (const step of tieredRelaxations) {
     if (data.length > 0) break;
-    const next = { ...rpcParams };
-    for (let i = 0; i <= relaxations.indexOf(relax); i++) relaxations[i](next);
-    const retry = await runSearch(next);
+    step.apply(currentParams);
+    const retry = await runSearch(currentParams);
     if (retry && retry.length > 0) {
       data = retry;
-      relaxed.push("filters_relaxed");
+      relaxedLabels.push(step.label);
       break;
     }
   }
+
+  // If still empty after all internal relaxations, keep Tier 0/1 intact and let the final model explain.
+  const relaxed = relaxedLabels.length > 0 ? ["filters_relaxed"] : [];
 
   // HARD species lock: a row from another animal never reaches the answer model.
   let results = filterBySpecies(data, lockedSpecies);

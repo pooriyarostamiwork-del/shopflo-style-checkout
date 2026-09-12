@@ -2601,7 +2601,7 @@ serve(async (req) => {
         // A reply that names another animal or is a long new request abandons the flow.
         const named = lastNamedSpecies(lastUserText);
         const switched = named && flow.species && named !== flow.species;
-        if (switched || lastUserText.length > 60) flow = null;
+        if (switched || lastUserText.length > 80) flow = null;
         else flow = recordAnswer(flow, lastUserText);
       }
       if (!flow || flow.done) {

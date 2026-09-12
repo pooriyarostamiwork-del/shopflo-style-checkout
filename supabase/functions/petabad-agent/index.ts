@@ -300,6 +300,12 @@ const SEARCH_TOOL = {
               type: "string",
               description: "Manufacturing country in Persian, e.g. آلمان، ایران، فرانسه",
             },
+            origin_scope: {
+              type: "string",
+              enum: ["خارجی", "ایرانی"],
+              description:
+                "Use for 'foreign/imported only' (خارجی، وارداتی) or 'Iranian only' (ایرانی، داخلی) instead of guessing a country.",
+            },
             life_stage: {
               type: "string",
               enum: ["نابالغ", "بالغ", "سنیور"],
@@ -348,6 +354,12 @@ const SEARCH_TOOL = {
         offset: {
           type: "number",
           description: "Skip this many results — used for 'more results' paging.",
+        },
+        exclude_brands: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Brands to EXCLUDE. Use for «از برندهای دیگه هم بده» / «بجز این برندها» — list every brand already shown in this conversation.",
         },
         sort_by: {
           type: "string",
@@ -1000,11 +1012,27 @@ async function brandListAnswer(supabase: any, text: string, lockedSpecies?: stri
   return scope ? `برای ${scope} این برندها رو موجود داریم: ${list}.` : `این برندها رو موجود داریم: ${list}.`;
 }
 
+let shelfCache: { at: number; shelves: string[] } | null = null;
+async function loadShelves(supabase: any): Promise<string[]> {
+  if (shelfCache && Date.now() - shelfCache.at < 10 * 60 * 1000) return shelfCache.shelves;
+  const { data } = await supabase.from("pet_products").select("subcategory").not("subcategory", "is", null).limit(5000);
+  const shelves = Array.from(
+    new Set((data || []).map((r: any) => normalizePersian(String(r.subcategory || "")).toLowerCase()).filter(Boolean)),
+  ) as string[];
+  shelfCache = { at: Date.now(), shelves };
+  return shelves;
+}
+
 async function executeSearch(
   supabase: any,
   args: any,
   precomputedEmbedding: number[] | null,
-  lock?: { species?: string | null; lifeStage?: string | null },
+  lock?: {
+    species?: string | null;
+    lifeStage?: string | null;
+    excludeBrands?: string[] | null;
+    foreignOnly?: boolean | null;
+  },
 ): Promise<any> {
   const {
     query_text,
@@ -1023,6 +1051,23 @@ async function executeSearch(
 
   const rpcParams: any = { p_store_id: PETABAD_STORE_ID, p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
+  // «از برندهای دیگه هم بده» — brands already shown are excluded inside SQL (brand aliases
+  // included), so the same brand can never come back on a "other brands" turn.
+  const excludeBrands = [
+    ...(Array.isArray(args?.exclude_brands) ? args.exclude_brands : []),
+    ...(Array.isArray(lock?.excludeBrands) ? lock!.excludeBrands! : []),
+  ]
+    .filter((b: any) => typeof b === "string" && b.trim())
+    .slice(0, 30);
+  if (excludeBrands.length > 0) rpcParams.p_exclude_brands = excludeBrands;
+  // "foreign" / "Iranian" is a scope, not one country.
+  const originScope = filters?.origin_scope;
+  const foreignOnly =
+    originScope === "خارجی" ? true : originScope === "ایرانی" ? false : (lock?.foreignOnly ?? null);
+  if (foreignOnly !== null && foreignOnly !== undefined) rpcParams.p_foreign_only = foreignOnly;
+  // Brand diversity: one brand may not occupy the whole retrieval page unless the
+  // shopper asked for that exact brand. Kept generous so small shelves stay full.
+  rpcParams.p_brand_cap = 4;
   // A single exact shelf is a hard filter only when the user named a brand shelf;
   // otherwise search the whole shelf family so brand-split shelves stay visible.
   const family =
@@ -1077,6 +1122,21 @@ async function executeSearch(
     rpcParams.p_product_types = requestedTypes;
     delete rpcParams.p_subcategory;
     delete rpcParams.p_subcategory_prefix;
+  }
+  // A shelf family the catalog does not have (e.g. «غذای گربه» when the shelves are
+  // «غذای خشک گربه» / «کنسرو و پوچ گربه») would silently empty the result — drop it.
+  if (rpcParams.p_subcategory_prefix || rpcParams.p_subcategory) {
+    const shelves = await loadShelves(supabase);
+    const prefix = normalizePersian(String(rpcParams.p_subcategory_prefix || "")).toLowerCase();
+    const exact = normalizePersian(String(rpcParams.p_subcategory || "")).toLowerCase();
+    if (prefix && !shelves.some((sh) => sh.startsWith(prefix))) {
+      console.log("Unknown shelf family dropped:", rpcParams.p_subcategory_prefix);
+      delete rpcParams.p_subcategory_prefix;
+    }
+    if (exact && !shelves.includes(exact)) {
+      console.log("Unknown shelf dropped:", rpcParams.p_subcategory);
+      delete rpcParams.p_subcategory;
+    }
   }
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
 
@@ -1271,6 +1331,8 @@ async function executeSearch(
       brand: rpcParams.p_brand || null,
       product_line: rpcParams.p_product_line || null,
       origin_country: rpcParams.p_origin_country || null,
+      origin_scope: rpcParams.p_foreign_only === true ? "خارجی" : rpcParams.p_foreign_only === false ? "ایرانی" : null,
+      excluded_brands: rpcParams.p_exclude_brands || [],
       life_stage: rpcParams.p_life_stage || null,
       breed_size: rpcParams.p_breed_size || null,
     },
@@ -2145,7 +2207,10 @@ async function runToolRound(
     for (const g of result.bundleGroups) {
       for (const p of g.products) if (!bundleProducts.some((x) => x.id === p.id)) bundleProducts.push(p);
     }
-    if (bundleProducts.length > 0) result.products = bundleProducts.slice(0, 9);
+    // Bundle picks come first, but the plain search results stay available so the answer's
+    // numbered list always has a card to bind to.
+    if (bundleProducts.length > 0)
+      result.products = mergeProducts(bundleProducts.slice(0, 9), result.products);
   }
 
   return result;
@@ -2384,7 +2449,59 @@ serve(async (req) => {
         break;
       }
     }
-    const speciesLock = { species: lockedSpecies, lifeStage: lockedStage };
+    // ── "other brands" turn: brands already shown are subtracted from the search ──
+    const assistantTurns = (userMessages || [])
+      .filter((m: any) => m.role === "assistant")
+      .map((m: any) => String(m.content || ""));
+    const wantsOtherBrands =
+      /(برند(های)? دیگ(ه|ر)|از برند دیگ(ه|ر)|بجز (این|اینا|اینها|همین)|به جز (این|اینا|اینها)|غیر از (این|اینا|اینها)|برند(های)? جدید)/.test(
+        normLastUser,
+      );
+    let shownBrands: string[] = [];
+    if (wantsOtherBrands) {
+      const vocab = await loadBrands(supabase);
+      const haystack = normalizePersian(assistantTurns.join(" \n ")).toLowerCase();
+      for (const b of vocab.canonical) {
+        const key = normalizePersian(b).toLowerCase();
+        if (key.length >= 3 && haystack.includes(key)) shownBrands.push(b);
+      }
+      // Persian spellings of the same brands (Josera / جوسرا) come from the alias table.
+      const { data: aliasRows } = await supabase.from("brand_aliases").select("alias_key, canonical");
+      for (const a of aliasRows || []) {
+        const alias = normalizePersian(String(a.alias_key || "")).toLowerCase();
+        if (alias.length >= 3 && haystack.includes(alias) && a.canonical && !shownBrands.includes(a.canonical))
+          shownBrands.push(String(a.canonical));
+      }
+      shownBrands = shownBrands.slice(0, 30);
+      console.log("Other-brands turn, excluding:", shownBrands.join(", "));
+    }
+    // Foreign / Iranian scope is sticky: the newest turn that states it wins.
+    let stickyForeign: boolean | null = null;
+    for (let i = userTurns.length - 1; i >= 0; i--) {
+      const t = normalizePersian(userTurns[i]);
+      if (/(خارجی|وارداتی|غیر ایرانی|اورجینال)/.test(t)) {
+        stickyForeign = true;
+        break;
+      }
+      if (/(ایرانی|داخلی|تولید ایران)/.test(t)) {
+        stickyForeign = false;
+        break;
+      }
+    }
+    const speciesLock = {
+      species: lockedSpecies,
+      lifeStage: lockedStage,
+      excludeBrands: shownBrands,
+      foreignOnly: stickyForeign,
+    };
+    if (shownBrands.length > 0) {
+      systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
+- در search_products همین‌ها را در exclude_brands بفرست.
+- اگر نتیجه‌ای برگشت، فقط برندهای جدید را معرفی کن و هرگز نگو «برند دیگه‌ای نداریم».`;
+    }
+    if (stickyForeign !== null) {
+      systemPrompt += `\n\nORIGIN_SCOPE: کاربر فقط محصولات ${stickyForeign ? "خارجی (کشور سازنده غیر از ایران)" : "ایرانی"} می‌خواد؛ در search_products مقدار filters.origin_scope را «${stickyForeign ? "خارجی" : "ایرانی"}» بفرست و محصول ${stickyForeign ? "ایرانی" : "خارجی"} پیشنهاد نده.`;
+    }
     knownSpecies = lockedSpecies || knownSpecies;
 
     const bundleNeeds = detectNeeds(lastUserText);
@@ -2694,7 +2811,11 @@ serve(async (req) => {
     }
 
     const requestedLimit = Number(extractedIntent?.limit) || 0;
-    const comprehensive = requestedLimit >= 12;
+    // "همه محصولات ... رو بده" is a broad request: it deserves broad coverage.
+    const wantsEverything = /(همه(‌| )?ی? ?محصولات|همه ?ش?و? ?بده|همه ?ی? ?گزینه|کاملشو|لیست کامل|تمام محصولات)/.test(
+      normLastUser,
+    );
+    const comprehensive = requestedLimit >= 12 || wantsEverything;
     const maxShown = isBundleTurn || comprehensive ? 12 : 6;
 
     // ── Authoritative path: the model wrote an answer in the tool loop → ship THAT answer ──
@@ -2851,6 +2972,41 @@ serve(async (req) => {
           cards = pool.slice(0, maxShown);
           visible = composeProductAnswer(cards, originalQuery);
           forced.push("denial_override");
+        }
+      }
+      // "We don't have other brands / nothing for this need" with nothing to show:
+      // verify against the catalog under the SAME conditions before shipping a denial.
+      if (
+        cards.length === 0 &&
+        numberedCount === 0 &&
+        !isBusinessQuestion &&
+        /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|محدود می‌شود|محدود میشه)/.test(visible)
+      ) {
+        const verify = await executeSearch(
+          supabase,
+          {
+            query_text: buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily).query_text,
+            subcategory_family: facetFamily || undefined,
+            species: lockedSpecies || undefined,
+            filters: {
+              ...(lockedStage ? { life_stage: lockedStage } : {}),
+              ...(extractedIntent?.filters?.needs ? { needs: extractedIntent.filters.needs } : {}),
+            },
+            limit: 24,
+          },
+          precomputedEmbedding,
+          speciesLock,
+        );
+        const verified = (verify.products || []).filter(
+          (p: any) => !allProducts.some((a: any) => a.id === p.id),
+        );
+        if (verified.length > 0) {
+          cards = verified.slice(0, maxShown);
+          allProducts = mergeProducts(allProducts, verified);
+          visible = composeProductAnswer(cards, originalQuery);
+          searchExecuted = true;
+          forced.push("availability_verified");
+          console.log(`Availability check contradicted the denial: ${verified.length} products`);
         }
       }
       if (cards.length === 0) {

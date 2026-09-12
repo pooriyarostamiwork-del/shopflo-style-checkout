@@ -34,6 +34,8 @@ type Case = {
   toolsNoneOf?: string[];
   /** accepted trace.answer_source values */
   answerSource?: string | string[];
+  /** product cards are acceptable even though this is not a product-listing case */
+  allowProducts?: boolean;
   minProducts?: number;
 };
 
@@ -117,9 +119,11 @@ const CASES: Case[] = [
   {
     id: "info-foreign-pouch-brands",
     prompt: "برندهای خارجی پوچ گربه چانک چیا دارین",
+    // brand answers may name real products; cards next to them are fine, a denial is not
     expectProducts: false,
+    allowProducts: true,
     contentNoneOf: [/چانک چیا در لیست/, /موجود نیست/],
-    contentAnyOf: [/ویسکاس|فلیکس|گورمت|رویال|جوسرا|پروپلن|مونژه|مونجه|کیت.?کت/],
+    contentAnyOf: [/ویسکاس|فلیکس|گورمت|رویال|جوسرا|پروپلن|مونژه|مونجه|کیت.?کت|Whiskas|Royal Canin|KitCat|Monge|Felix|Hills/i],
     toolsNoneOf: ["search_products (discovery-guard)"],
   },
   {
@@ -144,6 +148,32 @@ const CASES: Case[] = [
     species: "گربه",
     expectProducts: true,
     minProducts: 4,
+    maxSeconds: 30,
+  },
+  // ── Full-catalog scope: foreign-only, brand diversity, "other brands" ──
+  {
+    id: "foreign-skin-coat-all",
+    prompt: "همه محصولات خارجی که برای پوست و موی گربم مناسبن رو بده غذا",
+    species: "گربه",
+    expectProducts: true,
+    minProducts: 5,
+    maxSeconds: 30,
+  },
+  {
+    id: "other-brands-no-repeat",
+    history: [
+      { role: "user", content: "همه محصولات خارجی که برای پوست و موی گربم مناسبن رو بده غذا" },
+      {
+        role: "assistant",
+        content:
+          "۱. غذای خشک گربه مراقبت از پوست و مو رویال کنین Royal Canin Hair & Skin Care وزن ۲ کیلوگرم\n۲. غذای خشک گربه جوسرا کتلوکس مناسب سلامت پوست و مو Josera Catelux وزن ۱ کیلوگرم\n۳. غذای خشک درمانی گربه بالغ پروپلن Proplan Derma Care وزن ۱.۵ کیلوگرم",
+      },
+    ],
+    prompt: "بجز این برندها از برندهای دیگه هم بده",
+    species: "گربه",
+    expectProducts: true,
+    nameNoneOf: [/جوسرا|Josera/i, /رویال کنین|Royal Canin/i, /پروپلن|Proplan/i],
+    contentNoneOf: [/محدود می‌شود|محدود میشه/],
     maxSeconds: 30,
   },
 ];
@@ -191,7 +221,7 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
       if (c.nameAnyOf && !c.nameAnyOf.some((re) => re.test(name))) fails.push(`type mismatch: ${name}`);
       if (c.nameNoneOf && c.nameNoneOf.some((re) => re.test(name))) fails.push(`forbidden product: ${name}`);
     }
-  } else if (products.length > 0) {
+  } else if (products.length > 0 && !c.allowProducts) {
     fails.push("products returned for a non-product question");
   }
 

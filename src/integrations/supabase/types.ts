@@ -1157,10 +1157,13 @@ export type Database = {
       pet_hybrid_search: {
         Args: {
           p_brand?: string
+          p_brand_cap?: number
           p_breed_size?: string
           p_category?: string
           p_diversify?: boolean
           p_embedding?: string
+          p_exclude_brands?: string[]
+          p_foreign_only?: boolean
           p_in_stock?: boolean
           p_life_stage?: string
           p_limit?: number
@@ -1212,12 +1215,17 @@ export type Database = {
         Args: {
           p_brand?: string
           p_category?: string
+          p_exclude_brands?: string[]
+          p_foreign_only?: boolean
           p_in_stock?: boolean
+          p_needs?: string[]
           p_origin_country?: string
+          p_product_types?: string[]
           p_query?: string
           p_species?: string
           p_subcategory?: string
           p_subcategory_prefix?: string
+          p_type_group?: string
         }
         Returns: Json
       }

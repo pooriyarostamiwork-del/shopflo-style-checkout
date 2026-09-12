@@ -1970,10 +1970,16 @@ function detectUsage(text: string): string | null {
   return null;
 }
 
+// Breed names imply the animal: «شیتزوم» must lock the dog just like «سگم».
+const DOG_BREED_SRC =
+  "پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\\s*راسل|هاسکی|ژرمن|شپرد|گلدن|رتریور|لابرادور|روتوایلر|دوبرمن|بولداگ|باکسر|بیگل|کورگی|سامویید|آکیتا|شیبا";
+const CAT_BREED_SRC =
+  "پرشین|پرشیا|اسکاتیش|بنگال|رگدال|رگ\\s*دال|سیامی|هیمالین|شیرازی|آنگورا|مین\\s*کون|اگزوتیک|ابیسینین|برمه";
+
 /** Species the user already named — that guidance step is then skipped. */
 const SPECIES_HINTS: Array<[RegExp, string]> = [
-  [/گربه|بچه\s*گربه|پیشی|cat/i, "گربه"],
-  [/سگ|توله\s*سگ|dog|پاپی/i, "سگ"],
+  [new RegExp(`گربه|بچه\\s*گربه|پیشی|cat|${CAT_BREED_SRC}`, "i"), "گربه"],
+  [new RegExp(`سگ|توله\\s*سگ|dog|پاپی|${DOG_BREED_SRC}`, "i"), "سگ"],
   [/پرنده|مرغ\s*عشق|طوطی|قناری|کاسکو/, "پرنده"],
   [/ماهی|آکواریوم|اکواریوم/, "ماهی و آکواریوم"],
   [/خرگوش|همستر|جوندگان|لاک\s*پشت|خوکچه/, "سایر حیوانات خانگی"],
@@ -1990,8 +1996,9 @@ function detectSpecies(text: string): string | null {
 // the experience: not a card, not a sentence, not an explanation.
 
 const SPECIES_TOKENS: Array<[string, RegExp]> = [
-  ["گربه", /گربه|گربم|گربه\s*م|پیشی|پیشیم|بچه\s*گربه|cat/i],
-  ["سگ", /سگ|سگم|توله|پاپی|dog/i],
+  ["گربه", new RegExp(`گربه|گربم|گربه\\s*م|پیشی|پیشیم|بچه\\s*گربه|cat|${CAT_BREED_SRC}`, "i")],
+  ["سگ", new RegExp(`سگ|سگم|توله|پاپی|dog|${DOG_BREED_SRC}`, "i")],
+
 
   ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
   ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],

@@ -2853,7 +2853,6 @@ serve(async (req) => {
           forced.push("denial_override");
         }
       }
-      const numberedAfter = (visible.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
       if (cards.length === 0) {
         const parsed = extractQuestionCard(visible);
         const facets = parsed || wantsGuidance ? await getFacets() : null;

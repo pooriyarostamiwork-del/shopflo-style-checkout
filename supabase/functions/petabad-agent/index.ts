@@ -300,6 +300,12 @@ const SEARCH_TOOL = {
               type: "string",
               description: "Manufacturing country in Persian, e.g. آلمان، ایران، فرانسه",
             },
+            origin_scope: {
+              type: "string",
+              enum: ["خارجی", "ایرانی"],
+              description:
+                "Use for 'foreign/imported only' (خارجی، وارداتی) or 'Iranian only' (ایرانی، داخلی) instead of guessing a country.",
+            },
             life_stage: {
               type: "string",
               enum: ["نابالغ", "بالغ", "سنیور"],

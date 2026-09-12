@@ -11,6 +11,8 @@ export interface QuestionFlow {
   /** The shopper's original request that started the flow. */
   seed: string;
   species?: string | null;
+  /** Product types named in the request (set silently, never asked). */
+  productTypes?: string[] | null;
   /** Question ids already asked (answered or skipped). */
   asked: string[];
   /** Answers keyed by question id (raw option labels, multi joined by « و »). */
@@ -18,6 +20,14 @@ export interface QuestionFlow {
   /** Question id waiting for an answer (the card currently on screen). */
   pending?: string | null;
   done?: boolean;
+}
+
+/** Facts already known about the shopper's pet — questions with a known answer are skipped. */
+export interface FlowSeed {
+  lifeStage?: string | null;
+  foreignOnly?: boolean | null;
+  healthNeeds?: string[] | null;
+  productTypes?: string[] | null;
 }
 
 export type FacetPrice = { min: number; q1: number; median: number; q3: number; max: number } | null;
@@ -28,6 +38,7 @@ export interface FlowDeps {
   formatToman: (v: number) => string;
   detectSpecies: (s: string) => string | null;
   concreteSpecies: (species: string, text: string) => string;
+  detectProductTypes: (text: string) => string[];
   buildBudgetOptions: (price: FacetPrice) => any[] | null;
   needSpecs: Array<{ key: string; label: string; query: (sp: string) => string }>;
 }
@@ -40,6 +51,7 @@ type Facets = {
   needs: Bucket[];
   countries: Bucket[];
   species: Bucket[];
+  product_types: Bucket[];
 };
 
 export interface FlowSummary {

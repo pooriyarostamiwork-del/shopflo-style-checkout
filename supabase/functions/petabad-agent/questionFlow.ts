@@ -62,6 +62,7 @@ export interface FlowSummary {
   species: string | null;
   lifeStage: string | null;
   healthNeeds: string[];
+  productTypes: string[];
   needKeys: string[];
   foreignOnly: boolean | null;
   complete: boolean;
@@ -233,6 +234,13 @@ function selectedHealthNeeds(flow: QuestionFlow): string[] {
   if (!a || /نیاز خاصی/.test(a)) return [];
   return a.split(" و ").map((s) => s.trim()).filter(Boolean);
 }
+/** Product types in play: the answered type question first, then types named in the request. */
+function currentTypes(flow: QuestionFlow): string[] {
+  const a = flow.answers["type"] || "";
+  if (a && !/فرقی نمی|مهم نیست/.test(a)) return a.split(" و ").map((s) => s.trim()).filter(Boolean);
+  return flow.productTypes || [];
+}
+const FOOD_SEED_RE = /(غذا|خوراک|کنسرو|پوچ|تشویقی|خشک)/;
 
 const FILLER_RE =
   /(راهنمایی(م)?|کمک(م)?|کن|کنی|چی|چه|کدوم|بخرم|بگیرم|میخوام|می‌خوام|خوام|برام|برای|پیشنهاد|معرفی|لطفا|لطفاً|بهترین|یه|یک|بده|نمیدونم|نمی‌دونم|مشاوره|توصیه|بدید|میدی|می‌دی|هست|رو|را|از|به|که|و)/g;
@@ -244,7 +252,12 @@ async function singleSlice(deps: FlowDeps, flow: QuestionFlow): Promise<Facets |
   const params: Record<string, any> = {};
   const sp = speciesParam(deps, flow);
   if (sp) params.p_species = sp;
-  const q = cleanSeed(deps, flow.seed);
+  const types = currentTypes(flow);
+  if (types.length) params.p_product_types = types;
+  else if (FOOD_SEED_RE.test(deps.normalize(flow.seed))) params.p_type_group = "غذا";
+  // Free text only narrows an unstructured slice; once a type is known it would
+  // just re-match generic words and skew the price quantiles.
+  const q = types.length ? "" : cleanSeed(deps, flow.seed);
   if (q) params.p_query = q;
   const needs = selectedHealthNeeds(flow);
   if (needs.length) params.p_needs = needs;
@@ -402,6 +415,23 @@ const originQuestion: Builder = async (deps, flow) => {
   };
 };
 
+/** «خشک یا کنسرو؟» — asked only when the request names no type and the slice really splits. */
+const typeQuestion: Builder = async (deps, flow) => {
+  if (currentTypes(flow).length) return null;
+  const f = await singleSlice(deps, flow);
+  if (!f || f.total < 8) return null;
+  const buckets = splitting(f.product_types, f.total, 5);
+  if (buckets.length < 2) return null;
+  const food = buckets.every((b) => /غذا|کنسرو|پوچ|تشویقی|سوپ|شیر/.test(String(b.value)));
+  return {
+    kind: "single",
+    id: "type",
+    title: "نوع محصول",
+    question: food ? "چه نوع غذایی مد نظرته؟" : "دقیقاً دنبال چه نوع محصولی هستی؟",
+    options: [...buckets.map((b) => ({ label: String(b.value) })), { label: "فرقی نمی‌کنه" }],
+  };
+};
+
 const budgetQuestion: Builder = async (deps, flow) => {
   const f = await singleSlice(deps, flow);
   if (!f || f.total < 4) return null;
@@ -456,6 +486,7 @@ const PLANS: Record<FlowGoal, Array<[string, Builder]>> = {
   single: [
     ["species", speciesQuestion],
     ["age", ageQuestion],
+    ["type", typeQuestion],
     ["need", needQuestion],
     ["origin", originQuestion],
     ["budget", budgetQuestion],
@@ -498,6 +529,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
   const lifeStage = currentStage(flow);
   const foreignOnly = currentForeign(flow);
   const healthNeeds = selectedHealthNeeds(flow);
+  const productTypes = currentTypes(flow);
   const needKeys = selectedNeedKeys(deps, flow);
   const complete = /کامل/.test(flow.answers["completeness"] || "");
   const tierAnswer = flow.answers["tier"] || "";
@@ -537,6 +569,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
     lines.push(`اقلام پک: ${labels.join("، ")} — ${complete ? "برای هر قلم دو گزینه" : "برای هر قلم یک گزینه مطمئن"}`);
   }
   if (healthNeeds.length) lines.push(`نیاز سلامتی: ${healthNeeds.join("، ")} (filters.needs)`);
+  if (productTypes.length) lines.push(`نوع محصول: ${productTypes.join("، ")} — query_text باید همین نوع را داشته باشد`);
   if (foreignOnly !== null)
     lines.push(`محدوده برند: ${foreignOnly ? "فقط خارجی (filters.origin_scope=خارجی)" : "فقط ایرانی (filters.origin_scope=ایرانی)"}`);
   if (tier)
@@ -553,6 +586,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
     species: flow.species || null,
     lifeStage,
     healthNeeds,
+    productTypes,
     needKeys,
     foreignOnly,
     complete,

@@ -470,7 +470,11 @@ const BUSINESS_RE =
  * answer (brand names, brand background), never a product carousel.
  */
 const INFO_QUESTION_RE =
-  /((چه|کدوم|کدام)\s*(برند|مارک|کشور|دسته|شرکت)|برند\s*ها|برندها|برندهاتو|برندهات|مارک\s*ها|(لیست|فهرست)\s*(برند|مارک|کشور|دسته)|(برند|مارک)\s*(ها)?\s*(تو|ت|ات|هاتون|هاتو)?\s*(رو|را)?\s*(بگو|لیست|نام\s*ببر|معرفی)|(درباره|در\s*مورد|راجع\s*به)\s*(برند|مارک|شرکت)|برند\s*\S+\s*(چطوره|چجوریه|چیه|خوبه|معتبره|کجاییه|مال\s*کجاست))/;
+  /((چه|کدوم|کدام)\s*(برند|مارک|کشور|دسته|شرکت)|برند\s*ها|برندها|برندهاتو|برندهات|مارک\s*ها|(لیست|فهرست)\s*(برند|مارک|کشور|دسته)|(برند|مارک)\s*(ها)?\s*(تو|ت|ات|هاتون|هاتو)?\s*(رو|را)?\s*(بگو|لیست|نام\s*ببر|معرفی)|(درباره|در\s*مورد|راجع\s*به)\s*(برند|مارک|شرکت)|برند\s*\S+\s*(چطوره|چجوریه|چیه|خوبه|معتبره|کجاییه|مال\s*کجاست)|(خارجی|ایرانی|داخلی|وارداتی)\s*(ا|ها|هاش|اش)?(شون|ون)?\s*(کدوم|کدام|چیا|رو\s*بگو|را\s*بگو))/;
+
+/** «مقایسه کن», «X و Y رو مقایسه», «تفاوتشون چیه» → compare, don't recommend a new list. */
+const COMPARE_RE = /(مقایسه|مقایسش|تفاوت|فرقش|فرق\s*(بین|این)|کدوم\s*بهتره|بهتره\s*یا)/;
+
 
 /** Retrieve official PetAbad FAQ answers (hybrid FTS + trigram + embeddings). */
 async function executeFaqLookup(
@@ -770,6 +774,112 @@ function canonicalTerm(tax: TaxonomyMap, dimension: string, value: string | null
   return dim[normalizePersian(String(value))] || null;
 }
 
+
+// ── Catalog brand vocabulary ────────────────────────────────────────────────
+// Brands are recognised ONLY from the real catalog (+ alias table). Colloquial
+// Persian words the model sometimes mistakes for a brand («چیا» in «چانک چیا
+// دارین») must never become a brand filter or an "we don't carry it" claim.
+let BRAND_CACHE: { canonical: string[]; keys: Set<string> } | null = null;
+const BRAND_STOPWORDS = new Set(
+  [
+    "چیا", "چیه", "چی", "چه", "کدوم", "کدام", "دارین", "دارید", "داری", "دارین؟",
+    "خارجی", "داخلی", "ایرانی", "اصل", "ارزون", "گران", "گرون", "خوب", "بهترین",
+    "چانک", "پوچ", "کنسرو", "غذا", "تشویقی", "گربه", "سگ", "خرگوش", "پرنده",
+    "برند", "مارک", "لیست", "همه", "موجود", "بگو", "معرفی",
+  ].map((w) => normalizePersian(w)),
+);
+
+async function loadBrands(supabase: any): Promise<{ canonical: string[]; keys: Set<string> }> {
+  if (BRAND_CACHE) return BRAND_CACHE;
+  const keys = new Set<string>();
+  const canonical: string[] = [];
+  try {
+    const [prods, aliases] = await Promise.all([
+      supabase.from("pet_products").select("brand").not("brand", "is", null),
+      supabase.from("brand_aliases").select("alias_key, canonical"),
+    ]);
+    for (const row of prods.data || []) {
+      const b = String(row.brand || "").trim();
+      if (!b) continue;
+      if (!canonical.includes(b)) canonical.push(b);
+      keys.add(normalizePersian(b));
+    }
+    for (const a of aliases.data || []) {
+      if (a.alias_key) keys.add(normalizePersian(String(a.alias_key)));
+      if (a.canonical) keys.add(normalizePersian(String(a.canonical)));
+    }
+    BRAND_CACHE = { canonical, keys };
+  } catch (e) {
+    console.log("Brand vocabulary load failed:", String(e));
+  }
+  return BRAND_CACHE || { canonical, keys };
+}
+
+/**
+ * 'catalog'  → a brand we actually stock (filter it)
+ * 'unknown'  → looks like a brand name but we don't stock it (honest disclosure)
+ * 'not-a-brand' → a colloquial word the model mislabelled (ignore silently)
+ */
+function classifyBrand(raw: string, vocab: { keys: Set<string> }): "catalog" | "unknown" | "not-a-brand" {
+  const n = normalizePersian(raw).trim();
+  if (!n) return "not-a-brand";
+  if (BRAND_STOPWORDS.has(n)) return "not-a-brand";
+  for (const key of vocab.keys) {
+    if (key.length >= 3 && (key.includes(n) || n.includes(key))) return "catalog";
+  }
+  const latin = /^[a-z0-9\s&'.-]+$/i.test(n);
+  if (latin && n.length >= 3) return "unknown";
+  return n.length >= 4 ? "unknown" : "not-a-brand";
+}
+
+/**
+ * Catalog-grounded brand list for questions like «چه برندهای خارجی برای پوچ گربه
+ * دارین» or the follow-up «خارجیاشون کدومن؟». Returns prose, never product cards.
+ */
+async function brandListAnswer(
+  supabase: any,
+  text: string,
+  lockedSpecies?: string | null,
+): Promise<string | null> {
+  const norm = normalizePersian(text || "");
+  const wantsForeign = /(خارجی|وارداتی|اورجینال|import)/.test(norm);
+  const wantsIranian = /(ایرانی|داخلی|تولید ایران)/.test(norm);
+  const species = lockedSpecies || detectSpecies(norm);
+  const types = detectProductTypes(norm);
+
+  let q = supabase
+    .from("pet_products")
+    .select("brand, origin_country, species, product_type")
+    .eq("in_stock", true)
+    .not("brand", "is", null)
+    .limit(3000);
+  if (species && !["سایر حیوانات خانگی", "ماهی و آکواریوم"].includes(species)) q = q.eq("species", species);
+  if (types.length > 0) q = q.in("product_type", types);
+
+  const { data, error } = await q;
+  if (error || !data || data.length === 0) return null;
+
+  const brands: string[] = [];
+  for (const row of data) {
+    const origin = normalizePersian(String(row.origin_country || ""));
+    if (wantsForeign && (!origin || /ایران/.test(origin))) continue;
+    if (wantsIranian && !/ایران/.test(origin)) continue;
+    const b = String(row.brand || "").trim();
+    if (b && !brands.includes(b)) brands.push(b);
+  }
+  if (brands.length === 0) return null;
+
+  const scope = [
+    wantsForeign ? "خارجی" : wantsIranian ? "ایرانی" : "",
+    types.length > 0 ? types[0] : "",
+    species ? species : "",
+  ].filter(Boolean).join(" ");
+  const list = brands.slice(0, 25).join("، ");
+  return scope
+    ? `برای ${scope} این برندها رو موجود داریم: ${list}.`
+    : `این برندها رو موجود داریم: ${list}.`;
+}
+
 async function executeSearch(
   supabase: any,
   args: any,
@@ -799,7 +909,11 @@ async function executeSearch(
   const rpcSpecies = canonicalTerm(taxForSpecies, "species", rawSpecies) || rawSpecies;
   if (rpcSpecies && !UMBRELLA_SPECIES.includes(rpcSpecies)) rpcParams.p_species = rpcSpecies;
 
-  if (filters?.brand) rpcParams.p_brand = filters.brand;
+  const brandVocab = await loadBrands(supabase);
+  const brandClass = filters?.brand ? classifyBrand(String(filters.brand), brandVocab) : "not-a-brand";
+  if (filters?.brand && brandClass !== "not-a-brand") rpcParams.p_brand = filters.brand;
+  else if (filters?.brand) console.log(`Ignoring non-brand word as brand filter: ${filters.brand}`);
+
   if (filters?.product_line) rpcParams.p_product_line = filters.product_line;
   if (filters?.origin_country) rpcParams.p_origin_country = filters.origin_country;
   // Closed vocabulary: non-canonical values never become filters, they degrade to
@@ -963,8 +1077,9 @@ async function executeSearch(
   results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
 
 
-  // Honest fallback signal: the shopper named a brand we cannot actually serve.
-  const requestedBrand = filters?.brand ? String(filters.brand).trim() : "";
+  // Honest fallback signal: the shopper named a REAL brand we cannot serve.
+  // Colloquial words misread as brands never produce this claim.
+  const requestedBrand = filters?.brand && brandClass !== "not-a-brand" ? String(filters.brand).trim() : "";
   const brandUnavailable =
     requestedBrand.length > 0 &&
     !results.some((r: any) =>
@@ -976,6 +1091,7 @@ async function executeSearch(
     shown: results.length,
     requested_brand: requestedBrand || null,
     brand_unavailable: brandUnavailable,
+
     evidence_unconfirmed: evidenceUnconfirmed,
     filters_relaxed: relaxedLabels.length > 0,
     relaxed_filters: relaxedLabels,
@@ -1288,26 +1404,38 @@ function composeProductAnswer(products: any[], query: string): string {
   if (list.length === 0) {
     return "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
   }
-  const intro = `بر اساس چیزی که گفتی (${(query || "").trim().slice(0, 60)}) این گزینه‌ها رو برات انتخاب کردم.`;
+  // A shop assistant never repeats the customer's sentence back at them.
+  const q = normalizePersian(String(query || ""));
+  const animal = /گربه/.test(q) ? "گربه" : /سگ/.test(q) ? "سگ" : /خرگوش/.test(q) ? "خرگوش" : /پرنده|مرغ عشق|طوطی/.test(q) ? "پرنده" : "";
+  const intro = animal
+    ? `چند گزینه خوب برای ${animal}ت دارم:`
+    : "چند گزینه خوب برات پیدا کردم:";
+
   const blocks = list.map((p: any, i: number) => {
     const name = p.name_fa || p.name || "محصول";
     const price = typeof p.price === "number" ? `${faNum(p.price.toLocaleString("en-US"))} تومان` : "";
     const head = `${faNum(i + 1)}. ${name}${price ? ` — ${price}` : ""}`;
-    const bits: string[] = [];
-    if (p.brand) bits.push(`برند ${p.brand}`);
-    if (p.origin_country) bits.push(`ساخت ${p.origin_country}`);
-    if (p.species) bits.push(`مخصوص ${p.species}`);
-    if (p.life_stage) bits.push(`مرحله سنی ${p.life_stage}`);
-    if (p.breed_size) bits.push(`نژاد ${p.breed_size}`);
-    if (Array.isArray(p.health_needs) && p.health_needs.length) bits.push(`مناسب ${p.health_needs.slice(0, 2).join(" و ")}`);
-    if (p.weight) bits.push(`بسته ${p.weight}`);
-    const why = bits.length
-      ? `چرا این؟ ${bits.slice(0, 3).join("، ")} و با درخواستت هم‌خوانی داره.`
-      : "چرا این؟ از نزدیک‌ترین گزینه‌های موجود به درخواستت هست.";
+
+    // One human sentence, built from what actually makes THIS product a fit.
+    const parts: string[] = [];
+    if (Array.isArray(p.health_needs) && p.health_needs.length) {
+      parts.push(`برای ${p.health_needs.slice(0, 2).join(" و ")} فرموله شده`);
+    }
+    if (p.life_stage) parts.push(`مناسب ${p.life_stage}`);
+    if (p.breed_size && p.species === "سگ") parts.push(`برای نژاد ${p.breed_size}`);
+    if (p.brand && p.origin_country) parts.push(`از ${p.brand} ساخت ${p.origin_country}`);
+    else if (p.brand) parts.push(`از برند ${p.brand}`);
+    else if (p.origin_country) parts.push(`ساخت ${p.origin_country}`);
+    if (p.weight) parts.push(`بسته ${p.weight}`);
+
+    const why = parts.length
+      ? `${parts.slice(0, 3).join("، ")}.`
+      : "یکی از پرفروش‌ترین گزینه‌های همین دسته‌ست.";
     return `${head}\n${why}`;
   });
   return [intro, "", blocks.join("\n\n")].join("\n");
 }
+
 
 /** True when the text has no numbered product lines (so it can't carry per-product reasons). */
 function hasNumberedProducts(text: string): boolean {
@@ -1934,6 +2062,19 @@ serve(async (req) => {
 - برای معرفی یک برند: catalog_facets و در صورت نیاز brand_or_general_lookup را صدا بزن و در چند خط کوتاه معرفی کن (کشور سازنده، جایگاه، چه دسته‌هایی از آن برند در پت‌آباد هست).
 - محصول پیشنهاد نده و لیست شماره‌دار محصول نساز؛ جواب متنی و روان باشه. در پایان می‌تونی بپرسی از کدوم برند محصول ببینه.`;
     }
+    // Comparison turns are about products already in the conversation, not a new list.
+    const isCompareQuestion = COMPARE_RE.test(normLastUser);
+    if (isCompareQuestion) {
+      systemPrompt += `\n\nCOMPARE_TURN: کاربر مقایسه خواسته.
+- اگر محصولات موردنظر در حافظه‌ی گفتگو (product_memory) هستند، همان‌ها را مقایسه کن و محصول جدید معرفی نکن.
+- اگر فقط نام برند/مدل را گفته و در حافظه نیست، برای هر طرف مقایسه یک جستجوی جدا با فیلتر همان برند و همان دستهٔ محصول و همان حیوان انجام بده و فقط یک گزینهٔ شاخص از هر برند بیار.
+- خروجی: چند خط مقایسهٔ واقعی (قیمت، کشور سازنده، مناسب چه نیازی، تفاوت اصلی) و در آخر یک جمله توصیه.
+- هرگز محصولی از حیوان یا دستهٔ دیگر (مثلاً غذای سگ در مقایسهٔ گربه) نیاور.`;
+    }
+    if (isBusinessQuestion) {
+      systemPrompt += `\n\nPOLICY_ABOUT_A_PRODUCT: اگر کاربر سیاستی را دربارهٔ «محصول اول/دوم/شماره X» یا محصولی که قبلاً نشان دادی پرسیده، اول با نام همان محصول جواب صریح بده (بله/خیر + توضیح کوتاه)، بعد شرط‌ها را بگو. جمله‌ی بی‌فاعل مثل «توجه داشته باشید...» ننویس.`;
+    }
+
     const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
 
@@ -2514,10 +2655,22 @@ serve(async (req) => {
       finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
       console.log("Composed deterministic product answer");
     } else if (!finalContent) {
-      finalContent = isInfoQuestion
-        ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
-        : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
+      // A brand/assortment question always has a real answer in the catalog.
+      const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;
+      finalContent = grounded
+        || (isInfoQuestion
+          ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
+          : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟");
+      if (grounded) selectedProducts = [];
     }
+
+    // "I couldn't find anything" is never an acceptable answer to a brand question.
+    if (isInfoQuestion && /پیدا نکردم|موجود ندارم/.test(finalContent)) {
+      const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
+      if (grounded) { finalContent = grounded; selectedProducts = []; }
+    }
+
+
 
     // Honest fallback: never silently swap a brand the shopper asked for.
     if (unavailableBrand && finalContent && !finalContent.includes(unavailableBrand)) {

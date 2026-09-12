@@ -21,7 +21,20 @@ type Case = {
   /** no product name may match any of these */
   nameNoneOf?: RegExp[];
   expectProducts: boolean;
+  /** a grounded clarification card is an acceptable answer for this vague prompt */
+  allowClarification?: boolean;
   maxSeconds?: number;
+  /** prior turns replayed before the prompt (real-world conversations) */
+  history?: { role: "user" | "assistant"; content: string }[];
+  /** answer text must contain at least one of these */
+  contentAnyOf?: RegExp[];
+  /** answer text must contain none of these */
+  contentNoneOf?: RegExp[];
+  /** trace.tools must not include any of these */
+  toolsNoneOf?: string[];
+  /** accepted trace.answer_source values */
+  answerSource?: string | string[];
+  minProducts?: number;
 };
 
 const CASES: Case[] = [
@@ -30,6 +43,7 @@ const CASES: Case[] = [
     prompt: "برای گربم غذا می خوام برای پوست و مو",
     species: "گربه",
     expectProducts: true,
+    allowClarification: true,
   },
   {
     id: "senior-cat-skin-coat",
@@ -48,6 +62,7 @@ const CASES: Case[] = [
     prompt: "برای گربه مسنم غذا میخوام",
     species: "گربه",
     expectProducts: true,
+    allowClarification: true,
   },
   {
     id: "wet-cat-food",
@@ -75,17 +90,73 @@ const CASES: Case[] = [
     prompt: "هزینه ارسال چقدره؟",
     expectProducts: false,
   },
+  // ── Real-world regressions: the tool-loop answer must be what renders ──
+  {
+    id: "faq-litter-quantity",
+    prompt: "چندتا خاک گربه می تونم بخرم؟",
+    expectProducts: false,
+    contentAnyOf: [/دو\s*عدد/, /۲\s*عدد/],
+    toolsNoneOf: ["search_products (discovery-guard)"],
+    answerSource: ["model_final", "faq_regrounding"],
+  },
+  {
+    id: "faq-damaged-product",
+    prompt: "می شه بهم بگی اگر محصول خراب بود چی می شه؟",
+    expectProducts: false,
+    contentAnyOf: [/۷\s*روز/, /هفت\s*روز/, /خودداری/, /بازپس/, /مرجوع/],
+    toolsNoneOf: ["search_products (discovery-guard)"],
+    answerSource: "model_final",
+  },
+  {
+    id: "faq-snapppay-change",
+    prompt: "چطور می تونم سفارشی که با اسنپ پی ثبت کردمو تغییر بدم؟",
+    expectProducts: false,
+    contentAnyOf: [/۰۲۱۷۸۷۶۱۰۰۰/, /لغو/],
+    answerSource: "model_final",
+  },
+  {
+    id: "info-foreign-pouch-brands",
+    prompt: "برندهای خارجی پوچ گربه چانک چیا دارین",
+    expectProducts: false,
+    contentNoneOf: [/چانک چیا در لیست/, /موجود نیست/],
+    contentAnyOf: [/ویسکاس|فلیکس|گورمت|رویال|جوسرا|پروپلن|مونژه|مونجه|کیت.?کت/],
+    toolsNoneOf: ["search_products (discovery-guard)"],
+  },
+  {
+    id: "details-followup-no-new-list",
+    history: [
+      { role: "user", content: "برای بچه گربم شامپو میخوام" },
+      {
+        role: "assistant",
+        content: "چند گزینه خوب برات پیدا کردم:\n\n۱. شامپو بچه گربه یو اس پت USPet Kitten Shampoo حجم ۲۵۰ میلی لیتر — ۳۰۰,۰۰۰ تومان\nبرای پوست حساس بچه گربه فرموله شده.",
+      },
+    ],
+    prompt: "در مورد این شامپو بیشتر بهم توضیح میدی",
+    expectProducts: false,
+    contentAnyOf: [/یو اس پت|USPet|US Pet|شامپو/i],
+    toolsNoneOf: ["search_products (discovery-guard)"],
+    answerSource: "model_final",
+  },
+  {
+    id: "new-cat-bundle",
+    history: [{ role: "user", content: "سلام تازه گربه اوردیم اصلا نمی دونم چیا باید براش بگیرم" }],
+    prompt: "نیازهای اولیه: بهداشت و نظافت و غذا و خوراک و ظروف تغذیه، بودجه حدودی: مهم نیست، بهترین رو نشونم بده",
+    species: "گربه",
+    expectProducts: true,
+    minProducts: 4,
+    maxSeconds: 30,
+  },
 ];
 
 const FA = /[۰-۹]/;
 const numberedLines = (t: string) => (t.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
 
-async function ask(prompt: string) {
+async function ask(prompt: string, history: Case["history"] = []) {
   const started = Date.now();
   const res = await fetch(`${SUPABASE_URL}/functions/v1/petabad-agent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${ANON_KEY}` },
-    body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ messages: [...history, { role: "user", content: prompt }], mode: "agentic" }),
   });
   const body = await res.json();
   return { body, seconds: (Date.now() - started) / 1000, status: res.status };
@@ -96,6 +167,7 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
   const content: string = body?.content || "";
   const products: any[] = body?.products || [];
 
+  if (c.allowClarification && body?.response_type === "clarification" && (body?.clarification?.options?.length || body?.clarification?.steps?.length)) return [];
   if (!content.trim()) fails.push("empty answer text");
   if (/این گزینه‌ها به درخواستت می‌خوره/.test(content)) fails.push("placeholder answer");
   if (/محصول شماره X/.test(content)) fails.push("add-to-cart hint leaked into text");
@@ -123,6 +195,16 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
     fails.push("products returned for a non-product question");
   }
 
+  const tools: string[] = body?.trace?.tools || [];
+  if (c.toolsNoneOf) for (const t of c.toolsNoneOf) if (tools.includes(t)) fails.push(`forced tool ran: ${t}`);
+  if (c.answerSource) {
+    const ok = ([] as string[]).concat(c.answerSource);
+    if (!ok.includes(body?.trace?.answer_source)) fails.push(`answer_source ${body?.trace?.answer_source} not in ${ok.join("|")}`);
+  }
+  if (c.contentAnyOf && !c.contentAnyOf.some((re) => re.test(content))) fails.push(`content missing expected text: ${content.slice(0, 120)}`);
+  if (c.contentNoneOf) for (const re of c.contentNoneOf) if (re.test(content)) fails.push(`forbidden text: ${re}`);
+  if (c.minProducts && products.length < c.minProducts) fails.push(`only ${products.length} cards (min ${c.minProducts})`);
+
   const limit = c.maxSeconds ?? 20;
   if (seconds > limit) fails.push(`slow: ${seconds.toFixed(1)}s > ${limit}s`);
   return fails;
@@ -131,7 +213,7 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
 const results: { id: string; pass: boolean; seconds: number; fails: string[] }[] = [];
 for (const c of CASES) {
   try {
-    const { body, seconds, status } = await ask(c.prompt);
+    const { body, seconds, status } = await ask(c.prompt, c.history);
     const fails = status === 200 ? assertCase(c, body, seconds) : [`http ${status}`];
     results.push({ id: c.id, pass: fails.length === 0, seconds, fails });
     console.log(`${fails.length === 0 ? "PASS" : "FAIL"} ${c.id} (${seconds.toFixed(1)}s)`);

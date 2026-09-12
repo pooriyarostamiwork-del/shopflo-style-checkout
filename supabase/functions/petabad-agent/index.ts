@@ -528,7 +528,7 @@ const FAQ_CATEGORIES = [
 ];
 
 const BUSINESS_RE =
-  /(ارسال|پست|پیک|تیپاکس|کرایه|هزینه\s*ارسال|بسته\s*بند|تحویل|چند\s*روز|زمان\s*رسیدن|مرجوع|بازگشت|عودت|پس\s*دادن|گارانتی|ضمانت|اصل\s*بودن|تقلبی|پرداخت|اقساط|اسنپ\s*پی|snapp|کارت\s*به\s*کارت|درگاه|فاکتور|تخفیف|کد\s*تخفیف|کوپن|سفارش(م|ت|ات)?\s*(رو|را)?\s*(لغو|پیگیری|تغییر|ویرایش)|لغو\s*سفارش|پیگیری\s*سفارش|رهگیری|کد\s*رهگیری|شماره\s*تماس|پشتیبان|تلفن|حضوری|فروشگاه\s*فیزیک|آدرس\s*فروشگاه|انقضا|تاریخ\s*مصرف|محدودیت\s*خرید|سفارش\s*تلفن)/;
+  /(ارسال|پست|پیک|تیپاکس|کرایه|هزینه\s*ارسال|بسته\s*بند|تحویل|چند\s*روز|زمان\s*رسیدن|مرجوع|بازگشت|عودت|پس\s*دادن|گارانتی|ضمانت|اصل\s*بودن|تقلبی|خراب\s*(بود|باشه|باشد|بیاد|برسه)|معیوب|آسیب\s*دیده|پرداخت|اقساط|اسنپ\s*پی|snapp|کارت\s*به\s*کارت|درگاه|فاکتور|تخفیف|کد\s*تخفیف|کوپن|سفارش(م|ت|ات)?\s*(رو|را)?\s*(لغو|پیگیری|تغییر|ویرایش)|لغو\s*سفارش|پیگیری\s*سفارش|رهگیری|کد\s*رهگیری|شماره\s*تماس|پشتیبان|تلفن|حضوری|فروشگاه\s*فیزیک|آدرس\s*فروشگاه|انقضا|تاریخ\s*مصرف|محدودیت\s*خرید|(چند\s*تا|چندتا|چه\s*تعداد|حداکثر)[^؟?\n]{0,30}(می\s*تونم|میتونم|مجاز|اجازه)[^؟?\n]{0,15}(بخرم|بگیرم|سفارش)|سفارش\s*تلفن)/;
 
 /**
  * Informational questions ABOUT the store's assortment or a brand — these want a written
@@ -962,7 +962,21 @@ async function brandListAnswer(supabase: any, text: string, lockedSpecies?: stri
   if (species && !["سایر حیوانات خانگی", "ماهی و آکواریوم"].includes(species)) q = q.eq("species", species);
   if (types.length > 0) q = q.in("product_type", types);
 
-  const { data, error } = await q;
+  let { data, error } = await q;
+  if ((error || !data || data.length === 0) && types.length > 0) {
+    // Type filter too narrow (e.g. colloquial «چانک/پوچ»): fall back to species-level brands.
+    let q2 = supabase
+      .from("pet_products")
+      .select("brand, origin_country, species, product_type")
+      .eq("in_stock", true)
+      .not("brand", "is", null)
+      .limit(3000);
+    if (species && !["سایر حیوانات خانگی", "ماهی و آکواریوم"].includes(species)) q2 = q2.eq("species", species);
+    if (/(پوچ|کنسرو|تر|چانک|سوپ)/.test(norm)) q2 = q2.ilike("product_type", "%تر%");
+    const r2 = await q2;
+    data = r2.data;
+    error = r2.error;
+  }
   if (error || !data || data.length === 0) return null;
 
   const brands: string[] = [];
@@ -2652,25 +2666,41 @@ serve(async (req) => {
       roundMessages.push(choice.message, ...roundResult.toolResults);
     }
 
-    // ── Discovery guard: a product-discovery turn must never end without a search ──
-
     const isDiscoveryIntent = effectiveMode === "discovery" || effectiveMode === "agentic";
-    if (isDiscoveryIntent && !searchExecuted && !wantsGuidance && !isBusinessQuestion && !isInfoQuestion) {
-      console.log("Discovery guard: no search executed in tool loop, running deterministic search...");
+    const forced: string[] = [];
+    const finalSig = finalAssistantMessage ? extractSignals(String(finalAssistantMessage.content || "")) : null;
+    // A reply that is only GOAL/SELECTED_IDS (no prose) does not count as a final answer.
+    const hasFinalText = !!(finalSig && finalSig.text.trim());
+
+    // ── Discovery guard (narrow): only when the turn ended with neither text nor any tool ──
+    if (
+      isDiscoveryIntent &&
+      !hasFinalText &&
+      toolTrace.length === 0 &&
+      !wantsGuidance &&
+      !isBusinessQuestion &&
+      !isInfoQuestion
+    ) {
+      console.log("Discovery guard: turn ended with no text and no tools, running deterministic search...");
       const guardQuery = buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily);
       const guardSearch = await executeSearch(supabase, guardQuery, precomputedEmbedding, speciesLock);
       if (guardSearch.products?.length > 0) {
         allProducts = mergeProducts(allProducts, guardSearch.products);
         searchExecuted = true;
         toolTrace.push("search_products (discovery-guard)");
+        forced.push("guard_search");
         console.log(`Discovery guard returned ${guardSearch.products.length} products`);
       }
     }
 
-    // ── Direct response path: no products, no discovery intent, final message exists ──
-    if (finalAssistantMessage && allProducts.length === 0 && !isDiscoveryIntent) {
+    const requestedLimit = Number(extractedIntent?.limit) || 0;
+    const comprehensive = requestedLimit >= 12;
+    const maxShown = isBundleTurn || comprehensive ? 12 : 6;
+
+    // ── Authoritative path: the model wrote an answer in the tool loop → ship THAT answer ──
+    if (hasFinalText && finalSig) {
       // Business/policy question answered without the FAQ tool = ungrounded. Redo it grounded.
-      if (isBusinessQuestion && !faqToolExecuted) {
+      if (isBusinessQuestion && !faqToolExecuted && allProducts.length === 0) {
         const faq = await executeFaqLookup(supabase, { query: lastUserText }, precomputedEmbedding);
         if (faq.entries?.length > 0) {
           const kb = faq.entries
@@ -2697,13 +2727,15 @@ serve(async (req) => {
             const gj = await grounded.json();
             const gText = sanitizeVisibleText(extractSignals(gj.choices?.[0]?.message?.content || "").text);
             if (gText) {
+              forced.push("faq_regrounding");
               return new Response(
                 JSON.stringify({
                   response_type: "message",
-                  content: gText,
+                  content: gText.replace(/\d/g, (d) => FA_DIGITS[Number(d)]),
                   products: [],
                   faq_ids: faq.entries.map((e: any) => e.faq_id),
                   quickReplies: [],
+                  trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: "faq_regrounding", forced },
                 }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } },
               );
@@ -2712,14 +2744,116 @@ serve(async (req) => {
         }
       }
 
-      const rawText = finalAssistantMessage.content || "";
-      const sig = extractSignals(rawText);
-      const mentionedIds = [...((sig.text.match(UUID_RE) || []) as string[]), ...sig.likedIds, ...sig.selectedIds];
-      const hydrated = await hydrateProducts(supabase, mentionedIds);
-      let visible = sanitizeVisibleText(sig.text);
+      let visible = sanitizeVisibleText(finalSig.text);
       if (!wantsCounts) visible = stripCountTalk(visible);
+      const numberedCount = (visible.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
 
-      if (hydrated.length === 0) {
+      // Cards: explicit ids first, then names the answer actually mentions from this turn's results.
+      const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
+      const explicitIds = [
+        ...finalSig.selectedIds,
+        ...finalSig.referenceIds,
+        ...((finalSig.text.match(UUID_RE) || []) as string[]),
+      ];
+      let cards: any[] = [];
+      const seen = new Set<string>();
+      const pushCard = (p: any) => {
+        if (p && !seen.has(p.id)) {
+          seen.add(p.id);
+          cards.push(p);
+        }
+      };
+      for (const id of explicitIds) pushCard(idToProduct.get(id));
+      const missingIds = explicitIds.filter((id) => !seen.has(id));
+      if (missingIds.length > 0) for (const p of await hydrateProducts(supabase, missingIds)) pushCard(p);
+      if (numberedCount > 0) {
+        // Token-overlap matching of each numbered line to this turn's tool results (model may
+        // abbreviate names), in the order the text lists them.
+        const tokens = (t: string) =>
+          normalizePersian(String(t || ""))
+            .toLowerCase()
+            .split(/[\s،,()\-–—:؛]+/)
+            .filter((w) => w.length > 1);
+        const numberedLines = visible.split("\n").filter((l) => /^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/u.test(l));
+        for (const line of numberedLines) {
+          const lineTok = new Set(tokens(line.replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))));
+          let best: any = null;
+          let bestScore = 0;
+          for (const p of allProducts) {
+            if (seen.has(p.id)) continue;
+            const nt = tokens(p.name_fa || p.name || "");
+            if (nt.length === 0) continue;
+            const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
+            if (hit > bestScore) {
+              bestScore = hit;
+              best = p;
+            }
+          }
+          if (best && bestScore >= 0.5) pushCard(best);
+        }
+      }
+
+      // Species safety only for the two main species; umbrella species (rodents, birds...) keep
+      // whatever the model deliberately listed. Rows without a species (accessories) always stay.
+      if (lockedSpecies === "گربه" || lockedSpecies === "سگ") {
+        cards = cards.filter((p: any) => !p.species || filterBySpecies([p], lockedSpecies).length > 0);
+      }
+      // Parity fill: the model listed more items than we could match by name → the rest of
+      // this turn's results are what it was reading from, so fill in order.
+      if (numberedCount > 0 && cards.length < numberedCount) {
+        for (const p of allProducts) {
+          if (cards.length >= numberedCount) break;
+          if (seen.has(p.id)) continue;
+          if ((lockedSpecies === "گربه" || lockedSpecies === "سگ") && p.species && filterBySpecies([p], lockedSpecies).length === 0) continue;
+          pushCard(p);
+        }
+      }
+      const cap = Math.min(Math.max(maxShown, numberedCount), 12);
+      if (cards.length > cap) cards = cards.slice(0, cap);
+      // Informational answers never carry cards unless the text itself lists products.
+      if (isInfoQuestion && numberedCount === 0 && finalSig.selectedIds.length === 0) cards = [];
+      // Never render cards next to an answer that names no product at all.
+      if (numberedCount === 0 && finalSig.selectedIds.length === 0 && !cards.some((p: any) => visible.includes(String(p.name_fa || p.name || "").slice(0, 18)))) {
+        cards = [];
+      }
+      // Parity trim: never more cards than numbered items when the answer is a numbered list.
+      if (numberedCount > 0 && cards.length > numberedCount) cards = cards.slice(0, numberedCount);
+
+      // Model wrote the ask_clarification payload inline instead of calling the tool → parse it.
+      const inlineAsk = visible.match(/\{\s*"ask_clarification"\s*:\s*(\{[\s\S]*\})\s*\}\s*$/);
+      if (inlineAsk && cards.length === 0) {
+        try {
+          const rawCard = JSON.parse(inlineAsk[1]);
+          const facets = await getFacets();
+          const card = groundClarification(
+            rawCard.steps ? { kind: "steps", helper: rawCard.helper || "", steps: rawCard.steps } : { kind: "single", ...rawCard },
+            facets,
+          );
+          const cardResponse = clarificationResponse(card, "inline-json");
+          if (cardResponse) return cardResponse;
+        } catch {
+          /* fall through */
+        }
+        visible = visible.replace(/\{\s*"ask_clarification"[\s\S]*$/, "").trim();
+      }
+      // Denial the catalog contradicts: the search returned real matches → compose from them.
+      if (
+        cards.length === 0 &&
+        numberedCount === 0 &&
+        searchExecuted &&
+        allProducts.length > 0 &&
+        !isInfoQuestion &&
+        !isBusinessQuestion &&
+        /(نداریم|ندارم|موجود نیست|پیدا نکردم|در موجودی نداریم)/.test(visible)
+      ) {
+        const pool = lockedSpecies === "گربه" || lockedSpecies === "سگ" ? filterBySpecies(allProducts, lockedSpecies) : allProducts;
+        if (pool.length > 0) {
+          cards = pool.slice(0, maxShown);
+          visible = composeProductAnswer(cards, originalQuery);
+          forced.push("denial_override");
+        }
+      }
+      if (cards.length === 0) {
         const parsed = extractQuestionCard(visible);
         const facets = parsed || wantsGuidance ? await getFacets() : null;
         const rawCard =
@@ -2736,44 +2870,56 @@ serve(async (req) => {
         if (cardResponse) return cardResponse;
       }
 
-      if (wantsGuidance && hydrated.length === 0 && !visible) {
-        const fallbackCard = {
-          kind: "steps",
-          helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-          steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
-        };
-        const fallbackResponse = clarificationResponse(fallbackCard, "guidance-fallback");
-        if (fallbackResponse) return fallbackResponse;
+      let content = visible;
+      // Brand question answered with a denial the catalog contradicts → grounded brand list.
+      if (isInfoQuestion && cards.length === 0) {
+        const denies = /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|در دسترس نیست)/.test(content);
+        if (denies) {
+          const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
+          if (grounded) {
+            content = grounded;
+            forced.push("brand_list_override");
+          }
+        }
       }
+      if (unavailableBrand && !content.includes(unavailableBrand)) {
+        content = `برند ${unavailableBrand} رو فعلاً موجود ندارم؛ نزدیک‌ترین گزینه‌های موجود اینا هستن:\n\n${content}`;
+      }
+      content = content.replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
+      console.log(`Answer source: model_final, cards=${cards.length}, numbered=${numberedCount}, tools=${toolTrace.join(",")}`);
 
       return new Response(
         JSON.stringify({
-          response_type: hydrated.length > 0 ? "products" : "message",
-          content:
-            hydrated.length > 0
-              ? visible && hasNumberedProducts(visible)
-                ? visible
-                : composeProductAnswer(hydrated, originalQuery)
-              : visible || "متوجه نشدم. می‌تونی دوباره بگی؟",
-          products: hydrated,
-          reference_product_ids: sig.referenceIds,
-          liked_product_ids: sig.likedIds,
-          rejected_product_ids: sig.rejectedIds,
-          goal: sig.goal,
-          quickReplies: [],
+          response_type: cards.length > 0 ? "products" : "message",
+          content,
+          products: cards,
+          reference_product_ids: finalSig.referenceIds,
+          liked_product_ids: finalSig.likedIds,
+          rejected_product_ids: finalSig.rejectedIds,
+          goal: finalSig.goal,
+          quickReplies:
+            cards.length > 0 ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }] : [],
+          trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: "model_final", forced },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // ── Final re-ranker / prose generation ──
-    console.log("Final response generation...");
-    const requestedLimit = Number(extractedIntent?.limit) || 0;
-    const comprehensive = requestedLimit >= 12;
-    const maxShown = isBundleTurn ? Math.min(allProducts.length, 9) : comprehensive ? 12 : 6;
-    const candidatesForRerank = isBundleTurn
-      ? allProducts.slice(0, maxShown)
-      : allProducts.slice(0, comprehensive ? 24 : 12);
+    // ── Fallback: loop ended without prose (rounds/time exhausted after tool calls) ──
+    // One composing call writes the answer from this turn's tool results.
+
+    // ── Fallback composer (formerly the always-on re-ranker) ──
+    console.log("Fallback composition: loop ended without prose; tools:", toolTrace.join(","));
+    let answerSource = "reranker_fallback";
+    // A turn that only looked up details/FAQ/memory (no catalog search) is an explanation turn,
+    // not a recommendation turn → compose prose, never a fresh product list.
+    const explanationOnly =
+      !searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t));
+    const candidatesForRerank = explanationOnly
+      ? []
+      : isBundleTurn
+        ? allProducts.slice(0, maxShown)
+        : allProducts.slice(0, comprehensive ? 24 : 12);
     const candidateList = candidatesForRerank
       .map(
         (p: any, i: number) =>
@@ -2788,10 +2934,11 @@ serve(async (req) => {
     const rerankerInstruction =
       candidatesForRerank.length > 0
         ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: اول حداکثر ۳ خط توضیح کلی کوتاه، بعد برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
-        : isInfoQuestion || isBusinessQuestion
-          ? `\n\nANSWER_TURN: این نوبت یک سؤال اطلاعاتی درباره برندها، کاتالوگ یا خدمات فروشگاهه، نه درخواست محصول.
-- فقط بر پایه نتایج ابزارهای همین نوبت (catalog_facets / brand_or_general_lookup / business_faq_lookup) جواب بده.
+        : isInfoQuestion || isBusinessQuestion || explanationOnly
+          ? `\n\nANSWER_TURN: این نوبت یک سؤال اطلاعاتی/توضیحی (درباره برندها، کاتالوگ، خدمات فروشگاه یا جزئیات محصولی که قبلاً معرفی شده) هست، نه درخواست محصول جدید.
+- فقط بر پایه نتایج ابزارهای همین نوبت (catalog_facets / brand_or_general_lookup / business_faq_lookup / get_product_details) جواب بده.
 - جواب متنی، روان و کوتاه باشه؛ اگر فهرست برند/کشور/دسته خواسته شده، اسم‌ها رو پشت سر هم یا خط‌به‌خط بنویس${wantsCounts ? "" : " و عدد و تعداد ننویس"}.
+- اگر درباره یک محصول مشخص توضیح می‌دی، اسم همون محصول رو بیار.
 - محصول پیشنهاد نده و لیست شماره‌دار محصول نساز. چیزی از خودت اضافه نکن؛ اگر داده نداری، صادقانه بگو.
 - بدون مارک‌داون. SELECTED_IDS ننویس.`
           : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
@@ -2826,7 +2973,7 @@ serve(async (req) => {
               : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
           products: allProducts.slice(0, maxShown),
           quickReplies: [],
-          trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted },
+          trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: answerSource, forced },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -2950,6 +3097,7 @@ serve(async (req) => {
     if (!isInfoQuestion && selectedProducts.length > 0 && (!finalContent || !hasNumberedProducts(finalContent))) {
       finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
       console.log("Composed deterministic product answer");
+      answerSource = "composer";
     } else if (!finalContent) {
       // A brand/assortment question always has a real answer in the catalog.
       const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;
@@ -2999,7 +3147,7 @@ serve(async (req) => {
           selectedProducts.length > 0
             ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
             : [],
-        trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted },
+        trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: answerSource, forced },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

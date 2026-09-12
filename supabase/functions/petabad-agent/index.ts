@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // Fixed single-store id for the PetAbad catalog RPCs.
@@ -92,7 +93,6 @@ SELECTED_IDS:["id1","id2","id3"]
 - بدون مارک‌داون - متن ساده
 - مختصر و دقیق باش
 - هیچ سیاستی (هزینه ارسال، زمان تحویل، مرجوعی، ضمانت، پرداخت) رو از خودت نساز؛ فقط از business_faq_lookup`,
-
 
   conversational: `تو دستیار خرید دوستانه پت‌آباد هستی.
 
@@ -229,7 +229,6 @@ SELECTED_IDS:["id1","id2","id3"]
 
 مقایسه:
 - اگر کاربر مقایسه خواست (مقایسه کن، فرقشون چیه، کدوم بهتره)، اول ببین محصولات موردنظرش در حافظه‌ی محصولات هست یا نه؛ همون‌ها رو مقایسه کن و لیست پیشنهادی جدید نساز.
-- اگر فقط نام برند/مدل گفته و در حافظه نیست، برای هر طرف یک جستجوی جدا با filters.brand همون برند و همون دسته و همون حیوان انجام بده و از هر طرف یک گزینه‌ی شاخص بیار.
 - مقایسه واقعی بنویس: قیمت، کشور سازنده، مناسب چه نیازی، تفاوت اصلی، و در آخر یک جمله توصیه.
 - هرگز محصولی از حیوان یا دسته‌ی دیگر رو داخل مقایسه نیار.
 
@@ -254,7 +253,6 @@ LIKED_IDS:["id"]  محصولاتی که کاربر پسندید یا انتخا�
 REJECTED_IDS:["id"]  محصولاتی که کاربر رد کرد
 GOAL:{"use_case":"","recipient":"","category":"","budget_max":0}  فقط فیلدهایی که کاربر واقعاً گفته`,
 };
-
 
 // ── Tool definitions ──
 const SEARCH_TOOL = {
@@ -294,13 +292,38 @@ const SEARCH_TOOL = {
             price_min: { type: "number" },
             price_max: { type: "number" },
             brand: { type: "string", description: "Brand name in Persian or Latin, e.g. جوسرا / Josera" },
-            product_line: { type: "string", description: "Product line / exact model wording, e.g. Catelux، کتلوکس، Golden Retriever" },
-            origin_country: { type: "string", description: "Manufacturing country in Persian, e.g. آلمان، ایران، فرانسه" },
-            life_stage: { type: "string", enum: ["نابالغ", "بالغ", "سنیور"], description: "نابالغ = puppy/kitten, بالغ = adult, سنیور = senior" },
+            product_line: {
+              type: "string",
+              description: "Product line / exact model wording, e.g. Catelux، کتلوکس، Golden Retriever",
+            },
+            origin_country: {
+              type: "string",
+              description: "Manufacturing country in Persian, e.g. آلمان، ایران، فرانسه",
+            },
+            life_stage: {
+              type: "string",
+              enum: ["نابالغ", "بالغ", "سنیور"],
+              description: "نابالغ = puppy/kitten, بالغ = adult, سنیور = senior",
+            },
             breed_size: { type: "string", enum: ["کوچک", "متوسط", "بزرگ"] },
             needs: {
               type: "array",
-              items: { type: "string", enum: ["پوست و مو", "گوارش حساس", "کلیه و مجاری ادرار", "عقیم شده", "کنترل وزن", "ضد حساسیت", "گلوله مویی", "داخل خانه", "درمانی", "سلامت دندان", "مفاصل"] },
+              items: {
+                type: "string",
+                enum: [
+                  "پوست و مو",
+                  "گوارش حساس",
+                  "کلیه و مجاری ادرار",
+                  "عقیم شده",
+                  "کنترل وزن",
+                  "ضد حساسیت",
+                  "گلوله مویی",
+                  "داخل خانه",
+                  "درمانی",
+                  "سلامت دندان",
+                  "مفاصل",
+                ],
+              },
               description: "Structured health needs the user stated",
             },
             features: { type: "array", items: { type: "string" } },
@@ -314,11 +337,13 @@ const SEARCH_TOOL = {
         evidence_terms: {
           type: "array",
           items: { type: "string" },
-          description: "Persian wording variants of an unstructured requirement (organic, hypoallergenic, grain-free...). A product matches if ANY term appears in its name/description/tags.",
+          description:
+            "Persian wording variants of an unstructured requirement (organic, hypoallergenic, grain-free...). A product matches if ANY term appears in its name/description/tags.",
         },
         limit: {
           type: "number",
-          description: "How many products to retrieve (default 20, max 60). Use 24 for comprehensive 'show me all' requests.",
+          description:
+            "How many products to retrieve (default 20, max 60). Use 24 for comprehensive 'show me all' requests.",
         },
         offset: {
           type: "number",
@@ -356,7 +381,8 @@ const CART_OPERATIONS_TOOL = {
   type: "function",
   function: {
     name: "execute_cart_operations",
-    description: "Execute one or more cart operations based on user request. Use product_index (1-based) to reference recommended products, product_id (UUID) to reference cart items.",
+    description:
+      "Execute one or more cart operations based on user request. Use product_index (1-based) to reference recommended products, product_id (UUID) to reference cart items.",
     parameters: {
       type: "object",
       properties: {
@@ -414,12 +440,12 @@ const CART_OPERATIONS_TOOL = {
   },
 };
 
-
 const RECALL_TOOL = {
   type: "function",
   function: {
     name: "recall_products",
-    description: "Re-show products the user has ALREADY seen in this conversation (from the product memory). Use for 'show those again', 'compare these', references to earlier groups.",
+    description:
+      "Re-show products the user has ALREADY seen in this conversation (from the product memory). Use for 'show those again', 'compare these', references to earlier groups.",
     parameters: {
       type: "object",
       properties: {
@@ -453,7 +479,10 @@ async function executeWebLookup(args: any): Promise<any> {
   const key = Deno.env.get("FIRECRAWL_API_KEY");
   const query = String(args?.query || "").trim();
   if (!key || !query) {
-    return { available: false, note: "دسترسی به اطلاعات بیرون از فروشگاه در دسترس نیست؛ فقط بر اساس کاتالوگ پاسخ بده." };
+    return {
+      available: false,
+      note: "دسترسی به اطلاعات بیرون از فروشگاه در دسترس نیست؛ فقط بر اساس کاتالوگ پاسخ بده.",
+    };
   }
   try {
     const res = await fetch("https://api.firecrawl.dev/v2/search", {
@@ -483,9 +512,19 @@ async function executeWebLookup(args: any): Promise<any> {
 
 // ── Business / policy questions: answered ONLY from the official FAQ knowledge base ──
 const FAQ_CATEGORIES = [
-  "ordering_account", "payment", "discounts", "shipping_cost", "shipping_timing",
-  "shipping_methods", "order_tracking", "order_changes", "returns", "refunds",
-  "guarantees", "store_info_trust", "support_channels",
+  "ordering_account",
+  "payment",
+  "discounts",
+  "shipping_cost",
+  "shipping_timing",
+  "shipping_methods",
+  "order_tracking",
+  "order_changes",
+  "returns",
+  "refunds",
+  "guarantees",
+  "store_info_trust",
+  "support_channels",
 ];
 
 const BUSINESS_RE =
@@ -501,13 +540,8 @@ const INFO_QUESTION_RE =
 /** «مقایسه کن», «X و Y رو مقایسه», «تفاوتشون چیه» → compare, don't recommend a new list. */
 const COMPARE_RE = /(مقایسه|مقایسش|تفاوت|فرقش|فرق\s*(بین|این)|کدوم\s*بهتره|بهتره\s*یا)/;
 
-
 /** Retrieve official PetAbad FAQ answers (hybrid FTS + trigram + embeddings). */
-async function executeFaqLookup(
-  supabase: any,
-  args: any,
-  precomputedEmbedding?: number[] | null,
-): Promise<any> {
+async function executeFaqLookup(supabase: any, args: any, precomputedEmbedding?: number[] | null): Promise<any> {
   const query = normalizePersian(String(args?.query || "")).trim();
   if (!query) return { entries: [], note: "سؤال مشخص نیست." };
   const cats = Array.isArray(args?.categories)
@@ -577,23 +611,29 @@ const FAQ_GROUNDING_RULES = `
 - اگر سؤال هم درباره محصول است و هم درباره فروشگاه، هر دو ابزار را صدا بزن و جواب را در دو بخش کوتاه بده.
 - لحن صمیمی و ساده، بدون مارک‌داون، و بدون اشاره به «پایگاه دانش» یا فرایند داخلی.`;
 
-
 const FACETS_TOOL = {
   type: "function",
   function: {
     name: "catalog_facets",
-    description: "Get the COMPLETE, exact catalog facts for a slice of the catalog: brands, manufacturing countries, brands per country, life stages, breed sizes, health needs, shelves, species (plus totals and price range). Use for 'which brands do you have', 'which German/Iranian brands', 'list them all', brand profiles, and any listing/counting question. Never guess these lists or numbers.",
+    description:
+      "Get the COMPLETE, exact catalog facts for a slice of the catalog: brands, manufacturing countries, brands per country, life stages, breed sizes, health needs, shelves, species (plus totals and price range). Use for 'which brands do you have', 'which German/Iranian brands', 'list them all', brand profiles, and any listing/counting question. Never guess these lists or numbers.",
     parameters: {
       type: "object",
       properties: {
         subcategory: { type: "string", description: "Exact subcategory, e.g. غذای خشک سگ، کنسرو و پوچ و غذای تر گربه" },
         species: { type: "string", description: "Exact species filter, e.g. سگ" },
-        subcategory_family: { type: "string", description: "Shelf family prefix, e.g. غذای خشک گربه — covers brand-specific shelves too" },
+        subcategory_family: {
+          type: "string",
+          description: "Shelf family prefix, e.g. غذای خشک گربه — covers brand-specific shelves too",
+        },
         brand: { type: "string", description: "Restrict to one brand, e.g. جوسرا" },
         origin_country: { type: "string", description: "Restrict to one manufacturing country, e.g. آلمان" },
         query_text: { type: "string", description: "Free-text narrowing when there is no exact subcategory" },
         criterion: { type: "string", description: "Extra wording requirement, e.g. ارگانیک" },
-        include_counts: { type: "boolean", description: "true ONLY when the user asked about quantities/totals/price range. Otherwise names only." },
+        include_counts: {
+          type: "boolean",
+          description: "true ONLY when the user asked about quantities/totals/price range. Otherwise names only.",
+        },
       },
       additionalProperties: false,
     },
@@ -604,7 +644,8 @@ const CLARIFY_TOOL = {
   type: "function",
   function: {
     name: "ask_clarification",
-    description: "Ask the user ONE or a few short structured questions when two readings of the request lead to materially different products. The question is rendered as an interactive card — do not repeat it in text.",
+    description:
+      "Ask the user ONE or a few short structured questions when two readings of the request lead to materially different products. The question is rendered as an interactive card — do not repeat it in text.",
     parameters: {
       type: "object",
       properties: {
@@ -630,7 +671,10 @@ const CLARIFY_TOOL = {
             properties: {
               title: { type: "string" },
               question: { type: "string" },
-              multi: { type: "boolean", description: "true when the user may pick several options in this step (e.g. needed categories)" },
+              multi: {
+                type: "boolean",
+                description: "true when the user may pick several options in this step (e.g. needed categories)",
+              },
               options: {
                 type: "array",
                 items: {
@@ -652,7 +696,16 @@ const CLARIFY_TOOL = {
 
 // Mode → tools mapping
 const MODE_TOOLS: Record<string, any[]> = {
-  agentic: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, RECALL_TOOL, CART_OPERATIONS_TOOL, CLARIFY_TOOL, WEB_LOOKUP_TOOL, FAQ_TOOL],
+  agentic: [
+    SEARCH_TOOL,
+    FACETS_TOOL,
+    DETAILS_TOOL,
+    RECALL_TOOL,
+    CART_OPERATIONS_TOOL,
+    CLARIFY_TOOL,
+    WEB_LOOKUP_TOOL,
+    FAQ_TOOL,
+  ],
   discovery: [SEARCH_TOOL, FACETS_TOOL, DETAILS_TOOL, WEB_LOOKUP_TOOL, FAQ_TOOL],
 
   comparison: [],
@@ -679,7 +732,10 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 // ── Execute tool calls ──
 // Breed → breed size (and default life stage) mapping. Category-agnostic fallback: unknown breeds are ignored.
 const BREED_SIZE: Array<[RegExp, string]> = [
-  [/گلدن|رتریور|لابرادور|ژرمن|شپرد|روتوایلر|هاسکی|سنت\s*برنارد|دوبرمن|قفقازی|آکیتا|بوکسر|دوگ|مالاموت|بلک\s*راشن/, "بزرگ"],
+  [
+    /گلدن|رتریور|لابرادور|ژرمن|شپرد|روتوایلر|هاسکی|سنت\s*برنارد|دوبرمن|قفقازی|آکیتا|بوکسر|دوگ|مالاموت|بلک\s*راشن/,
+    "بزرگ",
+  ],
   [/بردر\s*کولی|بیگل|کوکر|اسپانیل|پیت\s*بول|بول\s*تریر|سامویید|شارپی|چاو/, "متوسط"],
   [/پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\s*راسل/, "کوچک"],
 ];
@@ -765,8 +821,6 @@ function detectProductTypes(text: string): string[] {
 const TAXONOMY_WORDS =
   /غذای\s*تر|غذای\s*مرطوب|کنسرو|پوچ|سوپ|غذای\s*خشک|تشویقی|خاک|شامپو|اسپری|مسواک|مکمل|ویتامین|اسکرچر|اسباب\s*بازی|قلاده|جای\s*خواب|ظرف/;
 
-
-
 // ── Part 5: closed taxonomy vocabulary (database-owned) ──
 type TaxonomyMap = Record<string, Record<string, string>>;
 let TAXONOMY_CACHE: TaxonomyMap | null = null;
@@ -800,7 +854,6 @@ function canonicalTerm(tax: TaxonomyMap, dimension: string, value: string | null
   return dim[normalizePersian(String(value))] || null;
 }
 
-
 // ── Catalog brand vocabulary ────────────────────────────────────────────────
 // Brands are recognised ONLY from the real catalog (+ alias table). Colloquial
 // Persian words the model sometimes mistakes for a brand («چیا» in «چانک چیا
@@ -808,10 +861,41 @@ function canonicalTerm(tax: TaxonomyMap, dimension: string, value: string | null
 let BRAND_CACHE: { canonical: string[]; keys: Set<string> } | null = null;
 const BRAND_STOPWORDS = new Set(
   [
-    "چیا", "چیه", "چی", "چه", "کدوم", "کدام", "دارین", "دارید", "داری", "دارین؟",
-    "خارجی", "داخلی", "ایرانی", "اصل", "ارزون", "گران", "گرون", "خوب", "بهترین",
-    "چانک", "پوچ", "کنسرو", "غذا", "تشویقی", "گربه", "سگ", "خرگوش", "پرنده",
-    "برند", "مارک", "لیست", "همه", "موجود", "بگو", "معرفی",
+    "چیا",
+    "چیه",
+    "چی",
+    "چه",
+    "کدوم",
+    "کدام",
+    "دارین",
+    "دارید",
+    "داری",
+    "دارین؟",
+    "خارجی",
+    "داخلی",
+    "ایرانی",
+    "اصل",
+    "ارزون",
+    "گران",
+    "گرون",
+    "خوب",
+    "بهترین",
+    "چانک",
+    "پوچ",
+    "کنسرو",
+    "غذا",
+    "تشویقی",
+    "گربه",
+    "سگ",
+    "خرگوش",
+    "پرنده",
+    "برند",
+    "مارک",
+    "لیست",
+    "همه",
+    "موجود",
+    "بگو",
+    "معرفی",
   ].map((w) => normalizePersian(w)),
 );
 
@@ -862,11 +946,7 @@ function classifyBrand(raw: string, vocab: { keys: Set<string> }): "catalog" | "
  * Catalog-grounded brand list for questions like «چه برندهای خارجی برای پوچ گربه
  * دارین» or the follow-up «خارجیاشون کدومن؟». Returns prose, never product cards.
  */
-async function brandListAnswer(
-  supabase: any,
-  text: string,
-  lockedSpecies?: string | null,
-): Promise<string | null> {
+async function brandListAnswer(supabase: any, text: string, lockedSpecies?: string | null): Promise<string | null> {
   const norm = normalizePersian(text || "");
   const wantsForeign = /(خارجی|وارداتی|اورجینال|import)/.test(norm);
   const wantsIranian = /(ایرانی|داخلی|تولید ایران)/.test(norm);
@@ -899,11 +979,11 @@ async function brandListAnswer(
     wantsForeign ? "خارجی" : wantsIranian ? "ایرانی" : "",
     types.length > 0 ? types[0] : "",
     species ? species : "",
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
   const list = brands.slice(0, 25).join("، ");
-  return scope
-    ? `برای ${scope} این برندها رو موجود داریم: ${list}.`
-    : `این برندها رو موجود داریم: ${list}.`;
+  return scope ? `برای ${scope} این برندها رو موجود داریم: ${list}.` : `این برندها رو موجود داریم: ${list}.`;
 }
 
 async function executeSearch(
@@ -912,7 +992,18 @@ async function executeSearch(
   precomputedEmbedding: number[] | null,
   lock?: { species?: string | null; lifeStage?: string | null },
 ): Promise<any> {
-  const { query_text, subcategory, subcategory_family, species, breed, filters, sort_by, evidence_terms, limit, offset } = args;
+  const {
+    query_text,
+    subcategory,
+    subcategory_family,
+    species,
+    breed,
+    filters,
+    sort_by,
+    evidence_terms,
+    limit,
+    offset,
+  } = args;
   const normalizedQuery = normalizePersian(query_text || "");
   const lockedSpecies = lock?.species || null;
 
@@ -920,9 +1011,9 @@ async function executeSearch(
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
   // A single exact shelf is a hard filter only when the user named a brand shelf;
   // otherwise search the whole shelf family so brand-split shelves stay visible.
-  const family = subcategory_family || (subcategory && !/(جوسرا|رویال کنین|رفلکس|فیدار|سلبن|نیناپت)/.test(subcategory)
-    ? subcategory
-    : null);
+  const family =
+    subcategory_family ||
+    (subcategory && !/(جوسرا|رویال کنین|رفلکس|فیدار|سلبن|نیناپت)/.test(subcategory) ? subcategory : null);
   if (family) rpcParams.p_subcategory_prefix = family;
   else if (subcategory) rpcParams.p_subcategory = subcategory;
   // The species lock always wins over whatever the model asked for.
@@ -966,7 +1057,7 @@ async function executeSearch(
   // Deterministic taxonomy: the shopper's category word decides the shelf, not the
   // literal product names. When it resolves, it replaces the model's shelf guess.
   const requestedTypes = detectProductTypes(
-    `${query_text || ""} ${Array.isArray(evidence_terms) ? evidence_terms.join(" ") : ""}`
+    `${query_text || ""} ${Array.isArray(evidence_terms) ? evidence_terms.join(" ") : ""}`,
   );
   if (requestedTypes.length > 0) {
     rpcParams.p_product_types = requestedTypes;
@@ -974,7 +1065,6 @@ async function executeSearch(
     delete rpcParams.p_subcategory_prefix;
   }
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
-
 
   const runSearch = async (params: any) => {
     const { data, error } = await supabase.rpc("pet_hybrid_search", params);
@@ -1004,19 +1094,65 @@ async function executeSearch(
   const softNeeds = askedNeeds.filter((n) => !CRITICAL_NEEDS.includes(n));
 
   const tieredRelaxations: Array<{ label: string; apply: (p: any) => void }> = [
-    { label: "product_line", apply: (p) => { delete p.p_product_line; } },
+    {
+      label: "product_line",
+      apply: (p) => {
+        delete p.p_product_line;
+      },
+    },
     ...(softNeeds.length > 0 && criticalNeeds.length > 0
-      ? [{ label: "non_critical_needs", apply: (p: any) => { p.p_needs = criticalNeeds; } }]
+      ? [
+          {
+            label: "non_critical_needs",
+            apply: (p: any) => {
+              p.p_needs = criticalNeeds;
+            },
+          },
+        ]
       : []),
-    { label: "brand", apply: (p) => { delete p.p_brand; } },
-    { label: "origin_country", apply: (p) => { delete p.p_origin_country; } },
-    { label: "breed_size", apply: (p) => { delete p.p_breed_size; } },
+    {
+      label: "brand",
+      apply: (p) => {
+        delete p.p_brand;
+      },
+    },
+    {
+      label: "origin_country",
+      apply: (p) => {
+        delete p.p_origin_country;
+      },
+    },
+    {
+      label: "breed_size",
+      apply: (p) => {
+        delete p.p_breed_size;
+      },
+    },
     ...(criticalNeeds.length === 0
-      ? [{ label: "needs", apply: (p: any) => { delete p.p_needs; } }]
+      ? [
+          {
+            label: "needs",
+            apply: (p: any) => {
+              delete p.p_needs;
+            },
+          },
+        ]
       : []),
-    { label: "life_stage", apply: (p) => { delete p.p_life_stage; } },
+    {
+      label: "life_stage",
+      apply: (p) => {
+        delete p.p_life_stage;
+      },
+    },
     ...(criticalNeeds.length > 0
-      ? [{ label: "medical_needs", apply: (p: any) => { delete p.p_needs; } }]
+      ? [
+          {
+            label: "medical_needs",
+            apply: (p: any) => {
+              delete p.p_needs;
+            },
+          },
+        ]
       : []),
   ];
 
@@ -1036,7 +1172,6 @@ async function executeSearch(
   // HARD species lock: a row from another animal never reaches the answer model.
   let results = filterBySpecies(data, lockedSpecies);
 
-
   // A breed-specific product (e.g. Royal Canin Golden Retriever) must lead the answer.
   const breedLine = filters?.product_line ? null : inferBreedLine(`${breed || ""} ${query_text || ""}`);
   if (breedLine) {
@@ -1053,7 +1188,6 @@ async function executeSearch(
       const seen = new Set(exactSafe.map((p: any) => p.id));
       results = [...exactSafe, ...results.filter((p: any) => !seen.has(p.id))];
     }
-
   }
 
   const terms = [
@@ -1076,7 +1210,7 @@ async function executeSearch(
         .filter((v: any) => v && typeof v === "string")
         .join(" ");
       const haystack = normalizePersian(
-        `${p.name_fa || ""} ${p.description_fa || ""} ${(p.tags || []).join(" ")} ${(p.health_needs || []).join(" ")} ${specText}`
+        `${p.name_fa || ""} ${p.description_fa || ""} ${(p.tags || []).join(" ")} ${(p.health_needs || []).join(" ")} ${specText}`,
       );
       const matched = normTerms.filter((t) => haystack.includes(t)).length;
       const boost = matched > 0 ? 0.12 + 0.04 * (matched - 1) : -0.06;
@@ -1085,7 +1219,7 @@ async function executeSearch(
     if (scored.every((p: any) => !p._evidence_matched)) evidenceUnconfirmed = true;
     results = scored
       .sort((a: any, b: any) => {
-        const scoreDiff = (b.final_score + b._evidence_boost) - (a.final_score + a._evidence_boost);
+        const scoreDiff = b.final_score + b._evidence_boost - (a.final_score + a._evidence_boost);
         if (Math.abs(scoreDiff) > 0.0001) return scoreDiff;
         return (b.rating || 0) - (a.rating || 0);
       })
@@ -1102,15 +1236,12 @@ async function executeSearch(
   // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
   results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
 
-
   // Honest fallback signal: the shopper named a REAL brand we cannot serve.
   // Colloquial words misread as brands never produce this claim.
   const requestedBrand = filters?.brand && brandClass !== "not-a-brand" ? String(filters.brand).trim() : "";
   const brandUnavailable =
     requestedBrand.length > 0 &&
-    !results.some((r: any) =>
-      normalizePersian(String(r.brand || "")).includes(normalizePersian(requestedBrand)),
-    );
+    !results.some((r: any) => normalizePersian(String(r.brand || "")).includes(normalizePersian(requestedBrand)));
 
   return {
     matched_total: results.length,
@@ -1167,11 +1298,13 @@ async function executeFacets(supabase: any, args: any, lockedSpecies?: string | 
     breed_sizes: (data?.breed_sizes || []).map((b: any) => b?.value).filter(Boolean),
     needs: (data?.needs || []).map((n: any) => n?.value).filter(Boolean),
     // Shelves belonging to another animal never enter a locked conversation.
-    subcategories: (data?.subcategories || []).map((sc: any) => sc?.value).filter(Boolean).filter(shelfAllowed),
+    subcategories: (data?.subcategories || [])
+      .map((sc: any) => sc?.value)
+      .filter(Boolean)
+      .filter(shelfAllowed),
     ...(lockedSpecies ? {} : { species: (data?.species || []).map((sp: any) => sp?.value).filter(Boolean) }),
     counts_hidden: true,
   };
-
 }
 
 // ── Catalog-grounded question options ───────────────────────────────────
@@ -1187,10 +1320,46 @@ type QuestionFacets = {
 
 /** Conversational filler that must not narrow the candidate set. */
 const FACET_STOPWORDS = [
-  "بگیرم", "بخرم", "بخرم؟", "میخوام", "می‌خوام", "خوام", "چی", "چه", "کدوم", "برام", "برای",
-  "راهنمایی", "راهنماییم", "کمک", "کمکم", "کن", "کنی", "بهترین", "پیشنهاد", "معرفی", "لطفا",
-  "لطفاً", "میشه", "می‌شه", "یه", "یک", "خوب", "مناسب", "دنبال", "هستم", "باشه", "میگردم",
-  "می‌گردم", "دارید", "داری", "نشونم", "بده", "تومان", "تومن", "قیمت",
+  "بگیرم",
+  "بخرم",
+  "بخرم؟",
+  "میخوام",
+  "می‌خوام",
+  "خوام",
+  "چی",
+  "چه",
+  "کدوم",
+  "برام",
+  "برای",
+  "راهنمایی",
+  "راهنماییم",
+  "کمک",
+  "کمکم",
+  "کن",
+  "کنی",
+  "بهترین",
+  "پیشنهاد",
+  "معرفی",
+  "لطفا",
+  "لطفاً",
+  "میشه",
+  "می‌شه",
+  "یه",
+  "یک",
+  "خوب",
+  "مناسب",
+  "دنبال",
+  "هستم",
+  "باشه",
+  "میگردم",
+  "می‌گردم",
+  "دارید",
+  "داری",
+  "نشونم",
+  "بده",
+  "تومان",
+  "تومن",
+  "قیمت",
 ];
 
 async function fetchQuestionFacets(
@@ -1198,7 +1367,7 @@ async function fetchQuestionFacets(
   queryText: string,
   subcategory?: string | null,
   species?: string | null,
-  subcategoryFamily?: string | null
+  subcategoryFamily?: string | null,
 ): Promise<QuestionFacets | null> {
   try {
     const cleaned = normalizePersian(queryText || "")
@@ -1261,14 +1430,10 @@ function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
     return Math.max(100_000, Math.round(v / 100_000) * 100_000);
   };
   // Buckets are open-ended at the bottom ("تا X") — a "۰ تا X" label is meaningless.
-  const edges = Array.from(
-    new Set([round(price.q1), round(price.median), round(price.q3)])
-  ).sort((a, b) => a - b);
+  const edges = Array.from(new Set([round(price.q1), round(price.median), round(price.q3)])).sort((a, b) => a - b);
   if (edges.length < 2) return null;
 
-  const options: any[] = [
-    { label: `تا ${formatToman(edges[0])} تومان`, value: { price_max: edges[0] } },
-  ];
+  const options: any[] = [{ label: `تا ${formatToman(edges[0])} تومان`, value: { price_max: edges[0] } }];
   for (let i = 0; i < edges.length - 1; i++) {
     options.push({
       label: `${formatToman(edges[i])} تا ${formatToman(edges[i + 1])} تومان`,
@@ -1292,16 +1457,12 @@ const BUDGET_STEP_RE = /بودجه|قیمت|تومان|هزینه/;
  */
 function groundClarification(card: any, facets: QuestionFacets | null): any {
   if (!card || !facets || facets.total === 0) return card;
-  const brandKeys = new Set(
-    facets.brands.map((b) => normalizePersian(String(b.brand || "")).replace(/[\s‌]/g, ""))
-  );
+  const brandKeys = new Set(facets.brands.map((b) => normalizePersian(String(b.brand || "")).replace(/[\s‌]/g, "")));
   const budgetOptions = facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
 
   const groundStep = (step: any) => {
     const text = normalizePersian(`${step?.title || ""} ${step?.question || ""}`);
-    const optionsText = normalizePersian(
-      (step?.options || []).map((o: any) => o?.label || "").join(" ")
-    );
+    const optionsText = normalizePersian((step?.options || []).map((o: any) => o?.label || "").join(" "));
     const isBudget = BUDGET_STEP_RE.test(text) || /میلیون|میلیارد|تومان/.test(optionsText);
 
     if (isBudget) {
@@ -1321,9 +1482,8 @@ function groundClarification(card: any, facets: QuestionFacets | null): any {
         const key = normalizePersian(String(o?.label || "")).replace(/[\s‌]/g, "");
         return [...brandKeys].some((b) => b && (b.includes(key) || key.includes(b)));
       });
-      const options = kept.length >= 2
-        ? kept
-        : facets.brands.slice(0, 5).map((b) => ({ label: b.brand, value: { brand: b.brand } }));
+      const options =
+        kept.length >= 2 ? kept : facets.brands.slice(0, 5).map((b) => ({ label: b.brand, value: { brand: b.brand } }));
       return options.length >= 2 ? { ...step, options } : null;
     }
 
@@ -1343,41 +1503,62 @@ function groundClarification(card: any, facets: QuestionFacets | null): any {
 function isValidClarification(card: any): boolean {
   if (!card || (card.kind !== "single" && card.kind !== "steps")) return false;
   if (card.kind === "single") {
-    return typeof card.question === "string" && card.question.trim().length > 0 &&
-      Array.isArray(card.options) && card.options.length >= 2 &&
-      card.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0);
+    return (
+      typeof card.question === "string" &&
+      card.question.trim().length > 0 &&
+      Array.isArray(card.options) &&
+      card.options.length >= 2 &&
+      card.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0)
+    );
   }
-  return Array.isArray(card.steps) && card.steps.length > 0 && card.steps.every((step: any) =>
-    typeof step?.question === "string" && step.question.trim().length > 0 &&
-    Array.isArray(step.options) && step.options.length >= 2 &&
-    step.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0)
+  return (
+    Array.isArray(card.steps) &&
+    card.steps.length > 0 &&
+    card.steps.every(
+      (step: any) =>
+        typeof step?.question === "string" &&
+        step.question.trim().length > 0 &&
+        Array.isArray(step.options) &&
+        step.options.length >= 2 &&
+        step.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0),
+    )
   );
 }
 
 function clarificationResponse(card: any, source: string): Response | null {
   if (!isValidClarification(card)) return null;
   const steps = card.kind === "steps" ? card.steps : [];
-  console.log("Clarification response:", JSON.stringify({
-    source,
-    kind: card.kind,
-    step_count: steps.length,
-    option_counts: card.kind === "single" ? [card.options.length] : steps.map((s: any) => s.options.length),
-  }));
+  console.log(
+    "Clarification response:",
+    JSON.stringify({
+      source,
+      kind: card.kind,
+      step_count: steps.length,
+      option_counts: card.kind === "single" ? [card.options.length] : steps.map((s: any) => s.options.length),
+    }),
+  );
   return new Response(
-    JSON.stringify({ response_type: "clarification", content: "", products: [], quickReplies: [], clarification: card }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    JSON.stringify({
+      response_type: "clarification",
+      content: "",
+      products: [],
+      quickReplies: [],
+      clarification: card,
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 }
 
 /** Compact snapshot line so the model never invents a budget or brand. */
 function snapshotLine(facets: QuestionFacets | null): string {
   if (!facets || facets.total === 0 || !facets.price) return "";
-  const brands = facets.brands.slice(0, 8).map((b) => b.brand).join("، ");
+  const brands = facets.brands
+    .slice(0, 8)
+    .map((b) => b.brand)
+    .join("، ");
   return `CATALOG_SNAPSHOT: تعداد کاندیدا ${facets.total} | قیمت واقعی از ${facets.price.min} تا ${facets.price.max} تومان (میانه ${facets.price.median}) | برندهای موجود: ${brands}
 قانون: هیچ بازه قیمتی یا برندی بیرون از این محدوده پیشنهاد نکن. گزینه‌های بودجه باید داخل همین بازه باشن.`;
 }
-
-
 
 // ── Visible-text hygiene ────────────────────────────────────────────────
 const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
@@ -1410,7 +1591,11 @@ function extractSignals(raw: string): {
   let goal: any = null;
   const goalMatch = text.match(/GOAL:\s*(\{[\s\S]*?\})/);
   if (goalMatch) {
-    try { goal = JSON.parse(goalMatch[1]); } catch { goal = null; }
+    try {
+      goal = JSON.parse(goalMatch[1]);
+    } catch {
+      goal = null;
+    }
     text = text.replace(/\n?GOAL:\s*\{[\s\S]*?\}/, "").trim();
   }
   return { text, referenceIds, likedIds, rejectedIds, selectedIds, goal };
@@ -1432,10 +1617,16 @@ function composeProductAnswer(products: any[], query: string): string {
   }
   // A shop assistant never repeats the customer's sentence back at them.
   const q = normalizePersian(String(query || ""));
-  const animal = /گربه/.test(q) ? "گربه" : /سگ/.test(q) ? "سگ" : /خرگوش/.test(q) ? "خرگوش" : /پرنده|مرغ عشق|طوطی/.test(q) ? "پرنده" : "";
-  const intro = animal
-    ? `چند گزینه خوب برای ${animal}ت دارم:`
-    : "چند گزینه خوب برات پیدا کردم:";
+  const animal = /گربه/.test(q)
+    ? "گربه"
+    : /سگ/.test(q)
+      ? "سگ"
+      : /خرگوش/.test(q)
+        ? "خرگوش"
+        : /پرنده|مرغ عشق|طوطی/.test(q)
+          ? "پرنده"
+          : "";
+  const intro = animal ? `چند گزینه خوب برای ${animal}ت دارم:` : "چند گزینه خوب برات پیدا کردم:";
 
   const blocks = list.map((p: any, i: number) => {
     const name = p.name_fa || p.name || "محصول";
@@ -1454,14 +1645,11 @@ function composeProductAnswer(products: any[], query: string): string {
     else if (p.origin_country) parts.push(`ساخت ${p.origin_country}`);
     if (p.weight) parts.push(`بسته ${p.weight}`);
 
-    const why = parts.length
-      ? `${parts.slice(0, 3).join("، ")}.`
-      : "یکی از پرفروش‌ترین گزینه‌های همین دسته‌ست.";
+    const why = parts.length ? `${parts.slice(0, 3).join("، ")}.` : "یکی از پرفروش‌ترین گزینه‌های همین دسته‌ست.";
     return `${head}\n${why}`;
   });
   return [intro, "", blocks.join("\n\n")].join("\n");
 }
-
 
 /** True when the text has no numbered product lines (so it can't carry per-product reasons). */
 function hasNumberedProducts(text: string): boolean {
@@ -1484,7 +1672,6 @@ function stripCountTalk(raw: string): string {
 }
 
 function sanitizeVisibleText(raw: string): string {
-
   let t = raw || "";
   t = t.replace(/^[ \t]*[A-Z][A-Z0-9_]{2,}\s*:\s*(\[[\s\S]*?\]|\{[\s\S]*?\})[ \t]*$/gm, "");
   t = t.replace(/[ \t]*[（(]\s*(?:شناسه|آیدی|کد محصول|id)\s*[:：]?\s*[0-9a-fA-F-]{8,}\s*[）)]/g, "");
@@ -1493,7 +1680,10 @@ function sanitizeVisibleText(raw: string): string {
   t = t.replace(/\[\s*[0-9\u06F0-\u06F9]{0,3}\s*\]/g, "");
   t = t.replace(/[ \t]{2,}/g, " ");
   t = t.replace(/[ \t]*[（(]\s*[）)]/g, "");
-  return t.replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  return t
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** Fetches full product rows for ids, preserving the given order. */
@@ -1514,7 +1704,6 @@ const COUNT_QUESTION_RE =
 
 // "چندتا ... پیشنهاد بده" asks for a few products, not for a count.
 const ASKS_FOR_SOME_RE = /(چند\s*تا|چندتا|چند\s*مدل)[^؟]{0,40}(پیشنهاد|معرفی|بگو|بده|نشون|بیار)/;
-
 
 /**
  * Turns a reply that asked questions in plain text into a card.
@@ -1634,7 +1823,10 @@ function lastNamedSpecies(text: string): string | null {
     const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
     let m: RegExpExecArray | null;
     while ((m = g.exec(norm)) !== null) {
-      if (m.index >= bestAt) { bestAt = m.index; best = name; }
+      if (m.index >= bestAt) {
+        bestAt = m.index;
+        best = name;
+      }
       if (m.index === g.lastIndex) g.lastIndex++;
     }
   }
@@ -1750,28 +1942,30 @@ function needShelfQueries(need: NeedSpec, species: string): string[] {
   return [need.query(species)];
 }
 
-
-
 const DEFAULT_GUIDANCE_STEPS = (
   category: string,
   knownUsage?: string | null,
   facets?: QuestionFacets | null,
-  knownSpecies?: string | null
+  knownSpecies?: string | null,
 ) => {
   const budgetOptions = facets && facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
   return [
     // Species is asked only when the user hasn't already named their pet.
-    ...(knownSpecies ? [] : [{
-      title: "نوع حیوان",
-      question: "برای چه حیوانی می‌خوای؟",
-      options: [
-        { label: "سگ" },
-        { label: "گربه" },
-        { label: "پرنده" },
-        { label: "ماهی و آکواریوم" },
-        { label: "سایر حیوانات خانگی" },
-      ],
-    }]),
+    ...(knownSpecies
+      ? []
+      : [
+          {
+            title: "نوع حیوان",
+            question: "برای چه حیوانی می‌خوای؟",
+            options: [
+              { label: "سگ" },
+              { label: "گربه" },
+              { label: "پرنده" },
+              { label: "ماهی و آکواریوم" },
+              { label: "سایر حیوانات خانگی" },
+            ],
+          },
+        ]),
     {
       title: "نیازها",
       question: knownSpecies
@@ -1786,31 +1980,34 @@ const DEFAULT_GUIDANCE_STEPS = (
         { label: "مکمل و سلامت" },
       ],
     },
-    ...(budgetOptions ? [{
-      title: "بودجه",
-      question: "بودجه‌ات حدوداً چقدره؟",
-      options: budgetOptions,
-    }] : []),
-    ...(knownUsage ? [] : [{
-      title: "اولویت",
-      question: "چه چیزی برات مهم‌تره؟",
-      options: [
-        { label: "کیفیت و مواد اولیه" },
-        { label: "برند شناخته‌شده" },
-        { label: "بسته‌بندی اقتصادی" },
-        { label: "بهترین قیمت" },
-      ],
-    }]),
+    ...(budgetOptions
+      ? [
+          {
+            title: "بودجه",
+            question: "بودجه‌ات حدوداً چقدره؟",
+            options: budgetOptions,
+          },
+        ]
+      : []),
+    ...(knownUsage
+      ? []
+      : [
+          {
+            title: "اولویت",
+            question: "چه چیزی برات مهم‌تره؟",
+            options: [
+              { label: "کیفیت و مواد اولیه" },
+              { label: "برند شناخته‌شده" },
+              { label: "بسته‌بندی اقتصادی" },
+              { label: "بهترین قیمت" },
+            ],
+          },
+        ]),
   ];
 };
 
-
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
-  const { data, error } = await supabase
-    .from("pet_products")
-    .select("*")
-    .eq("id", productId)
-    .single();
+  const { data, error } = await supabase.from("pet_products").select("*").eq("id", productId).single();
   if (error) return { error: "محصول پیدا نشد" };
   return { product: data };
 }
@@ -1874,7 +2071,11 @@ async function runToolRound(
         relaxed_filters: searched.relaxed_filters || [],
         searched_with: searched.searched_with || {},
         products: (searched.products || []).map((p: any) => ({
-          id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,
+          id: p.id,
+          name: p.name_fa,
+          price: p.price,
+          brand: p.brand,
+          rating: p.rating,
         })),
       };
     } else if (funcName === "business_faq_lookup") {
@@ -1957,13 +2158,21 @@ function buildDiscoveryGuardQuery(
   const norm = normalizePersian(userText);
   const detectedTypes = detectProductTypes(userText);
 
-  const family = facetFamily ||
-    (detectedTypes.includes("غذای خشک") && lockedSpecies === "گربه" ? "غذای خشک گربه" :
-     detectedTypes.includes("غذای خشک") && lockedSpecies === "سگ" ? "غذای خشک سگ" :
-     detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "گربه" ? "کنسرو و پوچ و غذای تر گربه" :
-     detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "سگ" ? "کنسرو و پوچ و غذای تر سگ" :
-     lockedSpecies === "گربه" ? "غذای خشک گربه" :
-     lockedSpecies === "سگ" ? "غذای خشک سگ" : "");
+  const family =
+    facetFamily ||
+    (detectedTypes.includes("غذای خشک") && lockedSpecies === "گربه"
+      ? "غذای خشک گربه"
+      : detectedTypes.includes("غذای خشک") && lockedSpecies === "سگ"
+        ? "غذای خشک سگ"
+        : detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "گربه"
+          ? "کنسرو و پوچ و غذای تر گربه"
+          : detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "سگ"
+            ? "کنسرو و پوچ و غذای تر سگ"
+            : lockedSpecies === "گربه"
+              ? "غذای خشک گربه"
+              : lockedSpecies === "سگ"
+                ? "غذای خشک سگ"
+                : "");
 
   const evidenceTerms: string[] = [];
   if (/پوست و مو|پوست|مو|ریزش مو|hair|skin/i.test(norm)) evidenceTerms.push("پوست و مو", "پوست", "مو");
@@ -1994,22 +2203,33 @@ serve(async (req) => {
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages: userMessages, mode = "discovery", products_context, cart_context, product_memory, memory_index, is_first_message = false, scope_hint, shopping_context, reference_hint } = await req.json();
+    const {
+      messages: userMessages,
+      mode = "discovery",
+      products_context,
+      cart_context,
+      product_memory,
+      memory_index,
+      is_first_message = false,
+      scope_hint,
+      shopping_context,
+      reference_hint,
+    } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
-      return new Response(
-        JSON.stringify({ error: "messages array required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "messages array required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const effectiveMode = mode in PROMPTS ? mode : "discovery";
@@ -2023,26 +2243,35 @@ serve(async (req) => {
 
     // For comparison mode, inject product data
     if (effectiveMode === "comparison" && products_context) {
-      const productsList = products_context.map((p: any, i: number) =>
-        `محصول ${i + 1}: ${p.name_fa || p.name}\n- قیمت: ${p.price?.toLocaleString()} تومان\n- برند: ${p.brand || "نامشخص"}\n- امتیاز: ${p.rating}\n- مشخصات: ${JSON.stringify(p.specs || {})}`
-      ).join("\n\n");
+      const productsList = products_context
+        .map(
+          (p: any, i: number) =>
+            `محصول ${i + 1}: ${p.name_fa || p.name}\n- قیمت: ${p.price?.toLocaleString()} تومان\n- برند: ${p.brand || "نامشخص"}\n- امتیاز: ${p.rating}\n- مشخصات: ${JSON.stringify(p.specs || {})}`,
+        )
+        .join("\n\n");
       systemPrompt += `\n\nمحصولات برای مقایسه:\n${productsList}`;
     }
 
     // For cart_manipulation mode, inject cart + recommended products context
     if (effectiveMode === "cart_manipulation") {
       if (cart_context?.items?.length > 0) {
-        const cartList = cart_context.items.map((item: any, i: number) =>
-          `${i + 1}. [${item.id}] ${item.name} - ${item.price?.toLocaleString()} تومان × ${item.quantity}`
-        ).join("\n");
+        const cartList = cart_context.items
+          .map(
+            (item: any, i: number) =>
+              `${i + 1}. [${item.id}] ${item.name} - ${item.price?.toLocaleString()} تومان × ${item.quantity}`,
+          )
+          .join("\n");
         systemPrompt += `\n\nسبد خرید فعلی:\n${cartList}\nجمع: ${cart_context.total?.toLocaleString()} تومان`;
       } else {
         systemPrompt += `\n\nسبد خرید فعلی: خالی`;
       }
       if (products_context?.length > 0) {
-        const recList = products_context.map((p: any, i: number) =>
-          `${i + 1}. [${p.id}] ${p.name_fa || p.name} - ${p.price?.toLocaleString()} تومان (${p.brand || "نامشخص"})`
-        ).join("\n");
+        const recList = products_context
+          .map(
+            (p: any, i: number) =>
+              `${i + 1}. [${p.id}] ${p.name_fa || p.name} - ${p.price?.toLocaleString()} تومان (${p.brand || "نامشخص"})`,
+          )
+          .join("\n");
         systemPrompt += `\n\nمحصولات پیشنهادی اخیر:\n${recList}`;
       }
     }
@@ -2055,9 +2284,12 @@ serve(async (req) => {
         systemPrompt += `\n\nحافظه محصولات این گفتگو: خالی (هنوز محصولی نشون داده نشده)`;
       }
       if (cart_context?.items?.length > 0) {
-        const cartList = cart_context.items.map((item: any, i: number) =>
-          `${i + 1}. [${item.id}] ${item.name} - ${item.price?.toLocaleString()} تومان × ${item.quantity}`
-        ).join("\n");
+        const cartList = cart_context.items
+          .map(
+            (item: any, i: number) =>
+              `${i + 1}. [${item.id}] ${item.name} - ${item.price?.toLocaleString()} تومان × ${item.quantity}`,
+          )
+          .join("\n");
         systemPrompt += `\n\nسبد خرید فعلی:\n${cartList}\nجمع: ${cart_context.total?.toLocaleString()} تومان`;
       } else {
         systemPrompt += `\n\nسبد خرید فعلی: خالی`;
@@ -2112,23 +2344,31 @@ serve(async (req) => {
       }
     }
 
-
     // ── Species lock, re-resolved on every turn ──
     // The animal named LAST wins: last mention inside the newest message first,
     // then walking back. Switching animals mid-conversation is normal shopping.
-    const userTurns = (userMessages || []).filter((m: any) => m.role === "user").map((m: any) => String(m.content || ""));
+    const userTurns = (userMessages || [])
+      .filter((m: any) => m.role === "user")
+      .map((m: any) => String(m.content || ""));
     let lockedSpecies: string | null = null;
     let lockedStage: string | null = null;
     let lockedFromTurn = 0;
     for (let i = userTurns.length - 1; i >= 0; i--) {
       const found = lastNamedSpecies(userTurns[i]);
-      if (found) { lockedSpecies = found; lockedFromTurn = i; break; }
+      if (found) {
+        lockedSpecies = found;
+        lockedFromTurn = i;
+        break;
+      }
     }
     // Life stage counts only from the turn that named the current animal onwards,
     // so an earlier kitten mention cannot stick to a dog the shopper switched to.
     for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
       const stage = detectLifeStage(userTurns[i]);
-      if (stage) { lockedStage = stage; break; }
+      if (stage) {
+        lockedStage = stage;
+        break;
+      }
     }
     const speciesLock = { species: lockedSpecies, lifeStage: lockedStage };
     knownSpecies = lockedSpecies || knownSpecies;
@@ -2139,14 +2379,27 @@ serve(async (req) => {
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
     // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
     const facetFamily = /خشک/.test(normLastUser)
-      ? (/سگ/.test(normLastUser) ? "غذای خشک سگ" : /گربه/.test(normLastUser) ? "غذای خشک گربه" : null)
+      ? /سگ/.test(normLastUser)
+        ? "غذای خشک سگ"
+        : /گربه/.test(normLastUser)
+          ? "غذای خشک گربه"
+          : null
       : /کنسرو|پوچ|غذای\s*تر/.test(normLastUser)
-        ? (/سگ/.test(normLastUser) ? "کنسرو و پوچ و غذای تر سگ" : /گربه/.test(normLastUser) ? "کنسرو و پوچ و غذای تر گربه" : null)
+        ? /سگ/.test(normLastUser)
+          ? "کنسرو و پوچ و غذای تر سگ"
+          : /گربه/.test(normLastUser)
+            ? "کنسرو و پوچ و غذای تر گربه"
+            : null
         : null;
     const facetSubcategory = null;
-    const facetSpecies = lockedSpecies === "سگ" || lockedSpecies === "گربه"
-      ? lockedSpecies
-      : (/سگ/.test(normLastUser) ? "سگ" : /گربه/.test(normLastUser) ? "گربه" : null);
+    const facetSpecies =
+      lockedSpecies === "سگ" || lockedSpecies === "گربه"
+        ? lockedSpecies
+        : /سگ/.test(normLastUser)
+          ? "سگ"
+          : /گربه/.test(normLastUser)
+            ? "گربه"
+            : null;
 
     if (lockedSpecies) {
       systemPrompt += `\n\nSPECIES_LOCK: در این نوبت خرید برای «${lockedSpecies}» است.
@@ -2159,7 +2412,6 @@ serve(async (req) => {
     if (lockedStage) {
       systemPrompt += `\n\nLIFE_STAGE_LOCK: مرحله سنی مشخص شده «${lockedStage}» است؛ درباره مرحله سنی دیگر (مثلاً بالغ وقتی کاربر گفته بچه‌گربه) حرف نزن و محصول مخصوص مرحله دیگر پیشنهاد نده.`;
     }
-
 
     // ── Catalog snapshot: question options must come from real products ──
     let questionFacets: QuestionFacets | null = null;
@@ -2182,9 +2434,6 @@ serve(async (req) => {
     } else if (wantsGuidance) {
       systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده${knownSpecies ? ` نوع حیوانش رو خودش گفته («${knownSpecies}») پس هرگز نپرس برای چه حیوانی؛` : ""} و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` نیاز رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: نوع حیوان → نیازها (multi) → بودجه."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
     }
-
-
-
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
@@ -2244,23 +2493,23 @@ serve(async (req) => {
       if (!response.ok) {
         const status = response.status;
         if (status === 429) {
-          return new Response(
-            JSON.stringify({ error: "سرعت درخواست‌ها زیاد شده، لطفاً کمی صبر کنید." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          return new Response(JSON.stringify({ error: "سرعت درخواست‌ها زیاد شده، لطفاً کمی صبر کنید." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
         if (status === 402) {
-          return new Response(
-            JSON.stringify({ error: "اعتبار سرویس هوش مصنوعی تمام شده." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          return new Response(JSON.stringify({ error: "اعتبار سرویس هوش مصنوعی تمام شده." }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
         const errText = await response.text();
         console.error("AI gateway error:", status, errText);
-        return new Response(
-          JSON.stringify({ error: "خطا در سرویس هوش مصنوعی" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "خطا در سرویس هوش مصنوعی" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const data = await response.json();
@@ -2269,7 +2518,7 @@ serve(async (req) => {
       if (!choice) {
         return new Response(
           JSON.stringify({ content: "متوجه نشدم. می‌تونی دوباره بگی؟", products: [], quickReplies: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
@@ -2286,9 +2535,7 @@ serve(async (req) => {
 
       // Short-circuit: clarification / cart on first round only (preserves current UX)
       if (round === 0) {
-        const clarifyCall = choice.message.tool_calls.find(
-          (t: any) => t.function?.name === "ask_clarification"
-        );
+        const clarifyCall = choice.message.tool_calls.find((t: any) => t.function?.name === "ask_clarification");
         if (clarifyCall) {
           let payload: any = {};
           try {
@@ -2313,21 +2560,34 @@ serve(async (req) => {
           const options = normOptions(payload.options);
           if (steps.length > 0 || options.length > 0) {
             const facets = await getFacets();
-            const rawCard = steps.length > 0
-              ? { kind: "steps", helper: payload.helper || "", steps }
-              : { kind: "single", question: payload.question || "", helper: payload.helper || "", multi: payload.multi === true, options };
+            const rawCard =
+              steps.length > 0
+                ? { kind: "steps", helper: payload.helper || "", steps }
+                : {
+                    kind: "single",
+                    question: payload.question || "",
+                    helper: payload.helper || "",
+                    multi: payload.multi === true,
+                    options,
+                  };
             const grounded = groundClarification(rawCard, facets);
             const fallbackCard = {
               kind: "steps",
               helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
               steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
             };
-            const cardResponse = clarificationResponse(grounded, "ask-tool-grounded") ||
+            const cardResponse =
+              clarificationResponse(grounded, "ask-tool-grounded") ||
               clarificationResponse(fallbackCard, "ask-tool-fallback");
             if (cardResponse) return cardResponse;
             return new Response(
-              JSON.stringify({ response_type: "message", content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.", products: [], quickReplies: [] }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({
+                response_type: "message",
+                content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.",
+                products: [],
+                quickReplies: [],
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } },
             );
           }
           if (wantsGuidance) {
@@ -2341,9 +2601,7 @@ serve(async (req) => {
           }
         }
 
-        const cartCall = choice.message.tool_calls.find(
-          (t: any) => t.function?.name === "execute_cart_operations"
-        );
+        const cartCall = choice.message.tool_calls.find((t: any) => t.function?.name === "execute_cart_operations");
         if (effectiveMode === "cart_manipulation" || cartCall) {
           const toolCall = cartCall || choice.message.tool_calls[0];
           let cartResult: any;
@@ -2363,7 +2621,7 @@ serve(async (req) => {
               products: [],
               quickReplies: [],
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
       }
@@ -2415,16 +2673,22 @@ serve(async (req) => {
       if (isBusinessQuestion && !faqToolExecuted) {
         const faq = await executeFaqLookup(supabase, { query: lastUserText }, precomputedEmbedding);
         if (faq.entries?.length > 0) {
-          const kb = faq.entries.map((e: any, i: number) =>
-            `${i + 1}) [${e.faq_id}] موضوع: ${e.category}\nسؤال رسمی: ${e.question}\nپاسخ رسمی: ${e.official_answer}${e.phone_numbers?.length ? `\nشماره تماس: ${e.phone_numbers.join(" / ")}` : ""}`
-          ).join("\n\n");
+          const kb = faq.entries
+            .map(
+              (e: any, i: number) =>
+                `${i + 1}) [${e.faq_id}] موضوع: ${e.category}\nسؤال رسمی: ${e.question}\nپاسخ رسمی: ${e.official_answer}${e.phone_numbers?.length ? `\nشماره تماس: ${e.phone_numbers.join(" / ")}` : ""}`,
+            )
+            .join("\n\n");
           const grounded = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model: "google/gemini-3.1-flash-lite",
               messages: [
-                { role: "system", content: `تو دستیار پت‌آباد هستی. فقط بر اساس پاسخ‌های رسمی زیر جواب بده.${FAQ_GROUNDING_RULES}\n\nپاسخ‌های رسمی مرتبط (بهترین تطابق: ${faq.best_match}):\n${kb}` },
+                {
+                  role: "system",
+                  content: `تو دستیار پت‌آباد هستی. فقط بر اساس پاسخ‌های رسمی زیر جواب بده.${FAQ_GROUNDING_RULES}\n\nپاسخ‌های رسمی مرتبط (بهترین تطابق: ${faq.best_match}):\n${kb}`,
+                },
                 ...userMessages.map((m: any) => ({ role: m.role, content: m.content })),
               ],
             }),
@@ -2450,11 +2714,7 @@ serve(async (req) => {
 
       const rawText = finalAssistantMessage.content || "";
       const sig = extractSignals(rawText);
-      const mentionedIds = [
-        ...((sig.text.match(UUID_RE) || []) as string[]),
-        ...sig.likedIds,
-        ...sig.selectedIds,
-      ];
+      const mentionedIds = [...((sig.text.match(UUID_RE) || []) as string[]), ...sig.likedIds, ...sig.selectedIds];
       const hydrated = await hydrateProducts(supabase, mentionedIds);
       let visible = sanitizeVisibleText(sig.text);
       if (!wantsCounts) visible = stripCountTalk(visible);
@@ -2489,9 +2749,12 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           response_type: hydrated.length > 0 ? "products" : "message",
-          content: hydrated.length > 0
-            ? (visible && hasNumberedProducts(visible) ? visible : composeProductAnswer(hydrated, originalQuery))
-            : (visible || "متوجه نشدم. می‌تونی دوباره بگی؟"),
+          content:
+            hydrated.length > 0
+              ? visible && hasNumberedProducts(visible)
+                ? visible
+                : composeProductAnswer(hydrated, originalQuery)
+              : visible || "متوجه نشدم. می‌تونی دوباره بگی؟",
           products: hydrated,
           reference_product_ids: sig.referenceIds,
           liked_product_ids: sig.likedIds,
@@ -2499,7 +2762,7 @@ serve(async (req) => {
           goal: sig.goal,
           quickReplies: [],
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -2508,24 +2771,30 @@ serve(async (req) => {
     const requestedLimit = Number(extractedIntent?.limit) || 0;
     const comprehensive = requestedLimit >= 12;
     const maxShown = isBundleTurn ? Math.min(allProducts.length, 9) : comprehensive ? 12 : 6;
-    const candidatesForRerank = isBundleTurn ? allProducts.slice(0, maxShown) : allProducts.slice(0, comprehensive ? 24 : 12);
-    const candidateList = candidatesForRerank.map((p: any, i: number) =>
-      `${i + 1}. [${p.id}] ${p.name_fa || p.name} — ${p.price?.toLocaleString()} تومان${p.brand ? ` — ${p.brand}` : ""}`
-    ).join("\n");
+    const candidatesForRerank = isBundleTurn
+      ? allProducts.slice(0, maxShown)
+      : allProducts.slice(0, comprehensive ? 24 : 12);
+    const candidateList = candidatesForRerank
+      .map(
+        (p: any, i: number) =>
+          `${i + 1}. [${p.id}] ${p.name_fa || p.name} — ${p.price?.toLocaleString()} تومان${p.brand ? ` — ${p.brand}` : ""}`,
+      )
+      .join("\n");
 
     const bundleInstruction = isBundleTurn
       ? `\n\nBUNDLE_TURN: کاربر چند نیاز هم‌زمان داره. پاسخ باید گروه‌بندی‌شده باشه و شماره‌گذاری محصولات پیوسته و از ۱ شروع بشه.\n- گروه‌ها و محصولات مجاز فقط همین‌ها هستن (به همین ترتیب و هیچ محصول دیگری):\n${bundleGroups.map((g) => `${g.label}: ${g.products.map((p: any) => p.name_fa || p.name).join(" | ")}`).join("\n")}\n- دقیقاً به ${maxShown} محصول اشاره کن، نه بیشتر و نه کمتر.\n${emptyNeedLabels.length ? `- برای این نیازها محصول مناسب پیدا نشد، فقط صادقانه بگو گزینه مناسبی نداریم و جایگزین از حیوان دیگه پیشنهاد نده: ${emptyNeedLabels.join("، ")}` : ""}`
       : "";
 
-    const rerankerInstruction = candidatesForRerank.length > 0
-      ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: اول حداکثر ۳ خط توضیح کلی کوتاه، بعد برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
-      : (isInfoQuestion || isBusinessQuestion)
-        ? `\n\nANSWER_TURN: این نوبت یک سؤال اطلاعاتی درباره برندها، کاتالوگ یا خدمات فروشگاهه، نه درخواست محصول.
+    const rerankerInstruction =
+      candidatesForRerank.length > 0
+        ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: اول حداکثر ۳ خط توضیح کلی کوتاه، بعد برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
+        : isInfoQuestion || isBusinessQuestion
+          ? `\n\nANSWER_TURN: این نوبت یک سؤال اطلاعاتی درباره برندها، کاتالوگ یا خدمات فروشگاهه، نه درخواست محصول.
 - فقط بر پایه نتایج ابزارهای همین نوبت (catalog_facets / brand_or_general_lookup / business_faq_lookup) جواب بده.
 - جواب متنی، روان و کوتاه باشه؛ اگر فهرست برند/کشور/دسته خواسته شده، اسم‌ها رو پشت سر هم یا خط‌به‌خط بنویس${wantsCounts ? "" : " و عدد و تعداد ننویس"}.
 - محصول پیشنهاد نده و لیست شماره‌دار محصول نساز. چیزی از خودت اضافه نکن؛ اگر داده نداری، صادقانه بگو.
 - بدون مارک‌داون. SELECTED_IDS ننویس.`
-        : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
+          : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
 
     const followUpMessages = [
       ...roundMessages,
@@ -2551,23 +2820,21 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           response_type: allProducts.length > 0 ? "products" : "message",
-          content: allProducts.length > 0
-            ? "این محصولات رو برات پیدا کردم:"
-            : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
+          content:
+            allProducts.length > 0
+              ? "این محصولات رو برات پیدا کردم:"
+              : "متأسفانه محصولی پیدا نکردم. می‌خوای یه جستجوی دیگه انجام بدم؟",
           products: allProducts.slice(0, maxShown),
           quickReplies: [],
           trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted },
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const followUpData = await followUpResponse.json();
     let rawFinal = followUpData.choices?.[0]?.message?.content || "";
-    console.log(
-      "Re-ranker raw length:", rawFinal.length,
-      "finish:", followUpData.choices?.[0]?.finish_reason,
-    );
+    console.log("Re-ranker raw length:", rawFinal.length, "finish:", followUpData.choices?.[0]?.finish_reason);
     // A reasoning model can burn its budget and return empty content. Retry once
     // with a shorter instruction so the shopper always gets the per-product "why".
     if (!rawFinal.trim() && candidatesForRerank.length === 0 && (isInfoQuestion || isBusinessQuestion)) {
@@ -2579,7 +2846,10 @@ serve(async (req) => {
           model: "google/gemini-3.1-flash-lite",
           messages: [
             ...roundMessages.filter((m: any) => m.role !== "system"),
-            { role: "system", content: `به سؤال کاربر ("${originalQuery}") کوتاه و روان و فارسی جواب بده، فقط بر پایه نتایج ابزارهای بالا. بدون مارک‌داون، بدون پیشنهاد محصول${wantsCounts ? "" : "، بدون نوشتن تعداد"}. اگر داده کافی نیست، صادقانه بگو.` },
+            {
+              role: "system",
+              content: `به سؤال کاربر ("${originalQuery}") کوتاه و روان و فارسی جواب بده، فقط بر پایه نتایج ابزارهای بالا. بدون مارک‌داون، بدون پیشنهاد محصول${wantsCounts ? "" : "، بدون نوشتن تعداد"}. اگر داده کافی نیست، صادقانه بگو.`,
+            },
           ],
         }),
       });
@@ -2596,7 +2866,10 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3.1-flash-lite",
           messages: [
-            { role: "system", content: `تو مشاور فروش پت‌آباد هستی. برای درخواست کاربر ("${originalQuery}") از این لیست بهترین ۳ تا ۶ محصول رو انتخاب کن.\nاول حداکثر ۳ خط توضیح کلی کوتاه بنویس، بعد برای هر محصول یک خط شماره‌دار با نام و قیمت و بعدش در خط جدا یک جمله بگو چرا همین محصول مناسبه. بدون مارک‌داون، بدون عدد تعداد کل.\nدر آخر یک خط: SELECTED_IDS:["id1","id2"]\n\n${candidateList}` },
+            {
+              role: "system",
+              content: `تو مشاور فروش پت‌آباد هستی. برای درخواست کاربر ("${originalQuery}") از این لیست بهترین ۳ تا ۶ محصول رو انتخاب کن.\nاول حداکثر ۳ خط توضیح کلی کوتاه بنویس، بعد برای هر محصول یک خط شماره‌دار با نام و قیمت و بعدش در خط جدا یک جمله بگو چرا همین محصول مناسبه. بدون مارک‌داون، بدون عدد تعداد کل.\nدر آخر یک خط: SELECTED_IDS:["id1","id2"]\n\n${candidateList}`,
+            },
             { role: "user", content: originalQuery },
           ],
         }),
@@ -2646,10 +2919,7 @@ serve(async (req) => {
     }
 
     if (selectedProducts.length === 0) {
-      const mentionedIds = [
-        ...((finalContent.match(UUID_RE) || []) as string[]),
-        ...likedIds,
-      ];
+      const mentionedIds = [...((finalContent.match(UUID_RE) || []) as string[]), ...likedIds];
       selectedProducts = await hydrateProducts(supabase, mentionedIds);
     }
 
@@ -2683,8 +2953,9 @@ serve(async (req) => {
     } else if (!finalContent) {
       // A brand/assortment question always has a real answer in the catalog.
       const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;
-      finalContent = grounded
-        || (isInfoQuestion
+      finalContent =
+        grounded ||
+        (isInfoQuestion
           ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
           : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟");
       if (grounded) selectedProducts = [];
@@ -2694,18 +2965,18 @@ serve(async (req) => {
     // "we don't have that", and never with a denial the catalog contradicts.
     if (isInfoQuestion) {
       const brandVocabFinal = await loadBrands(supabase);
-      const namesAnyBrand = brandVocabFinal.canonical.some((b) =>
-        b.length >= 3 && finalContent.toLowerCase().includes(b.toLowerCase()),
+      const namesAnyBrand = brandVocabFinal.canonical.some(
+        (b) => b.length >= 3 && finalContent.toLowerCase().includes(b.toLowerCase()),
       );
       const denies = /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|در دسترس نیست|نیست)/.test(finalContent);
       if (!namesAnyBrand || denies) {
         const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
-        if (grounded) { finalContent = grounded; selectedProducts = []; }
+        if (grounded) {
+          finalContent = grounded;
+          selectedProducts = [];
+        }
       }
     }
-
-
-
 
     // Honest fallback: never silently swap a brand the shopper asked for.
     if (unavailableBrand && finalContent && !finalContent.includes(unavailableBrand)) {
@@ -2724,19 +2995,19 @@ serve(async (req) => {
         liked_product_ids: likedIds,
         rejected_product_ids: rejectedIds,
         goal: goalSignal,
-        quickReplies: selectedProducts.length > 0
-          ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
-          : [],
+        quickReplies:
+          selectedProducts.length > 0
+            ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }]
+            : [],
         trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted },
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (error) {
     console.error("Agent error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

@@ -432,16 +432,22 @@ export const useAgentMessages = ({
     const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
     const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
-    const removeRe = /(حذف|بردار|پاک|خارج|درا?ور|نمی‌?خوام|نخوا)/;
+    // Verb-shaped only: informational words that merely CONTAIN these letters
+    // (e.g. «خارجیاشون» containing «خارج») must never trigger a cart removal.
+    const removeRe = /(حذف\s*(کن|کنش|شون|ش)?|حذفش|بردار|پاکش|پاک\s*کن|از\s*سبد\s*(خارج|بردار|حذف)|درش\s*بیار|در\s*بیار|نمی‌?خوامش|دیگه\s*نمی‌?خوام)/;
     const checkoutRe = /(نهایی|پرداخت|چک اوت|checkout|تسویه|ثبت سفارش|تموم کن|تمام کن)/;
     const qtyUpRe = /(زیاد کن|بیشتر کن)/;
     const qtyDownRe = /(کم کن|کمتر کن)/;
     const ordersRe = /(سفارش‌?ها|سفارشاتم|پیگیری سفارش|کد رهگیری)/;
+    // A question is a question: it goes to the assistant, never to a cart shortcut.
+    const isQuestion = /[?؟]\s*$/.test(norm)
+      || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
 
-    if (checkoutRe.test(norm) && cartItems.length > 0) {
+    if (checkoutRe.test(norm) && cartItems.length > 0 && !isQuestion) {
       handleTransactionalCheckout();
       return;
     }
+
     if (ordersRe.test(norm)) {
       const msg: ChatMessage = {
         id: `order-inquiry-${Date.now()}`, role: 'assistant',

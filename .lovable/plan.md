@@ -220,16 +220,8 @@ A scheduled validator that scans the pet catalog for missing or self-contradicto
 - Confirm the second consecutive run reports zero new issues (idempotent).
 - Confirm the report lists issue counts by type before and after.
 
-## Part 10 — Inferred-filter chips in the PetAbad UI
 
-On `/petabad`, `/m/petabad` and `/petabad/floating`, the assistant shows small chips above the results for the conditions it inferred from your sentence (animal, age, brand, origin, need, budget). Each chip can be removed, and one tap re-runs the search without it; a chip can also be corrected. Chips reflect only conditions actually applied to the search, so what the assistant is doing is visible.
-
-### Tests
-- Chips shown match exactly the filters the search used; nothing invented, nothing hidden.
-- Removing a chip re-runs the search and returns a broader, still-valid result set.
-- RTL and Persian digits verified on desktop, mobile and floating; Playwright screenshots with no console errors.
-
-## Part 11 — Flowcart (`/gptcommerce`, `/m/gptcommerce`): the same discipline, fitted to an electronics catalog
+## Part 10 — Flowcart (`/gptcommerce`, `/m/gptcommerce`): the same discipline, fitted to an electronics catalog
 
 Scope: `products`, `hybrid_product_search`, `product_facets`, `product_question_facets`, `brand_aliases`, `gpt-commerce-agent`, `enrich-products`, `generate-embeddings`, and the GPTCommerce desktop/mobile threads. Shift and PetAbad code stay untouched; Flowcart keeps its own function and tables (no cross-product imports), but the two agents stop drifting by sharing pure helpers.
 

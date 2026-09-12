@@ -458,22 +458,23 @@ export const useAgentMessages = ({
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
       return;
     }
-    if (removeRe.test(norm) && (refNum || cartItems.length >= 1)) {
+    if (!isQuestion && removeRe.test(norm) && (refNum || cartItems.length >= 1)) {
       handleTransactionalCartRemove(refNum);
       return;
     }
-    if (addRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
+    if (!isQuestion && addRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
       handleTransactionalCartAdd(refNum, qty);
       return;
     }
-    if (qtyUpRe.test(norm) && (refNum || cartItems.length === 1)) {
+    if (!isQuestion && qtyUpRe.test(norm) && (refNum || cartItems.length === 1)) {
       handleTransactionalQuantityUpdate(refNum, qty, +qty);
       return;
     }
-    if (qtyDownRe.test(norm) && (refNum || cartItems.length === 1)) {
+    if (!isQuestion && qtyDownRe.test(norm) && (refNum || cartItems.length === 1)) {
       handleTransactionalQuantityUpdate(refNum, qty, -qty);
       return;
     }
+
 
     // ── Everything else: one agent call, the model picks the tool ──
     const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;

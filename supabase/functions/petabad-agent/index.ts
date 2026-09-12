@@ -3515,6 +3515,10 @@ serve(async (req) => {
       finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery, relaxationIntro(relaxedFilters));
       console.log("Composed deterministic product answer");
       answerSource = "composer";
+    } else if (selectedProducts.length > 0 && hasNumberedProducts(finalContent)) {
+      // Same products, same order, catalog names and prices.
+      finalContent = alignAnswerText(finalContent, selectedProducts);
+
     } else if (!finalContent) {
       // A brand/assortment question always has a real answer in the catalog.
       const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;

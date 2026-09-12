@@ -2767,9 +2767,17 @@ serve(async (req) => {
           const options = normOptions(payload.options);
           if (steps.length > 0 || options.length > 0) {
             const facets = await getFacets();
+            // One question per turn: a multi-step card is reduced to its first step so
+            // the next question can adapt to this answer.
             const rawCard =
               steps.length > 0
-                ? { kind: "steps", helper: payload.helper || "", steps }
+                ? {
+                    kind: "single",
+                    question: steps[0].question,
+                    helper: payload.helper || "",
+                    multi: steps[0].multi === true,
+                    options: steps[0].options,
+                  }
                 : {
                     kind: "single",
                     question: payload.question || "",

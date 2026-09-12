@@ -44,6 +44,7 @@ type Facets = {
 
 export interface FlowSummary {
   goal: FlowGoal;
+  seed: string;
   species: string | null;
   lifeStage: string | null;
   healthNeeds: string[];
@@ -495,6 +496,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
 
   return {
     goal: flow.goal,
+    seed: flow.seed,
     species: flow.species || null,
     lifeStage,
     healthNeeds,

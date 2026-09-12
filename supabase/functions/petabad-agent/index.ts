@@ -1012,6 +1012,17 @@ async function brandListAnswer(supabase: any, text: string, lockedSpecies?: stri
   return scope ? `برای ${scope} این برندها رو موجود داریم: ${list}.` : `این برندها رو موجود داریم: ${list}.`;
 }
 
+let shelfCache: { at: number; shelves: string[] } | null = null;
+async function loadShelves(supabase: any): Promise<string[]> {
+  if (shelfCache && Date.now() - shelfCache.at < 10 * 60 * 1000) return shelfCache.shelves;
+  const { data } = await supabase.from("pet_products").select("subcategory").not("subcategory", "is", null).limit(5000);
+  const shelves = Array.from(
+    new Set((data || []).map((r: any) => normalizePersian(String(r.subcategory || "")).toLowerCase()).filter(Boolean)),
+  ) as string[];
+  shelfCache = { at: Date.now(), shelves };
+  return shelves;
+}
+
 async function executeSearch(
   supabase: any,
   args: any,
@@ -1111,6 +1122,21 @@ async function executeSearch(
     rpcParams.p_product_types = requestedTypes;
     delete rpcParams.p_subcategory;
     delete rpcParams.p_subcategory_prefix;
+  }
+  // A shelf family the catalog does not have (e.g. «غذای گربه» when the shelves are
+  // «غذای خشک گربه» / «کنسرو و پوچ گربه») would silently empty the result — drop it.
+  if (rpcParams.p_subcategory_prefix || rpcParams.p_subcategory) {
+    const shelves = await loadShelves(supabase);
+    const prefix = normalizePersian(String(rpcParams.p_subcategory_prefix || "")).toLowerCase();
+    const exact = normalizePersian(String(rpcParams.p_subcategory || "")).toLowerCase();
+    if (prefix && !shelves.some((sh) => sh.startsWith(prefix))) {
+      console.log("Unknown shelf family dropped:", rpcParams.p_subcategory_prefix);
+      delete rpcParams.p_subcategory_prefix;
+    }
+    if (exact && !shelves.includes(exact)) {
+      console.log("Unknown shelf dropped:", rpcParams.p_subcategory);
+      delete rpcParams.p_subcategory;
+    }
   }
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
 

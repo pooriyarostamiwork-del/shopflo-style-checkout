@@ -1,0 +1,45 @@
+# پت‌آباد: کارت‌ها باید همان محصولاتی باشند که در متن معرفی شده‌اند
+
+The written recommendation was correct (two real small-breed dog foods plus two remembered ones), but the cards next to it showed cat food. Investigation found three separate causes — all verified against the live catalog.
+
+## What is actually wrong
+
+**1. Wrong species stored on some products (data).**
+`غذای خشک سگ رویال فید مدل Mini & Small Juniors وزن ۳ کیلوگرم` — the first rendered card — is stored with species «گربه». In total 11 dog-named products are stored as cat and 4 cat-named products as dog (out of 1,721). The safety filter that removes other-species cards therefore let cat items through as "dog".
+
+**2. Cards are chosen by ranking, not by what the answer named.**
+The answer's numbered lines are matched to this turn's search results by loose word overlap; a short cat name shares enough words («غذای، خشک، بالغ، فیدار، وزن») with a long dog line to win. Whatever is still missing is then padded from the remaining search results in rank order, so unrelated products become cards ۲/۳/۴.
+
+**3. Remembered products get no cards.**
+Items the assistant re-introduces from earlier in the chat («از قبل این موارد را دیده بودیم») are not fetched again, so no card exists for them and the padding step fills their slots with something else.
+
+Extra finding: the prices in the text were rounded/altered (۳٫۰۰۰٫۰۰۰ vs real ۳٫۳۴۰٫۰۰۰، ۲٫۰۰۰٫۰۰۰ vs real ۱٫۸۵۰٫۰۰۰). Prices must always be printed from the catalog.
+
+## The fix
+
+**A. One list, one source of truth.**
+Stop reconstructing cards from the answer text. The recommendation step must return the explicit product ids it used, and the cards are exactly those ids, in that order:
+- ids are required; every id is fetched from the catalog (including remembered ones), so a recalled product always gets its card;
+- name matching stays only as a strict last resort (near-exact match, same species, same product type) and never as loose overlap;
+- the blind padding step is removed: if only 2 products can be backed by a real id, the answer is trimmed to those 2 rather than padded with strangers.
+
+**B. Prices and names come from the catalog, not the model.**
+Each numbered line's product name and price are rewritten from the catalog row before the answer is sent, so the text and the card can never disagree.
+
+**C. Species/breed safety that works.**
+- Species is inferred from breed names too (شیتزو، پامرانیان، چیهواهوا… → سگ) and stays locked for the rest of the conversation, so a breed-only message keeps the dog lock.
+- Cards are checked against both the stored species and the product name; a name that clearly says the other animal is dropped even if the stored field says otherwise.
+
+**D. Clean up the 15 mislabeled rows.**
+A one-off correction of species where the product name is unambiguous, plus a check that stops such rows from returning during enrichment.
+
+**E. Regressions in the replay suite.**
+Add: «برای سگ شیتزوم غذا می‌خوام» → every card species dog, card names identical to the numbered lines, prices identical to the catalog; a recall turn → remembered products have cards; an answer naming 2 products → exactly 2 cards.
+
+## Technical notes
+
+- `supabase/functions/petabad-agent/index.ts`: the card-assembly block (~3056-3120) and the re-ranker block (~3389-3445) both get replaced by one shared `cardsFromAnswer()` that resolves ids → hydrates → verifies species/type → trims text and cards to the same set; remove the parity-fill loops.
+- Name/price rewrite happens in the same helper, reusing the existing formatting used by `composeProductAnswer`.
+- `SPECIES_HINTS` / `SPECIES_TOKENS` gain breed-derived species (reuse the existing breed table at ~line 764) and the lock is carried in `shopping_context` like the other locks.
+- Data correction as a migration limited to rows whose name unambiguously names the other species.
+- `scripts/petabad-eval.ts`: four new cases, all PetAbad-only. Flowcart/GPTCommerce/Shift untouched.

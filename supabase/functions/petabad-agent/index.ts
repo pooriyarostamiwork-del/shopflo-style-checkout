@@ -8,6 +8,7 @@ import {
   startFlow,
   summarize,
   type FlowDeps,
+  type FlowSeed,
   type FlowSummary,
   type QuestionFlow,
 } from "./questionFlow.ts";

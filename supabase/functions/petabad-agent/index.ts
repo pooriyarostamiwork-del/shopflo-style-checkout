@@ -3441,36 +3441,51 @@ serve(async (req) => {
     const rejectedIds = sig.rejectedIds;
     const goalSignal = sig.goal;
 
-    let selectedProducts = allProducts.slice(0, maxShown);
-    if (sig.selectedIds.length > 0) {
-      const idToProduct = new Map(allProducts.map((p: any) => [p.id, p]));
-      const reordered = sig.selectedIds.map((id: string) => idToProduct.get(id)).filter(Boolean);
-      if (reordered.length > 0) selectedProducts = reordered;
-      console.log(`Re-ranker selected ${reordered.length} products`);
-    }
-
     const numberedCount = (finalContent.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length;
     const parityCap = Math.min(Math.max(maxShown, numberedCount), 12);
-    if (numberedCount > selectedProducts.length) {
-      const have = new Set(selectedProducts.map((p: any) => p.id));
-      for (const p of candidatesForRerank) {
-        if (selectedProducts.length >= parityCap) break;
-        if (!have.has(p.id)) {
-          selectedProducts.push(p);
-          have.add(p.id);
-        }
+    const numberedLinesF = finalContent.split("\n").filter((l) => NUMBERED_HEAD_RE.test(l));
+
+    // Cards are the ids the composer chose — hydrated from the catalog when they are not
+    // in this turn's pool — never a rank-ordered slice, never padded with strangers.
+    let selectedProducts: any[] = [];
+    const seenF = new Set<string>();
+    const pushF = (p: any) => {
+      if (p && !seenF.has(p.id)) {
+        seenF.add(p.id);
+        selectedProducts.push(p);
       }
-      console.log(`Parity fill → ${selectedProducts.length} cards for ${numberedCount} numbered items`);
+    };
+    const idPool = new Map(allProducts.map((p: any) => [p.id, p]));
+    for (const id of sig.selectedIds) pushF(idPool.get(id));
+    const missingF = sig.selectedIds.filter((id: string) => !seenF.has(id));
+    if (missingF.length > 0) for (const p of await hydrateProducts(supabase, missingF)) pushF(p);
+    if (selectedProducts.length < numberedLinesF.length) {
+      const pool = candidatesForRerank.length > 0 ? candidatesForRerank : allProducts;
+      for (const line of numberedLinesF) {
+        if (selectedProducts.length >= numberedLinesF.length) break;
+        const m = strictMatchProduct(line, pool, seenF, lockedSpecies);
+        if (m) pushF(m);
+      }
     }
-    if (numberedCount > 0 && selectedProducts.length > numberedCount) {
-      selectedProducts = selectedProducts.slice(0, numberedCount);
-      console.log(`Parity trim → ${numberedCount} cards`);
-    }
+    console.log(`Fallback binding: ${selectedProducts.length} cards for ${numberedCount} numbered items`);
 
     if (selectedProducts.length === 0) {
       const mentionedIds = [...((finalContent.match(UUID_RE) || []) as string[]), ...likedIds];
       selectedProducts = await hydrateProducts(supabase, mentionedIds);
     }
+    // Prose with no list at all (and a real candidate set) → the deterministic composer
+    // below writes intro + product + why from the catalog rows themselves.
+    if (
+      selectedProducts.length === 0 &&
+      numberedCount === 0 &&
+      !isInfoQuestion &&
+      !isBusinessQuestion &&
+      !explanationOnly &&
+      candidatesForRerank.length > 0
+    ) {
+      selectedProducts = filterBySpecies(candidatesForRerank, lockedSpecies).slice(0, maxShown);
+    }
+
 
     finalContent = sanitizeVisibleText(finalContent);
     if (!wantsCounts) finalContent = stripCountTalk(finalContent);

@@ -1928,6 +1928,12 @@ serve(async (req) => {
     // Assortment/brand knowledge questions are answered in words (facts, brand names),
     // so they must not be turned into a product-recommendation turn.
     const isInfoQuestion = INFO_QUESTION_RE.test(normLastUser);
+    if (isInfoQuestion) {
+      systemPrompt += `\n\nINFO_QUESTION_TURN: این سؤال درباره‌ی خودِ برندها یا ترکیب کاتالوگه، نه درخواست محصول.
+- برای فهرست برند/کشور/دسته: در همین نوبت catalog_facets را صدا بزن و فقط «اسم‌ها» را بنویس (بدون تعداد و بدون قیمت مگر کاربر خواسته باشد).
+- برای معرفی یک برند: catalog_facets و در صورت نیاز brand_or_general_lookup را صدا بزن و در چند خط کوتاه معرفی کن (کشور سازنده، جایگاه، چه دسته‌هایی از آن برند در پت‌آباد هست).
+- محصول پیشنهاد نده و لیست شماره‌دار محصول نساز؛ جواب متنی و روان باشه. در پایان می‌تونی بپرسی از کدوم برند محصول ببینه.`;
+    }
     const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
 

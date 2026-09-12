@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
-import { ChatMessage, Product, QuickReply, CartItem } from "@/data/petabadData";
-import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
+import { ChatMessage, Product, QuickReply, CartItem, encodeJourneyAnswer } from "@/data/petabadData";
+import { ClarificationBlock, JourneyCard, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
 import { QuickReplyButtons } from "@/components/petabad/AgenticMessageComponents";
 import { ProductDetailsModal } from "@/components/petabad/ProductDetailsModal";
@@ -115,6 +115,16 @@ export const FloatingChatThread = ({
                 </div>
               )}
 
+              {msg.journey && (
+                <div className="ps-9">
+                  <JourneyCard
+                    journey={msg.journey}
+                    onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
+                    onRedo={(redoIndex) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer: "", redoIndex }))}
+                  />
+                </div>
+              )}
+
               {msg.products && msg.products.length > 0 && (
                 <div className="space-y-2 ps-9">
                   {msg.products.slice(0, 12).map((product, i) => (
@@ -149,7 +159,7 @@ export const FloatingChatThread = ({
             </div>
           ))}
 
-          {isProcessing && (
+          {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex items-end gap-2">
               <PetabadMark size="avatar" />
               <div className="rounded-2xl rounded-br-md border border-border/70 bg-card px-3.5 py-2.5">

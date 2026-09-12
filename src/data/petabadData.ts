@@ -145,6 +145,41 @@ export interface Clarification {
   steps?: ClarificationStep[];
 }
 
+/** One answered question inside a guidance journey card. */
+export interface JourneyStep {
+  card: Clarification;
+  answer: string;
+}
+
+/**
+ * A single card that hosts the whole adaptive question journey:
+ * answered steps collapse into a list, the current question sits below.
+ */
+export interface QuestionJourney {
+  steps: JourneyStep[];
+  current: Clarification | null;
+  status: 'asking' | 'checking' | 'done' | 'abandoned';
+}
+
+/** Journey taps travel through the normal send path with an invisible marker. */
+const JOURNEY_PREFIX = '\u2063journey\u2063';
+export interface JourneyAnswer {
+  messageId: string;
+  answer: string;
+  /** When set, the shopper is changing an earlier answer (index into steps). */
+  redoIndex?: number;
+}
+export const encodeJourneyAnswer = (a: JourneyAnswer): string => JOURNEY_PREFIX + JSON.stringify(a);
+export const decodeJourneyAnswer = (text: string): JourneyAnswer | null => {
+  if (!text.startsWith(JOURNEY_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(text.slice(JOURNEY_PREFIX.length));
+    return parsed && typeof parsed.messageId === 'string' && typeof parsed.answer === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 export interface ChatMessage {
 
   id: string;
@@ -171,6 +206,7 @@ export interface ChatMessage {
   showCartSummary?: boolean;
   inlineProduct?: Product; // Product details shown inline in chat (not modal)
   clarification?: Clarification; // Interactive question card (question is NOT repeated in content)
+  journey?: QuestionJourney; // One card hosting the whole adaptive question journey
 
   timestamp: Date;
   isCtaActive?: boolean; // Whether this CTA is currently active (only one should be active at a time)

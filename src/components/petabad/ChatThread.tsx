@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem } from "@/data/petabadData";
+import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem, encodeJourneyAnswer } from "@/data/petabadData";
 import { ChatProductCard } from "./ChatProductCard";
 import { CategorySelector } from "./CategorySelector";
 import { ProductDetailsModal } from "./ProductDetailsModal";
@@ -15,7 +15,7 @@ import {
   PaymentSelector,
 } from "./AgenticMessageComponents";
 import { AddressShippingSelector, MerchantShipping } from "./AddressShippingSelector";
-import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, JourneyCard, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
 import { PetabadMark } from "@/components/petabad/PetabadBrand";
@@ -203,6 +203,17 @@ export const ChatThread = ({
                 </div>
               )}
 
+              {/* One card for the whole guidance journey */}
+              {msg.journey && (
+                <div className="mr-11 max-w-[520px]">
+                  <JourneyCard
+                    journey={msg.journey}
+                    onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
+                    onRedo={(redoIndex) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer: "", redoIndex }))}
+                  />
+                </div>
+              )}
+
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
                 <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -314,7 +325,7 @@ export const ChatThread = ({
           ))}
 
           {/* Processing Indicator */}
-          {isProcessing && (
+          {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex gap-3 animate-fade-in">
               <PetabadMark size="avatar" />
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>

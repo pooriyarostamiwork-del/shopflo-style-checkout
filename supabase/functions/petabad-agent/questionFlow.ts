@@ -11,13 +11,25 @@ export interface QuestionFlow {
   /** The shopper's original request that started the flow. */
   seed: string;
   species?: string | null;
+  /** Product types named in the request (set silently, never asked). */
+  productTypes?: string[] | null;
   /** Question ids already asked (answered or skipped). */
   asked: string[];
   /** Answers keyed by question id (raw option labels, multi joined by « و »). */
   answers: Record<string, string>;
   /** Question id waiting for an answer (the card currently on screen). */
   pending?: string | null;
+  /** Question ids answered from memory/request without being shown. */
+  seeded?: string[];
   done?: boolean;
+}
+
+/** Facts already known about the shopper's pet — questions with a known answer are skipped. */
+export interface FlowSeed {
+  lifeStage?: string | null;
+  foreignOnly?: boolean | null;
+  healthNeeds?: string[] | null;
+  productTypes?: string[] | null;
 }
 
 export type FacetPrice = { min: number; q1: number; median: number; q3: number; max: number } | null;
@@ -28,6 +40,7 @@ export interface FlowDeps {
   formatToman: (v: number) => string;
   detectSpecies: (s: string) => string | null;
   concreteSpecies: (species: string, text: string) => string;
+  detectProductTypes: (text: string) => string[];
   buildBudgetOptions: (price: FacetPrice) => any[] | null;
   needSpecs: Array<{ key: string; label: string; query: (sp: string) => string }>;
 }
@@ -40,6 +53,7 @@ type Facets = {
   needs: Bucket[];
   countries: Bucket[];
   species: Bucket[];
+  product_types: Bucket[];
 };
 
 export interface FlowSummary {
@@ -48,6 +62,7 @@ export interface FlowSummary {
   species: string | null;
   lifeStage: string | null;
   healthNeeds: string[];
+  productTypes: string[];
   needKeys: string[];
   foreignOnly: boolean | null;
   complete: boolean;
@@ -75,14 +90,51 @@ const MAX_QUESTIONS = 5;
 const UMBRELLA = ["سایر حیوانات خانگی", "ماهی و آکواریوم"];
 
 export const BUNDLE_RE =
-  /(پک|پکیج|بسته|ست)\s*(کامل|شروع|اولیه|استارت)|استارتر|همه\s*(چیز|چیزهایی|وسایل|لوازم)|هر\s*چی\s*(که\s*)?لازم|تازه\s*(آوردم|گرفتم|خریدم|اومده)|(وسایل|لوازم)\s*(اولیه|لازم|ضروری)|از\s*صفر/;
+  /(پک|پکیج|بسته|ست)\s*(کامل|شروع|اولیه|استارت)|استارتر|همه\s*(چیز|چیزهایی|وسایل|لوازم)|هر\s*چی\s*(که\s*)?لازم|تازه\s*(\S+\s*){0,2}(آوردم|آوردیم|اوردم|اوردیم|گرفتم|گرفتیم|خریدم|خریدیم|اومده)|(وسایل|لوازم)\s*(اولیه|لازم|ضروری)|از\s*صفر|نمی\s*دونم\s*چیا?\s*(باید\s*)?(براش\s*)?بگیرم|چیا\s*(باید\s*)?(براش\s*)?(لازم|بگیرم)/;
 
 export function detectGoal(normText: string): FlowGoal {
   return BUNDLE_RE.test(normText) ? "bundle" : "single";
 }
 
-export function startFlow(goal: FlowGoal, seed: string, species: string | null): QuestionFlow {
-  return { goal, seed, species, asked: [], answers: {}, pending: null, done: false };
+const STAGE_ANSWER: Record<string, string> = { نابالغ: "بچه / نابالغ", بالغ: "بالغ", سنیور: "سالمند / سنیور" };
+
+/**
+ * Start a flow. Facts the conversation already established (pet memory, words in
+ * the request) are written in as answers so the matching questions are skipped.
+ */
+export function startFlow(
+  goal: FlowGoal,
+  seed: string,
+  species: string | null,
+  deps?: FlowDeps,
+  known?: FlowSeed | null,
+): QuestionFlow {
+  const answers: Record<string, string> = {};
+  const asked: string[] = [];
+  const types = known?.productTypes?.length ? known.productTypes : deps ? deps.detectProductTypes(seed) : [];
+  if (known?.lifeStage && STAGE_ANSWER[known.lifeStage]) {
+    answers["age"] = STAGE_ANSWER[known.lifeStage];
+    asked.push("age");
+  }
+  if (known?.foreignOnly === true || known?.foreignOnly === false) {
+    answers["origin"] = known.foreignOnly ? "خارجی" : "ایرانی";
+    asked.push("origin");
+  }
+  if (goal === "single" && known?.healthNeeds?.length) {
+    answers["need"] = known.healthNeeds.join(" و ");
+    asked.push("need");
+  }
+  return {
+    goal,
+    seed,
+    species,
+    productTypes: types.length ? types : null,
+    asked,
+    answers,
+    seeded: [...asked],
+    pending: null,
+    done: false,
+  };
 }
 
 /** Record the shopper's reply to the pending question. Free text counts as an answer too. */
@@ -126,6 +178,7 @@ async function facets(deps: FlowDeps, params: Record<string, any>): Promise<Face
       needs: data.needs || [],
       countries: data.countries || [],
       species: data.species || [],
+      product_types: data.product_types || [],
     };
   } catch (e) {
     console.error("Flow facets exception:", e);
@@ -181,6 +234,13 @@ function selectedHealthNeeds(flow: QuestionFlow): string[] {
   if (!a || /نیاز خاصی/.test(a)) return [];
   return a.split(" و ").map((s) => s.trim()).filter(Boolean);
 }
+/** Product types in play: the answered type question first, then types named in the request. */
+function currentTypes(flow: QuestionFlow): string[] {
+  const a = flow.answers["type"] || "";
+  if (a && !/فرقی نمی|مهم نیست/.test(a)) return a.split(" و ").map((s) => s.trim()).filter(Boolean);
+  return flow.productTypes || [];
+}
+const FOOD_SEED_RE = /(غذا|خوراک|کنسرو|پوچ|تشویقی|خشک)/;
 
 const FILLER_RE =
   /(راهنمایی(م)?|کمک(م)?|کن|کنی|چی|چه|کدوم|بخرم|بگیرم|میخوام|می‌خوام|خوام|برام|برای|پیشنهاد|معرفی|لطفا|لطفاً|بهترین|یه|یک|بده|نمیدونم|نمی‌دونم|مشاوره|توصیه|بدید|میدی|می‌دی|هست|رو|را|از|به|که|و)/g;
@@ -192,7 +252,12 @@ async function singleSlice(deps: FlowDeps, flow: QuestionFlow): Promise<Facets |
   const params: Record<string, any> = {};
   const sp = speciesParam(deps, flow);
   if (sp) params.p_species = sp;
-  const q = cleanSeed(deps, flow.seed);
+  const types = currentTypes(flow);
+  if (types.length) params.p_product_types = types;
+  else if (FOOD_SEED_RE.test(deps.normalize(flow.seed))) params.p_type_group = "غذا";
+  // Free text only narrows an unstructured slice; once a type is known it would
+  // just re-match generic words and skew the price quantiles.
+  const q = types.length ? "" : cleanSeed(deps, flow.seed);
   if (q) params.p_query = q;
   const needs = selectedHealthNeeds(flow);
   if (needs.length) params.p_needs = needs;
@@ -350,6 +415,23 @@ const originQuestion: Builder = async (deps, flow) => {
   };
 };
 
+/** «خشک یا کنسرو؟» — asked only when the request names no type and the slice really splits. */
+const typeQuestion: Builder = async (deps, flow) => {
+  if (currentTypes(flow).length) return null;
+  const f = await singleSlice(deps, flow);
+  if (!f || f.total < 8) return null;
+  const buckets = splitting(f.product_types, f.total, 5);
+  if (buckets.length < 2) return null;
+  const food = buckets.every((b) => /غذا|کنسرو|پوچ|تشویقی|سوپ|شیر/.test(String(b.value)));
+  return {
+    kind: "single",
+    id: "type",
+    title: "نوع محصول",
+    question: food ? "چه نوع غذایی مد نظرته؟" : "دقیقاً دنبال چه نوع محصولی هستی؟",
+    options: [...buckets.map((b) => ({ label: String(b.value) })), { label: "فرقی نمی‌کنه" }],
+  };
+};
+
 const budgetQuestion: Builder = async (deps, flow) => {
   const f = await singleSlice(deps, flow);
   if (!f || f.total < 4) return null;
@@ -404,6 +486,7 @@ const PLANS: Record<FlowGoal, Array<[string, Builder]>> = {
   single: [
     ["species", speciesQuestion],
     ["age", ageQuestion],
+    ["type", typeQuestion],
     ["need", needQuestion],
     ["origin", originQuestion],
     ["budget", budgetQuestion],
@@ -425,7 +508,8 @@ export async function nextQuestion(
   flowIn: QuestionFlow,
 ): Promise<{ card: FlowCard | null; flow: QuestionFlow }> {
   const flow = applyAnswerEffects(deps, flowIn);
-  const askedCount = Object.keys(flow.answers).length;
+  const seeded = flow.seeded || [];
+  const askedCount = Object.keys(flow.answers).filter((k) => !seeded.includes(k)).length;
   if (askedCount >= MAX_QUESTIONS) return { card: null, flow: { ...flow, done: true, pending: null } };
   const remaining = PLANS[flow.goal].filter(([id]) => !flow.asked.includes(id));
   const asked = [...flow.asked];
@@ -445,6 +529,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
   const lifeStage = currentStage(flow);
   const foreignOnly = currentForeign(flow);
   const healthNeeds = selectedHealthNeeds(flow);
+  const productTypes = currentTypes(flow);
   const needKeys = selectedNeedKeys(deps, flow);
   const complete = /کامل/.test(flow.answers["completeness"] || "");
   const tierAnswer = flow.answers["tier"] || "";
@@ -484,6 +569,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
     lines.push(`اقلام پک: ${labels.join("، ")} — ${complete ? "برای هر قلم دو گزینه" : "برای هر قلم یک گزینه مطمئن"}`);
   }
   if (healthNeeds.length) lines.push(`نیاز سلامتی: ${healthNeeds.join("، ")} (filters.needs)`);
+  if (productTypes.length) lines.push(`نوع محصول: ${productTypes.join("، ")} — query_text باید همین نوع را داشته باشد`);
   if (foreignOnly !== null)
     lines.push(`محدوده برند: ${foreignOnly ? "فقط خارجی (filters.origin_scope=خارجی)" : "فقط ایرانی (filters.origin_scope=ایرانی)"}`);
   if (tier)
@@ -500,6 +586,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
     species: flow.species || null,
     lifeStage,
     healthNeeds,
+    productTypes,
     needKeys,
     foreignOnly,
     complete,

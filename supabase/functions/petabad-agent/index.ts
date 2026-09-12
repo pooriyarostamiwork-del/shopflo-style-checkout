@@ -8,6 +8,7 @@ import {
   startFlow,
   summarize,
   type FlowDeps,
+  type FlowSeed,
   type FlowSummary,
   type QuestionFlow,
 } from "./questionFlow.ts";
@@ -1533,6 +1534,8 @@ function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
     return Math.max(100_000, Math.round(v / 100_000) * 100_000);
   };
   // Buckets are open-ended at the bottom ("تا X") — a "۰ تا X" label is meaningless.
+  // A flat slice (top quartile under 1.5× the bottom one) has no real tiers to choose from.
+  if (price.q3 < price.q1 * 1.5) return null;
   const edges = Array.from(new Set([round(price.q1), round(price.median), round(price.q3)])).sort((a, b) => a - b);
   if (edges.length < 2) return null;
 
@@ -1977,10 +1980,22 @@ function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
 }
 
 /** Life stage the shopper stated — kitten/puppy talk must never drift to adult copy. */
+const AGE_WORDS: Record<string, number> = {
+  یک: 1, دو: 2, سه: 3, چهار: 4, پنج: 5, شش: 6, هفت: 7, هشت: 8, نه: 9, ده: 10, یازده: 11, دوازده: 12,
+};
 function detectLifeStage(text: string): string | null {
   const norm = normalizePersian(text || "");
   if (/بچه\s*گربه|توله|بچه\s*سگ|پاپی|نابالغ|kitten|puppy/i.test(norm)) return "نابالغ";
   if (/پیر|مسن|سالمند|سنیور|senior/i.test(norm)) return "سنیور";
+  // «۸ سالشه» / «هفت ساله» → an age in years decides the stage.
+  const m = norm
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .match(/(\d{1,2}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده)\s*(?:سال(?:ش|شه|ه|ست|شونه)?|ساله)/);
+  if (m) {
+    const y = /\d/.test(m[1]) ? parseInt(m[1]) : AGE_WORDS[m[1]];
+    if (Number.isFinite(y)) return y < 1 ? "نابالغ" : y >= 7 ? "سنیور" : "بالغ";
+  }
+  if (/چند\s*ماهه|ماهشه/.test(norm)) return "نابالغ";
   return null;
 }
 
@@ -2390,6 +2405,7 @@ serve(async (req) => {
       shopping_context,
       reference_hint,
       question_flow,
+      pet_memory,
     } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -2588,6 +2604,7 @@ serve(async (req) => {
         formatToman,
         detectSpecies,
         concreteSpecies: concreteSpeciesWord,
+        detectProductTypes,
         buildBudgetOptions,
         needSpecs: NEED_SPECS,
       };
@@ -2596,14 +2613,22 @@ serve(async (req) => {
         // A reply that names another animal or is a long new request abandons the flow.
         const named = lastNamedSpecies(lastUserText);
         const switched = named && flow.species && named !== flow.species;
-        if (switched || lastUserText.length > 60) flow = null;
+        if (switched || lastUserText.length > 80) flow = null;
         else flow = recordAnswer(flow, lastUserText);
       }
       if (!flow || flow.done) {
         const goal = detectGoal(normLastUser);
         const explicitBundle = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
-        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies);
-        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies);
+        // What the conversation already knows about this pet: never ask it again.
+        const memPet = pet_memory && typeof pet_memory === "object" ? pet_memory : null;
+        const sameAnimal = memPet?.species && lockedSpecies && detectSpecies(String(memPet.species)) === lockedSpecies;
+        const known: FlowSeed = {
+          lifeStage: lockedStage || (sameAnimal ? memPet?.life_stage || null : null),
+          foreignOnly: stickyForeign,
+          healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
+        };
+        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies, flowDeps, known);
+        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies, flowDeps, known);
         else flow = null;
       }
       if (flow && !flow.done) {

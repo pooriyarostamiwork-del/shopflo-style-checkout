@@ -62,7 +62,7 @@ export const BASKET_STATES_KEY = 'petabad-basket-states';
 
 // Storage version migration guard (module-level, runs once)
 const STORAGE_VERSION_KEY = 'petabad-storage-version';
-const CURRENT_VERSION = '8';
+const CURRENT_VERSION = '9';
 if (typeof window !== 'undefined') {
   const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
   if (storedVersion !== CURRENT_VERSION) {

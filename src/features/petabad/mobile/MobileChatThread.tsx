@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
-import { toPersianNumber } from "@/data/petabadData";
+import { toPersianNumber, encodeJourneyAnswer } from "@/data/petabadData";
 import { Button } from "@/components/ui/button";
 import {
   ChatMessage,
@@ -24,7 +24,7 @@ import {
   AddressShippingSelector,
   MerchantShipping,
 } from "@/components/petabad/AddressShippingSelector";
-import { ClarificationBlock, answerAfter } from "@/components/petabad/ClarificationBlocks";
+import { ClarificationBlock, JourneyCard, answerAfter } from "@/components/petabad/ClarificationBlocks";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { ShiningText } from "@/components/petabad/ShiningText";
 import { PetabadMark } from "@/components/petabad/PetabadBrand";
@@ -223,6 +223,16 @@ export const MobileChatThread = ({
                 </div>
               )}
 
+              {msg.journey && (
+                <div className="pr-1">
+                  <JourneyCard
+                    journey={msg.journey}
+                    onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
+                    onRedo={(redoIndex) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer: "", redoIndex }))}
+                  />
+                </div>
+              )}
+
               {/* Product cards — horizontal scroll on mobile */}
 
               {msg.products && msg.products.length > 0 && (
@@ -334,7 +344,7 @@ export const MobileChatThread = ({
             </div>
           ))}
 
-          {isProcessing && (
+          {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex gap-2 animate-fade-in justify-start flex-row-reverse">
               <PetabadMark size="avatar" className="h-7 w-7" />
               <div

@@ -2500,6 +2500,66 @@ serve(async (req) => {
         break;
       }
     }
+    // ── Adaptive question flow: one catalog-grounded question per turn ──
+    // Guidance («راهنماییم کن») and bundle («پک کامل») requests are answered by a
+    // deterministic flow: every option is checked against stock, questions are asked
+    // only when they split the candidate set, and price comes last.
+    let flowSummary: FlowSummary | null = null;
+    let bundleNeeds: NeedSpec[] = detectNeeds(lastUserText);
+    if (effectiveMode === "agentic" && !isInfoQuestion && !isBusinessQuestion && !isCompareQuestion) {
+      const flowDeps: FlowDeps = {
+        supabase,
+        normalize: normalizePersian,
+        formatToman,
+        detectSpecies,
+        concreteSpecies: concreteSpeciesWord,
+        buildBudgetOptions,
+        needSpecs: NEED_SPECS,
+      };
+      let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
+      if (flow && flow.pending && !flow.done) {
+        // A reply that names another animal or is a long new request abandons the flow.
+        const named = lastNamedSpecies(lastUserText);
+        const switched = named && flow.species && named !== flow.species;
+        if (switched || lastUserText.length > 60) flow = null;
+        else flow = recordAnswer(flow, lastUserText);
+      }
+      if (!flow || flow.done) {
+        const goal = detectGoal(normLastUser);
+        const explicitBundle = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
+        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies);
+        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies);
+        else flow = null;
+      }
+      if (flow && !flow.done) {
+        const { card, flow: nf } = await nextQuestion(flowDeps, flow);
+        if (card) {
+          console.log("Flow question:", JSON.stringify({ goal: nf.goal, id: card.id, options: card.options.length }));
+          const cardResponse = clarificationResponse(card, `flow-${card.id}`);
+          if (cardResponse) {
+            const payload = await cardResponse.json();
+            return new Response(JSON.stringify({ ...payload, question_flow: nf }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        flow = nf;
+      }
+      if (flow?.done) {
+        flowSummary = summarize(flowDeps, flow);
+        if (!lockedSpecies && flowSummary.species) {
+          lockedSpecies = flowSummary.species;
+          if (!SPECIES_TOKENS.some(([n]) => n === lockedSpecies)) lockedSpecies = detectSpecies(lockedSpecies) || lockedSpecies;
+        }
+        if (flowSummary.lifeStage) lockedStage = flowSummary.lifeStage;
+        if (flowSummary.foreignOnly !== null) stickyForeign = flowSummary.foreignOnly;
+        if (flowSummary.needKeys.length > 0) bundleNeeds = NEED_SPECS.filter((n) => flowSummary!.needKeys.includes(n.key));
+        wantsGuidance = false;
+        systemPrompt += `\n\n${flowSummary.promptBlock}`;
+        console.log("Flow complete:", JSON.stringify({ goal: flow.goal, answers: flow.answers }));
+      }
+    }
+
     const speciesLock = {
       species: lockedSpecies,
       lifeStage: lockedStage,
@@ -2516,8 +2576,9 @@ serve(async (req) => {
     }
     knownSpecies = lockedSpecies || knownSpecies;
 
-    const bundleNeeds = detectNeeds(lastUserText);
-    const isBundleTurn = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
+    const isBundleTurn = flowSummary
+      ? flowSummary.goal === "bundle" && bundleNeeds.length >= 1 && Boolean(lockedSpecies)
+      : Boolean(lockedSpecies) && bundleNeeds.length >= 2;
 
     const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
     // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.

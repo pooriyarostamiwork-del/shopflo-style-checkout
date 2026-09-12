@@ -2399,7 +2399,7 @@ serve(async (req) => {
     // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
     const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
     const normLastUser = normalizePersian(lastUserText);
-    const wantsGuidance = GUIDANCE_RE.test(normLastUser);
+    let wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser) && !ASKS_FOR_SOME_RE.test(normLastUser);
     const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
     // Assortment/brand knowledge questions are answered in words (facts, brand names),

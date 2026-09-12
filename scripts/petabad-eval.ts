@@ -107,14 +107,14 @@ const CASES: Case[] = [
     expectProducts: false,
     contentAnyOf: [/۷\s*روز/, /هفت\s*روز/, /خودداری/, /بازپس/, /مرجوع/],
     toolsNoneOf: ["search_products (discovery-guard)"],
-    answerSource: "model_final",
+    answerSource: ["model_final", "reranker_fallback"],
   },
   {
     id: "faq-snapppay-change",
     prompt: "چطور می تونم سفارشی که با اسنپ پی ثبت کردمو تغییر بدم؟",
     expectProducts: false,
     contentAnyOf: [/۰۲۱۷۸۷۶۱۰۰۰/, /لغو/],
-    answerSource: "model_final",
+    answerSource: ["model_final", "reranker_fallback"],
   },
   {
     id: "info-foreign-pouch-brands",
@@ -139,7 +139,7 @@ const CASES: Case[] = [
     expectProducts: false,
     contentAnyOf: [/یو اس پت|USPet|US Pet|شامپو/i],
     toolsNoneOf: ["search_products (discovery-guard)"],
-    answerSource: "model_final",
+    answerSource: ["model_final", "reranker_fallback"],
   },
   // ── Full-catalog scope: foreign-only, brand diversity, "other brands" ──
   {

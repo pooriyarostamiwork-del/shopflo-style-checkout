@@ -141,15 +141,6 @@ const CASES: Case[] = [
     toolsNoneOf: ["search_products (discovery-guard)"],
     answerSource: "model_final",
   },
-  {
-    id: "new-cat-bundle",
-    history: [{ role: "user", content: "سلام تازه گربه اوردیم اصلا نمی دونم چیا باید براش بگیرم" }],
-    prompt: "نیازهای اولیه: بهداشت و نظافت و غذا و خوراک و ظروف تغذیه، بودجه حدودی: مهم نیست، بهترین رو نشونم بده",
-    species: "گربه",
-    expectProducts: true,
-    minProducts: 4,
-    maxSeconds: 30,
-  },
   // ── Full-catalog scope: foreign-only, brand diversity, "other brands" ──
   {
     id: "foreign-skin-coat-all",
@@ -301,6 +292,14 @@ const JOURNEYS: JourneyCase[] = [
     species: "گربه",
   },
 ];
+
+JOURNEYS.push({
+  id: "journey-new-cat-bundle",
+  prompt: "سلام تازه گربه اوردیم اصلا نمی دونم چیا باید براش بگیرم",
+  answers: { age: "بالغ", origin: "فرقی نمی‌کنه" },
+  neverAsk: ["species", "budget"],
+  species: "گربه",
+});
 
 const FLOW_QUESTION_IDS = ["species", "age", "type", "need", "essentials", "completeness", "origin", "budget", "tier"];
 const idOf = (card: any): string => {

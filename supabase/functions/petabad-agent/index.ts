@@ -2655,10 +2655,15 @@ serve(async (req) => {
       finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
       console.log("Composed deterministic product answer");
     } else if (!finalContent) {
-      finalContent = isInfoQuestion
-        ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
-        : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
+      // A brand/assortment question always has a real answer in the catalog.
+      const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;
+      finalContent = grounded
+        || (isInfoQuestion
+          ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
+          : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟");
+      if (grounded) selectedProducts = [];
     }
+
 
     // Honest fallback: never silently swap a brand the shopper asked for.
     if (unavailableBrand && finalContent && !finalContent.includes(unavailableBrand)) {

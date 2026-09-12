@@ -1847,6 +1847,35 @@ function strictMatchProduct(line: string, pool: any[], used: Set<string>, locked
   return bestScore >= 0.8 ? best : null;
 }
 
+/**
+ * The answer names a product that is not in this turn's results (typically re-introduced
+ * from earlier in the conversation): find that exact row in the catalog so it gets a card.
+ */
+async function lookupByNameLine(
+  supabase: any,
+  line: string,
+  used: Set<string>,
+  locked: string | null,
+): Promise<any | null> {
+  const cleaned = line
+    .replace(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*/u, "")
+    .split(/[—–]/)[0]
+    .replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)));
+  const tokens = cleaned
+    .split(/[\s،,()\-:؛/]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 2 && !/^\d+$/.test(w))
+    .slice(0, 5);
+  if (tokens.length < 2) return null;
+  let q = supabase.from("pet_products").select("*").limit(8);
+  for (const t of tokens) q = q.ilike("name", `%${t}%`);
+  const { data } = await q;
+  if (!data?.length) return null;
+  return strictMatchProduct(line, data, used, locked) || (locked && !rowMatchesSpecies(data[0], locked) ? null : data[0]);
+}
+
+
+
 
 /** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
 /** Removes unrequested totals / candidate-count / internal-process sentences. */

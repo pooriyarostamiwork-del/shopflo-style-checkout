@@ -1784,6 +1784,70 @@ function hasNumberedProducts(text: string): boolean {
   return (text.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length > 0;
 }
 
+const NUMBERED_HEAD_RE = /^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/u;
+
+/** Splits an answer into its intro and one block per numbered product. */
+function numberedBlocks(text: string): { intro: string; blocks: string[] } {
+  const lines = (text || "").split("\n");
+  const firstIdx = lines.findIndex((l) => NUMBERED_HEAD_RE.test(l));
+  if (firstIdx === -1) return { intro: (text || "").trim(), blocks: [] };
+  const intro = lines.slice(0, firstIdx).join("\n").trim();
+  const blocks: string[][] = [];
+  for (let i = firstIdx; i < lines.length; i++) {
+    if (NUMBERED_HEAD_RE.test(lines[i])) blocks.push([lines[i]]);
+    else if (blocks.length > 0) blocks[blocks.length - 1].push(lines[i]);
+  }
+  return { intro, blocks: blocks.map((b) => b.join("\n").trim()).filter(Boolean) };
+}
+
+/**
+ * Text and cards must describe the same products: one block per card, in the same
+ * order, with the name and price rewritten from the catalog row (never the model's).
+ */
+function alignAnswerText(text: string, cards: any[]): string {
+  const { intro, blocks } = numberedBlocks(text);
+  if (blocks.length === 0 || cards.length === 0) return text;
+  const out = blocks.slice(0, cards.length).map((block, i) => {
+    const p = cards[i];
+    const why = block.split("\n").slice(1).map((l) => l.trim()).filter(Boolean).join(" ");
+    const name = p.name_fa || p.name || "محصول";
+    const price = typeof p.price === "number" ? ` — ${faNum(p.price.toLocaleString("en-US"))} تومان` : "";
+    const reason = why || (composeProductAnswer([p], "").split("\n").filter(Boolean).pop() || "");
+    return `${faNum(i + 1)}. ${name}${price}\n${reason}`;
+  });
+  return `${intro ? `${intro}\n\n` : ""}${out.join("\n\n")}`.trim();
+}
+
+const answerTokens = (t: string) =>
+  normalizePersian(String(t || ""))
+    .toLowerCase()
+    .replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))
+    .split(/[\s،,()\-–—:؛]+/)
+    .filter((w) => w.length > 1);
+
+/**
+ * Last-resort binding of one numbered line to a catalog row: near-exact name overlap
+ * only, same species. Loose overlap used to pick the wrong animal's product.
+ */
+function strictMatchProduct(line: string, pool: any[], used: Set<string>, locked: string | null): any | null {
+  const lineTok = new Set(answerTokens(line));
+  let best: any = null;
+  let bestScore = 0;
+  for (const p of pool || []) {
+    if (!p || used.has(p.id)) continue;
+    if (locked && !rowMatchesSpecies(p, locked)) continue;
+    const nt = answerTokens(p.name_fa || p.name || "");
+    if (nt.length < 3) continue;
+    const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
+    if (hit > bestScore) {
+      bestScore = hit;
+      best = p;
+    }
+  }
+  return bestScore >= 0.8 ? best : null;
+}
+
+
 /** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
 /** Removes unrequested totals / candidate-count / internal-process sentences. */
 function stripCountTalk(raw: string): string {

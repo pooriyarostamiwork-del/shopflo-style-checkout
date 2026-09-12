@@ -465,6 +465,13 @@ const FAQ_CATEGORIES = [
 const BUSINESS_RE =
   /(ارسال|پست|پیک|تیپاکس|کرایه|هزینه\s*ارسال|بسته\s*بند|تحویل|چند\s*روز|زمان\s*رسیدن|مرجوع|بازگشت|عودت|پس\s*دادن|گارانتی|ضمانت|اصل\s*بودن|تقلبی|پرداخت|اقساط|اسنپ\s*پی|snapp|کارت\s*به\s*کارت|درگاه|فاکتور|تخفیف|کد\s*تخفیف|کوپن|سفارش(م|ت|ات)?\s*(رو|را)?\s*(لغو|پیگیری|تغییر|ویرایش)|لغو\s*سفارش|پیگیری\s*سفارش|رهگیری|کد\s*رهگیری|شماره\s*تماس|پشتیبان|تلفن|حضوری|فروشگاه\s*فیزیک|آدرس\s*فروشگاه|انقضا|تاریخ\s*مصرف|محدودیت\s*خرید|سفارش\s*تلفن)/;
 
+/**
+ * Informational questions ABOUT the store's assortment or a brand — these want a written
+ * answer (brand names, brand background), never a product carousel.
+ */
+const INFO_QUESTION_RE =
+  /((چه|کدوم|کدام)\s*(برند|مارک|کشور|دسته|شرکت)|برند\s*ها|برندها|برندهاتو|برندهات|مارک\s*ها|(لیست|فهرست)\s*(برند|مارک|کشور|دسته)|(برند|مارک)\s*(ها)?\s*(تو|ت|ات|هاتون|هاتو)?\s*(رو|را)?\s*(بگو|لیست|نام\s*ببر|معرفی)|(درباره|در\s*مورد|راجع\s*به)\s*(برند|مارک|شرکت)|برند\s*\S+\s*(چطوره|چجوریه|چیه|خوبه|معتبره|کجاییه|مال\s*کجاست))/;
+
 /** Retrieve official PetAbad FAQ answers (hybrid FTS + trigram + embeddings). */
 async function executeFaqLookup(
   supabase: any,
@@ -730,6 +737,39 @@ const TAXONOMY_WORDS =
 
 
 
+// ── Part 5: closed taxonomy vocabulary (database-owned) ──
+type TaxonomyMap = Record<string, Record<string, string>>;
+let TAXONOMY_CACHE: TaxonomyMap | null = null;
+
+async function loadTaxonomy(supabase: any): Promise<TaxonomyMap> {
+  if (TAXONOMY_CACHE) return TAXONOMY_CACHE;
+  const map: TaxonomyMap = {};
+  const add = (dim: string, key: string, canonical: string) => {
+    map[dim] = map[dim] || {};
+    map[dim][normalizePersian(key)] = canonical;
+  };
+  try {
+    const [terms, aliases] = await Promise.all([
+      supabase.from("pet_taxonomy_terms").select("dimension_key, canonical_fa").eq("is_active", true),
+      supabase.from("pet_taxonomy_aliases").select("dimension_key, alias, canonical_fa"),
+    ]);
+    for (const t of terms.data || []) add(t.dimension_key, t.canonical_fa, t.canonical_fa);
+    for (const a of aliases.data || []) add(a.dimension_key, a.alias, a.canonical_fa);
+    TAXONOMY_CACHE = map;
+  } catch (e) {
+    console.log("Taxonomy load failed:", String(e));
+  }
+  return map;
+}
+
+/** Canonical term, or null when the value is outside the closed vocabulary. */
+function canonicalTerm(tax: TaxonomyMap, dimension: string, value: string | null | undefined): string | null {
+  if (!value) return null;
+  const dim = tax[dimension];
+  if (!dim) return value; // taxonomy unavailable → keep caller value
+  return dim[normalizePersian(String(value))] || null;
+}
+
 async function executeSearch(
   supabase: any,
   args: any,
@@ -754,16 +794,33 @@ async function executeSearch(
   // the catalog stores جوندگان / خرگوش / ... , so a literal filter would return nothing.
   // For those we skip the SQL filter and rely on the post-retrieval species lock.
   const UMBRELLA_SPECIES = ["سایر حیوانات خانگی", "ماهی و آکواریوم"];
-  const rpcSpecies = lockedSpecies || species || null;
+  const rawSpecies = lockedSpecies || species || null;
+  const taxForSpecies = await loadTaxonomy(supabase);
+  const rpcSpecies = canonicalTerm(taxForSpecies, "species", rawSpecies) || rawSpecies;
   if (rpcSpecies && !UMBRELLA_SPECIES.includes(rpcSpecies)) rpcParams.p_species = rpcSpecies;
 
   if (filters?.brand) rpcParams.p_brand = filters.brand;
   if (filters?.product_line) rpcParams.p_product_line = filters.product_line;
   if (filters?.origin_country) rpcParams.p_origin_country = filters.origin_country;
-  if (filters?.life_stage) rpcParams.p_life_stage = filters.life_stage;
-  const breedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`);
+  // Closed vocabulary: non-canonical values never become filters, they degrade to
+  // free-text evidence so the shopper still gets grounded results.
+  const tax = await loadTaxonomy(supabase);
+  const degraded: string[] = [];
+  const canon = (dim: string, v: any) => {
+    const c = canonicalTerm(tax, dim, v);
+    if (!c && v) degraded.push(String(v));
+    return c;
+  };
+  const canonStage = canon("life_stage", filters?.life_stage);
+  if (canonStage) rpcParams.p_life_stage = canonStage;
+  const rawBreedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`);
+  const breedSize = canon("breed_size", rawBreedSize);
   if (breedSize) rpcParams.p_breed_size = breedSize;
-  if (Array.isArray(filters?.needs) && filters.needs.length > 0) rpcParams.p_needs = filters.needs;
+  if (Array.isArray(filters?.needs) && filters.needs.length > 0) {
+    const canonNeeds = filters.needs.map((n: string) => canon("health_need", n)).filter(Boolean);
+    if (canonNeeds.length > 0) rpcParams.p_needs = canonNeeds;
+  }
+  if (degraded.length > 0) console.log("Non-canonical filter values degraded to evidence:", degraded.join(", "));
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
   // Deterministic taxonomy: the shopper's category word decides the shelf, not the
@@ -906,9 +963,19 @@ async function executeSearch(
   results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
 
 
+  // Honest fallback signal: the shopper named a brand we cannot actually serve.
+  const requestedBrand = filters?.brand ? String(filters.brand).trim() : "";
+  const brandUnavailable =
+    requestedBrand.length > 0 &&
+    !results.some((r: any) =>
+      normalizePersian(String(r.brand || "")).includes(normalizePersian(requestedBrand)),
+    );
+
   return {
     matched_total: results.length,
     shown: results.length,
+    requested_brand: requestedBrand || null,
+    brand_unavailable: brandUnavailable,
     evidence_unconfirmed: evidenceUnconfirmed,
     filters_relaxed: relaxedLabels.length > 0,
     relaxed_filters: relaxedLabels,
@@ -1207,6 +1274,46 @@ function extractSignals(raw: string): {
   return { text, referenceIds, likedIds, rejectedIds, selectedIds, goal };
 }
 
+const FA_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+const faNum = (n: number | string) => String(n).replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
+
+/**
+ * Deterministic, always-correctly-shaped product answer built from catalog data:
+ * a short intro (max 3 lines) + per product one numbered line and one "why" line.
+ * Used whenever the answer model returns empty or shapeless content, so the shopper
+ * never sees a bare placeholder sentence.
+ */
+function composeProductAnswer(products: any[], query: string): string {
+  const list = (products || []).filter(Boolean);
+  if (list.length === 0) {
+    return "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
+  }
+  const intro = `بر اساس چیزی که گفتی (${(query || "").trim().slice(0, 60)}) این گزینه‌ها رو برات انتخاب کردم.`;
+  const blocks = list.map((p: any, i: number) => {
+    const name = p.name_fa || p.name || "محصول";
+    const price = typeof p.price === "number" ? `${faNum(p.price.toLocaleString("en-US"))} تومان` : "";
+    const head = `${faNum(i + 1)}. ${name}${price ? ` — ${price}` : ""}`;
+    const bits: string[] = [];
+    if (p.brand) bits.push(`برند ${p.brand}`);
+    if (p.origin_country) bits.push(`ساخت ${p.origin_country}`);
+    if (p.species) bits.push(`مخصوص ${p.species}`);
+    if (p.life_stage) bits.push(`مرحله سنی ${p.life_stage}`);
+    if (p.breed_size) bits.push(`نژاد ${p.breed_size}`);
+    if (Array.isArray(p.health_needs) && p.health_needs.length) bits.push(`مناسب ${p.health_needs.slice(0, 2).join(" و ")}`);
+    if (p.weight) bits.push(`بسته ${p.weight}`);
+    const why = bits.length
+      ? `چرا این؟ ${bits.slice(0, 3).join("، ")} و با درخواستت هم‌خوانی داره.`
+      : "چرا این؟ از نزدیک‌ترین گزینه‌های موجود به درخواستت هست.";
+    return `${head}\n${why}`;
+  });
+  return [intro, "", blocks.join("\n\n")].join("\n");
+}
+
+/** True when the text has no numbered product lines (so it can't carry per-product reasons). */
+function hasNumberedProducts(text: string): boolean {
+  return (text.match(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/gmu) || []).length > 0;
+}
+
 /** Final guard: no leftover signal lines, no raw ids in the chat bubble. */
 /** Removes unrequested totals / candidate-count / internal-process sentences. */
 function stripCountTalk(raw: string): string {
@@ -1228,6 +1335,9 @@ function sanitizeVisibleText(raw: string): string {
   t = t.replace(/^[ \t]*[A-Z][A-Z0-9_]{2,}\s*:\s*(\[[\s\S]*?\]|\{[\s\S]*?\})[ \t]*$/gm, "");
   t = t.replace(/[ \t]*[（(]\s*(?:شناسه|آیدی|کد محصول|id)\s*[:：]?\s*[0-9a-fA-F-]{8,}\s*[）)]/g, "");
   t = t.replace(UUID_RE, "");
+  // Leftover candidate brackets after id removal: "[]", "[7]"
+  t = t.replace(/\[\s*[0-9\u06F0-\u06F9]{0,3}\s*\]/g, "");
+  t = t.replace(/[ \t]{2,}/g, " ");
   t = t.replace(/[ \t]*[（(]\s*[）)]/g, "");
   return t.replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
 }
@@ -1559,6 +1669,7 @@ type ToolRoundResult = {
   extractedIntent: any;
   bundleGroups: Array<{ label: string; products: any[] }>;
   emptyNeedLabels: string[];
+  unavailableBrand: string | null;
 };
 
 async function runToolRound(
@@ -1578,6 +1689,7 @@ async function runToolRound(
     extractedIntent: null,
     bundleGroups: [],
     emptyNeedLabels: [],
+    unavailableBrand: null,
   };
 
   for (const toolCall of choice.message.tool_calls) {
@@ -1597,10 +1709,13 @@ async function runToolRound(
       result.extractedIntent = funcArgs;
       const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
       if (searched.products) result.products = [...result.products, ...searched.products];
+      if (searched.brand_unavailable && searched.requested_brand) result.unavailableBrand = searched.requested_brand;
       toolResult = {
         matched_total: searched.matched_total ?? 0,
         shown: searched.shown ?? 0,
         evidence_unconfirmed: searched.evidence_unconfirmed || false,
+        requested_brand: searched.requested_brand || null,
+        brand_unavailable: searched.brand_unavailable || false,
         filters_relaxed: searched.filters_relaxed || false,
         relaxed_filters: searched.relaxed_filters || [],
         searched_with: searched.searched_with || {},
@@ -1810,6 +1925,15 @@ serve(async (req) => {
     const wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser) && !ASKS_FOR_SOME_RE.test(normLastUser);
     const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
+    // Assortment/brand knowledge questions are answered in words (facts, brand names),
+    // so they must not be turned into a product-recommendation turn.
+    const isInfoQuestion = INFO_QUESTION_RE.test(normLastUser);
+    if (isInfoQuestion) {
+      systemPrompt += `\n\nINFO_QUESTION_TURN: این سؤال درباره‌ی خودِ برندها یا ترکیب کاتالوگه، نه درخواست محصول.
+- برای فهرست برند/کشور/دسته: در همین نوبت catalog_facets را صدا بزن و فقط «اسم‌ها» را بنویس (بدون تعداد و بدون قیمت مگر کاربر خواسته باشد).
+- برای معرفی یک برند: catalog_facets و در صورت نیاز brand_or_general_lookup را صدا بزن و در چند خط کوتاه معرفی کن (کشور سازنده، جایگاه، چه دسته‌هایی از آن برند در پت‌آباد هست).
+- محصول پیشنهاد نده و لیست شماره‌دار محصول نساز؛ جواب متنی و روان باشه. در پایان می‌تونی بپرسی از کدوم برند محصول ببینه.`;
+    }
     const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
 
@@ -1918,6 +2042,7 @@ serve(async (req) => {
     let roundMessages = [...aiMessages];
     let allProducts: any[] = [];
     let extractedIntent: any = null;
+    let unavailableBrand: string | null = null;
     let searchExecuted = false;
     let toolTrace: string[] = [];
     let bundleGroups: Array<{ label: string; products: any[] }> = [];
@@ -2087,6 +2212,7 @@ serve(async (req) => {
         bundleNeeds,
         lastUserText,
       );
+      if (roundResult.unavailableBrand) unavailableBrand = roundResult.unavailableBrand;
       if (roundResult.searchExecuted) {
         searchExecuted = true;
         extractedIntent = roundResult.extractedIntent;
@@ -2102,8 +2228,9 @@ serve(async (req) => {
     }
 
     // ── Discovery guard: a product-discovery turn must never end without a search ──
+
     const isDiscoveryIntent = effectiveMode === "discovery" || effectiveMode === "agentic";
-    if (isDiscoveryIntent && !searchExecuted && !wantsGuidance && !isBusinessQuestion) {
+    if (isDiscoveryIntent && !searchExecuted && !wantsGuidance && !isBusinessQuestion && !isInfoQuestion) {
       console.log("Discovery guard: no search executed in tool loop, running deterministic search...");
       const guardQuery = buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily);
       const guardSearch = await executeSearch(supabase, guardQuery, precomputedEmbedding, speciesLock);
@@ -2195,7 +2322,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           response_type: hydrated.length > 0 ? "products" : "message",
-          content: visible || (hydrated.length > 0 ? "این گزینه‌ها به درخواستت می‌خوره:" : "متوجه نشدم. می‌تونی دوباره بگی؟"),
+          content: hydrated.length > 0
+            ? (visible && hasNumberedProducts(visible) ? visible : composeProductAnswer(hydrated, originalQuery))
+            : (visible || "متوجه نشدم. می‌تونی دوباره بگی؟"),
           products: hydrated,
           reference_product_ids: sig.referenceIds,
           liked_product_ids: sig.likedIds,
@@ -2222,8 +2351,14 @@ serve(async (req) => {
       : "";
 
     const rerankerInstruction = candidatesForRerank.length > 0
-      ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
-      : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
+      ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: اول حداکثر ۳ خط توضیح کلی کوتاه، بعد برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
+      : (isInfoQuestion || isBusinessQuestion)
+        ? `\n\nANSWER_TURN: این نوبت یک سؤال اطلاعاتی درباره برندها، کاتالوگ یا خدمات فروشگاهه، نه درخواست محصول.
+- فقط بر پایه نتایج ابزارهای همین نوبت (catalog_facets / brand_or_general_lookup / business_faq_lookup) جواب بده.
+- جواب متنی، روان و کوتاه باشه؛ اگر فهرست برند/کشور/دسته خواسته شده، اسم‌ها رو پشت سر هم یا خط‌به‌خط بنویس${wantsCounts ? "" : " و عدد و تعداد ننویس"}.
+- محصول پیشنهاد نده و لیست شماره‌دار محصول نساز. چیزی از خودت اضافه نکن؛ اگر داده نداری، صادقانه بگو.
+- بدون مارک‌داون. SELECTED_IDS ننویس.`
+        : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
 
     const followUpMessages = [
       ...roundMessages,
@@ -2268,6 +2403,25 @@ serve(async (req) => {
     );
     // A reasoning model can burn its budget and return empty content. Retry once
     // with a shorter instruction so the shopper always gets the per-product "why".
+    if (!rawFinal.trim() && candidatesForRerank.length === 0 && (isInfoQuestion || isBusinessQuestion)) {
+      // Informational turn came back empty: answer straight from this turn's tool facts.
+      const retryInfo = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-lite",
+          messages: [
+            ...roundMessages.filter((m: any) => m.role !== "system"),
+            { role: "system", content: `به سؤال کاربر ("${originalQuery}") کوتاه و روان و فارسی جواب بده، فقط بر پایه نتایج ابزارهای بالا. بدون مارک‌داون، بدون پیشنهاد محصول${wantsCounts ? "" : "، بدون نوشتن تعداد"}. اگر داده کافی نیست، صادقانه بگو.` },
+          ],
+        }),
+      });
+      if (retryInfo.ok) {
+        const d = await retryInfo.json();
+        rawFinal = d.choices?.[0]?.message?.content || "";
+        console.log("Info answer retry length:", rawFinal.length);
+      }
+    }
     if (!rawFinal.trim() && candidatesForRerank.length > 0) {
       const retry = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -2275,7 +2429,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3.1-flash-lite",
           messages: [
-            { role: "system", content: `تو مشاور فروش پت‌آباد هستی. برای درخواست کاربر ("${originalQuery}") از این لیست بهترین ۳ تا ۶ محصول رو انتخاب کن.\nبرای هر محصول یک خط شماره‌دار با نام و قیمت بنویس و بعدش در خط جدا یک جمله بگو چرا همین محصول مناسبه. بدون مارک‌داون، بدون عدد تعداد کل.\nدر آخر یک خط: SELECTED_IDS:["id1","id2"]\n\n${candidateList}` },
+            { role: "system", content: `تو مشاور فروش پت‌آباد هستی. برای درخواست کاربر ("${originalQuery}") از این لیست بهترین ۳ تا ۶ محصول رو انتخاب کن.\nاول حداکثر ۳ خط توضیح کلی کوتاه بنویس، بعد برای هر محصول یک خط شماره‌دار با نام و قیمت و بعدش در خط جدا یک جمله بگو چرا همین محصول مناسبه. بدون مارک‌داون، بدون عدد تعداد کل.\nدر آخر یک خط: SELECTED_IDS:["id1","id2"]\n\n${candidateList}` },
             { role: "user", content: originalQuery },
           ],
         }),
@@ -2285,6 +2439,10 @@ serve(async (req) => {
         rawFinal = retryData.choices?.[0]?.message?.content || "";
         console.log("Re-ranker retry length:", rawFinal.length);
       }
+    }
+
+    if (!rawFinal.trim() && (isInfoQuestion || isBusinessQuestion)) {
+      rawFinal = String(finalAssistantMessage?.content || "");
     }
 
     const sig = extractSignals(rawFinal);
@@ -2315,6 +2473,10 @@ serve(async (req) => {
       }
       console.log(`Parity fill → ${selectedProducts.length} cards for ${numberedCount} numbered items`);
     }
+    if (numberedCount > 0 && selectedProducts.length > numberedCount) {
+      selectedProducts = selectedProducts.slice(0, numberedCount);
+      console.log(`Parity trim → ${numberedCount} cards`);
+    }
 
     if (selectedProducts.length === 0) {
       const mentionedIds = [
@@ -2326,6 +2488,10 @@ serve(async (req) => {
 
     finalContent = sanitizeVisibleText(finalContent);
     if (!wantsCounts) finalContent = stripCountTalk(finalContent);
+
+    // An informational answer (brand list, brand background) never carries product cards
+    // unless the shopper explicitly asked for products in the same message.
+    if (isInfoQuestion && sig.selectedIds.length === 0 && numberedCount === 0) selectedProducts = [];
 
     selectedProducts = filterBySpecies(selectedProducts, lockedSpecies);
     if (selectedProducts.length > parityCap) selectedProducts = selectedProducts.slice(0, parityCap);
@@ -2341,11 +2507,25 @@ serve(async (req) => {
       selectedProducts = [];
     }
 
-    if (!finalContent) {
-      finalContent = selectedProducts.length > 0
-        ? "این گزینه‌ها به درخواستت می‌خوره:"
+    // Never ship a bare placeholder: when the model gave no text (or text with no
+    // numbered products next to product cards), compose the answer from catalog data
+    // so the shape is always intro + product + why.
+    if (!isInfoQuestion && selectedProducts.length > 0 && (!finalContent || !hasNumberedProducts(finalContent))) {
+      finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
+      console.log("Composed deterministic product answer");
+    } else if (!finalContent) {
+      finalContent = isInfoQuestion
+        ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
         : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
     }
+
+    // Honest fallback: never silently swap a brand the shopper asked for.
+    if (unavailableBrand && finalContent && !finalContent.includes(unavailableBrand)) {
+      finalContent = `برند ${unavailableBrand} رو فعلاً موجود ندارم؛ نزدیک‌ترین گزینه‌های موجود اینا هستن:\n\n${finalContent}`;
+    }
+
+    // Persian digits everywhere in the visible answer.
+    finalContent = finalContent.replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
 
     return new Response(
       JSON.stringify({

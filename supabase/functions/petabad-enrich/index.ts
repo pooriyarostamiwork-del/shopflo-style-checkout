@@ -98,6 +98,38 @@ Deno.serve(async (req) => {
     const maxBatches = Math.min(Math.max(Number(body.max_batches) || 1, 1), 6);
     const dryRun = body.dry_run === true;
 
+    // Part 9: scheduled validation. Finds structurally contradictory enrichment and,
+    // unless dry_run, clears only the offending fields so they can be re-derived.
+    if (body.validate === true) {
+      const issues: Record<string, number> = {};
+      const nonDogBreed = await supabase
+        .from("pet_products")
+        .select("id, species", { count: "exact" })
+        .not("breed_size", "is", null)
+        .not("species", "is", null)
+        .not("species", "ilike", "%سگ%");
+      issues.breed_size_on_non_dog = nonDogBreed.data?.length ?? 0;
+      const outOfVocabStage = await supabase
+        .from("pet_products")
+        .select("id", { count: "exact", head: true })
+        .not("life_stage", "is", null)
+        .not("life_stage", "in", '("نابالغ","بالغ","سنیور")');
+      issues.life_stage_out_of_vocabulary = outOfVocabStage.count ?? 0;
+      const noEmbedding = await supabase
+        .from("pet_products")
+        .select("id", { count: "exact", head: true })
+        .is("embedding", null);
+      issues.missing_embedding = noEmbedding.count ?? 0;
+
+      let repaired = 0;
+      if (!dryRun && (nonDogBreed.data?.length ?? 0) > 0) {
+        const ids = (nonDogBreed.data || []).map((r: any) => r.id);
+        const { error } = await supabase.from("pet_products").update({ breed_size: null }).in("id", ids);
+        if (!error) repaired = ids.length;
+      }
+      return json({ validate: true, issues, repaired, dry_run: dryRun });
+    }
+
     if (body.report === true) {
       const countOf = async (build: (q: any) => any) => {
         const { count } = await build(

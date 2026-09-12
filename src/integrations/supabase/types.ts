@@ -311,6 +311,103 @@ export type Database = {
         }
         Relationships: []
       }
+      pet_taxonomy_aliases: {
+        Row: {
+          alias: string
+          canonical_fa: string
+          created_at: string
+          dimension_key: string
+          id: string
+        }
+        Insert: {
+          alias: string
+          canonical_fa: string
+          created_at?: string
+          dimension_key: string
+          id?: string
+        }
+        Update: {
+          alias?: string
+          canonical_fa?: string
+          created_at?: string
+          dimension_key?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_taxonomy_aliases_dimension_key_fkey"
+            columns: ["dimension_key"]
+            isOneToOne: false
+            referencedRelation: "pet_taxonomy_dimensions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      pet_taxonomy_dimensions: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          key: string
+          name_fa: string
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          key: string
+          name_fa: string
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          key?: string
+          name_fa?: string
+        }
+        Relationships: []
+      }
+      pet_taxonomy_terms: {
+        Row: {
+          canonical_fa: string
+          created_at: string
+          definition: string | null
+          dimension_key: string
+          english_key: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          version: number
+        }
+        Insert: {
+          canonical_fa: string
+          created_at?: string
+          definition?: string | null
+          dimension_key: string
+          english_key?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          version?: number
+        }
+        Update: {
+          canonical_fa?: string
+          created_at?: string
+          definition?: string | null
+          dimension_key?: string
+          english_key?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_taxonomy_terms_dimension_key_fkey"
+            columns: ["dimension_key"]
+            isOneToOne: false
+            referencedRelation: "pet_taxonomy_dimensions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
@@ -1123,6 +1220,10 @@ export type Database = {
           p_subcategory_prefix?: string
         }
         Returns: Json
+      }
+      pet_taxonomy_normalize: {
+        Args: { p_dimension: string; p_value: string }
+        Returns: string
       }
       pet_type_group: { Args: { p_type: string }; Returns: string }
       product_facets: {

@@ -2664,6 +2664,13 @@ serve(async (req) => {
       if (grounded) selectedProducts = [];
     }
 
+    // "I couldn't find anything" is never an acceptable answer to a brand question.
+    if (isInfoQuestion && /پیدا نکردم|موجود ندارم/.test(finalContent)) {
+      const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
+      if (grounded) { finalContent = grounded; selectedProducts = []; }
+    }
+
+
 
     // Honest fallback: never silently swap a brand the shopper asked for.
     if (unavailableBrand && finalContent && !finalContent.includes(unavailableBrand)) {

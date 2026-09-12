@@ -2877,9 +2877,15 @@ serve(async (req) => {
     // ── Fallback composer (formerly the always-on re-ranker) ──
     console.log("Fallback composition: loop ended without prose; tools:", toolTrace.join(","));
     let answerSource = "reranker_fallback";
-    const candidatesForRerank = isBundleTurn
-      ? allProducts.slice(0, maxShown)
-      : allProducts.slice(0, comprehensive ? 24 : 12);
+    // A turn that only looked up details/FAQ/memory (no catalog search) is an explanation turn,
+    // not a recommendation turn → compose prose, never a fresh product list.
+    const explanationOnly =
+      !searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t));
+    const candidatesForRerank = explanationOnly
+      ? []
+      : isBundleTurn
+        ? allProducts.slice(0, maxShown)
+        : allProducts.slice(0, comprehensive ? 24 : 12);
     const candidateList = candidatesForRerank
       .map(
         (p: any, i: number) =>

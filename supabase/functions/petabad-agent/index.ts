@@ -2782,7 +2782,11 @@ serve(async (req) => {
     }
 
     const requestedLimit = Number(extractedIntent?.limit) || 0;
-    const comprehensive = requestedLimit >= 12;
+    // "همه محصولات ... رو بده" is a broad request: it deserves broad coverage.
+    const wantsEverything = /(همه(‌| )?ی? ?محصولات|همه ?ش?و? ?بده|همه ?ی? ?گزینه|کاملشو|لیست کامل|تمام محصولات)/.test(
+      normLastUser,
+    );
+    const comprehensive = requestedLimit >= 12 || wantsEverything;
     const maxShown = isBundleTurn || comprehensive ? 12 : 6;
 
     // ── Authoritative path: the model wrote an answer in the tool loop → ship THAT answer ──

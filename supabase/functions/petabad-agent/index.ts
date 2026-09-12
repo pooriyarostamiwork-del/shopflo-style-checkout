@@ -786,6 +786,7 @@ async function executeSearch(
 
   let data = await runSearch(rpcParams);
   if (data === null) return { products: [], message: "جستجو با مشکل مواجه شد" };
+  console.log("executeSearch rpcParams:", JSON.stringify(rpcParams), "initial results:", data.length);
 
   // Part 3 — Pet-specific context-aware relaxation tiers.
   // Tier 0 hard compatibility is never removed: species, product type/group, subcategory, price, stock.

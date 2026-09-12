@@ -269,7 +269,7 @@ const ageQuestion: Builder = async (deps, flow) => {
   if (!f) return null;
   const buckets = splitting(f.life_stages, f.total, 3);
   if (buckets.length < 2) return null;
-  const options = ["نابالغ", "بالغ", "سنیور"]
+  const options: FlowCard["options"] = ["نابالغ", "بالغ", "سنیور"]
     .filter((k) => buckets.some((b) => b.value === k))
     .map((k) => ({ label: STAGE_LABEL[k].label, hint: STAGE_LABEL[k].hint }));
   options.push({ label: "مهم نیست" });

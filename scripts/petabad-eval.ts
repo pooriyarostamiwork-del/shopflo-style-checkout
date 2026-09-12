@@ -250,7 +250,14 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
         fails.push(`species mismatch: ${name} (${p.species})`);
       if (c.nameAnyOf && !c.nameAnyOf.some((re) => re.test(name))) fails.push(`type mismatch: ${name}`);
       if (c.nameNoneOf && c.nameNoneOf.some((re) => re.test(name))) fails.push(`forbidden product: ${name}`);
+      // every card must be the product the text names, with the catalog's own price
+      if (name && !content.includes(name.slice(0, 20))) fails.push(`card not named in the text: ${name}`);
+      if (typeof p.price === "number") {
+        const faPrice = p.price.toLocaleString("en-US").replace(/\d/g, (d: string) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+        if (!content.includes(faPrice)) fails.push(`price in text differs from catalog: ${name} (${faPrice})`);
+      }
     }
+
   } else if (products.length > 0 && !c.allowProducts) {
     fails.push("products returned for a non-product question");
   }

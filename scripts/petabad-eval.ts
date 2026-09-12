@@ -119,7 +119,7 @@ const CASES: Case[] = [
     prompt: "برندهای خارجی پوچ گربه چانک چیا دارین",
     expectProducts: false,
     contentNoneOf: [/چانک چیا در لیست/, /موجود نیست/],
-    contentAnyOf: [/ویسکاس|فلیکس|گورمت|رویال|جوسرا|پروپلن|مونژه|مونجه|کیت.?کت/],
+    contentAnyOf: [/ویسکاس|فلیکس|گورمت|رویال|جوسرا|پروپلن|مونژه|مونجه|کیت.?کت|Whiskas|Royal Canin|KitCat|Monge|Felix|Hills/i],
     toolsNoneOf: ["search_products (discovery-guard)"],
   },
   {

@@ -1054,9 +1054,9 @@ async function executeSearch(
   const foreignOnly =
     originScope === "خارجی" ? true : originScope === "ایرانی" ? false : (lock?.foreignOnly ?? null);
   if (foreignOnly !== null && foreignOnly !== undefined) rpcParams.p_foreign_only = foreignOnly;
-  // Brand diversity: one brand may not occupy the whole answer unless the shopper
-  // asked for that exact brand.
-  rpcParams.p_brand_cap = 2;
+  // Brand diversity: one brand may not occupy the whole retrieval page unless the
+  // shopper asked for that exact brand. Kept generous so small shelves stay full.
+  rpcParams.p_brand_cap = 4;
   // A single exact shelf is a hard filter only when the user named a brand shelf;
   // otherwise search the whole shelf family so brand-split shelves stay visible.
   const family =

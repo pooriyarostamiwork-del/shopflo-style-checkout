@@ -2839,7 +2839,7 @@ serve(async (req) => {
         lockedSpecies,
         isBundleTurn,
         bundleNeeds,
-        lastUserText,
+        flowSummary ? `${flowSummary.seed} ${lastUserText}` : lastUserText,
       );
       if (roundResult.unavailableBrand) unavailableBrand = roundResult.unavailableBrand;
       if (roundResult.searchExecuted) {

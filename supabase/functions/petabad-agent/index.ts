@@ -355,6 +355,12 @@ const SEARCH_TOOL = {
           type: "number",
           description: "Skip this many results — used for 'more results' paging.",
         },
+        exclude_brands: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Brands to EXCLUDE. Use for «از برندهای دیگه هم بده» / «بجز این برندها» — list every brand already shown in this conversation.",
+        },
         sort_by: {
           type: "string",
           enum: ["relevance", "price_low", "price_high", "rating"],

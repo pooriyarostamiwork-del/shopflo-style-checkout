@@ -2793,8 +2793,21 @@ serve(async (req) => {
         }
       }
 
-      // Species filter only applies to species-tagged rows; accessories without a species stay.
-      cards = cards.filter((p: any) => !p.species || filterBySpecies([p], lockedSpecies).length > 0);
+      // Species safety only for the two main species; umbrella species (rodents, birds...) keep
+      // whatever the model deliberately listed. Rows without a species (accessories) always stay.
+      if (lockedSpecies === "گربه" || lockedSpecies === "سگ") {
+        cards = cards.filter((p: any) => !p.species || filterBySpecies([p], lockedSpecies).length > 0);
+      }
+      // Parity fill: the model listed more items than we could match by name → the rest of
+      // this turn's results are what it was reading from, so fill in order.
+      if (numberedCount > 0 && cards.length < numberedCount) {
+        for (const p of allProducts) {
+          if (cards.length >= numberedCount) break;
+          if (seen.has(p.id)) continue;
+          if ((lockedSpecies === "گربه" || lockedSpecies === "سگ") && p.species && filterBySpecies([p], lockedSpecies).length === 0) continue;
+          pushCard(p);
+        }
+      }
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);
       // Informational answers never carry cards unless the text itself lists products.

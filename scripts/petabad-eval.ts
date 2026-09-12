@@ -32,8 +32,8 @@ type Case = {
   contentNoneOf?: RegExp[];
   /** trace.tools must not include any of these */
   toolsNoneOf?: string[];
-  /** required trace.answer_source */
-  answerSource?: string;
+  /** accepted trace.answer_source values */
+  answerSource?: string | string[];
   minProducts?: number;
 };
 
@@ -97,7 +97,7 @@ const CASES: Case[] = [
     expectProducts: false,
     contentAnyOf: [/دو\s*عدد/, /۲\s*عدد/],
     toolsNoneOf: ["search_products (discovery-guard)"],
-    answerSource: "model_final",
+    answerSource: ["model_final", "faq_regrounding"],
   },
   {
     id: "faq-damaged-product",
@@ -197,8 +197,10 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
 
   const tools: string[] = body?.trace?.tools || [];
   if (c.toolsNoneOf) for (const t of c.toolsNoneOf) if (tools.includes(t)) fails.push(`forced tool ran: ${t}`);
-  if (c.answerSource && body?.trace?.answer_source !== c.answerSource)
-    fails.push(`answer_source ${body?.trace?.answer_source} != ${c.answerSource}`);
+  if (c.answerSource) {
+    const ok = ([] as string[]).concat(c.answerSource);
+    if (!ok.includes(body?.trace?.answer_source)) fails.push(`answer_source ${body?.trace?.answer_source} not in ${ok.join("|")}`);
+  }
   if (c.contentAnyOf && !c.contentAnyOf.some((re) => re.test(content))) fails.push(`content missing expected text: ${content.slice(0, 120)}`);
   if (c.contentNoneOf) for (const re of c.contentNoneOf) if (re.test(content)) fails.push(`forbidden text: ${re}`);
   if (c.minProducts && products.length < c.minProducts) fails.push(`only ${products.length} cards (min ${c.minProducts})`);

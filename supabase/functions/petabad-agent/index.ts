@@ -2690,11 +2690,20 @@ serve(async (req) => {
       if (grounded) selectedProducts = [];
     }
 
-    // "I couldn't find anything" is never an acceptable answer to a brand question.
-    if (isInfoQuestion && /پیدا نکردم|موجود ندارم/.test(finalContent)) {
-      const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
-      if (grounded) { finalContent = grounded; selectedProducts = []; }
+    // A brand question is answered with brand names from the catalog — never with
+    // "we don't have that", and never with a denial the catalog contradicts.
+    if (isInfoQuestion) {
+      const brandVocabFinal = await loadBrands(supabase);
+      const namesAnyBrand = brandVocabFinal.canonical.some((b) =>
+        b.length >= 3 && finalContent.toLowerCase().includes(b.toLowerCase()),
+      );
+      const denies = /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|در دسترس نیست|نیست)/.test(finalContent);
+      if (!namesAnyBrand || denies) {
+        const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
+        if (grounded) { finalContent = grounded; selectedProducts = []; }
+      }
     }
+
 
 
 

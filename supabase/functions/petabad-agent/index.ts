@@ -1713,7 +1713,25 @@ const faNum = (n: number | string) => String(n).replace(/\d/g, (d) => FA_DIGITS[
  * Used whenever the answer model returns empty or shapeless content, so the shopper
  * never sees a bare placeholder sentence.
  */
-function composeProductAnswer(products: any[], query: string): string {
+const RELAXED_LABEL_FA: Record<string, string> = {
+  life_stage: "رده سنی",
+  medical_needs: "نیاز درمانی",
+  needs: "نیاز خاص",
+  price_range: "بازه قیمت",
+  brand: "برند",
+  origin_country: "کشور سازنده",
+  breed_size: "اندازه نژاد",
+  product_line: "خط محصول",
+  non_critical_needs: "ترجیح‌های فرعی",
+};
+/** Honest one-line disclosure when the catalog could not satisfy every stated condition. */
+function relaxationIntro(relaxed: string[] | undefined): string {
+  const names = (relaxed || []).map((r) => RELAXED_LABEL_FA[r]).filter(Boolean);
+  if (names.length === 0) return "";
+  return `دقیقاً با همهٔ شرایطت (${names.join("، ")}) چیزی موجود نبود؛ نزدیک‌ترین گزینه‌ها اینان:`;
+}
+
+function composeProductAnswer(products: any[], query: string, introOverride?: string): string {
   const list = (products || []).filter(Boolean);
   if (list.length === 0) {
     return "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
@@ -1729,7 +1747,11 @@ function composeProductAnswer(products: any[], query: string): string {
         : /پرنده|مرغ عشق|طوطی/.test(q)
           ? "پرنده"
           : "";
-  const intro = animal ? `چند گزینه خوب برای ${animal}ت دارم:` : "چند گزینه خوب برات پیدا کردم:";
+  const intro = introOverride?.trim()
+    ? introOverride.trim()
+    : animal
+      ? `چند گزینه خوب برای ${animal}ت دارم:`
+      : "چند گزینه خوب برات پیدا کردم:";
 
   const blocks = list.map((p: any, i: number) => {
     const name = p.name_fa || p.name || "محصول";
@@ -2197,6 +2219,9 @@ async function runToolRound(
       const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
       if (searched.products) result.products = [...result.products, ...searched.products];
       if (searched.brand_unavailable && searched.requested_brand) result.unavailableBrand = searched.requested_brand;
+      if (Array.isArray(searched.relaxed_filters) && searched.relaxed_filters.length > 0) {
+        result.relaxed = [...new Set([...(result.relaxed || []), ...searched.relaxed_filters])];
+      }
       toolResult = {
         matched_total: searched.matched_total ?? 0,
         shown: searched.shown ?? 0,

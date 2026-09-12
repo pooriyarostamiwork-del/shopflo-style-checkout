@@ -1293,6 +1293,8 @@ async function executeSearch(
       brand: rpcParams.p_brand || null,
       product_line: rpcParams.p_product_line || null,
       origin_country: rpcParams.p_origin_country || null,
+      origin_scope: rpcParams.p_foreign_only === true ? "خارجی" : rpcParams.p_foreign_only === false ? "ایرانی" : null,
+      excluded_brands: rpcParams.p_exclude_brands || [],
       life_stage: rpcParams.p_life_stage || null,
       breed_size: rpcParams.p_breed_size || null,
     },

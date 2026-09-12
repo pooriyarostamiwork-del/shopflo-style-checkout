@@ -1533,6 +1533,8 @@ function buildBudgetOptions(price: QuestionFacets["price"]): any[] | null {
     return Math.max(100_000, Math.round(v / 100_000) * 100_000);
   };
   // Buckets are open-ended at the bottom ("تا X") — a "۰ تا X" label is meaningless.
+  // A flat slice (top quartile under 1.5× the bottom one) has no real tiers to choose from.
+  if (price.q3 < price.q1 * 1.5) return null;
   const edges = Array.from(new Set([round(price.q1), round(price.median), round(price.q3)])).sort((a, b) => a - b);
   if (edges.length < 2) return null;
 
@@ -2390,6 +2392,7 @@ serve(async (req) => {
       shopping_context,
       reference_hint,
       question_flow,
+      pet_memory,
     } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -2588,6 +2591,7 @@ serve(async (req) => {
         formatToman,
         detectSpecies,
         concreteSpecies: concreteSpeciesWord,
+        detectProductTypes,
         buildBudgetOptions,
         needSpecs: NEED_SPECS,
       };
@@ -2602,8 +2606,16 @@ serve(async (req) => {
       if (!flow || flow.done) {
         const goal = detectGoal(normLastUser);
         const explicitBundle = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
-        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies);
-        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies);
+        // What the conversation already knows about this pet: never ask it again.
+        const memPet = pet_memory && typeof pet_memory === "object" ? pet_memory : null;
+        const sameAnimal = memPet?.species && lockedSpecies && detectSpecies(String(memPet.species)) === lockedSpecies;
+        const known: FlowSeed = {
+          lifeStage: lockedStage || (sameAnimal ? memPet?.life_stage || null : null),
+          foreignOnly: stickyForeign,
+          healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
+        };
+        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies, flowDeps, known);
+        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies, flowDeps, known);
         else flow = null;
       }
       if (flow && !flow.done) {

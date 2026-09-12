@@ -1151,13 +1151,18 @@ async function executeSearch(
   }
   rpcParams.p_limit = Math.min(Math.max(Number(limit) || 20, 1), 60);
 
+  // Tier-1 life-stage protection: a stated stage is enforced on every attempt, so a
+  // kitten-only result set counts as "nothing found" and relaxation continues
+  // (price widens before the stage itself is ever dropped).
+  const stageLock: string | null = lock?.lifeStage || canonStage || null;
   const runSearch = async (params: any) => {
     const { data, error } = await supabase.rpc("pet_hybrid_search", params);
     if (error) {
       console.error("Hybrid search error:", error);
       return null;
     }
-    return data || [];
+    const rows = data || [];
+    return params.p_life_stage ? stageStrict(rows, params.p_life_stage) : rows;
   };
 
   let data = await runSearch(rpcParams);
@@ -1219,6 +1224,17 @@ async function executeSearch(
             label: "needs",
             apply: (p: any) => {
               delete p.p_needs;
+            },
+          },
+        ]
+      : []),
+    ...(rpcParams.p_max_price || rpcParams.p_min_price
+      ? [
+          {
+            label: "price_range",
+            apply: (p: any) => {
+              if (p.p_max_price) p.p_max_price = Math.round(Number(p.p_max_price) * 1.6);
+              delete p.p_min_price;
             },
           },
         ]
@@ -1319,7 +1335,7 @@ async function executeSearch(
 
   // Stated life stage: matching rows lead, contradictory rows are kept but deprioritized
   // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
-  results = applyStagePreference(results, lock?.lifeStage || filters?.life_stage || null);
+  results = applyStagePreference(results, stageLock);
 
   // Honest fallback signal: the shopper named a REAL brand we cannot serve.
   // Colloquial words misread as brands never produce this claim.
@@ -1955,6 +1971,20 @@ const STAGE_NAME_HINTS: Record<string, RegExp> = {
   "سنیور": /سنیور|senior|مسن|سالمند/i,
   "بالغ": /adult|بالغ/i,
 };
+function stageConflicts(r: any, stage: string): boolean {
+  if (r?.life_stage && r.life_stage !== stage) return true;
+  if (!r?.life_stage) {
+    for (const [k, re] of Object.entries(STAGE_NAME_HINTS)) {
+      if (k !== stage && re.test(String(r?.name_fa || r?.name || ""))) return true;
+    }
+  }
+  return false;
+}
+/** Strict: drops rows for another stage (may return an empty list). */
+function stageStrict(rows: any[], stage: string | null): any[] {
+  if (!stage) return rows;
+  return (rows || []).filter((r) => !stageConflicts(r, stage));
+}
 function applyStagePreference(rows: any[], stage: string | null): any[] {
   if (!stage) return rows;
   const conflicts = (r: any) => {

@@ -2036,14 +2036,26 @@ function lastNamedSpecies(text: string): string | null {
 function rowMatchesSpecies(row: any, locked: string): boolean {
   const own = speciesRe(locked);
   if (!own) return true;
+  const name = normalizePersian(String(row?.name_fa || row?.name || ""));
+  // The product NAME wins over the stored species field: a handful of rows are
+  // mislabelled, and "غذای خشک سگ ..." must never be shown as a cat product.
+  if (locked === "گربه" || locked === "سگ") {
+    const other = locked === "گربه" ? "سگ" : "گربه";
+    const otherRe = speciesRe(other);
+    const nameSaysOwn = own.test(name);
+    const nameSaysOther = !!otherRe && otherRe.test(name);
+    if (nameSaysOther && !nameSaysOwn) return false;
+    if (nameSaysOwn) return true;
+  }
   const speciesText = normalizePersian(String(row?.species || ""));
   const shelf = normalizePersian(`${row?.subcategory || ""} ${row?.category || ""}`);
   const haystack = `${speciesText} ${shelf}`;
   if (own.test(haystack)) return true;
   // No species signal at all → allow only when no OTHER animal is named either.
-  const foreign = SPECIES_TOKENS.some(([name, re]) => name !== locked && re.test(haystack));
+  const foreign = SPECIES_TOKENS.some(([name2, re]) => name2 !== locked && re.test(haystack));
   return !foreign;
 }
+
 
 function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
   if (!locked) return rows;

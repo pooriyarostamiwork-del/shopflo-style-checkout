@@ -2314,6 +2314,7 @@ serve(async (req) => {
       scope_hint,
       shopping_context,
       reference_hint,
+      question_flow,
     } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {

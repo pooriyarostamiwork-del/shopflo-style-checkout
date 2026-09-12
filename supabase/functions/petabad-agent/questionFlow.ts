@@ -93,8 +93,35 @@ export function detectGoal(normText: string): FlowGoal {
   return BUNDLE_RE.test(normText) ? "bundle" : "single";
 }
 
-export function startFlow(goal: FlowGoal, seed: string, species: string | null): QuestionFlow {
-  return { goal, seed, species, asked: [], answers: {}, pending: null, done: false };
+const STAGE_ANSWER: Record<string, string> = { نابالغ: "بچه / نابالغ", بالغ: "بالغ", سنیور: "سالمند / سنیور" };
+
+/**
+ * Start a flow. Facts the conversation already established (pet memory, words in
+ * the request) are written in as answers so the matching questions are skipped.
+ */
+export function startFlow(
+  goal: FlowGoal,
+  seed: string,
+  species: string | null,
+  deps?: FlowDeps,
+  known?: FlowSeed | null,
+): QuestionFlow {
+  const answers: Record<string, string> = {};
+  const asked: string[] = [];
+  const types = known?.productTypes?.length ? known.productTypes : deps ? deps.detectProductTypes(seed) : [];
+  if (known?.lifeStage && STAGE_ANSWER[known.lifeStage]) {
+    answers["age"] = STAGE_ANSWER[known.lifeStage];
+    asked.push("age");
+  }
+  if (known?.foreignOnly === true || known?.foreignOnly === false) {
+    answers["origin"] = known.foreignOnly ? "خارجی" : "ایرانی";
+    asked.push("origin");
+  }
+  if (goal === "single" && known?.healthNeeds?.length) {
+    answers["need"] = known.healthNeeds.join(" و ");
+    asked.push("need");
+  }
+  return { goal, seed, species, productTypes: types.length ? types : null, asked, answers, pending: null, done: false };
 }
 
 /** Record the shopper's reply to the pending question. Free text counts as an answer too. */
@@ -138,6 +165,7 @@ async function facets(deps: FlowDeps, params: Record<string, any>): Promise<Face
       needs: data.needs || [],
       countries: data.countries || [],
       species: data.species || [],
+      product_types: data.product_types || [],
     };
   } catch (e) {
     console.error("Flow facets exception:", e);

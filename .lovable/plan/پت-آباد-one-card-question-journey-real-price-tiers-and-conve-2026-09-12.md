@@ -11,17 +11,21 @@
 ## What we build (PetAbad only)
 
 ### 1. One card for the whole question journey
+
 - The first question opens a single "guidance card" message. Every following question from the server is rendered inside that same card: answered steps collapse to a compact row (question → chosen answer, tappable to change), the current question shows below with its options, and while the next question is being computed the card shows an inline shimmer («دارم گزینه‌های بعدی رو از موجودی چک می‌کنم…») instead of the chat-level loading bubble.
 - The tap is still sent to the assistant as the answer, but it is not shown as a separate user bubble; it lives in the collapsed step row. The final product answer arrives as a normal new message under the card.
 - A card that is abandoned (shopper types something else) or completed becomes read-only, as today. History/reload restores the card with all its steps.
+- the final output of the card must not be one message per each question, all the questions that have been answered must be rendered as a single message. 
 - Works identically on `/petabad`, `/m/petabad` and `/petabad/floating`.
 
 ### 2. Price computed from the actual configuration
+
 - For single-product flows, a "product type" question is added before price whenever the request does not already name one (e.g. «غذا» for a cat → خشک / کنسرو / پوچ / تشویقی), with options taken from live catalog counts. If the request already says «غذای خشک» / «کنسرو» / «تشویقی», the type is set silently.
 - Budget buckets are then computed on the narrowed slice: species + product type + life stage + needs + origin. Labels stay «تا X تومان» / «X تا Y تومان» / «بالای X تومان»; buckets that are closer than the rounding step are merged; the question is skipped when the slice is too small or too flat to matter.
 - Bundle tiers (اقتصادی / کامل / حرفه‌ای) are priced per essential on the same narrowed slices, so a starter pack for an adult cat prices adult products, not kitten milk or treats.
 
 ### 3. Conversation memory that drives everything
+
 - A per-conversation pet memory is kept alongside the existing product memory: each pet (species, given name if any, age / life stage, breed size, health needs, stated preferences), the active pet, brands and origins discussed / preferred / rejected, budgets per pet and product type, and topics already covered. It is filled from the shopper's words, from every answered question step, and from a compact signal the assistant can emit; it is saved with the basket so it survives reload.
 - «گربم» / «سگم» / «برای همون» resolve to the matching pet profile; switching between pets never mixes their facts.
 - The question flow is seeded from memory: questions whose answers are already known (age, needs, origin preference) are skipped, and the card says so briefly («سن گربه‌ت رو از قبل دارم: ۷ سال»). Only genuinely unknown things are asked.
@@ -30,6 +34,7 @@
 - The recent-history window sent to the assistant grows from 6 to 12 turns, and question-card turns carry their text (question + answer) so nothing is lost in the window.
 
 ### 4. Regression checks
+
 - Add replay cases to `scripts/petabad-eval.ts`: cat aged 7 → dog bundle → «راهنماییم می‌کنی چه غذایی باید برای گربم بگیرم» (no age question, senior lock applied); «غذای خارجی گربه» guidance (no bucket under 1M once dry food is chosen, bucket edges within the dry-food quantiles); a canned-food request (buckets within the can quantiles); brand asked about earlier is remembered in a later informational turn.
 
 ## Technical details

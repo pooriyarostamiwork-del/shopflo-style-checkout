@@ -750,8 +750,12 @@ async function executeSearch(
   if (family) rpcParams.p_subcategory_prefix = family;
   else if (subcategory) rpcParams.p_subcategory = subcategory;
   // The species lock always wins over whatever the model asked for.
-  if (lockedSpecies) rpcParams.p_species = lockedSpecies;
-  else if (species) rpcParams.p_species = species;
+  // Umbrella buckets ("سایر حیوانات خانگی", "ماهی و آکواریوم") are NOT catalog values —
+  // the catalog stores جوندگان / خرگوش / ... , so a literal filter would return nothing.
+  // For those we skip the SQL filter and rely on the post-retrieval species lock.
+  const UMBRELLA_SPECIES = ["سایر حیوانات خانگی", "ماهی و آکواریوم"];
+  const rpcSpecies = lockedSpecies || species || null;
+  if (rpcSpecies && !UMBRELLA_SPECIES.includes(rpcSpecies)) rpcParams.p_species = rpcSpecies;
 
   if (filters?.brand) rpcParams.p_brand = filters.brand;
   if (filters?.product_line) rpcParams.p_product_line = filters.product_line;
@@ -786,7 +790,8 @@ async function executeSearch(
 
   let data = await runSearch(rpcParams);
   if (data === null) return { products: [], message: "جستجو با مشکل مواجه شد" };
-  console.log("executeSearch rpcParams:", JSON.stringify(rpcParams), "initial results:", data.length);
+  const { p_embedding: _emb, ...logParams } = rpcParams;
+  console.log("search:", JSON.stringify(logParams), "→", data.length);
 
   // Part 3 — Pet-specific context-aware relaxation tiers.
   // Tier 0 hard compatibility is never removed: species, product type/group, subcategory, price, stock.
@@ -794,29 +799,42 @@ async function executeSearch(
   // Tier 2 strong preference (non-critical needs, brand, country) is relaxed with disclosure.
   // Tier 3 soft preference (flavour, product line, sorting) is relaxed first.
   const relaxedLabels: string[] = [];
+  // Medical/therapeutic needs are Tier 1: they are only dropped as a last resort,
+  // while cosmetic/comfort needs (skin&coat, dental, indoor...) are Tier 2.
+  const CRITICAL_NEEDS = ["درمانی", "کلیه و مجاری ادرار", "گوارش حساس", "ضد حساسیت", "مفاصل"];
+  const askedNeeds: string[] = Array.isArray(rpcParams.p_needs) ? rpcParams.p_needs : [];
+  const criticalNeeds = askedNeeds.filter((n) => CRITICAL_NEEDS.includes(n));
+  const softNeeds = askedNeeds.filter((n) => !CRITICAL_NEEDS.includes(n));
+
   const tieredRelaxations: Array<{ label: string; apply: (p: any) => void }> = [
     { label: "product_line", apply: (p) => { delete p.p_product_line; } },
-    { label: "non_critical_needs", apply: (p) => { delete p.p_needs; } },
+    ...(softNeeds.length > 0 && criticalNeeds.length > 0
+      ? [{ label: "non_critical_needs", apply: (p: any) => { p.p_needs = criticalNeeds; } }]
+      : []),
     { label: "brand", apply: (p) => { delete p.p_brand; } },
     { label: "origin_country", apply: (p) => { delete p.p_origin_country; } },
     { label: "breed_size", apply: (p) => { delete p.p_breed_size; } },
+    ...(criticalNeeds.length === 0
+      ? [{ label: "needs", apply: (p: any) => { delete p.p_needs; } }]
+      : []),
     { label: "life_stage", apply: (p) => { delete p.p_life_stage; } },
+    ...(criticalNeeds.length > 0
+      ? [{ label: "medical_needs", apply: (p: any) => { delete p.p_needs; } }]
+      : []),
   ];
 
   let currentParams = { ...rpcParams };
   for (const step of tieredRelaxations) {
     if (data.length > 0) break;
     step.apply(currentParams);
+    relaxedLabels.push(step.label);
     const retry = await runSearch(currentParams);
     if (retry && retry.length > 0) {
       data = retry;
-      relaxedLabels.push(step.label);
       break;
     }
   }
-
-  // If still empty after all internal relaxations, keep Tier 0/1 intact and let the final model explain.
-  const relaxed = relaxedLabels.length > 0 ? ["filters_relaxed"] : [];
+  if (data.length === 0) relaxedLabels.length = 0;
 
   // HARD species lock: a row from another animal never reaches the answer model.
   let results = filterBySpecies(data, lockedSpecies);
@@ -1332,7 +1350,9 @@ const SPECIES_TOKENS: Array<[string, RegExp]> = [
 
   ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
   ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],
-  ["سایر حیوانات خانگی", /جونده|جوندگان|خرگوش|همستر|خوکچه|خزنده|لاک\s*پشت|موش|سنجاب|فرت/],
+  // NOTE: "موش" is deliberately excluded — «پوست و موش» (its skin and coat) would
+  // otherwise be read as a rodent and hijack the species lock.
+  ["سایر حیوانات خانگی", /جونده|جوندگان|خرگوش|همستر|خوکچه|خزنده|لاک\s*پشت|سنجاب|فرت/],
 ];
 
 function speciesRe(label: string | null): RegExp | null {
@@ -1430,6 +1450,29 @@ const NEED_SPECS: NeedSpec[] = [
   },
 ];
 
+/**
+ * Umbrella buckets ("سایر حیوانات خانگی", "ماهی و آکواریوم") are not shelf words.
+ * Use the concrete animal the shopper actually named so shelf queries hit real rows.
+ */
+const CONCRETE_PET_WORDS: Array<[string, RegExp]> = [
+  ["خرگوش", /خرگوش/],
+  ["همستر", /همستر/],
+  ["خوکچه هندی", /خوکچه/],
+  ["جوندگان", /جونده|جوندگان|سنجاب/],
+  ["خزندگان", /خزنده|لاک\s*پشت|مارمولک/],
+  ["فرت", /فرت/],
+  ["ماهی", /ماهی|آبزیان|آکواریوم|اکواریوم/],
+];
+
+function concreteSpeciesWord(species: string, userText: string): string {
+  const norm = normalizePersian(userText || "");
+  if (species === "سایر حیوانات خانگی" || species === "ماهی و آکواریوم") {
+    const hit = CONCRETE_PET_WORDS.find(([, re]) => re.test(norm));
+    if (hit) return hit[0];
+  }
+  return species;
+}
+
 function detectNeeds(text: string): NeedSpec[] {
   const norm = normalizePersian(text || "");
   return NEED_SPECS.filter((n) => n.re.test(norm));
@@ -1526,6 +1569,7 @@ async function runToolRound(
   lockedSpecies: string | null,
   isBundleTurn: boolean,
   bundleNeeds: NeedSpec[],
+  lastUserText = "",
 ): Promise<ToolRoundResult> {
   const result: ToolRoundResult = {
     products: [],
@@ -1597,7 +1641,8 @@ async function runToolRound(
   }
 
   if (isBundleTurn && result.searchExecuted) {
-    const sp = lockedSpecies as string;
+    // For umbrella buckets the bucket label is not a shelf word — use the animal the shopper named.
+    const sp = concreteSpeciesWord(lockedSpecies as string, lastUserText);
     const groups = await Promise.all(
       bundleNeeds.slice(0, 5).map(async (need) => {
         const queries = needShelfQueries(need, sp);
@@ -2040,6 +2085,7 @@ serve(async (req) => {
         lockedSpecies,
         isBundleTurn,
         bundleNeeds,
+        lastUserText,
       );
       if (roundResult.searchExecuted) {
         searchExecuted = true;
@@ -2215,7 +2261,31 @@ serve(async (req) => {
     }
 
     const followUpData = await followUpResponse.json();
-    const rawFinal = followUpData.choices?.[0]?.message?.content || "";
+    let rawFinal = followUpData.choices?.[0]?.message?.content || "";
+    console.log(
+      "Re-ranker raw length:", rawFinal.length,
+      "finish:", followUpData.choices?.[0]?.finish_reason,
+    );
+    // A reasoning model can burn its budget and return empty content. Retry once
+    // with a shorter instruction so the shopper always gets the per-product "why".
+    if (!rawFinal.trim() && candidatesForRerank.length > 0) {
+      const retry = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-lite",
+          messages: [
+            { role: "system", content: `تو مشاور فروش پت‌آباد هستی. برای درخواست کاربر ("${originalQuery}") از این لیست بهترین ۳ تا ۶ محصول رو انتخاب کن.\nبرای هر محصول یک خط شماره‌دار با نام و قیمت بنویس و بعدش در خط جدا یک جمله بگو چرا همین محصول مناسبه. بدون مارک‌داون، بدون عدد تعداد کل.\nدر آخر یک خط: SELECTED_IDS:["id1","id2"]\n\n${candidateList}` },
+            { role: "user", content: originalQuery },
+          ],
+        }),
+      });
+      if (retry.ok) {
+        const retryData = await retry.json();
+        rawFinal = retryData.choices?.[0]?.message?.content || "";
+        console.log("Re-ranker retry length:", rawFinal.length);
+      }
+    }
 
     const sig = extractSignals(rawFinal);
     let finalContent = sig.text;
@@ -2259,6 +2329,17 @@ serve(async (req) => {
 
     selectedProducts = filterBySpecies(selectedProducts, lockedSpecies);
     if (selectedProducts.length > parityCap) selectedProducts = selectedProducts.slice(0, parityCap);
+    // Text/card parity in the other direction: if the answer names no product at all,
+    // never render cards next to it (that produced "we have no rabbit food" + 4 cards).
+    if (
+      finalContent &&
+      numberedCount === 0 &&
+      sig.selectedIds.length === 0 &&
+      !UUID_RE.test(finalContent) &&
+      !selectedProducts.some((p: any) => finalContent.includes(String(p.name_fa || "").slice(0, 18)))
+    ) {
+      selectedProducts = [];
+    }
 
     if (!finalContent) {
       finalContent = selectedProducts.length > 0

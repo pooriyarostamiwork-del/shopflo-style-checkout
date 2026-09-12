@@ -3264,8 +3264,13 @@ serve(async (req) => {
         cards.length === 0 &&
         numberedCount === 0 &&
         !isBusinessQuestion &&
+        // recall / "tell me more" turns are about products already on the table:
+        // a fresh catalog search there would answer a question nobody asked.
+        !(toolTrace.some((t) => t.startsWith("recall_products")) &&
+          !toolTrace.some((t) => t.startsWith("search_products"))) &&
         /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|محدود می‌شود|محدود میشه)/.test(visible)
       ) {
+
         const verify = await executeSearch(
           supabase,
           {

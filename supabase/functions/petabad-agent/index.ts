@@ -1947,11 +1947,30 @@ function detectLifeStage(text: string): string | null {
 }
 
 /** Soft stage ordering: matching stage first, contradictory stage dropped. */
+// Tier-1 life-stage protection: when the shopper named a stage, products explicitly
+// labelled (or named) for another stage are dropped; unknown-stage rows stay eligible
+// and exact matches sort first. Never empties the list — falls back to soft ordering.
+const STAGE_NAME_HINTS: Record<string, RegExp> = {
+  "نابالغ": /بچه\s*گربه|بچه\s*سگ|توله|kitten|puppy|junior|جونیور/i,
+  "سنیور": /سنیور|senior|مسن|سالمند/i,
+  "بالغ": /adult|بالغ/i,
+};
 function applyStagePreference(rows: any[], stage: string | null): any[] {
   if (!stage) return rows;
+  const conflicts = (r: any) => {
+    if (r?.life_stage && r.life_stage !== stage) return true;
+    if (!r?.life_stage) {
+      for (const [k, re] of Object.entries(STAGE_NAME_HINTS)) {
+        if (k !== stage && re.test(String(r?.name_fa || ""))) return true;
+      }
+    }
+    return false;
+  };
   const exact = (rows || []).filter((r) => r?.life_stage === stage);
-  const rest = (rows || []).filter((r) => r?.life_stage !== stage);
-  return [...exact, ...rest];
+  const unknown = (rows || []).filter((r) => r?.life_stage !== stage && !conflicts(r));
+  const kept = [...exact, ...unknown];
+  if (kept.length > 0) return kept;
+  return [...exact, ...(rows || []).filter((r) => r?.life_stage !== stage)];
 }
 
 // ── Multi-need bundle shopping ──────────────────────────────────────────

@@ -203,6 +203,17 @@ export const ChatThread = ({
                 </div>
               )}
 
+              {/* One card for the whole guidance journey */}
+              {msg.journey && (
+                <div className="mr-11 max-w-[520px]">
+                  <JourneyCard
+                    journey={msg.journey}
+                    onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
+                    onRedo={(redoIndex) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer: "", redoIndex }))}
+                  />
+                </div>
+              )}
+
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
                 <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

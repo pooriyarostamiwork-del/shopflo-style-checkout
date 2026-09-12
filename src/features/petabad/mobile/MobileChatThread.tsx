@@ -223,6 +223,16 @@ export const MobileChatThread = ({
                 </div>
               )}
 
+              {msg.journey && (
+                <div className="pr-1">
+                  <JourneyCard
+                    journey={msg.journey}
+                    onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
+                    onRedo={(redoIndex) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer: "", redoIndex }))}
+                  />
+                </div>
+              )}
+
               {/* Product cards — horizontal scroll on mobile */}
 
               {msg.products && msg.products.length > 0 && (

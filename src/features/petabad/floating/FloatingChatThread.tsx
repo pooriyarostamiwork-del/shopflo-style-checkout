@@ -115,6 +115,16 @@ export const FloatingChatThread = ({
                 </div>
               )}
 
+              {msg.journey && (
+                <div className="ps-9">
+                  <JourneyCard
+                    journey={msg.journey}
+                    onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
+                    onRedo={(redoIndex) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer: "", redoIndex }))}
+                  />
+                </div>
+              )}
+
               {msg.products && msg.products.length > 0 && (
                 <div className="space-y-2 ps-9">
                   {msg.products.slice(0, 12).map((product, i) => (

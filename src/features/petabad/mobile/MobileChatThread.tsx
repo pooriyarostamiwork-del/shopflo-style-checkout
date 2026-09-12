@@ -344,7 +344,7 @@ export const MobileChatThread = ({
             </div>
           ))}
 
-          {isProcessing && (
+          {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex gap-2 animate-fade-in justify-start flex-row-reverse">
               <PetabadMark size="avatar" className="h-7 w-7" />
               <div

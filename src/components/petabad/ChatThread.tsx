@@ -325,7 +325,7 @@ export const ChatThread = ({
           ))}
 
           {/* Processing Indicator */}
-          {isProcessing && (
+          {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex gap-3 animate-fade-in">
               <PetabadMark size="avatar" />
               <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>

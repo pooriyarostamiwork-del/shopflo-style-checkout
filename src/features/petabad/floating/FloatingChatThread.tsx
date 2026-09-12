@@ -159,7 +159,7 @@ export const FloatingChatThread = ({
             </div>
           ))}
 
-          {isProcessing && (
+          {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex items-end gap-2">
               <PetabadMark size="avatar" />
               <div className="rounded-2xl rounded-br-md border border-border/70 bg-card px-3.5 py-2.5">

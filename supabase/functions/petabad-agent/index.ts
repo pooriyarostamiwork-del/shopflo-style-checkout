@@ -858,7 +858,11 @@ async function executeSearch(
   const rpcSpecies = canonicalTerm(taxForSpecies, "species", rawSpecies) || rawSpecies;
   if (rpcSpecies && !UMBRELLA_SPECIES.includes(rpcSpecies)) rpcParams.p_species = rpcSpecies;
 
-  if (filters?.brand) rpcParams.p_brand = filters.brand;
+  const brandVocab = await loadBrands(supabase);
+  const brandClass = filters?.brand ? classifyBrand(String(filters.brand), brandVocab) : "not-a-brand";
+  if (filters?.brand && brandClass !== "not-a-brand") rpcParams.p_brand = filters.brand;
+  else if (filters?.brand) console.log(`Ignoring non-brand word as brand filter: ${filters.brand}`);
+
   if (filters?.product_line) rpcParams.p_product_line = filters.product_line;
   if (filters?.origin_country) rpcParams.p_origin_country = filters.origin_country;
   // Closed vocabulary: non-canonical values never become filters, they degrade to

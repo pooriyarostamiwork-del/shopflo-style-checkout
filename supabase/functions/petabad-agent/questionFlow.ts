@@ -19,6 +19,8 @@ export interface QuestionFlow {
   answers: Record<string, string>;
   /** Question id waiting for an answer (the card currently on screen). */
   pending?: string | null;
+  /** Question ids answered from memory/request without being shown. */
+  seeded?: string[];
   done?: boolean;
 }
 
@@ -121,7 +123,17 @@ export function startFlow(
     answers["need"] = known.healthNeeds.join(" و ");
     asked.push("need");
   }
-  return { goal, seed, species, productTypes: types.length ? types : null, asked, answers, pending: null, done: false };
+  return {
+    goal,
+    seed,
+    species,
+    productTypes: types.length ? types : null,
+    asked,
+    answers,
+    seeded: [...asked],
+    pending: null,
+    done: false,
+  };
 }
 
 /** Record the shopper's reply to the pending question. Free text counts as an answer too. */
@@ -465,7 +477,8 @@ export async function nextQuestion(
   flowIn: QuestionFlow,
 ): Promise<{ card: FlowCard | null; flow: QuestionFlow }> {
   const flow = applyAnswerEffects(deps, flowIn);
-  const askedCount = Object.keys(flow.answers).length;
+  const seeded = flow.seeded || [];
+  const askedCount = Object.keys(flow.answers).filter((k) => !seeded.includes(k)).length;
   if (askedCount >= MAX_QUESTIONS) return { card: null, flow: { ...flow, done: true, pending: null } };
   const remaining = PLANS[flow.goal].filter(([id]) => !flow.asked.includes(id));
   const asked = [...flow.asked];

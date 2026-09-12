@@ -637,6 +637,8 @@ export const useAgentMessages = ({
       const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
       const serializedGoal = serializeShoppingContext(nextShopping);
       if (serializedGoal) body.shopping_context = serializedGoal;
+      // Adaptive question flow: echo the server's state so the next question adapts to this answer.
+      if (nextShopping.questionFlow) body.question_flow = nextShopping.questionFlow;
       const scopeHint = buildScopeHint(content);
       if (scopeHint) body.scope_hint = scopeHint;
       const referenceHint = buildReferenceHint(content, mem);
@@ -663,6 +665,9 @@ export const useAgentMessages = ({
 
       // ── Shopping goal persistence (deterministic + optional GOAL signal) ──
       const goalUpdated = mergeGoalSignal(nextShopping, data?.goal);
+      // The flow lives only while the server keeps asking; any other reply ends it.
+      goalUpdated.questionFlow =
+        data?.response_type === 'clarification' && data?.question_flow ? data.question_flow : undefined;
 
       // ── Clarification branch: render an interactive card, never a duplicate question ──
       const clarification = data?.clarification;
@@ -797,7 +802,12 @@ export const useAgentMessages = ({
           clarification,
           timestamp: new Date(),
         };
-        updateTarget(s => ({ ...s, messages: [...s.messages, clarifyMessage], isProcessing: false }));
+        updateTarget(s => ({
+          ...s,
+          messages: [...s.messages, clarifyMessage],
+          shoppingContext: { ...ensureShoppingContext(s.shoppingContext), questionFlow: data?.question_flow || undefined },
+          isProcessing: false,
+        }));
         return;
       }
 

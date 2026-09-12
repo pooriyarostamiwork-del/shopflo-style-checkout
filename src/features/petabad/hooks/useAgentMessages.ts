@@ -580,7 +580,6 @@ export const useAgentMessages = ({
     cartItems, lastRecommendedProducts, messages, updateCurrentBasket,
     handleTransactionalCartAdd, handleTransactionalCartRemove,
     handleTransactionalQuantityUpdate, handleTransactionalCheckout,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   // ── Execute cart actions returned by cart_manipulation agent (batched) ──
@@ -941,7 +940,11 @@ export const useAgentMessages = ({
         updateTarget(s => ({
           ...s,
           messages: [...s.messages, clarifyMessage],
-          shoppingContext: { ...ensureShoppingContext(s.shoppingContext), questionFlow: data?.question_flow || undefined },
+          shoppingContext: {
+            ...ensureShoppingContext(s.shoppingContext),
+            questionFlow: data?.question_flow || undefined,
+            petMemory: rememberFromMessage(ensurePetMemory(s.shoppingContext?.petMemory), content),
+          },
           isProcessing: false,
         }));
         return;

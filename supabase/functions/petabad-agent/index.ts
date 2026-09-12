@@ -889,7 +889,8 @@ async function executeSearch(
     matched_total: results.length,
     shown: results.length,
     evidence_unconfirmed: evidenceUnconfirmed,
-    filters_relaxed: relaxed.length > 0,
+    filters_relaxed: relaxedLabels.length > 0,
+    relaxed_filters: relaxedLabels,
     searched_with: {
       family: rpcParams.p_subcategory_prefix || rpcParams.p_subcategory || null,
       brand: rpcParams.p_brand || null,

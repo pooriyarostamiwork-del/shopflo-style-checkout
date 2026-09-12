@@ -879,8 +879,6 @@ async function brandListAnswer(
 async function executeSearch(
   supabase: any,
   args: any,
-
-  args: any,
   precomputedEmbedding: number[] | null,
   lock?: { species?: string | null; lifeStage?: string | null },
 ): Promise<any> {

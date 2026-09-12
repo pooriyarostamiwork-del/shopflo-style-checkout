@@ -1555,6 +1555,7 @@ async function runToolRound(
         shown: searched.shown ?? 0,
         evidence_unconfirmed: searched.evidence_unconfirmed || false,
         filters_relaxed: searched.filters_relaxed || false,
+        relaxed_filters: searched.relaxed_filters || [],
         searched_with: searched.searched_with || {},
         products: (searched.products || []).map((p: any) => ({
           id: p.id, name: p.name_fa, price: p.price, brand: p.brand, rating: p.rating,

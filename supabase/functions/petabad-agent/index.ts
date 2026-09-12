@@ -2181,7 +2181,10 @@ async function runToolRound(
     for (const g of result.bundleGroups) {
       for (const p of g.products) if (!bundleProducts.some((x) => x.id === p.id)) bundleProducts.push(p);
     }
-    if (bundleProducts.length > 0) result.products = bundleProducts.slice(0, 9);
+    // Bundle picks come first, but the plain search results stay available so the answer's
+    // numbered list always has a card to bind to.
+    if (bundleProducts.length > 0)
+      result.products = mergeProducts(bundleProducts.slice(0, 9), result.products);
   }
 
   return result;

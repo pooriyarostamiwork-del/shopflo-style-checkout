@@ -1288,26 +1288,38 @@ function composeProductAnswer(products: any[], query: string): string {
   if (list.length === 0) {
     return "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
   }
-  const intro = `بر اساس چیزی که گفتی (${(query || "").trim().slice(0, 60)}) این گزینه‌ها رو برات انتخاب کردم.`;
+  // A shop assistant never repeats the customer's sentence back at them.
+  const q = normalizePersian(String(query || ""));
+  const animal = /گربه/.test(q) ? "گربه" : /سگ/.test(q) ? "سگ" : /خرگوش/.test(q) ? "خرگوش" : /پرنده|مرغ عشق|طوطی/.test(q) ? "پرنده" : "";
+  const intro = animal
+    ? `چند گزینه خوب برای ${animal}ت دارم:`
+    : "چند گزینه خوب برات پیدا کردم:";
+
   const blocks = list.map((p: any, i: number) => {
     const name = p.name_fa || p.name || "محصول";
     const price = typeof p.price === "number" ? `${faNum(p.price.toLocaleString("en-US"))} تومان` : "";
     const head = `${faNum(i + 1)}. ${name}${price ? ` — ${price}` : ""}`;
-    const bits: string[] = [];
-    if (p.brand) bits.push(`برند ${p.brand}`);
-    if (p.origin_country) bits.push(`ساخت ${p.origin_country}`);
-    if (p.species) bits.push(`مخصوص ${p.species}`);
-    if (p.life_stage) bits.push(`مرحله سنی ${p.life_stage}`);
-    if (p.breed_size) bits.push(`نژاد ${p.breed_size}`);
-    if (Array.isArray(p.health_needs) && p.health_needs.length) bits.push(`مناسب ${p.health_needs.slice(0, 2).join(" و ")}`);
-    if (p.weight) bits.push(`بسته ${p.weight}`);
-    const why = bits.length
-      ? `چرا این؟ ${bits.slice(0, 3).join("، ")} و با درخواستت هم‌خوانی داره.`
-      : "چرا این؟ از نزدیک‌ترین گزینه‌های موجود به درخواستت هست.";
+
+    // One human sentence, built from what actually makes THIS product a fit.
+    const parts: string[] = [];
+    if (Array.isArray(p.health_needs) && p.health_needs.length) {
+      parts.push(`برای ${p.health_needs.slice(0, 2).join(" و ")} فرموله شده`);
+    }
+    if (p.life_stage) parts.push(`مناسب ${p.life_stage}`);
+    if (p.breed_size && p.species === "سگ") parts.push(`برای نژاد ${p.breed_size}`);
+    if (p.brand && p.origin_country) parts.push(`از ${p.brand} ساخت ${p.origin_country}`);
+    else if (p.brand) parts.push(`از برند ${p.brand}`);
+    else if (p.origin_country) parts.push(`ساخت ${p.origin_country}`);
+    if (p.weight) parts.push(`بسته ${p.weight}`);
+
+    const why = parts.length
+      ? `${parts.slice(0, 3).join("، ")}.`
+      : "یکی از پرفروش‌ترین گزینه‌های همین دسته‌ست.";
     return `${head}\n${why}`;
   });
   return [intro, "", blocks.join("\n\n")].join("\n");
 }
+
 
 /** True when the text has no numbered product lines (so it can't carry per-product reasons). */
 function hasNumberedProducts(text: string): boolean {

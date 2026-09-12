@@ -465,6 +465,13 @@ const FAQ_CATEGORIES = [
 const BUSINESS_RE =
   /(ارسال|پست|پیک|تیپاکس|کرایه|هزینه\s*ارسال|بسته\s*بند|تحویل|چند\s*روز|زمان\s*رسیدن|مرجوع|بازگشت|عودت|پس\s*دادن|گارانتی|ضمانت|اصل\s*بودن|تقلبی|پرداخت|اقساط|اسنپ\s*پی|snapp|کارت\s*به\s*کارت|درگاه|فاکتور|تخفیف|کد\s*تخفیف|کوپن|سفارش(م|ت|ات)?\s*(رو|را)?\s*(لغو|پیگیری|تغییر|ویرایش)|لغو\s*سفارش|پیگیری\s*سفارش|رهگیری|کد\s*رهگیری|شماره\s*تماس|پشتیبان|تلفن|حضوری|فروشگاه\s*فیزیک|آدرس\s*فروشگاه|انقضا|تاریخ\s*مصرف|محدودیت\s*خرید|سفارش\s*تلفن)/;
 
+/**
+ * Informational questions ABOUT the store's assortment or a brand — these want a written
+ * answer (brand names, brand background), never a product carousel.
+ */
+const INFO_QUESTION_RE =
+  /((چه|کدوم|کدام)\s*(برند|مارک|کشور|دسته|شرکت)|برند\s*ها|برندها|برندهاتو|برندهات|مارک\s*ها|(لیست|فهرست)\s*(برند|مارک|کشور|دسته)|(برند|مارک)\s*(ها)?\s*(تو|ت|ات|هاتون|هاتو)?\s*(رو|را)?\s*(بگو|لیست|نام\s*ببر|معرفی)|(درباره|در\s*مورد|راجع\s*به)\s*(برند|مارک|شرکت)|برند\s*\S+\s*(چطوره|چجوریه|چیه|خوبه|معتبره|کجاییه|مال\s*کجاست))/;
+
 /** Retrieve official PetAbad FAQ answers (hybrid FTS + trigram + embeddings). */
 async function executeFaqLookup(
   supabase: any,
@@ -1918,6 +1925,9 @@ serve(async (req) => {
     const wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser) && !ASKS_FOR_SOME_RE.test(normLastUser);
     const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
+    // Assortment/brand knowledge questions are answered in words (facts, brand names),
+    // so they must not be turned into a product-recommendation turn.
+    const isInfoQuestion = INFO_QUESTION_RE.test(normLastUser);
     const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
 
@@ -2214,7 +2224,7 @@ serve(async (req) => {
     // ── Discovery guard: a product-discovery turn must never end without a search ──
 
     const isDiscoveryIntent = effectiveMode === "discovery" || effectiveMode === "agentic";
-    if (isDiscoveryIntent && !searchExecuted && !wantsGuidance && !isBusinessQuestion) {
+    if (isDiscoveryIntent && !searchExecuted && !wantsGuidance && !isBusinessQuestion && !isInfoQuestion) {
       console.log("Discovery guard: no search executed in tool loop, running deterministic search...");
       const guardQuery = buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily);
       const guardSearch = await executeSearch(supabase, guardQuery, precomputedEmbedding, speciesLock);
@@ -2444,6 +2454,10 @@ serve(async (req) => {
     finalContent = sanitizeVisibleText(finalContent);
     if (!wantsCounts) finalContent = stripCountTalk(finalContent);
 
+    // An informational answer (brand list, brand background) never carries product cards
+    // unless the shopper explicitly asked for products in the same message.
+    if (isInfoQuestion && sig.selectedIds.length === 0 && numberedCount === 0) selectedProducts = [];
+
     selectedProducts = filterBySpecies(selectedProducts, lockedSpecies);
     if (selectedProducts.length > parityCap) selectedProducts = selectedProducts.slice(0, parityCap);
     // Text/card parity in the other direction: if the answer names no product at all,
@@ -2461,11 +2475,13 @@ serve(async (req) => {
     // Never ship a bare placeholder: when the model gave no text (or text with no
     // numbered products next to product cards), compose the answer from catalog data
     // so the shape is always intro + product + why.
-    if (selectedProducts.length > 0 && (!finalContent || !hasNumberedProducts(finalContent))) {
+    if (!isInfoQuestion && selectedProducts.length > 0 && (!finalContent || !hasNumberedProducts(finalContent))) {
       finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
       console.log("Composed deterministic product answer");
     } else if (!finalContent) {
-      finalContent = "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
+      finalContent = isInfoQuestion
+        ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
+        : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟";
     }
 
     // Honest fallback: never silently swap a brand the shopper asked for.

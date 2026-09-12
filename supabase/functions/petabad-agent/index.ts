@@ -2767,19 +2767,34 @@ serve(async (req) => {
       const missingIds = explicitIds.filter((id) => !seen.has(id));
       if (missingIds.length > 0) for (const p of await hydrateProducts(supabase, missingIds)) pushCard(p);
       if (numberedCount > 0) {
-        // Name matching against this turn's tool results, in the order the text mentions them.
-        const mentioned = allProducts
-          .map((p: any) => {
-            const key = String(p.name_fa || p.name || "").slice(0, 18);
-            const idx = key ? visible.indexOf(key) : -1;
-            return { p, idx };
-          })
-          .filter((m) => m.idx >= 0)
-          .sort((a, b) => a.idx - b.idx);
-        for (const m of mentioned) pushCard(m.p);
+        // Token-overlap matching of each numbered line to this turn's tool results (model may
+        // abbreviate names), in the order the text lists them.
+        const tokens = (t: string) =>
+          normalizePersian(String(t || ""))
+            .toLowerCase()
+            .split(/[\s،,()\-–—:؛]+/)
+            .filter((w) => w.length > 1);
+        const numberedLines = visible.split("\n").filter((l) => /^\s*[0-9۰-۹]{1,2}[.)\-–]\s*\S/u.test(l));
+        for (const line of numberedLines) {
+          const lineTok = new Set(tokens(line.replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))));
+          let best: any = null;
+          let bestScore = 0;
+          for (const p of allProducts) {
+            if (seen.has(p.id)) continue;
+            const nt = tokens(p.name_fa || p.name || "");
+            if (nt.length === 0) continue;
+            const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
+            if (hit > bestScore) {
+              bestScore = hit;
+              best = p;
+            }
+          }
+          if (best && bestScore >= 0.5) pushCard(best);
+        }
       }
 
-      cards = filterBySpecies(cards, lockedSpecies);
+      // Species filter only applies to species-tagged rows; accessories without a species stay.
+      cards = cards.filter((p: any) => !p.species || filterBySpecies([p], lockedSpecies).length > 0);
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);
       // Informational answers never carry cards unless the text itself lists products.

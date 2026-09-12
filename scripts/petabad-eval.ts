@@ -34,6 +34,8 @@ type Case = {
   toolsNoneOf?: string[];
   /** accepted trace.answer_source values */
   answerSource?: string | string[];
+  /** product cards are acceptable even though this is not a product-listing case */
+  allowProducts?: boolean;
   minProducts?: number;
 };
 
@@ -117,7 +119,9 @@ const CASES: Case[] = [
   {
     id: "info-foreign-pouch-brands",
     prompt: "برندهای خارجی پوچ گربه چانک چیا دارین",
+    // brand answers may name real products; cards next to them are fine, a denial is not
     expectProducts: false,
+    allowProducts: true,
     contentNoneOf: [/چانک چیا در لیست/, /موجود نیست/],
     contentAnyOf: [/ویسکاس|فلیکس|گورمت|رویال|جوسرا|پروپلن|مونژه|مونجه|کیت.?کت|Whiskas|Royal Canin|KitCat|Monge|Felix|Hills/i],
     toolsNoneOf: ["search_products (discovery-guard)"],
@@ -217,7 +221,7 @@ function assertCase(c: Case, body: any, seconds: number): string[] {
       if (c.nameAnyOf && !c.nameAnyOf.some((re) => re.test(name))) fails.push(`type mismatch: ${name}`);
       if (c.nameNoneOf && c.nameNoneOf.some((re) => re.test(name))) fails.push(`forbidden product: ${name}`);
     }
-  } else if (products.length > 0) {
+  } else if (products.length > 0 && !c.allowProducts) {
     fails.push("products returned for a non-product question");
   }
 

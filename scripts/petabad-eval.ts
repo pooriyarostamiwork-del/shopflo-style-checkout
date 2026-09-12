@@ -254,6 +254,136 @@ for (const c of CASES) {
   }
 }
 
+// ── Question-journey replays: drive the adaptive flow the way the card does ──
+type JourneyCase = {
+  id: string;
+  prompt: string;
+  history?: { role: "user" | "assistant"; content: string }[];
+  /** what the conversation already knows about the pet (client pet memory) */
+  petMemory?: Record<string, unknown>;
+  /** answer per question id; unknown ids are skipped with «فرقی نمی‌کنه» */
+  answers: Record<string, string>;
+  neverAsk?: string[];
+  /** question ids that must appear, in this relative order */
+  order?: string[];
+  budgetNoneOf?: RegExp[];
+  budgetAnyOf?: RegExp[];
+  species?: string;
+};
+
+const JOURNEYS: JourneyCase[] = [
+  {
+    id: "journey-senior-cat-memory",
+    prompt: "راهنماییم می‌کنی چه غذایی باید برای گربم بگیرم",
+    petMemory: { species: "گربه", life_stage: "سنیور", health_needs: [], product_types: [], foreign_only: null },
+    answers: { type: "غذای خشک", need: "نیاز خاصی نداره", origin: "خارجی" },
+    neverAsk: ["species", "age"],
+    order: ["type", "budget"],
+    budgetNoneOf: [/تا ۳۰۰ هزار/],
+    species: "گربه",
+  },
+  {
+    id: "journey-foreign-cat-dry-buckets",
+    prompt: "غذای خارجی گربه راهنماییم کن",
+    answers: { age: "بالغ", type: "غذای خشک", need: "نیاز خاصی نداره" },
+    neverAsk: ["species", "origin"],
+    order: ["type", "budget"],
+    budgetNoneOf: [/تا ۳۰۰ هزار/, /تا ۴۰۰ هزار/],
+    budgetAnyOf: [/میلیون/],
+    species: "گربه",
+  },
+  {
+    id: "journey-canned-cat-buckets",
+    prompt: "کنسرو گربه چی بگیرم راهنماییم کن",
+    answers: { age: "بالغ", need: "نیاز خاصی نداره", origin: "فرقی نمی‌کنه" },
+    neverAsk: ["species", "type"],
+    budgetNoneOf: [/بالای ۱۰ میلیون/],
+    species: "گربه",
+  },
+];
+
+const FLOW_QUESTION_IDS = ["species", "age", "type", "need", "essentials", "completeness", "origin", "budget", "tier"];
+const idOf = (card: any): string => {
+  const raw = String(card?.id || card?.title || "");
+  const found = FLOW_QUESTION_IDS.find((k) => raw === k || raw.startsWith(`flow-${k}`));
+  if (found) return found;
+  const q = String(card?.question || "");
+  if (/حیوان/.test(q)) return "species";
+  if (/سنی/.test(q)) return "age";
+  if (/نوع/.test(q)) return "type";
+  if (/نیاز/.test(q)) return "need";
+  if (/برند/.test(q)) return "origin";
+  if (/بودجه|سطح/.test(q)) return "budget";
+  return raw || "unknown";
+};
+
+async function runJourney(c: JourneyCase) {
+  const fails: string[] = [];
+  const started = Date.now();
+  const messages: { role: string; content: string }[] = [...(c.history || []), { role: "user", content: c.prompt }];
+  let flow: any = undefined;
+  const asked: string[] = [];
+  let final: any = null;
+  for (let turn = 0; turn < 8; turn++) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/petabad-agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${ANON_KEY}` },
+      body: JSON.stringify({ messages, mode: "agentic", question_flow: flow, pet_memory: c.petMemory }),
+    });
+    const body = await res.json();
+    if (res.status !== 200) return { fails: [`http ${res.status}`], seconds: 0 };
+    if (body.response_type !== "clarification" || !body.question_flow) {
+      final = body;
+      break;
+    }
+    const card = body.clarification;
+    const id = idOf(card);
+    asked.push(id);
+    const labels: string[] = (card?.options || []).map((o: any) => String(o?.label || ""));
+    if (labels.some((l) => !l.trim())) fails.push(`${id}: empty option label`);
+    if (labels.length < 2) fails.push(`${id}: fewer than two options`);
+    if (/\d/.test(labels.join(" ")) && !FA.test(labels.join(" "))) fails.push(`${id}: latin digits in options`);
+    if (id === "budget") {
+      const joined = labels.join(" | ");
+      for (const re of c.budgetNoneOf || []) if (re.test(joined)) fails.push(`budget bucket should not exist: ${re} in «${joined}»`);
+      for (const re of c.budgetAnyOf || []) if (!re.test(joined)) fails.push(`budget missing ${re}: «${joined}»`);
+    }
+    const answer = c.answers[id] ?? (labels.find((l) => /فرقی نمی|مهم نیست/.test(l)) || labels[0]);
+    flow = body.question_flow;
+    messages.push({ role: "assistant", content: `سؤال: ${card?.question}` }, { role: "user", content: answer });
+  }
+  for (const id of c.neverAsk || []) if (asked.includes(id)) fails.push(`asked «${id}» although it was already known`);
+  if (asked.includes("budget") && asked[asked.length - 1] !== "budget") fails.push(`budget was not the last question: ${asked.join(" → ")}`);
+  for (const o of c.order || []) if (!asked.includes(o) && o !== "budget") fails.push(`expected question «${o}» was never asked: ${asked.join(" → ")}`);
+  if (c.order && c.order.every((o) => asked.includes(o))) {
+    const idx = c.order.map((o) => asked.indexOf(o));
+    if (idx.some((v, i) => i > 0 && v < idx[i - 1])) fails.push(`question order ${asked.join(" → ")} violates ${c.order.join(" → ")}`);
+  }
+  if (!final) fails.push("journey never produced a final answer");
+  else {
+    const products: any[] = final.products || [];
+    if (products.length === 0) fails.push("no products after the journey");
+    for (const p of products) {
+      if (c.species && p.species && !String(p.species).includes(c.species)) fails.push(`species mismatch: ${p.name_fa}`);
+    }
+  }
+  console.log(`   asked: ${asked.join(" → ") || "(none)"}`);
+  return { fails, seconds: (Date.now() - started) / 1000 };
+}
+
+for (const c of JOURNEYS) {
+  try {
+    console.log(`… ${c.id}`);
+    const { fails, seconds } = await runJourney(c);
+    results.push({ id: c.id, pass: fails.length === 0, seconds, fails });
+    console.log(`${fails.length === 0 ? "PASS" : "FAIL"} ${c.id} (${seconds.toFixed(1)}s)`);
+    for (const f of fails) console.log(`   - ${f}`);
+  } catch (e) {
+    results.push({ id: c.id, pass: false, seconds: 0, fails: [String(e)] });
+    console.log(`FAIL ${c.id} — ${String(e)}`);
+  }
+}
+
 const passed = results.filter((r) => r.pass).length;
 console.log(`\n${passed}/${results.length} cases passed`);
 if (passed !== results.length) process.exit(1);

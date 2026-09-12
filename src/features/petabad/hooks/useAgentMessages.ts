@@ -716,7 +716,7 @@ export const useAgentMessages = ({
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: responseContent + (mappedProducts.length > 0 ? '\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»' : ''),
+        content: responseContent,
         products: mappedProducts.length > 0 ? mappedProducts : undefined,
         productIndexStart: mappedProducts.length > 0 ? 1 : undefined,
         quickReplies: mappedProducts.length > 0 ? [
@@ -793,7 +793,7 @@ export const useAgentMessages = ({
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: responseContent + (mappedProducts.length > 0 ? '\n\nبرای اضافه کردن به سبد، بگو «محصول شماره X رو اضافه کن»' : ''),
+        content: responseContent,
         products: mappedProducts.length > 0 ? mappedProducts : undefined,
         productIndexStart: mappedProducts.length > 0 ? 1 : undefined,
         quickReplies: mappedProducts.length > 0 ? [

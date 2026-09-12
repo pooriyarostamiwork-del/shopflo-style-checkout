@@ -2352,7 +2352,13 @@ serve(async (req) => {
 
     const rerankerInstruction = candidatesForRerank.length > 0
       ? `\n\nبا توجه به درخواست اصلی کاربر ("${originalQuery}")${extractedIntent?.semantic_tags?.length ? ` و تگ‌های معنایی استخراج‌شده (${extractedIntent.semantic_tags.join(", ")})` : ""}:\n- محصولاتی که با نیت کاربر مطابقت ندارن رو حذف کن\n- بهترین ۳ تا ${comprehensive ? "۱۲" : "۶"} محصول رو انتخاب کن\n- ساختار پاسخ دقیقاً این‌طوریه: اول حداکثر ۳ خط توضیح کلی کوتاه، بعد برای هر محصول یک خط شماره‌دار با نام و مشخصات کلیدی و قیمت، و بعدش در یک خط جدا یک جمله کوتاه که می‌گه چرا همین محصول برای درخواست کاربر مناسبه. بین محصولات یک خط خالی بذار\n- توضیح «چرا» باید مخصوص همون محصول باشه (نوع حیوان، برند، ترکیبات، وزن بسته، قیمت) نه جمله کلی تکراری\n${wantsCounts ? "- کاربر درباره تعداد/قیمت پرسیده؛ می‌تونی تعداد کل مطابق را بگی" : "- هیچ عددی از تعداد کل، تعداد کاندیدا یا بازه قیمت ننویس و درباره فرایند داخلی حرف نزن"}\n- بدون مارک‌داون (بدون ستاره و هشتگ)\n\nلیست کاندیداها:\n${candidateList}\n\nمهم: در انتهای پاسخت، در یک خط جدید، دقیقاً بنویس:\nSELECTED_IDS:["id1","id2","id3"]\nکه id ها همان شناسه‌های محصولات انتخابی تو هستن. ترتیب id ها باید با ترتیب معرفی محصولات در متنت یکی باشه.`
-      : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
+      : (isInfoQuestion || isBusinessQuestion)
+        ? `\n\nANSWER_TURN: این نوبت یک سؤال اطلاعاتی درباره برندها، کاتالوگ یا خدمات فروشگاهه، نه درخواست محصول.
+- فقط بر پایه نتایج ابزارهای همین نوبت (catalog_facets / brand_or_general_lookup / business_faq_lookup) جواب بده.
+- جواب متنی، روان و کوتاه باشه؛ اگر فهرست برند/کشور/دسته خواسته شده، اسم‌ها رو پشت سر هم یا خط‌به‌خط بنویس${wantsCounts ? "" : " و عدد و تعداد ننویس"}.
+- محصول پیشنهاد نده و لیست شماره‌دار محصول نساز. چیزی از خودت اضافه نکن؛ اگر داده نداری، صادقانه بگو.
+- بدون مارک‌داون. SELECTED_IDS ننویس.`
+        : `\n\nNO_RESULTS_TURN: برای درخواست "${originalQuery}" هیچ محصول مناسبی در کاتالوگ پیدا نشد. صادقانه بگو گزینه‌ای نداریم، دلیل کوتاه بگو (مثلاً فیلتر خاص یا کمبود داده)، و یک سوال کوتاه بپرس که نیاز کاربر رو روشن‌تر کنه یا گزینه نزدیک‌تری پیشنهاد بده. هیچ محصولی اختراع نکن.`;
 
     const followUpMessages = [
       ...roundMessages,
@@ -2397,6 +2403,25 @@ serve(async (req) => {
     );
     // A reasoning model can burn its budget and return empty content. Retry once
     // with a shorter instruction so the shopper always gets the per-product "why".
+    if (!rawFinal.trim() && candidatesForRerank.length === 0 && (isInfoQuestion || isBusinessQuestion)) {
+      // Informational turn came back empty: answer straight from this turn's tool facts.
+      const retryInfo = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-lite",
+          messages: [
+            ...roundMessages.filter((m: any) => m.role !== "system"),
+            { role: "system", content: `به سؤال کاربر ("${originalQuery}") کوتاه و روان و فارسی جواب بده، فقط بر پایه نتایج ابزارهای بالا. بدون مارک‌داون، بدون پیشنهاد محصول${wantsCounts ? "" : "، بدون نوشتن تعداد"}. اگر داده کافی نیست، صادقانه بگو.` },
+          ],
+        }),
+      });
+      if (retryInfo.ok) {
+        const d = await retryInfo.json();
+        rawFinal = d.choices?.[0]?.message?.content || "";
+        console.log("Info answer retry length:", rawFinal.length);
+      }
+    }
     if (!rawFinal.trim() && candidatesForRerank.length > 0) {
       const retry = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -2414,6 +2439,10 @@ serve(async (req) => {
         rawFinal = retryData.choices?.[0]?.message?.content || "";
         console.log("Re-ranker retry length:", rawFinal.length);
       }
+    }
+
+    if (!rawFinal.trim() && (isInfoQuestion || isBusinessQuestion)) {
+      rawFinal = String(finalAssistantMessage?.content || "");
     }
 
     const sig = extractSignals(rawFinal);

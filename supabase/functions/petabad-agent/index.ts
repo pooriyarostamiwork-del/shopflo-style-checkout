@@ -2420,7 +2420,59 @@ serve(async (req) => {
         break;
       }
     }
-    const speciesLock = { species: lockedSpecies, lifeStage: lockedStage };
+    // ── "other brands" turn: brands already shown are subtracted from the search ──
+    const assistantTurns = (userMessages || [])
+      .filter((m: any) => m.role === "assistant")
+      .map((m: any) => String(m.content || ""));
+    const wantsOtherBrands =
+      /(برند(های)? دیگ(ه|ر)|از برند دیگ(ه|ر)|بجز (این|اینا|اینها|همین)|به جز (این|اینا|اینها)|غیر از (این|اینا|اینها)|برند(های)? جدید)/.test(
+        normLastUser,
+      );
+    let shownBrands: string[] = [];
+    if (wantsOtherBrands) {
+      const vocab = await loadBrands(supabase);
+      const haystack = normalizePersian(assistantTurns.join(" \n ")).toLowerCase();
+      for (const b of vocab.canonical) {
+        const key = normalizePersian(b).toLowerCase();
+        if (key.length >= 3 && haystack.includes(key)) shownBrands.push(b);
+      }
+      // Persian spellings of the same brands (Josera / جوسرا) come from the alias table.
+      const { data: aliasRows } = await supabase.from("brand_aliases").select("alias_key, canonical");
+      for (const a of aliasRows || []) {
+        const alias = normalizePersian(String(a.alias_key || "")).toLowerCase();
+        if (alias.length >= 3 && haystack.includes(alias) && a.canonical && !shownBrands.includes(a.canonical))
+          shownBrands.push(String(a.canonical));
+      }
+      shownBrands = shownBrands.slice(0, 30);
+      console.log("Other-brands turn, excluding:", shownBrands.join(", "));
+    }
+    // Foreign / Iranian scope is sticky: the newest turn that states it wins.
+    let stickyForeign: boolean | null = null;
+    for (let i = userTurns.length - 1; i >= 0; i--) {
+      const t = normalizePersian(userTurns[i]);
+      if (/(خارجی|وارداتی|غیر ایرانی|اورجینال)/.test(t)) {
+        stickyForeign = true;
+        break;
+      }
+      if (/(ایرانی|داخلی|تولید ایران)/.test(t)) {
+        stickyForeign = false;
+        break;
+      }
+    }
+    const speciesLock = {
+      species: lockedSpecies,
+      lifeStage: lockedStage,
+      excludeBrands: shownBrands,
+      foreignOnly: stickyForeign,
+    };
+    if (shownBrands.length > 0) {
+      systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
+- در search_products همین‌ها را در exclude_brands بفرست.
+- اگر نتیجه‌ای برگشت، فقط برندهای جدید را معرفی کن و هرگز نگو «برند دیگه‌ای نداریم».`;
+    }
+    if (stickyForeign !== null) {
+      systemPrompt += `\n\nORIGIN_SCOPE: کاربر فقط محصولات ${stickyForeign ? "خارجی (کشور سازنده غیر از ایران)" : "ایرانی"} می‌خواد؛ در search_products مقدار filters.origin_scope را «${stickyForeign ? "خارجی" : "ایرانی"}» بفرست و محصول ${stickyForeign ? "ایرانی" : "خارجی"} پیشنهاد نده.`;
+    }
     knownSpecies = lockedSpecies || knownSpecies;
 
     const bundleNeeds = detectNeeds(lastUserText);

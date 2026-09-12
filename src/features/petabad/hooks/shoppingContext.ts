@@ -12,6 +12,8 @@ export interface ShoppingContext {
   exclusions?: string[];     // things to avoid
   /** Server-driven adaptive question flow (opaque; echoed back on every turn). */
   questionFlow?: any;
+  /** Per-conversation memory of the shopper's pets and preferences. */
+  petMemory?: import("./petMemory").PetMemory;
 }
 
 export const createEmptyShoppingContext = (): ShoppingContext => ({

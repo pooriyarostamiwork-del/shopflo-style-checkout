@@ -1004,7 +1004,12 @@ async function executeSearch(
   supabase: any,
   args: any,
   precomputedEmbedding: number[] | null,
-  lock?: { species?: string | null; lifeStage?: string | null },
+  lock?: {
+    species?: string | null;
+    lifeStage?: string | null;
+    excludeBrands?: string[] | null;
+    foreignOnly?: boolean | null;
+  },
 ): Promise<any> {
   const {
     query_text,
@@ -1023,6 +1028,23 @@ async function executeSearch(
 
   const rpcParams: any = { p_store_id: PETABAD_STORE_ID, p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
+  // «از برندهای دیگه هم بده» — brands already shown are excluded inside SQL (brand aliases
+  // included), so the same brand can never come back on a "other brands" turn.
+  const excludeBrands = [
+    ...(Array.isArray(args?.exclude_brands) ? args.exclude_brands : []),
+    ...(Array.isArray(lock?.excludeBrands) ? lock!.excludeBrands! : []),
+  ]
+    .filter((b: any) => typeof b === "string" && b.trim())
+    .slice(0, 30);
+  if (excludeBrands.length > 0) rpcParams.p_exclude_brands = excludeBrands;
+  // "foreign" / "Iranian" is a scope, not one country.
+  const originScope = filters?.origin_scope;
+  const foreignOnly =
+    originScope === "خارجی" ? true : originScope === "ایرانی" ? false : (lock?.foreignOnly ?? null);
+  if (foreignOnly !== null && foreignOnly !== undefined) rpcParams.p_foreign_only = foreignOnly;
+  // Brand diversity: one brand may not occupy the whole answer unless the shopper
+  // asked for that exact brand.
+  rpcParams.p_brand_cap = 2;
   // A single exact shelf is a hard filter only when the user named a brand shelf;
   // otherwise search the whole shelf family so brand-split shelves stay visible.
   const family =

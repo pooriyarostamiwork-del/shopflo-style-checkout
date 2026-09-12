@@ -2179,6 +2179,7 @@ type ToolRoundResult = {
   bundleGroups: Array<{ label: string; products: any[] }>;
   emptyNeedLabels: string[];
   unavailableBrand: string | null;
+  relaxed?: string[];
 };
 
 async function runToolRound(
@@ -2740,6 +2741,7 @@ serve(async (req) => {
     let allProducts: any[] = [];
     let extractedIntent: any = null;
     let unavailableBrand: string | null = null;
+    let relaxedFilters: string[] = [];
     let searchExecuted = false;
     let toolTrace: string[] = [];
     let bundleGroups: Array<{ label: string; products: any[] }> = [];
@@ -2927,6 +2929,7 @@ serve(async (req) => {
         flowSummary ? `${flowSummary.seed} ${lastUserText}` : lastUserText,
       );
       if (roundResult.unavailableBrand) unavailableBrand = roundResult.unavailableBrand;
+      if (roundResult.relaxed?.length) relaxedFilters = [...new Set([...relaxedFilters, ...roundResult.relaxed])];
       if (roundResult.searchExecuted) {
         searchExecuted = true;
         extractedIntent = roundResult.extractedIntent;
@@ -3128,7 +3131,12 @@ serve(async (req) => {
         const pool = lockedSpecies === "گربه" || lockedSpecies === "سگ" ? filterBySpecies(allProducts, lockedSpecies) : allProducts;
         if (pool.length > 0) {
           cards = pool.slice(0, maxShown);
-          visible = composeProductAnswer(cards, originalQuery);
+          // When filters really were relaxed, the model's "we don't have exactly that" is
+          // honest — keep its first short line as the intro instead of discarding it.
+          const honest = relaxedFilters.length > 0
+            ? (visible.split("\n").map((l) => l.trim()).filter(Boolean)[0] || relaxationIntro(relaxedFilters))
+            : "";
+          visible = composeProductAnswer(cards, originalQuery, honest);
           forced.push("denial_override");
         }
       }
@@ -3409,7 +3417,7 @@ serve(async (req) => {
     // numbered products next to product cards), compose the answer from catalog data
     // so the shape is always intro + product + why.
     if (!isInfoQuestion && selectedProducts.length > 0 && (!finalContent || !hasNumberedProducts(finalContent))) {
-      finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery);
+      finalContent = composeProductAnswer(selectedProducts.slice(0, parityCap), originalQuery, relaxationIntro(relaxedFilters));
       console.log("Composed deterministic product answer");
       answerSource = "composer";
     } else if (!finalContent) {

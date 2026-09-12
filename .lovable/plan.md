@@ -229,9 +229,49 @@ On `/petabad`, `/m/petabad` and `/petabad/floating`, the assistant shows small c
 - Removing a chip re-runs the search and returns a broader, still-valid result set.
 - RTL and Persian digits verified on desktop, mobile and floating; Playwright screenshots with no console errors.
 
+## Part 11 — Flowcart (`/gptcommerce`, `/m/gptcommerce`): the same discipline, fitted to an electronics catalog
+
+Scope: `products`, `hybrid_product_search`, `product_facets`, `product_question_facets`, `brand_aliases`, `gpt-commerce-agent`, `enrich-products`, `generate-embeddings`, and the GPTCommerce desktop/mobile threads. Shift and PetAbad code stay untouched; Flowcart keeps its own function and tables (no cross-product imports), but the two agents stop drifting by sharing pure helpers.
+
+### What I verified in the Flowcart stack first
+- 1,489 products, 6 categories, 8 subcategories, 134 brands, 392 brand aliases already seeded. **Only 379 rows have embeddings**; **435 rows have no category/subcategory at all**; `specs` is empty on every row; `color_options` exists on 577 rows.
+- The category tree is inconsistent: «گوشی موبایل» lives under three different categories, «لپ تاپ» under three, «هارد اکسترنال» under three. Any subcategory-based filter or facet silently splits the same shelf.
+- `gpt-commerce-agent` runs the same fixed two-call flow as PetAbad did (one tool call + one answer call, no loop), so a facets-first turn can end without a search — the identical defect as Part 1.
+- Brand (via `brand_match_keys`), subcategory, price and the `p_evidence` terms are all hard `WHERE` clauses. Evidence already has a one-step relax-and-retry (`evidence_unconfirmed`); brand, subcategory and price have none.
+- Count suppression and grounded clarification already exist; there is no structured trace, no text/card parity check, no `ASKS_FOR_SOME` refinement, no eval suite, and no shared code between the two agents (the two edge functions are independent 1,400/2,164-line copies).
+
+### What gets ported, and what does not
+
+| PetAbad part | Flowcart treatment |
+| --- | --- |
+| 1 — bounded tool loop, discovery guard, no-results proof, trace | **Port as-is** (same defect, same fix). |
+| 2 — three-valued reasoning | **Port**: brand and subcategory become strong bonuses with an UNKNOWN band instead of hard `WHERE`; evidence becomes a re-ranker. Price and stock stay hard. |
+| 3 — context-aware relaxation | **Port with an electronics tier matrix**: Tier 0 = product type (laptop ≠ tablet), explicit budget, platform compatibility explicitly stated (iOS/Android, USB-C, Windows/Mac). Tier 1 = a stated hard spec (RAM/storage/screen size/GPU class when the user names it), gaming/professional use when stated. Tier 2 = brand, color, stated wireless/wired, warranty. Tier 3 = shelf, sort, cosmetic preferences. Same disclosure rules. |
+| 4 — multi-source retrieval | **Port**: weighted `search_vector` (name A, brand/subcategory B, description C, tags D), coverage-based OR matching for long Persian sentences, and **complete the embedding backfill for all 1,489 rows** via the existing `generate-embeddings` function (currently 379). |
+| 5 — universal taxonomy | **Electronics taxonomy, same table structure** (`gc_taxonomy_*`, not the pet tables): dimensions = category tree (fixed to one canonical parent per shelf), brand (reuses `brand_aliases`), use_case (گیمینگ، اداری، دانشجویی، عکاسی، ورزشی…), connectivity (بی‌سیم/بلوتوث/سیمی/USB-C), platform (iOS/Android/Windows/Mac), key specs bands (RAM, storage, screen size, battery), color (from `color_options`), price band. Tool enums are generated from it; aliases normalize English/Persian spellings. |
+| 6 — enrichment | **Rewrite `enrich-products` on the same deterministic-first + AI pattern**: deterministic regex first (RAM/storage/size/connectivity are almost always in the title), then AI with taxonomy enums. Fills the 435 uncategorized rows, `specs` (currently empty everywhere), use_case, connectivity, platform, with provenance/confidence columns on `products`. |
+| 7 — evaluation suite | **Same harness, second dataset**: ~25 Persian electronics missions reusing the historical failures (Apple laptops "not available", brand lists from a 20-row sample, «همه هدفون‌های بی‌سیم» stopping at 6, gaming budget options, empty-bubble clarifications) plus normal cases; SQL ground truth against `products`. |
+| 8 — confidence + honest fallback | **Port** (brand/origin/spec confidence, no filler suggestions outside product type). |
+| 9 — scheduled validation | **Port**: flags uncategorized rows, spec/title contradictions, missing embeddings; re-enriches only affected rows. |
+| 10 — inferred-filter chips | **Port** to `ChatThread.tsx` / `MobileChatThread.tsx` (product type, brand, budget, use case, key spec). |
+| PetAbad-only | Species lock, life stage, breed size, FAQ knowledge base, web brand lookup — **not ported**. |
+
+### No duplicated code
+Pure, catalog-agnostic helpers that both agents need (bounded tool loop, count stripping with `ASKS_FOR_SOME`, signal extraction, tier-based relaxation ladder, trace builder, text/card parity check, taxonomy-enum generator) move to `supabase/functions/_shared/` and are imported by both `petabad-agent` and `gpt-commerce-agent`. Catalog-specific pieces (tables, RPC names, tier matrix, taxonomy seed, prompts) stay per product. No new edge function, no second search RPC, no parallel classifier.
+
+### Tests
+- All Part 1–4 and 8–10 tests re-run against Flowcart with electronics prompts.
+- Category-tree fix: SQL asserts every subcategory has exactly one parent category and zero rows remain uncategorized after enrichment.
+- Embedding gate: 1,489/1,489 rows embedded; vector term contributes non-zero score on a phone query that previously had no embedding.
+- Electronics relaxation: «لپ‌تاپ گیمینگ اپل زیر ۵۰ میلیون» never returns a non-laptop or an over-budget row; brand is relaxed with disclosure, gaming (Tier 1) is not.
+- Shared-helper test: the same helper module is imported by both agents and both typecheck/deploy; a unit run of the helpers passes identically for both catalogs.
+- Latency: Flowcart p50/p95 unchanged or better than the current two-call flow.
+
 ## Technical summary
 
 - Migrations: taxonomy tables + seed from catalog; `pet_products` gains per-field provenance/confidence columns and `taxonomy_version`; weighted `search_vector` rebuild; `pet_hybrid_search` v2 (three-valued scoring, country soft, coverage-based text scoring, tiered relaxation metadata); `pet_question_facets` reads the taxonomy.
 - `petabad-agent`: bounded multi-round tool loop, discovery guard, taxonomy-generated tool enums, alias normalization, evidence re-ranking instead of filtering, importance-tiered relaxation with disclosure, no-results proof requirement, dev trace.
 - `petabad-enrich`: taxonomy-schema-driven, deterministic-first, confidence/evidence/provenance, resumable, dry-run, coverage report.
-- Model stays `google/gemini-3.1-flash-lite`; the extra tool round is budgeted so turns stay in the current latency range.
+- Flowcart mirror (Part 11): `gc_taxonomy_*` tables, canonical category tree, `products` provenance columns, `hybrid_product_search` v2, `gpt-commerce-agent` on the shared helpers, `enrich-products` rewrite, full embedding backfill, electronics eval dataset.
+- `supabase/functions/_shared/`: catalog-agnostic helpers imported by both agents; no duplicated logic added.
+- Models stay as they are (`google/gemini-3.1-flash-lite` for PetAbad, `google/gemini-2.5-flash` for Flowcart); the extra tool round is budgeted so turns stay in the current latency range.

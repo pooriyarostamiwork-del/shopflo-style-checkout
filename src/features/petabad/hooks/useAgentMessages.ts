@@ -60,6 +60,31 @@ import {
   serializeShoppingContext,
   updateFromMessage,
 } from "./shoppingContext";
+import {
+  activePetPayload,
+  ensurePetMemory,
+  rememberBrands,
+  rememberFromJourney,
+  rememberFromMessage,
+  serializePetMemory,
+} from "./petMemory";
+import type { QuestionJourney } from "@/data/petabadData";
+import { decodeJourneyAnswer } from "@/data/petabadData";
+
+const isLiveJourney = (m: ChatMessage) =>
+  Boolean(m.journey && (m.journey.status === 'asking' || m.journey.status === 'checking'));
+
+/** Text form of a journey card for the model's history window. */
+const journeyAsText = (j: QuestionJourney): string =>
+  j.steps
+    .map(s => `سؤال: ${s.card.question || s.card.title || ''} — جواب: ${s.answer.trim() || 'فرقی نمی‌کنه'}`)
+    .join('\n');
+
+/** Close every live journey card (a normal answer arrived). */
+const closeJourneys = (msgs: ChatMessage[]): ChatMessage[] =>
+  msgs.some(isLiveJourney)
+    ? msgs.map(m => (isLiveJourney(m) ? { ...m, journey: { ...m.journey!, current: null, status: 'done' as const } } : m))
+    : msgs;
 
 
 interface UseAgentMessagesProps {
@@ -123,8 +148,9 @@ function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: 
   // Keep recent turns from BOTH roles (product lists live in structured memory)
   return messages
     .filter(m => m.role === 'user' || m.role === 'assistant')
-    .slice(-6)
-    .map(m => ({ role: m.role, content: m.content.slice(0, 300) }));
+    .map(m => ({ role: m.role, content: (m.journey ? journeyAsText(m.journey) : m.content).slice(0, 300) }))
+    .filter(m => m.content.trim())
+    .slice(-12);
 }
 
 // ── Deterministic hints (no model call) ──
@@ -421,6 +447,57 @@ export const useAgentMessages = ({
 
   // ── Main message handler: local fast paths, then ONE unified tool-calling agent ──
   const handleSendMessage = useCallback(async (content: string) => {
+    // ── Journey card taps: no user bubble; the card itself records the answer ──
+    const journeyTap = decodeJourneyAnswer(content);
+    if (journeyTap) {
+      const target = messages.find(m => m.id === journeyTap.messageId);
+      if (!target?.journey || !isLiveJourney(target)) return;
+      const j = target.journey;
+      if (journeyTap.redoIndex !== undefined) {
+        // Change an earlier answer: reopen that question and forget everything after it.
+        const idx = Math.max(0, Math.min(journeyTap.redoIndex, j.steps.length - 1));
+        const reopened = j.steps[idx];
+        if (!reopened) return;
+        const dropped = j.steps.slice(idx).map(st => st.card.id).filter(Boolean) as string[];
+        updateCurrentBasket(s => {
+          const flow = s.shoppingContext?.questionFlow;
+          const nextFlow = flow && typeof flow === 'object'
+            ? {
+                ...flow,
+                asked: (flow.asked || []).filter((id: string) => !dropped.includes(id)),
+                answers: Object.fromEntries(Object.entries(flow.answers || {}).filter(([k]) => !dropped.includes(k))),
+                pending: reopened.card.id || null,
+                done: false,
+              }
+            : flow;
+          return {
+            ...s,
+            messages: s.messages.map(m => m.id !== target.id ? m : {
+              ...m,
+              journey: { steps: j.steps.slice(0, idx), current: reopened.card, status: 'asking' as const },
+            }),
+            shoppingContext: { ...ensureShoppingContext(s.shoppingContext), questionFlow: nextFlow },
+          };
+        });
+        return;
+      }
+      if (!j.current) return;
+      const steps = [...j.steps, { card: j.current, answer: journeyTap.answer }];
+      updateCurrentBasket(s => ({
+        ...s,
+        isProcessing: true,
+        messages: s.messages.map(m => m.id !== target.id ? m : {
+          ...m, journey: { steps, current: null, status: 'checking' as const },
+        }),
+        shoppingContext: {
+          ...ensureShoppingContext(s.shoppingContext),
+          petMemory: rememberFromJourney(ensurePetMemory(s.shoppingContext?.petMemory), steps),
+        },
+      }));
+      await callUnifiedAgent(journeyTap.answer, trimHistoryForAgent(messages), false, target.id);
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -503,6 +580,7 @@ export const useAgentMessages = ({
     cartItems, lastRecommendedProducts, messages, updateCurrentBasket,
     handleTransactionalCartAdd, handleTransactionalCartRemove,
     handleTransactionalQuantityUpdate, handleTransactionalCheckout,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   // ── Execute cart actions returned by cart_manipulation agent (batched) ──
@@ -605,6 +683,7 @@ export const useAgentMessages = ({
     content: string,
     conversationHistory: { role: string; content: string }[],
     isFirstMessage: boolean = false,
+    journeyMessageId?: string,
   ) => {
     try {
       const mem = ensureProductMemory(productMemory);
@@ -635,8 +714,16 @@ export const useAgentMessages = ({
       };
 
       const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
-      const serializedGoal = serializeShoppingContext(nextShopping);
+      // Pet memory: typed messages teach it directly; journey taps were folded in already.
+      nextShopping.petMemory = journeyMessageId
+        ? ensurePetMemory(nextShopping.petMemory)
+        : rememberFromMessage(ensurePetMemory(nextShopping.petMemory), content);
+      const serializedGoal = [serializeShoppingContext(nextShopping), serializePetMemory(nextShopping.petMemory)]
+        .filter(Boolean)
+        .join('\n');
       if (serializedGoal) body.shopping_context = serializedGoal;
+      const petPayload = activePetPayload(nextShopping.petMemory);
+      if (petPayload) body.pet_memory = petPayload;
       // Adaptive question flow: echo the server's state so the next question adapts to this answer.
       if (nextShopping.questionFlow) body.question_flow = nextShopping.questionFlow;
       const scopeHint = buildScopeHint(content);
@@ -672,6 +759,39 @@ export const useAgentMessages = ({
       // ── Clarification branch: render an interactive card, never a duplicate question ──
       const clarification = data?.clarification;
       if (data?.response_type === 'clarification' && isValidClarification(clarification)) {
+        if (data?.question_flow && clarification.kind === 'single') {
+          // Journey question: attach to the live card (tap or typed answer) or open a new one.
+          updateCurrentBasket(s => {
+            const live = s.messages.find(m => m.id === journeyMessageId && isLiveJourney(m))
+              || [...s.messages].reverse().find(m => m.role === 'assistant' && isLiveJourney(m));
+            let msgs: ChatMessage[];
+            let steps = live?.journey?.steps ?? [];
+            if (live?.journey) {
+              // A typed reply answered the open question — record it as a step.
+              if (live.journey.current) steps = [...steps, { card: live.journey.current, answer: content }];
+              const journey: QuestionJourney = { steps, current: clarification, status: 'asking' };
+              msgs = s.messages.map(m => (m.id === live.id ? { ...m, journey } : m));
+            } else {
+              msgs = [...s.messages, {
+                id: `assistant-${Date.now()}`,
+                role: 'assistant',
+                content: '',
+                journey: { steps: [], current: clarification, status: 'asking' },
+                timestamp: new Date(),
+              }];
+            }
+            return {
+              ...s,
+              messages: msgs,
+              shoppingContext: {
+                ...goalUpdated,
+                petMemory: rememberFromJourney(ensurePetMemory(goalUpdated.petMemory), steps),
+              },
+              isProcessing: false,
+            };
+          });
+          return;
+        }
         const clarifyMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
@@ -681,7 +801,7 @@ export const useAgentMessages = ({
         };
         updateCurrentBasket(s => ({
           ...s,
-          messages: [...s.messages, clarifyMessage],
+          messages: [...closeJourneys(s.messages), clarifyMessage],
           shoppingContext: goalUpdated,
           isProcessing: false,
         }));
@@ -707,7 +827,7 @@ export const useAgentMessages = ({
         };
         updateCurrentBasket(s => ({
           ...s,
-          messages: [...s.messages, cartMessage],
+          messages: [...closeJourneys(s.messages), cartMessage],
           productMemory: applyMemorySignals(ensureProductMemory(s.productMemory)),
           shoppingContext: goalUpdated,
           isProcessing: false,
@@ -722,6 +842,7 @@ export const useAgentMessages = ({
       const dbProducts = data?.products || [];
       const mappedProducts: Product[] = dbProducts.map(mapDbProduct);
 
+      const shownBrands: string[] = dbProducts.map((p: any) => String(p.brand || '').trim()).filter(Boolean);
       updateCurrentBasket(s => {
         let nextMemory = applyMemorySignals(ensureProductMemory(s.productMemory));
         if (mappedProducts.length > 0) {
@@ -731,7 +852,12 @@ export const useAgentMessages = ({
         return {
           ...s,
           productMemory: nextMemory,
-          shoppingContext: goalUpdated,
+          shoppingContext: {
+            ...goalUpdated,
+            petMemory: shownBrands.length
+              ? rememberBrands(ensurePetMemory(goalUpdated.petMemory), shownBrands)
+              : goalUpdated.petMemory,
+          },
           ...(mappedProducts.length > 0 ? { lastRecommendedProducts: mappedProducts } : {}),
         };
       });
@@ -756,7 +882,7 @@ export const useAgentMessages = ({
         ] : undefined,
         timestamp: new Date(),
       };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
+      updateCurrentBasket(s => ({ ...s, messages: [...closeJourneys(s.messages), assistantMessage], isProcessing: false }));
     } catch (err) {
       console.error('Failed to call agent:', err);
       const fallbackMessage: ChatMessage = {
@@ -765,7 +891,14 @@ export const useAgentMessages = ({
         content: 'پاسخ‌گویی بیشتر از حد معمول طول کشید. لطفاً دوباره امتحان کن. 🙏',
         timestamp: new Date(),
       };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
+      // A journey that was waiting on this call gets its last question back so the shopper can retry.
+      const reopen = (m: ChatMessage): ChatMessage => {
+        if (m.id !== journeyMessageId || m.journey?.status !== 'checking') return m;
+        const steps = [...m.journey.steps];
+        const last = steps.pop();
+        return { ...m, journey: { steps, current: last?.card ?? null, status: last ? 'asking' : 'abandoned' } };
+      };
+      updateCurrentBasket(s => ({ ...s, messages: [...s.messages.map(reopen), fallbackMessage], isProcessing: false }));
     }
   }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext]);
 
@@ -795,11 +928,14 @@ export const useAgentMessages = ({
 
       const clarification = data?.clarification;
       if (data?.response_type === 'clarification' && isValidClarification(clarification)) {
+        const asJourney = Boolean(data?.question_flow) && clarification.kind === 'single';
         const clarifyMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
           content: '',
-          clarification,
+          ...(asJourney
+            ? { journey: { steps: [], current: clarification, status: 'asking' as const } }
+            : { clarification }),
           timestamp: new Date(),
         };
         updateTarget(s => ({

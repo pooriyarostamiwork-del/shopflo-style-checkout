@@ -1980,10 +1980,22 @@ function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
 }
 
 /** Life stage the shopper stated — kitten/puppy talk must never drift to adult copy. */
+const AGE_WORDS: Record<string, number> = {
+  یک: 1, دو: 2, سه: 3, چهار: 4, پنج: 5, شش: 6, هفت: 7, هشت: 8, نه: 9, ده: 10, یازده: 11, دوازده: 12,
+};
 function detectLifeStage(text: string): string | null {
   const norm = normalizePersian(text || "");
   if (/بچه\s*گربه|توله|بچه\s*سگ|پاپی|نابالغ|kitten|puppy/i.test(norm)) return "نابالغ";
   if (/پیر|مسن|سالمند|سنیور|senior/i.test(norm)) return "سنیور";
+  // «۸ سالشه» / «هفت ساله» → an age in years decides the stage.
+  const m = norm
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .match(/(\d{1,2}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده)\s*(?:سال(?:ش|شه|ه|ست|شونه)?|ساله)/);
+  if (m) {
+    const y = /\d/.test(m[1]) ? parseInt(m[1]) : AGE_WORDS[m[1]];
+    if (Number.isFinite(y)) return y < 1 ? "نابالغ" : y >= 7 ? "سنیور" : "بالغ";
+  }
+  if (/چند\s*ماهه|ماهشه/.test(norm)) return "نابالغ";
   return null;
 }
 

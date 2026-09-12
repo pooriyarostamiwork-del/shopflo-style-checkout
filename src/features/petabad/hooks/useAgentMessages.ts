@@ -919,8 +919,12 @@ export const useAgentMessages = ({
     updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
     try {
+      const firstMemory = rememberFromMessage(ensurePetMemory(null), content);
+      const firstPet = activePetPayload(firstMemory);
       const { data, error } = await invokeWithTimeout('petabad-agent', {
         messages: [{ role: 'user', content }], mode: 'agentic', is_first_message: true,
+        ...(firstPet ? { pet_memory: firstPet } : {}),
+        ...(serializePetMemory(firstMemory) ? { shopping_context: serializePetMemory(firstMemory) } : {}),
       });
 
       if (error) throw new Error(error.message);

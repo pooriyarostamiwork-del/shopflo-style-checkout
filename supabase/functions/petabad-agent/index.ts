@@ -3197,6 +3197,15 @@ serve(async (req) => {
           if (m) pushCard(m);
         }
       }
+      // Products re-introduced from earlier turns are not in this turn's results: fetch them by name.
+      if (cards.length < numberedLines.length) {
+        for (const line of numberedLines) {
+          if (cards.length >= numberedLines.length) break;
+          const m = await lookupByNameLine(supabase, line, seen, lockedSpecies);
+          if (m) pushCard(m);
+        }
+      }
+
       if (lockedSpecies) cards = cards.filter((p: any) => rowMatchesSpecies(p, lockedSpecies));
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);

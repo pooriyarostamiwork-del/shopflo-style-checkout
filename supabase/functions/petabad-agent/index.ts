@@ -828,9 +828,58 @@ function classifyBrand(raw: string, vocab: { keys: Set<string> }): "catalog" | "
   return n.length >= 4 ? "unknown" : "not-a-brand";
 }
 
-async function executeSearch(
-
+/**
+ * Catalog-grounded brand list for questions like «چه برندهای خارجی برای پوچ گربه
+ * دارین» or the follow-up «خارجیاشون کدومن؟». Returns prose, never product cards.
+ */
+async function brandListAnswer(
   supabase: any,
+  text: string,
+  lockedSpecies?: string | null,
+): Promise<string | null> {
+  const norm = normalizePersian(text || "");
+  const wantsForeign = /(خارجی|وارداتی|اورجینال|import)/.test(norm);
+  const wantsIranian = /(ایرانی|داخلی|تولید ایران)/.test(norm);
+  const species = lockedSpecies || detectSpecies(norm);
+  const types = detectProductTypes(norm);
+
+  let q = supabase
+    .from("pet_products")
+    .select("brand, origin_country, species, product_type")
+    .eq("in_stock", true)
+    .not("brand", "is", null)
+    .limit(3000);
+  if (species && !["سایر حیوانات خانگی", "ماهی و آکواریوم"].includes(species)) q = q.eq("species", species);
+  if (types.length > 0) q = q.in("product_type", types);
+
+  const { data, error } = await q;
+  if (error || !data || data.length === 0) return null;
+
+  const brands: string[] = [];
+  for (const row of data) {
+    const origin = normalizePersian(String(row.origin_country || ""));
+    if (wantsForeign && (!origin || /ایران/.test(origin))) continue;
+    if (wantsIranian && !/ایران/.test(origin)) continue;
+    const b = String(row.brand || "").trim();
+    if (b && !brands.includes(b)) brands.push(b);
+  }
+  if (brands.length === 0) return null;
+
+  const scope = [
+    wantsForeign ? "خارجی" : wantsIranian ? "ایرانی" : "",
+    types.length > 0 ? types[0] : "",
+    species ? species : "",
+  ].filter(Boolean).join(" ");
+  const list = brands.slice(0, 25).join("، ");
+  return scope
+    ? `برای ${scope} این برندها رو موجود داریم: ${list}.`
+    : `این برندها رو موجود داریم: ${list}.`;
+}
+
+async function executeSearch(
+  supabase: any,
+  args: any,
+
   args: any,
   precomputedEmbedding: number[] | null,
   lock?: { species?: string | null; lifeStage?: string | null },

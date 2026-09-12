@@ -2945,6 +2945,41 @@ serve(async (req) => {
           forced.push("denial_override");
         }
       }
+      // "We don't have other brands / nothing for this need" with nothing to show:
+      // verify against the catalog under the SAME conditions before shipping a denial.
+      if (
+        cards.length === 0 &&
+        numberedCount === 0 &&
+        !isBusinessQuestion &&
+        /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|محدود می‌شود|محدود میشه)/.test(visible)
+      ) {
+        const verify = await executeSearch(
+          supabase,
+          {
+            query_text: buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily).query_text,
+            subcategory_family: facetFamily || undefined,
+            species: lockedSpecies || undefined,
+            filters: {
+              ...(lockedStage ? { life_stage: lockedStage } : {}),
+              ...(extractedIntent?.filters?.needs ? { needs: extractedIntent.filters.needs } : {}),
+            },
+            limit: 24,
+          },
+          precomputedEmbedding,
+          speciesLock,
+        );
+        const verified = (verify.products || []).filter(
+          (p: any) => !allProducts.some((a: any) => a.id === p.id),
+        );
+        if (verified.length > 0) {
+          cards = verified.slice(0, maxShown);
+          allProducts = mergeProducts(allProducts, verified);
+          visible = composeProductAnswer(cards, originalQuery);
+          searchExecuted = true;
+          forced.push("availability_verified");
+          console.log(`Availability check contradicted the denial: ${verified.length} products`);
+        }
+      }
       if (cards.length === 0) {
         const parsed = extractQuestionCard(visible);
         const facets = parsed || wantsGuidance ? await getFacets() : null;

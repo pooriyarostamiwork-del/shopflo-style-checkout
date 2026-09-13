@@ -11,7 +11,7 @@ import { ShiningText } from "@/components/petabad/ShiningText";
 import { TypingText } from "@/components/petabad/TypingText";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { FloatingProductCard } from "./FloatingProductCard";
-import { BorderBeam } from "@/components/ui/border-beam";
+
 
 const PLACEHOLDERS = [
   "«غذای خشک بچه‌گربه»",

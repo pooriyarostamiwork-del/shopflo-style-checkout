@@ -210,11 +210,6 @@ export const FloatingChatThread = ({
           }}
           className="group/composer relative flex items-center gap-2 overflow-hidden rounded-2xl border border-border bg-card p-2 transition-colors focus-within:border-primary/50"
         >
-          <BorderBeam
-            lightWidth={112}
-            duration={4.5}
-            className="opacity-0 group-hover/composer:opacity-100 group-focus-within/composer:opacity-100"
-          />
           <div className="relative flex-1">
             <textarea
               ref={taRef}

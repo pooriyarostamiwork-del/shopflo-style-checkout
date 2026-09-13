@@ -2,6 +2,7 @@ import { Check, Info, Plus, Star } from "lucide-react";
 import { Product, formatPersianPrice, toPersianNumber } from "@/data/petabadData";
 import { ProductImage } from "@/components/petabad/ProductImage";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
+import { BorderBeam } from "@/components/ui/border-beam";
 
 interface Props {
   product: Product;
@@ -16,7 +17,12 @@ export const FloatingProductCard = ({ product, index, isInCart, onAdd, onDetails
   const { getChatProductImage } = useHomepageSettings();
 
   return (
-    <div className="group flex gap-3 rounded-2xl border border-border/70 bg-card p-2.5 transition-colors hover:border-primary/40">
+    <div className="group relative flex gap-3 overflow-hidden rounded-2xl border border-border/70 bg-card p-2.5 transition-colors hover:border-primary/40">
+      <BorderBeam
+        lightWidth={96}
+        duration={4}
+        className="opacity-0 group-hover:opacity-100"
+      />
       <div className="relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-xl bg-muted">
         <ProductImage
           src={getChatProductImage(product.id, product.image)}

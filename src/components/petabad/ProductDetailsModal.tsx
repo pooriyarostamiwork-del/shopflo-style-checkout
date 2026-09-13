@@ -21,7 +21,7 @@ export const ProductDetailsModal = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -46,7 +46,7 @@ export const ProductDetailsModal = ({
 
       {/* Modal */}
       <div 
-        className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl"
+        className="floating-product-modal relative h-full w-full max-w-3xl overflow-y-auto rounded-none sm:h-auto sm:max-h-[90vh] sm:rounded-2xl"
         style={{
           background: 'hsl(0 0% 100%)',
           border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -59,7 +59,7 @@ export const ProductDetailsModal = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 left-4 z-10 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110"
+          className="fixed left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 hover:scale-110 sm:absolute"
           style={{
             background: 'hsl(0 0% 100%)',
             border: '1px solid hsl(0 0% 0% / 0.08)',
@@ -68,12 +68,31 @@ export const ProductDetailsModal = ({
           <X className="w-5 h-5 text-foreground" />
         </button>
 
-        {/* PDP Component - reused from PDP page */}
+        <style>{`
+          @media (max-width: 767px) {
+            .floating-product-modal .p-4 { padding: 0.875rem !important; }
+            .floating-product-modal > div.p-4 > div.flex.gap-6 {
+              flex-direction: column !important;
+              gap: 1rem !important;
+            }
+            .floating-product-modal .w-56 {
+              width: 100% !important;
+              max-width: 280px !important;
+              margin-inline: auto !important;
+            }
+            .floating-product-modal .w-28 {
+              width: auto !important;
+              min-width: 5.5rem !important;
+              flex-shrink: 0 !important;
+            }
+          }
+        `}</style>
         <PDPProductComponent
           product={product}
           isInCart={isInCart}
           onAddToCart={onAddToCart}
           showContextLabel={false}
+          enableSwipeGallery={true}
         />
       </div>
     </div>

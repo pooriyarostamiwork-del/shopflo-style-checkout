@@ -188,8 +188,7 @@ export const FloatingChatThread = ({
           {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex items-end gap-2">
               <PetabadMark size="avatar" />
-               <div className="relative overflow-hidden rounded-2xl rounded-br-md border border-border/70 bg-card px-3.5 py-2.5">
-                 <BorderBeam lightWidth={88} duration={3.5} />
+                <div className="relative overflow-hidden rounded-2xl rounded-br-md border border-border/70 bg-card px-3.5 py-2.5">
                 <div className="flex items-center gap-2">
                   <WanderingEyes className="h-5 w-[45px] text-primary" />
                   <ShiningText text={thinkingLabel} className="text-xs" />

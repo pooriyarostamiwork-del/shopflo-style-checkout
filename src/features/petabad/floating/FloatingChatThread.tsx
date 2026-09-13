@@ -11,7 +11,7 @@ import { ShiningText } from "@/components/petabad/ShiningText";
 import { TypingText } from "@/components/petabad/TypingText";
 import { getThinkingLabel } from "@/features/petabad/hooks/loadingLabel";
 import { FloatingProductCard } from "./FloatingProductCard";
-import { BorderBeam } from "@/components/ui/border-beam";
+
 
 const PLACEHOLDERS = [
   "«غذای خشک بچه‌گربه»",
@@ -188,8 +188,7 @@ export const FloatingChatThread = ({
           {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
             <div className="flex items-end gap-2">
               <PetabadMark size="avatar" />
-               <div className="relative overflow-hidden rounded-2xl rounded-br-md border border-border/70 bg-card px-3.5 py-2.5">
-                 <BorderBeam lightWidth={88} duration={3.5} />
+                <div className="relative overflow-hidden rounded-2xl rounded-br-md border border-border/70 bg-card px-3.5 py-2.5">
                 <div className="flex items-center gap-2">
                   <WanderingEyes className="h-5 w-[45px] text-primary" />
                   <ShiningText text={thinkingLabel} className="text-xs" />
@@ -211,11 +210,6 @@ export const FloatingChatThread = ({
           }}
           className="group/composer relative flex items-center gap-2 overflow-hidden rounded-2xl border border-border bg-card p-2 transition-colors focus-within:border-primary/50"
         >
-          <BorderBeam
-            lightWidth={112}
-            duration={4.5}
-            className="opacity-0 group-hover/composer:opacity-100 group-focus-within/composer:opacity-100"
-          />
           <div className="relative flex-1">
             <textarea
               ref={taRef}

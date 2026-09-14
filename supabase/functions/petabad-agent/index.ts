@@ -2691,17 +2691,143 @@ serve(async (req) => {
       shownBrands = shownBrands.slice(0, 30);
       console.log("Other-brands turn, excluding:", shownBrands.join(", "));
     }
-    // Foreign / Iranian scope is sticky: the newest turn that states it wins.
+    // ── Preference scope: a preference belongs to the purchase it was stated in ──
+    // The client sends the purchase in progress plus two preference sets: «active»
+    // (this purchase, or a lifetime preference) and «remembered» (another purchase).
+    // Only active ones become filters. Remembered ones are never applied silently —
+    // they are dropped, or asked about, and only when the catalog says the question
+    // is meaningful.
+    type ScopedPref = { dim: string; value: string; scope: string; min?: number; max?: number; purchase?: string };
+    const pc = purchase_context && typeof purchase_context === "object" ? purchase_context : null;
+    const activePrefs: ScopedPref[] = Array.isArray(pc?.active) ? pc!.active : [];
+    const rememberedPrefs: ScopedPref[] = Array.isArray(pc?.remembered) ? pc!.remembered : [];
+    const askedCarryOver: string[] = Array.isArray(pc?.asked_carry_over) ? pc!.asked_carry_over : [];
+
+    // Foreign / Iranian scope: the newest statement inside the CURRENT purchase wins.
+    // Without a purchase context (older clients) the scan stops at a purchase
+    // boundary («حالا یه … هم می‌خوام») so an old scope cannot leak into a new shelf.
     let stickyForeign: boolean | null = null;
-    for (let i = userTurns.length - 1; i >= 0; i--) {
-      const t = normalizePersian(userTurns[i]);
-      if (/(خارجی|وارداتی|غیر ایرانی|اورجینال)/.test(t)) {
-        stickyForeign = true;
-        break;
+    if (pc) {
+      const origin = activePrefs.find((p) => p.dim === "origin");
+      if (origin) stickyForeign = origin.value !== "ایرانی";
+    } else {
+      const BOUNDARY_RE = /(حالا|یه\s+\S+\s+هم|هم\s+می\s*خوام|بعدش)/;
+      for (let i = userTurns.length - 1; i >= 0; i--) {
+        const t = normalizePersian(userTurns[i]);
+        if (/(خارجی|وارداتی|غیر ایرانی|اورجینال)/.test(t)) {
+          stickyForeign = true;
+          break;
+        }
+        if (/(ایرانی|داخلی|تولید ایران)/.test(t)) {
+          stickyForeign = false;
+          break;
+        }
+        if (i < userTurns.length - 1 && BOUNDARY_RE.test(t)) break;
       }
-      if (/(ایرانی|داخلی|تولید ایران)/.test(t)) {
-        stickyForeign = false;
-        break;
+    }
+
+    // ── Carry-over decision, checked against real stock ──
+    const CATALOG_GROUP: Record<string, string> = {
+      "غذا": "غذا",
+      "تشویقی": "غذا",
+      "بهداشتی": "بهداشت",
+      "خاک": "بهداشت",
+      "اسباب‌بازی": "اسباب‌بازی",
+      "قلاده": "لوازم",
+      "جای خواب": "لوازم",
+    };
+    const probeSlice = async (extra: Record<string, unknown>) => {
+      try {
+        const { data } = await supabase.rpc("pet_question_facets", {
+          p_query: normLastUser,
+          p_species: lockedSpecies || pc?.species || null,
+          p_type_group: pc?.product_group ? CATALOG_GROUP[pc.product_group] || null : null,
+          p_in_stock: true,
+          ...extra,
+        });
+        const total = Number(data?.total || 0);
+        const min = Number(data?.price?.min || 0);
+        return { total, min };
+      } catch (e) {
+        console.log("Carry-over probe failed:", String(e));
+        return null;
+      }
+    };
+    let carryOverAsk: { dim: string; value: string } | null = null;
+    const droppedPrefs: string[] = [];
+    const CARRY_DIMS = ["brand", "origin", "budget"];
+    if (pc && rememberedPrefs.length > 0 && effectiveMode === "agentic" && !isInfoQuestion && !isBusinessQuestion) {
+      const restated = (p: ScopedPref) => normLastUser.includes(normalizePersian(p.value).split(" ")[0]);
+      const baseline = await probeSlice({});
+      for (const p of rememberedPrefs) {
+        if (!CARRY_DIMS.includes(p.dim) || askedCarryOver.includes(p.dim) || restated(p)) continue;
+        if (!baseline || baseline.total === 0) break;
+        if (p.dim === "budget") {
+          // A cap from a cheaper shelf makes no sense when this shelf starts higher.
+          if (p.max && baseline.min > p.max) {
+            droppedPrefs.push(`سقف قیمت ${p.value} (ارزان‌ترین گزینهٔ این قفسه از آن بالاتر است)`);
+            continue;
+          }
+          const withCap = await probeSlice({ });
+          if (withCap && p.max && withCap.total > 0) carryOverAsk ??= { dim: p.dim, value: p.value };
+          continue;
+        }
+        const extra =
+          p.dim === "brand"
+            ? { p_brand: p.value }
+            : p.value === "خارجی"
+              ? { p_foreign_only: true }
+              : p.value === "ایرانی"
+                ? { p_foreign_only: false }
+                : { p_origin_country: p.value };
+        const withPref = await probeSlice(extra);
+        if (!withPref || withPref.total === 0) {
+          // Nothing in stock with the old preference: never ask, never apply,
+          // never answer «نداریم» — just serve what fits the shopper's need.
+          droppedPrefs.push(`${p.value} (در این دسته موجود نیست)`);
+          continue;
+        }
+        if (withPref.total >= 3 && withPref.total < baseline.total * 0.8) {
+          carryOverAsk ??= { dim: p.dim, value: p.value };
+        }
+      }
+    }
+    if (droppedPrefs.length > 0) {
+      systemPrompt += `\n\nCARRIED_PREFERENCES_DROPPED: این ترجیح‌های خریدهای قبلی برای درخواست فعلی اعمال نمی‌شوند: ${droppedPrefs.join("، ")}.
+- درباره‌شان سؤال نپرس و به‌خاطرشان نگو «نداریم».
+- بهترین گزینه‌های موجود متناسب با نیاز کاربر را معرفی کن.`;
+      console.log("Carried preferences dropped:", droppedPrefs.join(" | "));
+    }
+    if (rememberedPrefs.length > 0) {
+      systemPrompt += `\n\nREMEMBERED_PREFERENCES: ترجیح‌های زیر مربوط به خرید(های) قبلی هستند و برای درخواست فعلی فعال نیستند: ${rememberedPrefs
+        .map((p) => `${p.dim}=${p.value}`)
+        .join("، ")}. آن‌ها را به‌عنوان فیلتر اعمال نکن و از آن‌ها نتیجهٔ «موجود نیست» نگیر.`;
+    }
+    if (carryOverAsk) {
+      // One short, natural question — and only when stock makes it meaningful.
+      const label =
+        carryOverAsk.dim === "brand"
+          ? `برای این خرید هم برند ${carryOverAsk.value} رو در نظر بگیرم؟`
+          : carryOverAsk.dim === "budget"
+            ? `برای این خرید هم همون بودجه (${carryOverAsk.value}) رو در نظر بگیرم؟`
+            : `برای این خرید هم فقط ${carryOverAsk.value} می‌خوای؟`;
+      const card = {
+        kind: "single" as const,
+        id: `carryover-${carryOverAsk.dim}`,
+        title: label,
+        question: label,
+        options: [
+          { label: carryOverAsk.dim === "brand" ? `بله، همون ${carryOverAsk.value}` : "بله، همون قبلی" },
+          { label: "نه، مهم نیست" },
+        ],
+      };
+      const cardResponse = clarificationResponse(card as any, `carryover-${carryOverAsk.dim}`);
+      if (cardResponse) {
+        const payload = await cardResponse.json();
+        console.log("Carry-over question:", JSON.stringify(carryOverAsk));
+        return new Response(JSON.stringify({ ...payload, carry_over: carryOverAsk }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
     // ── Adaptive question flow: one catalog-grounded question per turn ──

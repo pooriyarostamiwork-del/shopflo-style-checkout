@@ -62,11 +62,15 @@ import {
 } from "./shoppingContext";
 import {
   activePetPayload,
+  applyCarryOverAnswer,
   ensurePetMemory,
+  markCarryOverAsked,
+  purchaseContextPayload,
   rememberBrands,
   rememberFromJourney,
   rememberFromMessage,
   serializePetMemory,
+  type PrefDim,
 } from "./petMemory";
 import type { QuestionJourney } from "@/data/petabadData";
 import { decodeJourneyAnswer } from "@/data/petabadData";
@@ -713,16 +717,24 @@ export const useAgentMessages = ({
       };
 
       const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
+      // A carry-over question was on screen: this reply decides whether the old
+      // preference is valid for the purchase in progress.
+      const pendingCarry = nextShopping.pendingCarryOver;
+      let petMem = ensurePetMemory(nextShopping.petMemory);
+      if (pendingCarry) {
+        const accepted = /(بله|آره|اره|همون|همین|بذار|باشه|درسته)/.test(content) && !/(نه|نمی|فرقی)/.test(content);
+        petMem = applyCarryOverAnswer(petMem, pendingCarry.dim as PrefDim, pendingCarry.value, accepted);
+        nextShopping.pendingCarryOver = null;
+      }
       // Pet memory: typed messages teach it directly; journey taps were folded in already.
-      nextShopping.petMemory = journeyMessageId
-        ? ensurePetMemory(nextShopping.petMemory)
-        : rememberFromMessage(ensurePetMemory(nextShopping.petMemory), content);
+      nextShopping.petMemory = journeyMessageId ? petMem : rememberFromMessage(petMem, content);
       const serializedGoal = [serializeShoppingContext(nextShopping), serializePetMemory(nextShopping.petMemory)]
         .filter(Boolean)
         .join('\n');
       if (serializedGoal) body.shopping_context = serializedGoal;
       const petPayload = activePetPayload(nextShopping.petMemory);
       if (petPayload) body.pet_memory = petPayload;
+      body.purchase_context = purchaseContextPayload(nextShopping.petMemory);
       // Adaptive question flow: echo the server's state so the next question adapts to this answer.
       if (nextShopping.questionFlow) body.question_flow = nextShopping.questionFlow;
       const scopeHint = buildScopeHint(content);
@@ -798,10 +810,17 @@ export const useAgentMessages = ({
           clarification,
           timestamp: new Date(),
         };
+        const carryOver = data?.carry_over;
         updateCurrentBasket(s => ({
           ...s,
           messages: [...closeJourneys(s.messages), clarifyMessage],
-          shoppingContext: goalUpdated,
+          shoppingContext: carryOver?.dim
+            ? {
+                ...goalUpdated,
+                pendingCarryOver: { dim: carryOver.dim, value: carryOver.value },
+                petMemory: markCarryOverAsked(ensurePetMemory(goalUpdated.petMemory), carryOver.dim),
+              }
+            : goalUpdated,
           isProcessing: false,
         }));
         return;

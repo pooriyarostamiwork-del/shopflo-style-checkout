@@ -810,10 +810,17 @@ export const useAgentMessages = ({
           clarification,
           timestamp: new Date(),
         };
+        const carryOver = data?.carry_over;
         updateCurrentBasket(s => ({
           ...s,
           messages: [...closeJourneys(s.messages), clarifyMessage],
-          shoppingContext: goalUpdated,
+          shoppingContext: carryOver?.dim
+            ? {
+                ...goalUpdated,
+                pendingCarryOver: { dim: carryOver.dim, value: carryOver.value },
+                petMemory: markCarryOverAsked(ensurePetMemory(goalUpdated.petMemory), carryOver.dim),
+              }
+            : goalUpdated,
           isProcessing: false,
         }));
         return;

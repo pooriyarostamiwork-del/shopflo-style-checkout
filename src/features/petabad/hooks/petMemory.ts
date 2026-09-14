@@ -33,6 +33,7 @@ export interface ScopedPreference {
   scope: PrefScope;
   /** «species|productGroup» of the purchase this was stated in. */
   purchaseKey: string;
+  species?: string | null;
   min?: number;
   max?: number;
   /** The shopper said it should NOT carry into this purchase. */

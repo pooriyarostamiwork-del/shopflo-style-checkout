@@ -717,16 +717,24 @@ export const useAgentMessages = ({
       };
 
       const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
+      // A carry-over question was on screen: this reply decides whether the old
+      // preference is valid for the purchase in progress.
+      const pendingCarry = nextShopping.pendingCarryOver;
+      let petMem = ensurePetMemory(nextShopping.petMemory);
+      if (pendingCarry) {
+        const accepted = /(بله|آره|اره|همون|همین|بذار|باشه|درسته)/.test(content) && !/(نه|نمی|فرقی)/.test(content);
+        petMem = applyCarryOverAnswer(petMem, pendingCarry.dim as PrefDim, pendingCarry.value, accepted);
+        nextShopping.pendingCarryOver = null;
+      }
       // Pet memory: typed messages teach it directly; journey taps were folded in already.
-      nextShopping.petMemory = journeyMessageId
-        ? ensurePetMemory(nextShopping.petMemory)
-        : rememberFromMessage(ensurePetMemory(nextShopping.petMemory), content);
+      nextShopping.petMemory = journeyMessageId ? petMem : rememberFromMessage(petMem, content);
       const serializedGoal = [serializeShoppingContext(nextShopping), serializePetMemory(nextShopping.petMemory)]
         .filter(Boolean)
         .join('\n');
       if (serializedGoal) body.shopping_context = serializedGoal;
       const petPayload = activePetPayload(nextShopping.petMemory);
       if (petPayload) body.pet_memory = petPayload;
+      body.purchase_context = purchaseContextPayload(nextShopping.petMemory);
       // Adaptive question flow: echo the server's state so the next question adapts to this answer.
       if (nextShopping.questionFlow) body.question_flow = nextShopping.questionFlow;
       const scopeHint = buildScopeHint(content);

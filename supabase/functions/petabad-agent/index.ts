@@ -2518,6 +2518,7 @@ serve(async (req) => {
       reference_hint,
       question_flow,
       pet_memory,
+      purchase_context,
     } = await req.json();
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {

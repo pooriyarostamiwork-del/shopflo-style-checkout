@@ -62,11 +62,15 @@ import {
 } from "./shoppingContext";
 import {
   activePetPayload,
+  applyCarryOverAnswer,
   ensurePetMemory,
+  markCarryOverAsked,
+  purchaseContextPayload,
   rememberBrands,
   rememberFromJourney,
   rememberFromMessage,
   serializePetMemory,
+  type PrefDim,
 } from "./petMemory";
 import type { QuestionJourney } from "@/data/petabadData";
 import { decodeJourneyAnswer } from "@/data/petabadData";

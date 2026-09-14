@@ -14,6 +14,8 @@ export interface ShoppingContext {
   questionFlow?: any;
   /** Per-conversation memory of the shopper's pets and preferences. */
   petMemory?: import("./petMemory").PetMemory;
+  /** A preference the assistant just asked about carrying into this purchase. */
+  pendingCarryOver?: { dim: string; value: string } | null;
 }
 
 export const createEmptyShoppingContext = (): ShoppingContext => ({

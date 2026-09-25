@@ -21,6 +21,8 @@ interface AccountPanelProps {
   onUpdateAddress: (address: DeliveryAddress) => void;
   activeAddressIds?: string[];
   initialTab?: AccountTab;
+  initialOrderId?: string | null;
+  onSelectedOrderChange?: (orderId: string | null) => void;
   onStartNewChat?: () => void;
   // Auth-aware props
   orders?: any[];
@@ -274,6 +276,8 @@ export const AccountPanel = ({
   onUpdateAddress,
   activeAddressIds = [],
   initialTab = 'profile',
+  initialOrderId = null,
+  onSelectedOrderChange,
   onStartNewChat,
   orders,
   userProfile: userProfileProp,
@@ -289,7 +293,10 @@ export const AccountPanel = ({
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [deleteWarningId, setDeleteWarningId] = useState<string | null>(null);
   const [newAddress, setNewAddress] = useState({ title: '', fullAddress: '', recipientName: '', phone: '' });
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderIdRaw] = useState<string | null>(initialOrderId);
+  useEffect(() => { setSelectedOrderIdRaw(initialOrderId); }, [initialOrderId]);
+  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
+  const setSelectedOrderId = (id: string | null) => { setSelectedOrderIdRaw(id); onSelectedOrderChange?.(id); };
 
   // Sync profileData when userProfileProp loads asynchronously after mount
   useEffect(() => {

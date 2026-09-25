@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sidebar, Basket } from "@/components/petabad/Sidebar";
 import { ChatInterface } from "@/components/petabad/ChatInterface";
 import { RightPanel } from "@/components/petabad/RightPanel";
@@ -414,10 +415,77 @@ export const PetAbadShell = () => {
     setShowOTPModal(true);
   }, [isAuthenticated]);
 
+  // ── Deep linking: URL <-> view state ───────────────────────────────────
+  // Landing: no params · New chat: ?chat=new · Chat: ?c=<basketId> · Account: ?tab=profile|orders
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [landingOverride, setLandingOverride] = useState(false);
+  const lastSyncedRef = useRef<string | null>(null);
+  const prevViewKeyRef = useRef<string | null>(null);
+  const searchKey = searchParams.toString();
+  const [urlOrderId, setUrlOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchKey === lastSyncedRef.current) return;
+    lastSyncedRef.current = searchKey;
+    const tab = searchParams.get('tab');
+    const c = searchParams.get('c');
+    const order = searchParams.get('order');
+    setUrlOrderId(order);
+    if (order) {
+      setLandingOverride(false);
+      setPendingNewChat(false);
+      setActiveSection('orders');
+      setIsCartOpen(false);
+    } else if (tab === 'orders' || tab === 'profile') {
+      setLandingOverride(false);
+      setPendingNewChat(false);
+      setActiveSection(tab === 'orders' ? 'orders' : 'account');
+      setIsCartOpen(false);
+    } else if (searchParams.get('chat') === 'new') {
+      setLandingOverride(false);
+      setActiveSection('active-cart');
+      setPendingNewChat(true);
+    } else if (c && baskets.some(b => b.id === c)) {
+      setLandingOverride(false);
+      handleBasketSelect(c);
+    } else {
+      setActiveSection('active-cart');
+      setPendingNewChat(false);
+      setLandingOverride(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey]);
+
+  const inChat = !landingOverride && hasStartedChat;
+  useEffect(() => {
+    const viewKey = [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId].join('|');
+    const isFirst = prevViewKeyRef.current === null;
+    const unchanged = prevViewKeyRef.current === viewKey;
+    prevViewKeyRef.current = viewKey;
+    if (isFirst || unchanged) return;
+    const next = new URLSearchParams();
+    if (activeSection === 'orders' && urlOrderId) next.set('order', urlOrderId);
+    else if (activeSection === 'orders') next.set('tab', 'orders');
+    else if (activeSection === 'account') next.set('tab', 'profile');
+    else if (pendingNewChat) next.set('chat', 'new');
+    else if (inChat) next.set('c', activeBasketId);
+    const nextKey = next.toString();
+    if (nextKey === searchKey) return;
+    lastSyncedRef.current = nextKey;
+    setSearchParams(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId]);
+
+  const handleSendFromUI = useCallback((message: string, forceNew?: boolean) => {
+    const force = forceNew || landingOverride;
+    setLandingOverride(false);
+    handleSendMessageWithPending(message, force);
+  }, [landingOverride, handleSendMessageWithPending]);
+
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="petabad-theme flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
-      {(hasStartedChat || pendingNewChat) && (
+      {(inChat || pendingNewChat) && (
         <Sidebar
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
@@ -445,6 +513,8 @@ export const PetAbadShell = () => {
           onUpdateAddress={handleAccountUpdateAddress}
           activeAddressIds={activeAddressIds}
           initialTab={activeSection === 'orders' ? 'orders' : 'profile'}
+          initialOrderId={urlOrderId}
+          onSelectedOrderChange={setUrlOrderId}
           onStartNewChat={() => { handleCreateBasket(); setActiveSection('active-cart'); }}
           orders={dbOrders}
           userProfile={profile ? { name: profile.full_name || '', phone: profile.phone, email: '' } : undefined}
@@ -455,14 +525,14 @@ export const PetAbadShell = () => {
       ) : (
         <ChatInterface
           messages={messages}
-          onSendMessage={handleSendMessageWithPending}
+          onSendMessage={handleSendFromUI}
           onAddToCart={handleAddToCart}
           onCompare={handleCompare}
           onSaveProduct={handleSaveProduct}
           cartItems={cartItems}
           isProcessing={isProcessing}
           onCheckout={handleCheckout}
-          hasStartedChat={pendingNewChat ? true : hasStartedChat}
+          hasStartedChat={pendingNewChat ? true : inChat}
           isPendingNewChat={pendingNewChat}
           onStartChat={handleStartChat}
           isCartOpen={isCartOpen}
@@ -494,7 +564,7 @@ export const PetAbadShell = () => {
         isOpen={isCartOpen}
         onToggle={() => setIsCartOpen(!isCartOpen)}
         onAICheckout={handleFinalizePurchase}
-        showAICheckout={!hasStartedChat}
+        showAICheckout={!inChat}
       />
 
       <CheckoutModalLocalized

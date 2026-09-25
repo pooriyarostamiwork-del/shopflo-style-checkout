@@ -421,13 +421,21 @@ export const GPTCommerceShell = () => {
   const lastSyncedRef = useRef<string | null>(null);
   const prevViewKeyRef = useRef<string | null>(null);
   const searchKey = searchParams.toString();
+  const [urlOrderId, setUrlOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchKey === lastSyncedRef.current) return;
     lastSyncedRef.current = searchKey;
     const tab = searchParams.get('tab');
     const c = searchParams.get('c');
-    if (tab === 'orders' || tab === 'profile') {
+    const order = searchParams.get('order');
+    setUrlOrderId(order);
+    if (order) {
+      setLandingOverride(false);
+      setPendingNewChat(false);
+      setActiveSection('orders');
+      setIsCartOpen(false);
+    } else if (tab === 'orders' || tab === 'profile') {
       setLandingOverride(false);
       setPendingNewChat(false);
       setActiveSection(tab === 'orders' ? 'orders' : 'account');
@@ -449,13 +457,14 @@ export const GPTCommerceShell = () => {
 
   const inChat = !landingOverride && hasStartedChat;
   useEffect(() => {
-    const viewKey = [activeSection, pendingNewChat, inChat, activeBasketId].join('|');
+    const viewKey = [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId].join('|');
     const isFirst = prevViewKeyRef.current === null;
     const unchanged = prevViewKeyRef.current === viewKey;
     prevViewKeyRef.current = viewKey;
     if (isFirst || unchanged) return;
     const next = new URLSearchParams();
-    if (activeSection === 'orders') next.set('tab', 'orders');
+    if (activeSection === 'orders' && urlOrderId) next.set('order', urlOrderId);
+    else if (activeSection === 'orders') next.set('tab', 'orders');
     else if (activeSection === 'account') next.set('tab', 'profile');
     else if (pendingNewChat) next.set('chat', 'new');
     else if (inChat) next.set('c', activeBasketId);
@@ -464,7 +473,7 @@ export const GPTCommerceShell = () => {
     lastSyncedRef.current = nextKey;
     setSearchParams(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, pendingNewChat, inChat, activeBasketId]);
+  }, [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId]);
 
   const handleSendFromUI = useCallback((message: string, forceNew?: boolean) => {
     const force = forceNew || landingOverride;
@@ -503,6 +512,8 @@ export const GPTCommerceShell = () => {
           onUpdateAddress={handleAccountUpdateAddress}
           activeAddressIds={activeAddressIds}
           initialTab={activeSection === 'orders' ? 'orders' : 'profile'}
+          initialOrderId={urlOrderId}
+          onSelectedOrderChange={setUrlOrderId}
           onStartNewChat={() => { handleCreateBasket(); setActiveSection('active-cart'); }}
           orders={dbOrders}
           userProfile={profile ? { name: profile.full_name || '', phone: profile.phone, email: '' } : undefined}

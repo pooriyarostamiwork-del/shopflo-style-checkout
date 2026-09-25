@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sidebar, Basket } from "@/components/gpt-commerce/Sidebar";
 import { ChatInterface } from "@/components/gpt-commerce/ChatInterface";
 import { RightPanel } from "@/components/gpt-commerce/RightPanel";
@@ -413,10 +414,65 @@ export const GPTCommerceShell = () => {
     setShowOTPModal(true);
   }, [isAuthenticated]);
 
+  // ── Deep linking: URL <-> view state ───────────────────────────────────
+  // Landing: no params · New chat: ?chat=new · Chat: ?c=<basketId> · Account: ?tab=profile|orders
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [landingOverride, setLandingOverride] = useState(false);
+  const lastSyncedRef = useRef<string | null>(null);
+  const skipStateSyncRef = useRef(false);
+  const searchKey = searchParams.toString();
+
+  useEffect(() => {
+    if (searchKey === lastSyncedRef.current) return;
+    lastSyncedRef.current = searchKey;
+    skipStateSyncRef.current = true;
+    const tab = searchParams.get('tab');
+    const c = searchParams.get('c');
+    if (tab === 'orders' || tab === 'profile') {
+      setLandingOverride(false);
+      setPendingNewChat(false);
+      setActiveSection(tab === 'orders' ? 'orders' : 'account');
+      setIsCartOpen(false);
+    } else if (searchParams.get('chat') === 'new') {
+      setLandingOverride(false);
+      setActiveSection('active-cart');
+      setPendingNewChat(true);
+    } else if (c && baskets.some(b => b.id === c)) {
+      setLandingOverride(false);
+      handleBasketSelect(c);
+    } else {
+      setActiveSection('active-cart');
+      setPendingNewChat(false);
+      setLandingOverride(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey]);
+
+  const inChat = !landingOverride && hasStartedChat;
+  useEffect(() => {
+    if (skipStateSyncRef.current) { skipStateSyncRef.current = false; return; }
+    const next = new URLSearchParams();
+    if (activeSection === 'orders') next.set('tab', 'orders');
+    else if (activeSection === 'account') next.set('tab', 'profile');
+    else if (pendingNewChat) next.set('chat', 'new');
+    else if (inChat) next.set('c', activeBasketId);
+    const nextKey = next.toString();
+    if (nextKey === searchKey) return;
+    lastSyncedRef.current = nextKey;
+    setSearchParams(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, pendingNewChat, inChat, activeBasketId]);
+
+  const handleSendFromUI = useCallback((message: string, forceNew?: boolean) => {
+    const force = forceNew || landingOverride;
+    setLandingOverride(false);
+    handleSendMessageWithPending(message, force);
+  }, [landingOverride, handleSendMessageWithPending]);
+
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
-      {(hasStartedChat || pendingNewChat) && (
+      {(inChat || pendingNewChat) && (
         <Sidebar
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
@@ -454,14 +510,14 @@ export const GPTCommerceShell = () => {
       ) : (
         <ChatInterface
           messages={messages}
-          onSendMessage={handleSendMessageWithPending}
+          onSendMessage={handleSendFromUI}
           onAddToCart={handleAddToCart}
           onCompare={handleCompare}
           onSaveProduct={handleSaveProduct}
           cartItems={cartItems}
           isProcessing={isProcessing}
           onCheckout={handleCheckout}
-          hasStartedChat={pendingNewChat ? true : hasStartedChat}
+          hasStartedChat={pendingNewChat ? true : inChat}
           isPendingNewChat={pendingNewChat}
           onStartChat={handleStartChat}
           isCartOpen={isCartOpen}
@@ -493,7 +549,7 @@ export const GPTCommerceShell = () => {
         isOpen={isCartOpen}
         onToggle={() => setIsCartOpen(!isCartOpen)}
         onAICheckout={handleFinalizePurchase}
-        showAICheckout={!hasStartedChat}
+        showAICheckout={!inChat}
       />
 
       <CheckoutModalLocalized

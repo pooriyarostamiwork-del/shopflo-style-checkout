@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SquarePen } from "lucide-react";
 import { PetabadBrandLockup } from "@/components/petabad/PetabadBrand";
 import { CategorySelector } from "@/components/petabad/CategorySelector";
@@ -338,6 +339,52 @@ export const MobilePetAbadShell = () => {
 
   const onLanding = pendingNewChat || !hasStartedChat;
 
+  // ── Deep linking: Landing: none · Chat: ?c=<basketId> · Account: ?tab=profile|orders · Order: ?order=<id>
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
+  const [urlOrderId, setUrlOrderId] = useState<string | null>(null);
+  const lastSyncedRef = useRef<string | null>(null);
+  const prevViewKeyRef = useRef<string | null>(null);
+  const searchKey = searchParams.toString();
+
+  useEffect(() => {
+    if (searchKey === lastSyncedRef.current) return;
+    lastSyncedRef.current = searchKey;
+    const tab = searchParams.get("tab");
+    const order = searchParams.get("order");
+    const c = searchParams.get("c");
+    setUrlOrderId(order);
+    if (order || tab === "orders" || tab === "profile") {
+      setAccountTab(order || tab === "orders" ? "orders" : "profile");
+      setShowAccountFull(true);
+    } else if (c && baskets.some(b => b.id === c)) {
+      setShowAccountFull(false);
+      handleBasketSelect(c);
+    } else {
+      setShowAccountFull(false);
+      setPendingNewChat(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey]);
+
+  useEffect(() => {
+    const viewKey = [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId].join("|");
+    const isFirst = prevViewKeyRef.current === null;
+    const unchanged = prevViewKeyRef.current === viewKey;
+    prevViewKeyRef.current = viewKey;
+    if (isFirst || unchanged) return;
+    const next = new URLSearchParams();
+    if (showAccountFull) {
+      if (accountTab === "orders" && urlOrderId) next.set("order", urlOrderId);
+      else next.set("tab", accountTab);
+    } else if (!onLanding) next.set("c", activeBasketId);
+    const nextKey = next.toString();
+    if (nextKey === searchKey) return;
+    lastSyncedRef.current = nextKey;
+    setSearchParams(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId]);
+
   // ── Account full screen overlay ────────────────────────────────────────
   if (showAccountFull) {
     return (
@@ -349,7 +396,9 @@ export const MobilePetAbadShell = () => {
           onDeleteAddress={handleAccountDeleteAddress}
           onUpdateAddress={handleAccountUpdateAddress}
           activeAddressIds={activeAddressIds}
-          initialTab="profile"
+          initialTab={accountTab}
+          initialOrderId={urlOrderId}
+          onSelectedOrderChange={setUrlOrderId}
           onStartNewChat={() => {
             setShowAccountFull(false);
             setPendingNewChat(true);

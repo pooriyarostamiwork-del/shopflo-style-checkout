@@ -419,13 +419,12 @@ export const GPTCommerceShell = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [landingOverride, setLandingOverride] = useState(false);
   const lastSyncedRef = useRef<string | null>(null);
-  const skipStateSyncRef = useRef(false);
+  const prevViewKeyRef = useRef<string | null>(null);
   const searchKey = searchParams.toString();
 
   useEffect(() => {
     if (searchKey === lastSyncedRef.current) return;
     lastSyncedRef.current = searchKey;
-    skipStateSyncRef.current = true;
     const tab = searchParams.get('tab');
     const c = searchParams.get('c');
     if (tab === 'orders' || tab === 'profile') {
@@ -450,7 +449,11 @@ export const GPTCommerceShell = () => {
 
   const inChat = !landingOverride && hasStartedChat;
   useEffect(() => {
-    if (skipStateSyncRef.current) { skipStateSyncRef.current = false; return; }
+    const viewKey = [activeSection, pendingNewChat, inChat, activeBasketId].join('|');
+    const isFirst = prevViewKeyRef.current === null;
+    const unchanged = prevViewKeyRef.current === viewKey;
+    prevViewKeyRef.current = viewKey;
+    if (isFirst || unchanged) return;
     const next = new URLSearchParams();
     if (activeSection === 'orders') next.set('tab', 'orders');
     else if (activeSection === 'account') next.set('tab', 'profile');

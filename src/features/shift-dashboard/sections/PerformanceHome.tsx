@@ -1,260 +1,201 @@
-import { useMemo, useState } from "react";
-import { KpiCard } from "../shared/KpiCard";
+import { CSSProperties } from "react";
+import { ArrowUpLeft, ArrowUpRight, ArrowDownRight, Lock, MessageCircle, Sparkles } from "lucide-react";
 import { TrendChart } from "../shared/TrendChart";
-import { IntentCloud } from "../shared/IntentCloud";
-import { MissingChip } from "../shared/MissingChip";
-import { ProBadge } from "../shared/ProLock";
-import { SectionHeader } from "../shared/SectionHeader";
-import { KpiCardSkeleton, TrendChartSkeleton, ListSkeleton, MeterListSkeleton, IntentCloudSkeleton, TableSkeleton } from "../shared/Skeleton";
+import { KpiCardSkeleton, TrendChartSkeleton, ListSkeleton } from "../shared/Skeleton";
 import { useDashboard } from "../context/DashboardContext";
-import { kpis, faToman, faNum, faPct, fa, failedMatches, dropoffs, topProducts } from "../data/mockDashboard";
-import { Wallet, Users, MousePointerClick, TrendingUp, ArrowUp, ArrowDown, Lock } from "lucide-react";
+import { kpis, trends, intents, faToman, faNum, faPct, fa, failedMatches, dropoffs, topProducts } from "../data/mockDashboard";
+import "../styles/home-bento.css";
 
-const Meter = ({ pct }: { pct: number }) => {
-  const filled = Math.round(pct / 10);
+const delay = (i: number): CSSProperties => ({ animationDelay: `${i * 40}ms` });
+
+const Delta = ({ value }: { value: number }) => {
+  const up = value >= 0;
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
   return (
-    <div className="sd-meter">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <span key={i} className={i < filled ? "on" : ""} />
-      ))}
-    </div>
+    <span className={`inline-flex items-center gap-0.5 text-[11.5px] font-semibold ${up ? "hb-up" : "hb-down"}`}>
+      <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
+      <span className="hb-fig" style={{ fontWeight: 600 }}>{fa(Math.abs(value).toFixed(1))}٪</span>
+      <span className="font-normal text-[hsl(var(--sd-muted))] mr-1">نسبت به هفته قبل</span>
+    </span>
   );
 };
 
-type SortDir = "asc" | "desc";
-type ProductKey = "recs" | "clicks" | "ctr";
-
-const SortableTh = ({
-  label, active, dir, onClick, align = "right",
-}: { label: string; active: boolean; dir: SortDir; onClick: () => void; align?: "right" | "left" }) => (
-  <th className={align === "left" ? "!text-left" : ""}>
-    <button
-      type="button"
-      onClick={onClick}
-      className="sd-th-sort"
-      data-active={active || undefined}
-    >
-      <span>{label}</span>
-      {active && (dir === "asc" ? <ArrowUp className="w-3 h-3" strokeWidth={2.25} /> : <ArrowDown className="w-3 h-3" strokeWidth={2.25} />)}
-    </button>
-  </th>
-);
-
-const TableCardHeader = ({
-  title, subtitle, count,
-}: { title: string; subtitle?: string; count: number }) => (
-  <div className="flex items-start justify-between gap-3 pb-4 mb-4 border-b" style={{ borderColor: "hsl(var(--sd-stroke))" }}>
-    <div className="min-w-0">
-      <div className="flex items-center gap-2 flex-wrap">
-        <h3 className="text-[13.5px] font-semibold">{title}</h3>
-        <span className="sd-count-pill sd-num">{fa(count)}</span>
-      </div>
-      {subtitle && <p className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{subtitle}</p>}
-    </div>
-  </div>
-);
-
 export const PerformanceHome = () => {
-  const { plan, content, loading } = useDashboard();
+  const { plan, content, loading, setActiveSection } = useDashboard() as ReturnType<typeof useDashboard> & { setActiveSection: (s: string) => void };
   const isPro = plan === "pro";
-
-  // Top products sort
-  const [sortKey, setSortKey] = useState<ProductKey>("recs");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const sortedProducts = useMemo(() => {
-    const arr = [...topProducts];
-    arr.sort((a, b) => {
-      const d = a[sortKey] - b[sortKey];
-      return sortDir === "asc" ? d : -d;
-    });
-    return arr;
-  }, [sortKey, sortDir]);
-  const toggleSort = (k: ProductKey) => {
-    if (k === sortKey) setSortDir(d => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(k); setSortDir("desc"); }
-  };
+  const week = trends["7d"].assistedRevenue;
+  const max = Math.max(...week);
 
   return (
     <div>
-      <SectionHeader
-        eyebrow="امروز"
-        title={`${content.agentName} فعال است`}
-        subtitle="نمای کلی عملکرد و سیگنال‌های امروز فروشگاه شما"
-        actions={
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11.5px] text-[hsl(var(--sd-ink-2))]"
-            style={{ borderColor: "hsl(var(--sd-stroke))", background: "hsl(var(--sd-surface))" }}>
-            <span className="sd-live-dot" /> {fa(kpis.customersHelped.liveNow)} گفتگوی زنده
-          </div>
-        }
-      />
-
-      {!isPro && (
-        <div className="mb-5">
-          <MissingChip text="قیف پرداخت و نرخ ترک سبد در Shift Pro قابل مشاهده است" />
+      {/* Header */}
+      <header className="flex items-end justify-between gap-4 mb-6">
+        <div className="min-w-0">
+          <h1 className="hb-title text-[24px] sm:text-[28px] font-semibold tracking-tight leading-tight">داشبورد</h1>
+          <p className="text-[13px] text-[hsl(var(--sd-muted))] mt-1 truncate">{content.agentName} · ۷ روز اخیر</p>
         </div>
-      )}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-[12px] shrink-0"
+          style={{ borderColor: "hsl(var(--sd-stroke))", background: "hsl(var(--sd-surface))" }}>
+          <span className="sd-live-dot" /> <span className="hb-fig" style={{ fontWeight: 500 }}>{fa(kpis.customersHelped.liveNow)}</span> گفتگوی زنده
+        </div>
+      </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        {loading ? (
-          <><KpiCardSkeleton /><KpiCardSkeleton /><KpiCardSkeleton /><KpiCardSkeleton /></>
-        ) : (
-          <>
-            <KpiCard hero label="درآمد مساعدت‌شده" value={faNum(kpis.assistedRevenue.value)} unit="تومان" delta={kpis.assistedRevenue.delta}
-              icon={<Wallet className="w-5 h-5" strokeWidth={1.75} />} />
-            <KpiCard label="مشتریان کمک‌گرفته" value={faNum(kpis.customersHelped.value)}
-              sub={`${faNum(kpis.customersHelped.firstTimers)} تازه‌وارد · ${faNum(kpis.customersHelped.returning)} بازگشتی`}
-              delta={kpis.customersHelped.delta} live icon={<Users className="w-5 h-5" strokeWidth={1.75} />} />
-            <KpiCard label="کلیک روی کارت محصول" value={faNum(kpis.productClicks.value)} delta={kpis.productClicks.delta}
-              icon={<MousePointerClick className="w-5 h-5" strokeWidth={1.75} />} />
-            <KpiCard label="نرخ تبدیل گفت‌وگو به خرید" value={faPct(kpis.conversion.value)} delta={kpis.conversion.delta}
-              icon={<TrendingUp className="w-5 h-5" strokeWidth={1.75} />} />
-          </>
-        )}
-      </div>
+      {loading ? (
+        <div className="hb-grid">
+          <div className="hb-span-2 lg-span-2"><KpiCardSkeleton /></div>
+          <KpiCardSkeleton /><KpiCardSkeleton />
+          <div className="hb-span-2 lg-span-4"><TrendChartSkeleton /></div>
+          <div className="hb-span-2 lg-span-4"><ListSkeleton rows={4} /></div>
+        </div>
+      ) : (
+        <div className="hb-grid">
+          {/* Hero: assisted revenue */}
+          <section className="hb-tile hb-span-2 hb-hero flex flex-col justify-between gap-6" style={delay(0)}>
+            <div>
+              <span className="hb-label">درآمد مساعدت‌شده توسط دستیار</span>
+              <div className="flex items-baseline gap-2 mt-3 flex-wrap">
+                <span className="hb-fig text-[40px] sm:text-[52px]">{faNum(kpis.assistedRevenue.value)}</span>
+                <span className="text-[14px] text-[hsl(var(--sd-muted))]">تومان</span>
+              </div>
+              <div className="mt-2"><Delta value={kpis.assistedRevenue.delta} /></div>
+            </div>
+            <div>
+              <div className="hb-spark" aria-hidden>
+                {week.map((v, i) => (
+                  <span key={i} className={i === week.length - 1 ? "last" : ""} style={{ height: `${Math.max(12, (v / max) * 100)}%`, animationDelay: `${120 + i * 40}ms` }} />
+                ))}
+              </div>
+              <div className="flex justify-between mt-2 text-[11px] text-[hsl(var(--sd-muted))]">
+                {trends["7d"].labels.map(l => <span key={l} className="flex-1 text-center">{l}</span>)}
+              </div>
+            </div>
+          </section>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
-        {loading ? (<><TrendChartSkeleton /><TrendChartSkeleton /></>) : (
-          <>
+          {/* Customers */}
+          <section className="hb-tile" style={delay(1)}>
+            <span className="hb-label">مشتریان کمک‌گرفته</span>
+            <div className="hb-fig text-[30px] mt-2">{faNum(kpis.customersHelped.value)}</div>
+            <p className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">{faNum(kpis.customersHelped.firstTimers)} تازه‌وارد · {faNum(kpis.customersHelped.returning)} بازگشتی</p>
+            <div className="mt-3"><Delta value={kpis.customersHelped.delta} /></div>
+          </section>
+
+          {/* Clicks */}
+          <section className="hb-tile" style={delay(2)}>
+            <span className="hb-label">کلیک روی کارت محصول</span>
+            <div className="hb-fig text-[30px] mt-2">{faNum(kpis.productClicks.value)}</div>
+            <p className="text-[11.5px] text-[hsl(var(--sd-muted))] mt-1">از کارت‌های پیشنهادی در گفتگو</p>
+            <div className="mt-3"><Delta value={kpis.productClicks.delta} /></div>
+          </section>
+
+          {/* Conversion */}
+          <section className="hb-tile flex flex-col justify-between aspect-square lg:aspect-auto" style={delay(3)}>
+            <span className="hb-label">تبدیل گفتگو به خرید</span>
+            <div>
+              <div className="hb-fig text-[30px]">{faPct(kpis.conversion.value)}</div>
+              <div className="mt-2"><Delta value={kpis.conversion.delta} /></div>
+            </div>
+          </section>
+
+          {/* Ink tile: plan */}
+          <section className="hb-tile hb-tile-ink flex flex-col justify-between aspect-square lg:aspect-auto" style={delay(4)}>
+            <span className="hb-label">پلن فعلی</span>
+            <div>
+              <div className="hb-fig text-[26px]" style={{ unicodeBidi: "plaintext" }}>Shift {isPro ? "Pro" : "Lite"}</div>
+              <p className="text-[11.5px] mt-1" style={{ color: "hsl(var(--sd-surface) / .6)" }}>{isPro ? "همه گزارش‌ها باز است" : "گزارش‌های پایه"}</p>
+            </div>
+          </section>
+
+          {/* Signal action */}
+          <button type="button" className="hb-tile hb-tile-signal hb-span-2 lg-span-2" style={delay(5)}
+            onClick={() => setActiveSection?.(isPro ? "intelligence" : "billing")}>
+            <div>
+              <h3 className="hb-title text-[17px] font-semibold flex items-center gap-2">
+                {isPro ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                {isPro ? "از مشتری‌هایت بپرس" : "ارتقا به Shift Pro"}
+              </h3>
+              <p className="text-[12px] mt-1" style={{ color: "hsl(var(--sd-surface) / .85)" }}>
+                {isPro ? "تحلیل گفتگوها و بازار را از دستیار هوش مشتری بخواه" : "قیف پرداخت و همه دلایل ترک سبد را ببین"}
+              </p>
+            </div>
+            <ArrowUpLeft className="w-6 h-6 shrink-0" strokeWidth={1.75} />
+          </button>
+
+          {/* Alert: no-match searches */}
+          <section className="hb-tile hb-span-2 lg-span-2" style={delay(6)}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[13px] font-semibold">جست‌وجوهای بدون نتیجه</span>
+              <span className="hb-tag">نیاز به محصول</span>
+            </div>
+            {failedMatches.map(f => (
+              <div key={f.q} className="hb-row">
+                <span className="truncate text-[hsl(var(--sd-ink-2))]">{f.q}</span>
+                <span className="hb-fig text-[13px] shrink-0">{fa(f.count)} بار</span>
+              </div>
+            ))}
+          </section>
+
+          {/* Chart */}
+          <div className="hb-span-2 lg-span-4" style={{ animation: "hb-rise .5s both", ...delay(7) }}>
             <TrendChart title="درآمد در برابر مشتریان"
               seriesA={{ key: "assistedRevenue", name: "درآمد" }}
               seriesB={{ key: "customersHelped", name: "مشتریان" }}
               formatterA={(n) => faToman(n)} />
-            <TrendChart title="مشتریان در برابر نرخ تبدیل"
-              seriesA={{ key: "customersHelped", name: "مشتریان" }}
-              seriesB={{ key: "conversion", name: "نرخ تبدیل" }}
-              formatterB={(n) => faPct(n)} />
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Signals */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="w-1 h-4 rounded-full" style={{ background: "hsl(var(--sd-primary))" }} />
-        <h2 className="text-[15px] font-semibold">سیگنال‌ها</h2>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Intent tags */}
-        <div className="sd-card p-4 sm:p-5">
-          <TableCardHeader title="پرتکرارترین نیت‌ها و جست‌وجوها" subtitle="نیت‌های استخراج‌شده از گفتگو‌های ۷ روز اخیر" count={loading ? 0 : 10} />
-          {loading ? <IntentCloudSkeleton /> : <IntentCloud />}
-        </div>
-
-        {/* Failed matches — proper table */}
-        <div className="sd-card p-4 sm:p-5">
-          <TableCardHeader title="جست‌وجوهای بدون تطبیق" subtitle="عبارت‌هایی که مشتری خواست اما محصولی برایش پیدا نشد" count={loading ? 0 : failedMatches.length} />
-          {loading ? <ListSkeleton rows={5} /> : (
-            <div className="sd-table-wrap">
-              <table className="sd-table sd-table-tight" dir="rtl">
-                <thead>
-                  <tr>
-                    <th style={{ width: 36 }}>#</th>
-                    <th>عبارت جست‌وجو</th>
-                    <th className="!text-left">تکرار</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {failedMatches.map((f, idx) => (
-                    <tr key={f.q}>
-                      <td>
-                        <span className="sd-rank sd-num">{fa(idx + 1)}</span>
-                      </td>
-                      <td className="text-[13px] text-[hsl(var(--sd-ink))]">{f.q}</td>
-                      <td className="text-left">
-                        <span className="sd-badge-group sd-badge-inline" data-tone="neutral">
-                          <span className="sd-badge-dot" aria-hidden />
-                          <span className="sd-num">{fa(f.count)}</span>
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Dropoffs */}
-        <div className="sd-card p-4 sm:p-5">
-          <TableCardHeader title="دلایل ترک خرید" subtitle="سهم هر دلیل از رهاسازی سبد در ۷ روز اخیر" count={loading ? 0 : dropoffs.length} />
-          {loading ? <MeterListSkeleton rows={4} /> : (
-            <div className="space-y-3.5">
-              {dropoffs.map(d => {
+          {/* Dropoffs */}
+          <section className="hb-tile hb-span-2 lg-span-2" style={delay(8)}>
+            <span className="text-[13px] font-semibold">دلایل ترک سبد</span>
+            <div className="space-y-3.5 mt-4">
+              {dropoffs.map((d, i) => {
                 const locked = d.pro && !isPro;
                 return (
                   <div key={d.reason}>
-                    <div className="flex items-center justify-between mb-1.5 gap-2">
-                      <div className="text-[13px] flex items-center gap-2 min-w-0">
-                        <span className="truncate text-[hsl(var(--sd-ink))]">{d.reason}</span>
-                        {locked && (
-                          <span className="sd-badge-group sd-badge-inline" data-tone="brand">
-                            <span className="sd-badge-dot" aria-hidden />
-                            <Lock className="w-2.5 h-2.5" />
-                            <span>Pro</span>
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        className="text-[12px] sd-num text-[hsl(var(--sd-muted))] shrink-0"
-                        style={locked ? { filter: "blur(5px)", userSelect: "none" } : undefined}
-                        aria-hidden={locked || undefined}
-                      >
-                        {faPct(d.pct)}
-                      </div>
+                    <div className="flex items-center justify-between mb-1.5 text-[12.5px]">
+                      <span className="flex items-center gap-1.5 text-[hsl(var(--sd-ink-2))]">
+                        {d.reason}{locked && <Lock className="w-3 h-3 text-[hsl(var(--sd-muted))]" />}
+                      </span>
+                      <span className="hb-fig text-[12.5px]" style={locked ? { filter: "blur(5px)", userSelect: "none" } : undefined}>{faPct(d.pct)}</span>
                     </div>
-                    <div style={locked ? { filter: "blur(4px)", opacity: 0.75 } : undefined}>
-                      <Meter pct={d.pct} />
+                    <div className="hb-bar" style={locked ? { filter: "blur(3px)" } : undefined}>
+                      <span className={i === 0 ? "signal" : ""} style={{ width: `${d.pct * 2}%`, animationDelay: `${300 + i * 60}ms` }} />
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
+          </section>
 
-        {/* Top products — sortable table */}
-        <div className="sd-card p-4 sm:p-5">
-          <TableCardHeader title="پرپیشنهادترین محصولات" subtitle="محصولاتی که بیشترین پیشنهاد و کلیک را داشته‌اند" count={loading ? 0 : topProducts.length} />
-          {loading ? <TableSkeleton rows={5} cols={4} /> : (
-            <div className="sd-table-wrap">
-              <table className="sd-table" dir="rtl">
-                <thead>
-                  <tr>
-                    <th style={{ width: 36 }}>#</th>
-                    <th>محصول</th>
-                    <SortableTh label="پیشنهاد" active={sortKey === "recs"} dir={sortDir} onClick={() => toggleSort("recs")} align="left" />
-                    <SortableTh label="کلیک" active={sortKey === "clicks"} dir={sortDir} onClick={() => toggleSort("clicks")} align="left" />
-                    <SortableTh label="CTR" active={sortKey === "ctr"} dir={sortDir} onClick={() => toggleSort("ctr")} align="left" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedProducts.map((p, idx) => {
-                    const tone = p.ctr >= 33 ? "success" : p.ctr >= 30 ? "warn" : "neutral";
-                    return (
-                      <tr key={p.name}>
-                        <td>
-                          <span className="sd-rank sd-num">{fa(idx + 1)}</span>
-                        </td>
-                        <td className="text-[hsl(var(--sd-ink))]">{p.name}</td>
-                        <td className="text-left sd-num text-[hsl(var(--sd-ink-2))]">{fa(p.recs)}</td>
-                        <td className="text-left sd-num text-[hsl(var(--sd-ink-2))]">{fa(p.clicks)}</td>
-                        <td className="text-left">
-                          <span className="sd-badge-group sd-badge-inline" data-tone={tone}>
-                            <span className="sd-badge-dot" aria-hidden />
-                            <span className="sd-num">{faPct(p.ctr)}</span>
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {/* Top products */}
+          <section className="hb-tile hb-span-2 lg-span-2" style={delay(9)}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[13px] font-semibold">پرپیشنهادترین محصولات</span>
+              <span className="text-[11px] text-[hsl(var(--sd-muted))]">نرخ کلیک</span>
             </div>
-          )}
+            {topProducts.map(p => (
+              <div key={p.name} className="hb-row">
+                <span className="truncate text-[hsl(var(--sd-ink-2))]">{p.name}</span>
+                <span className="flex items-center gap-3 shrink-0">
+                  <span className="text-[11px] text-[hsl(var(--sd-muted))]">{fa(p.recs)} پیشنهاد</span>
+                  <span className="hb-fig text-[13px]">{faPct(p.ctr)}</span>
+                </span>
+              </div>
+            ))}
+          </section>
+
+          {/* Intents */}
+          <section className="hb-tile hb-span-2 lg-span-4" style={delay(10)}>
+            <div className="flex items-center gap-2 mb-3">
+              <MessageCircle className="w-4 h-4 text-[hsl(var(--sd-muted))]" />
+              <span className="text-[13px] font-semibold">مشتری‌ها بیشتر دنبال چی بودن</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {intents.map(t => (
+                <span key={t.label} className="hb-chip">{t.label} <b className="hb-fig">{fa(t.weight)}</b></span>
+              ))}
+            </div>
+          </section>
         </div>
-      </div>
+      )}
     </div>
   );
 };

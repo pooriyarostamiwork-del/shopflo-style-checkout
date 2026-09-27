@@ -1,17 +1,17 @@
 /* Shift Dashboard scoped tokens — editorial, hairline, one hero */
 .shift-dash {
-  --sd-primary: 0 100% 61%;
-  --sd-primary-ink: 0 92% 48%;
+  --sd-primary: 2 78% 54%;
+  --sd-primary-ink: 2 76% 46%;
   --sd-primary-soft: 8 100% 96%;
   --sd-primary-hero: 0 88% 58%;
 
-  --sd-bg: 48 20% 97%;
+  --sd-bg: 36 23% 96%;
   --sd-surface: 0 0% 100%;
   --sd-surface-2: 40 12% 95%;
   --sd-surface-3: 40 10% 92%;
-  --sd-ink: 0 0% 7%;
+  --sd-ink: 0 0% 8%;
   --sd-ink-2: 30 4% 22%;
-  --sd-muted: 30 5% 48%;
+  --sd-muted: 36 4% 52%;
   --sd-stroke: 40 10% 90%;
   --sd-stroke-strong: 40 8% 80%;
 

@@ -49,7 +49,7 @@
 .shift-dash .hb-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid hsl(var(--sd-stroke)); font-size: 13px; }
 .shift-dash .hb-row:last-child { border-bottom: 0; padding-bottom: 0; }
 .shift-dash .hb-bar { height: 4px; border-radius: 999px; background: hsl(var(--sd-ink) / .07); overflow: hidden; }
-.shift-dash .hb-bar > span { display: block; height: 100%; border-radius: inherit; background: hsl(var(--sd-ink)); transform-origin: right; animation: hb-grow .8s cubic-bezier(.2,.7,.2,1) both; }
+.shift-dash .hb-bar > span { display: block; margin-left: auto; height: 100%; border-radius: inherit; background: hsl(var(--sd-ink)); transform-origin: right; animation: hb-grow .8s cubic-bezier(.2,.7,.2,1) both; }
 .shift-dash .hb-bar > span.signal { background: hsl(var(--sd-primary)); }
 .shift-dash .hb-spark { display: flex; align-items: flex-end; gap: 6px; height: 72px; }
 .shift-dash .hb-spark > span { flex: 1; border-radius: 6px 6px 2px 2px; background: hsl(var(--sd-ink) / .08); transform-origin: bottom; animation: hb-grow-y .7s cubic-bezier(.2,.7,.2,1) both; }

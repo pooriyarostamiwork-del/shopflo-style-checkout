@@ -21,7 +21,7 @@ const Delta = ({ value }: { value: number }) => {
 };
 
 export const PerformanceHome = () => {
-  const { plan, content, loading, setActiveSection } = useDashboard() as ReturnType<typeof useDashboard> & { setActiveSection: (s: string) => void };
+  const { plan, content, loading, setActiveSection } = useDashboard();
   const isPro = plan === "pro";
   const week = trends["7d"].assistedRevenue;
   const max = Math.max(...week);

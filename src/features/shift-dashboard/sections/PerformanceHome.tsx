@@ -15,13 +15,13 @@ const Delta = ({ value }: { value: number }) => {
     <span className={`inline-flex items-center gap-0.5 text-[11.5px] font-semibold ${up ? "hb-up" : "hb-down"}`}>
       <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
       <span className="hb-fig" style={{ fontWeight: 600 }}>{fa(Math.abs(value).toFixed(1))}٪</span>
-      <span className="font-normal text-[hsl(var(--sd-muted))] mr-1">نسبت به هفته قبل</span>
+      <span className="hidden sm:inline font-normal text-[hsl(var(--sd-muted))] mr-1">نسبت به هفته قبل</span>
     </span>
   );
 };
 
 export const PerformanceHome = () => {
-  const { plan, content, loading, setActiveSection } = useDashboard() as ReturnType<typeof useDashboard> & { setActiveSection: (s: string) => void };
+  const { plan, content, loading, setActiveSection } = useDashboard();
   const isPro = plan === "pro";
   const week = trends["7d"].assistedRevenue;
   const max = Math.max(...week);

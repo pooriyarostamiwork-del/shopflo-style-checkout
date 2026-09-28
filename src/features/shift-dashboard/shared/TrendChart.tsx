@@ -1,7 +1,5 @@
 import { useState, useMemo } from "react";
-import {
-  Area, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
+import { Area, Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { trends, fa, faNum } from "../data/mockDashboard";
 import { DeltaChip } from "./DeltaChip";
 
@@ -44,10 +42,10 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
   const gidB = `sd-grad-b-${seriesA.key}-${seriesB.key}`;
 
   return (
-    <div className="sd-card sd-anim-in p-4 sm:p-5">
+    <div className="hb-chart-card sd-anim-in">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
-        <h3 className="text-[15px] font-semibold leading-tight">{title}</h3>
+      <div className="hb-chart-header">
+        <div><span className="hb-chart-kicker">نمای کلی عملکرد</span><h3>{title}</h3></div>
         <div className="sd-seg" role="tablist" aria-label="بازه زمانی">
           {(["7d", "30d", "1y"] as Tf[]).map(k => (
             <button key={k} role="tab" aria-selected={tf === k}
@@ -59,15 +57,15 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
       </div>
 
       {/* Metric ribbon — two side-by-side metrics with clear separation */}
-      <div className="flex items-stretch gap-5 mb-5">
+      <div className="hb-chart-metrics">
         {/* Metric A (primary) */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="flex items-center gap-1.5 mb-2">
             <span className="w-2 h-2 rounded-full" style={{ background: "hsl(var(--sd-primary))" }} />
             <span className="text-[11px] text-[hsl(var(--sd-muted))]">{seriesA.name}</span>
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <div className="text-[22px] font-bold sd-num leading-none text-[hsl(var(--sd-ink))]">{formatterA(headlineValue)}</div>
+            <div className="hb-chart-value sd-num">{formatterA(headlineValue)}</div>
             <DeltaChip value={headlineDelta} />
           </div>
         </div>
@@ -77,20 +75,20 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
 
         {/* Metric B (secondary) */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="flex items-center gap-1.5 mb-2">
             <span className="w-2 h-2 rounded-full" style={{ background: "hsl(var(--sd-ink-2) / .55)" }} />
             <span className="text-[11px] text-[hsl(var(--sd-muted))]">{seriesB.name}</span>
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <div className="text-[22px] font-bold sd-num leading-none text-[hsl(var(--sd-ink-2))]">{formatterB(secondaryValue)}</div>
+            <div className="hb-chart-value secondary sd-num">{formatterB(secondaryValue)}</div>
           </div>
         </div>
       </div>
 
       {/* Chart */}
-      <div style={{ width: "100%", height: 220, direction: "ltr" }}>
+      <div className="hb-chart-plot">
         <ResponsiveContainer>
-          <ComposedChart data={data} margin={{ top: 10, right: 8, left: 8, bottom: 8 }}>
+          <ComposedChart data={data} margin={{ top: 16, right: 10, left: 0, bottom: 4 }} barCategoryGap="32%">
             <defs>
               <linearGradient id={gidA} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="hsl(var(--sd-primary))" stopOpacity={0.28} />
@@ -101,7 +99,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
                 <stop offset="100%" stopColor="hsl(var(--sd-ink-2))" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} stroke="hsl(var(--sd-stroke))" strokeOpacity={0.9} />
+            <CartesianGrid vertical={false} stroke="hsl(var(--sd-stroke))" strokeDasharray="3 7" strokeOpacity={0.95} />
             <XAxis
               dataKey="label"
               tickLine={false}
@@ -128,8 +126,7 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
                 const pA = payload.find(p => p.dataKey === "a");
                 const pB = payload.find(p => p.dataKey === "b");
                 return (
-                  <div dir="rtl" className="sd-card p-3 text-[12px]"
-                    style={{ boxShadow: "0 8px 30px hsl(var(--sd-ink) / .10)" }}>
+                  <div dir="rtl" className="hb-chart-tooltip">
                     <div className="text-[10px] text-[hsl(var(--sd-muted))] mb-2">{fa(String(label))}</div>
                     {pA && (
                       <div className="flex items-center justify-between gap-6">
@@ -153,16 +150,12 @@ export const TrendChart = ({ title, seriesA, seriesB, formatterA = faNum, format
                 );
               }}
             />
-            <Area
+            <Bar
               yAxisId="right"
-              type="monotone"
               dataKey="b"
-              stroke="hsl(var(--sd-ink-2))"
-              strokeOpacity={0.55}
-              strokeWidth={1.5}
-              fill={`url(#${gidB})`}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 2, stroke: "hsl(var(--sd-surface))" }}
+              fill="hsl(var(--sd-ink) / .08)"
+              radius={[7, 7, 2, 2]}
+              maxBarSize={38}
               animationDuration={420}
             />
             <Area

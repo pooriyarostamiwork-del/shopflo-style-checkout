@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plan } from "./data/mockDashboard";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
-import { PlanTag } from "./shared/PlanTag";
-import { AgentStatusToggle } from "./shared/AgentStatusToggle";
 import { PerformanceHome } from "./sections/PerformanceHome";
 import { AgentControl } from "./sections/AgentControl";
 import { VisualCustomization } from "./sections/VisualCustomization";
@@ -59,7 +57,7 @@ const RailButton = ({
 };
 
 const ShellInner = () => {
-  const { activeSection, setActiveSection, plan } = useDashboard();
+  const { activeSection, setActiveSection } = useDashboard();
   const [mobileOpen, setMobileOpen] = useState(false);
   const active = FLAT.find(n => n.id === activeSection);
   const Section = active?.component ?? PerformanceHome;
@@ -112,32 +110,16 @@ const ShellInner = () => {
 
   return (
     <div className="shift-dash" dir="rtl" lang="fa">
-      {/* Top bar */}
-      <div className="sticky top-0 z-30 border-b"
-        style={{ background: "hsl(var(--sd-bg) / 0.9)", borderColor: "hsl(var(--sd-stroke))", backdropFilter: "blur(14px)" }}>
-        <div className="max-w-[1400px] mx-auto pr-[76px] pl-3 sm:pl-5 h-14 flex items-center justify-between gap-2 sm:gap-3">
-          {/* Left: mobile menu + agent toggle */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              className="lg:hidden sd-btn-ghost !p-0 !min-h-[40px] !w-10 flex items-center justify-center"
-              onClick={() => setMobileOpen(true)}
-              aria-label="باز کردن منو"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
-            <AgentStatusToggle />
-          </div>
-
-          {/* Right: plan chip */}
-          <div className="flex items-center shrink-0">
-            <PlanTag plan={plan} />
-          </div>
-
-        </div>
-      </div>
-
       {/* Desktop slim rail (right side in RTL) */}
       <div className="hidden lg:block sd-rail-fixed">{Rail}</div>
+
+      <button
+        className="lg:hidden sd-mobile-menu"
+        onClick={() => setMobileOpen(true)}
+        aria-label="باز کردن منو"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
 
       {/* Mobile drawer */}
       {mobileOpen && (
@@ -161,7 +143,7 @@ const ShellInner = () => {
         </div>
       )}
 
-      <div className="max-w-[1400px] mx-auto pr-[76px] pl-3 sm:pl-5 py-4 sm:py-6">
+      <div className="max-w-[1400px] mx-auto lg:pr-[76px] px-3 sm:px-5 py-4 sm:py-6">
         <main className="min-w-0 pb-16">
           <Section />
         </main>

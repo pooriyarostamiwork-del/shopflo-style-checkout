@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { SquarePen } from "lucide-react";
 import { PetabadBrandLockup } from "@/components/petabad/PetabadBrand";
 import { CategorySelector } from "@/components/petabad/CategorySelector";
@@ -17,6 +17,9 @@ import { useCheckoutFlow } from "../hooks/useCheckoutFlow";
 import { useAgentMessages } from "../hooks/useAgentMessages";
 import { useCartPersistence } from "../hooks/useCartPersistence";
 import { MobileChatLanding } from "./MobileChatLanding";
+import { ProductDeepLinkPage } from "@/components/ProductDeepLinkPage";
+import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
+import { mapDbProduct } from "@/components/petabad/ProductCarousels";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
 import "../petabad-theme.css";
@@ -346,6 +349,8 @@ export const MobilePetAbadShell = () => {
   const lastSyncedRef = useRef<string | null>(null);
   const prevViewKeyRef = useRef<string | null>(null);
   const searchKey = searchParams.toString();
+  const pdpId = searchParams.get("p");
+  const navigateBack = useNavigate();
 
   useEffect(() => {
     if (searchKey === lastSyncedRef.current) return;
@@ -600,6 +605,27 @@ export const MobilePetAbadShell = () => {
           }
         }}
       />
+      {pdpId && (
+        <ProductDeepLinkPage
+          fullScreen
+          productId={pdpId}
+          table="pet_products"
+          mapRow={mapDbProduct}
+          onBack={() => {
+            if ((window.history.state?.idx ?? 0) > 0) navigateBack(-1);
+            else setSearchParams({}, { replace: true });
+          }}
+          renderPDP={(p) => (
+            <PDPProductComponent
+              product={p}
+              isInCart={cartItems.some(item => item.id === p.id)}
+              onAddToCart={handleAddToCart}
+              showContextLabel={false}
+              enableSwipeGallery
+            />
+          )}
+        />
+      )}
     </div>
   );
 };

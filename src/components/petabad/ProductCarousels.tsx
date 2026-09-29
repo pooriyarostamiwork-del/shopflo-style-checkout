@@ -31,7 +31,7 @@ const subcategoryConfig: {
   { subcategory: 'اسباب بازی گربه', title: 'اسباب‌بازی گربه', emoji: '🧶', accentColor: 'linear-gradient(135deg, #a855f7, #d946ef)', bannerKey: 'youMayLike' },
 ];
 
-function mapDbProduct(row: any): Product {
+export function mapDbProduct(row: any): Product {
   return {
     id: row.id,
     name: row.name,

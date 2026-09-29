@@ -37,7 +37,7 @@ const merchantMap: Record<string, typeof merchants[0]> = {
   m3: merchants[2] || { id: 'm3', name: 'تکنولایف', logo: '💻' },
 };
 
-function mapDbProduct(row: any): Product {
+export function mapDbProduct(row: any): Product {
   return {
     id: row.id,
     name: row.name,

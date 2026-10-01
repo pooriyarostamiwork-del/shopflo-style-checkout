@@ -1,13 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip, Mic, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChatMessage, Product, CartItem, DeliveryAddress } from "@/data/petabadData";
+import { Product, CartItem } from "@/data/petabadData";
 import { CategorySelector } from "./CategorySelector";
 import { ProductCarousels } from "./ProductCarousels";
-import { PDPProductComponent } from "./PDPProductComponent";
-import { ProductDeepLinkPage } from "@/components/ProductDeepLinkPage";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { mapDbProduct } from "./ProductCarousels";
 import { Footer } from "./Footer";
 import { useHomepageSettings } from "@/contexts/HomepageSettingsContext";
 import { PetabadMark, PetabadWordmark } from "./PetabadBrand";
@@ -83,6 +79,7 @@ interface ChatLandingProps {
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   isAuthenticated?: boolean;
   userFirstName?: string;
+  onProductSelect: (product: Product) => void;
 }
 
 export const ChatLanding = ({
@@ -98,27 +95,13 @@ export const ChatLanding = ({
   inputRef: externalInputRef,
   isAuthenticated = false,
   userFirstName,
+  onProductSelect,
 }: ChatLandingProps) => {
   const [inputValue, setInputValueInternal] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [isFocused, setIsFocused] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const pdpId = searchParams.get('p');
-
-  // Carousel «جزئیات» → standalone PDP via ?p=<id> (pushes history so Back returns home)
-  const openPdp = (product: Product) => {
-    setQuickViewProduct(product);
-    setSearchParams({ p: product.id });
-    window.scrollTo({ top: 0 });
-  };
-  const closePdp = () => {
-    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
-    else setSearchParams({}, { replace: true });
-  };
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
   const { getLogoSettings } = useHomepageSettings();
@@ -155,7 +138,6 @@ export const ChatLanding = ({
   const handleAskAbout = (productName: string) => {
     const message = `درباره ${productName} بیشتر توضیح بده`;
     onSendMessage(message, true);
-    setQuickViewProduct(null);
   };
 
   const handleSupportClick = () => {
@@ -205,25 +187,6 @@ export const ChatLanding = ({
         </div>
       </div>
 
-      {pdpId ? (
-        <ProductDeepLinkPage
-          productId={pdpId}
-          table="pet_products"
-          mapRow={mapDbProduct}
-          initialProduct={quickViewProduct}
-          onBack={closePdp}
-          onAskAbout={(p) => handleAskAbout(p.name)}
-          renderPDP={(p) => (
-            <PDPProductComponent
-              product={p}
-              isInCart={cartItems.some(item => item.id === p.id)}
-              onAddToCart={onAddToCart}
-              showContextLabel={false}
-              showImageNavigation
-            />
-          )}
-        />
-      ) : (<>
       {/* Hero Section - Centered Chat */}
       <div className="relative flex flex-col items-center justify-center py-8 xl:py-12 px-6">
         <BentoCard type="product" className="top-8 right-[10%] animate-float-slow" style={{ animationDelay: '0s', animationDuration: '25s' }} />
@@ -312,12 +275,8 @@ export const ChatLanding = ({
 
       {/* Scrollable Commerce Area */}
       <ProductCarousels
-        onAddToCart={onAddToCart}
-        onQuickView={openPdp}
-        onAskAbout={handleAskAbout}
-        cartItems={cartItems}
+        onProductSelect={onProductSelect}
       />
-      </>)}
 
       {/* Footer */}
       <Footer onSupportClick={handleSupportClick} onSignInClick={onSignIn} />

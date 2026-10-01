@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus, Info, Grid2X2, Star, Store } from "lucide-react";
+import { ChevronLeft, ChevronRight, Grid2X2, Star, Store } from "lucide-react";
 import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/data/gptCommerceData";
 import { useRef, useState } from "react";
 import { useHomepageSettings, BannerConfigs, HorizontalBannerConfigs } from "@/contexts/HomepageSettingsContext";
@@ -7,10 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductCarouselsProps {
-  onAddToCart: (product: Product) => void;
-  onQuickView: (product: Product) => void;
-  onAskAbout: (productName: string) => void;
-  cartItems: Product[];
+  onProductSelect: (product: Product) => void;
 }
 
 // Subcategory config for carousel sections
@@ -58,10 +55,7 @@ interface CarouselSectionProps {
   title: string;
   icon: React.ReactNode;
   products: Product[];
-  onAddToCart: (product: Product) => void;
-  onQuickView: (product: Product) => void;
-  onAskAbout: (productName: string) => void;
-  cartItems: Product[];
+  onProductSelect: (product: Product) => void;
   accentColor: string;
   bannerKey: keyof BannerConfigs;
   isLoading?: boolean;
@@ -71,10 +65,7 @@ const CarouselSection = ({
   title, 
   icon, 
   products, 
-  onAddToCart, 
-  onQuickView,
-  onAskAbout,
-  cartItems, 
+  onProductSelect,
   accentColor,
   bannerKey,
   isLoading,
@@ -201,7 +192,6 @@ const CarouselSection = ({
           ) : (
             <>
               {products.map((product) => {
-                const isInCart = cartItems.some(item => item.id === product.id);
                 const discountPercent = product.originalPrice 
                   ? Math.round((1 - product.price / product.originalPrice) * 100)
                   : 0;
@@ -215,7 +205,7 @@ const CarouselSection = ({
                       border: '1px solid hsl(0 0% 0% / 0.08)',
                       scrollSnapAlign: 'start',
                     }}
-                    onClick={() => onQuickView(product)}
+                    onClick={() => onProductSelect(product)}
                   >
                     <div className="relative w-full flex-shrink-0 aspect-square" style={{ background: 'hsl(0 0% 98%)' }}>
                       <img
@@ -257,30 +247,6 @@ const CarouselSection = ({
                       <div className="flex-1" />
                     </div>
 
-                    <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0 border-t" style={{ borderColor: 'hsl(0 0% 0% / 0.04)', height: '56px' }}>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
-                        disabled={isInCart}
-                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0"
-                        style={{
-                          background: isInCart 
-                            ? 'hsl(142 70% 45%)' 
-                            : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9))',
-                        }}
-                        title="افزودن سریع"
-                      >
-                        <Plus className="w-4 h-4 text-white" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onQuickView(product); }}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 hover:border-primary/20"
-                        style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
-                        title={`جزئیات ${product.name}`}
-                      >
-                        <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">جزئیات</span>
-                      </button>
-                    </div>
                   </div>
                 );
               })}
@@ -347,7 +313,7 @@ const HorizontalPromoBanner = ({ position }: { position: keyof HorizontalBannerC
   );
 };
 
-export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartItems }: ProductCarouselsProps) => {
+export const ProductCarousels = ({ onProductSelect }: ProductCarouselsProps) => {
   // Fetch hot deals — cross-category products with highest discount %
   const { data: hotDealsProducts, isLoading: isLoadingDeals } = useQuery({
     queryKey: ['carousel-hot-deals'],
@@ -414,10 +380,7 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
           title="داغ‌ترین تخفیف‌ها"
           icon={<span className="text-sm">🔥</span>}
           products={hotDealsProducts || []}
-          onAddToCart={onAddToCart}
-          onQuickView={onQuickView}
-          onAskAbout={onAskAbout}
-          cartItems={cartItems}
+          onProductSelect={onProductSelect}
           accentColor="linear-gradient(135deg, #ef4444, #f97316)"
           bannerKey="hotDeals"
           isLoading={isLoadingDeals}
@@ -435,10 +398,7 @@ export const ProductCarousels = ({ onAddToCart, onQuickView, onAskAbout, cartIte
               title={config.title}
               icon={<span className="text-sm">{config.emoji}</span>}
               products={products}
-              onAddToCart={onAddToCart}
-              onQuickView={onQuickView}
-              onAskAbout={onAskAbout}
-              cartItems={cartItems}
+              onProductSelect={onProductSelect}
               accentColor={config.accentColor}
               bannerKey={config.bannerKey}
               isLoading={isLoading}

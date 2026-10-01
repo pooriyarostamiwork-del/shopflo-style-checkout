@@ -15,6 +15,10 @@ import { useUserData } from "./hooks/useUserData";
 import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
 import { useAgentMessages } from "./hooks/useAgentMessages";
 import { useCartPersistence } from "./hooks/useCartPersistence";
+import { Product } from "@/data/gptCommerceData";
+import { mapDbProduct } from "@/components/gpt-commerce/ProductCarousels";
+import { supabase } from "@/integrations/supabase/client";
+import { seedProductConversation } from "@/lib/productConversation";
 
 export const GPTCommerceShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
@@ -56,6 +60,7 @@ export const GPTCommerceShell = () => {
   const [otpContext, setOtpContext] = useState<'checkout' | 'login'>('login');
   const [pendingNewChat, setPendingNewChat] = useState(false);
   const isCreatingBasketRef = useRef(false);
+  const handledProductDeepLinkRef = useRef<string | null>(null);
 
   // Derived from current basket state
   const messages = currentState.messages;
@@ -405,6 +410,34 @@ export const GPTCommerceShell = () => {
     setPendingNewChat(true);
   }, []);
 
+  const handleLandingProductSelect = useCallback((product: Product) => {
+    if (isCreatingBasketRef.current) return;
+    isCreatingBasketRef.current = true;
+    const newId = crypto.randomUUID();
+    const newBasket: Basket = {
+      id: newId,
+      title: product.name,
+      itemCount: 0,
+      lastActivity: 'الان',
+      savedItems: [],
+      isSaved: false,
+    };
+    const initialState = createDefaultBasketState();
+    setBaskets(prev => [newBasket, ...prev]);
+    setBasketStates(prev => ({
+      ...prev,
+      [newId]: seedProductConversation(initialState, product, 'فلوکارت'),
+    }));
+    setActiveBasketId(newId);
+    setPendingNewChat(false);
+    setLandingOverride(false);
+    setActiveSection('active-cart');
+    setIsCartOpen(true);
+    lastSyncedRef.current = `c=${newId}`;
+    setSearchParams({ c: newId }, { replace: true });
+    setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
+  }, [setActiveBasketId, setBasketStates, setBaskets, setSearchParams]);
+
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {
       setPendingNewChat(true);
@@ -429,7 +462,9 @@ export const GPTCommerceShell = () => {
     const tab = searchParams.get('tab');
     const c = searchParams.get('c');
     const order = searchParams.get('order');
+    const productId = searchParams.get('p');
     setUrlOrderId(order);
+    if (productId) return;
     if (order) {
       setLandingOverride(false);
       setPendingNewChat(false);
@@ -454,6 +489,23 @@ export const GPTCommerceShell = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey]);
+
+  useEffect(() => {
+    const productId = searchParams.get('p');
+    if (!productId || handledProductDeepLinkRef.current === productId) return;
+    handledProductDeepLinkRef.current = productId;
+    let cancelled = false;
+    void supabase.from('products').select('*').eq('id', productId).maybeSingle().then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !data) {
+        handledProductDeepLinkRef.current = null;
+        setSearchParams({}, { replace: true });
+        return;
+      }
+      handleLandingProductSelect(mapDbProduct(data));
+    });
+    return () => { cancelled = true; };
+  }, [handleLandingProductSelect, searchParams, setSearchParams]);
 
   const inChat = !landingOverride && hasStartedChat;
   useEffect(() => {
@@ -551,20 +603,23 @@ export const GPTCommerceShell = () => {
           agenticState={agenticState}
           isAuthenticated={isAuthenticated}
           userFirstName={profile?.full_name?.split(' ')[0]}
+          onProductSelect={handleLandingProductSelect}
         />
       )}
 
-      <RightPanel
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-        onCheckout={handleCheckout}
-        onAddToCart={handleAddToCart}
-        isOpen={isCartOpen}
-        onToggle={() => setIsCartOpen(!isCartOpen)}
-        onAICheckout={handleFinalizePurchase}
-        showAICheckout={!inChat}
-      />
+      {inChat && (
+        <RightPanel
+          cartItems={cartItems}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onCheckout={handleCheckout}
+          onAddToCart={handleAddToCart}
+          isOpen={isCartOpen}
+          onToggle={() => setIsCartOpen(!isCartOpen)}
+          onAICheckout={handleFinalizePurchase}
+          showAICheckout={false}
+        />
+      )}
 
       <CheckoutModalLocalized
         isOpen={showCheckout}

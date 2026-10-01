@@ -41,6 +41,7 @@ interface ChatInterfaceProps {
   agenticState?: AgenticState;
   isAuthenticated?: boolean;
   userFirstName?: string;
+  onProductSelect: (product: Product) => void;
 }
 
 export const ChatInterface = (props: ChatInterfaceProps) => {
@@ -90,6 +91,7 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
         inputRef={props.inputRef}
         isAuthenticated={props.isAuthenticated}
         userFirstName={props.userFirstName}
+        onProductSelect={props.onProductSelect}
       />
     );
   }

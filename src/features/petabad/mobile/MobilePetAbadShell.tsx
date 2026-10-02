@@ -333,7 +333,9 @@ export const MobilePetAbadShell = () => {
     const tab = searchParams.get("tab");
     const order = searchParams.get("order");
     const c = searchParams.get("c");
+    const productId = searchParams.get("p");
     setUrlOrderId(order);
+    if (productId) return;
     if (order || tab === "orders" || tab === "profile") {
       setAccountTab(order || tab === "orders" ? "orders" : "profile");
       setShowAccountFull(true);

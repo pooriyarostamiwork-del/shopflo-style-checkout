@@ -352,9 +352,7 @@ export const MobileGPTCommerceShell = () => {
     const productId = searchParams.get("p");
     if (!productId || handledProductDeepLinkRef.current === productId) return;
     handledProductDeepLinkRef.current = productId;
-    let cancelled = false;
     void supabase.from("products").select("*").eq("id", productId).maybeSingle().then(({ data, error }) => {
-      if (cancelled) return;
       if (error || !data) {
         handledProductDeepLinkRef.current = null;
         setSearchParams({}, { replace: true });
@@ -362,7 +360,6 @@ export const MobileGPTCommerceShell = () => {
       }
       handleLandingProductTap(mapDbProduct(data));
     });
-    return () => { cancelled = true; };
   }, [handleLandingProductTap, searchParams, setSearchParams]);
 
   useEffect(() => {

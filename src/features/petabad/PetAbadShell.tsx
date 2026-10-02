@@ -493,9 +493,7 @@ export const PetAbadShell = () => {
     const productId = searchParams.get('p');
     if (!productId || handledProductDeepLinkRef.current === productId) return;
     handledProductDeepLinkRef.current = productId;
-    let cancelled = false;
     void supabase.from('pet_products').select('*').eq('id', productId).maybeSingle().then(({ data, error }) => {
-      if (cancelled) return;
       if (error || !data) {
         handledProductDeepLinkRef.current = null;
         setSearchParams({}, { replace: true });
@@ -503,7 +501,6 @@ export const PetAbadShell = () => {
       }
       handleLandingProductSelect(mapDbProduct(data));
     });
-    return () => { cancelled = true; };
   }, [handleLandingProductSelect, searchParams, setSearchParams]);
 
   const inChat = !landingOverride && hasStartedChat;

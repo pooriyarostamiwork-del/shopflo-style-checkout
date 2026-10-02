@@ -434,10 +434,8 @@ export const PetAbadShell = () => {
     setLandingOverride(false);
     setActiveSection('active-cart');
     setIsCartOpen(true);
-    lastSyncedRef.current = `c=${newId}`;
-    setSearchParams({ c: newId }, { replace: true });
     setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
-  }, [setActiveBasketId, setBasketStates, setBaskets, setSearchParams]);
+  }, [setActiveBasketId, setBasketStates, setBaskets]);
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {

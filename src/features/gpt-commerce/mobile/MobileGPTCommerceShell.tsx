@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { SquarePen } from "lucide-react";
 import { FlowcartBrandLockup } from "@/components/gpt-commerce/FlowcartBrand";
 import { CategorySelector } from "@/components/gpt-commerce/CategorySelector";
@@ -17,9 +17,9 @@ import { useCheckoutFlow } from "../hooks/useCheckoutFlow";
 import { useAgentMessages } from "../hooks/useAgentMessages";
 import { useCartPersistence } from "../hooks/useCartPersistence";
 import { MobileChatLanding } from "./MobileChatLanding";
-import { ProductDeepLinkPage } from "@/components/ProductDeepLinkPage";
-import { PDPProductComponent } from "@/components/gpt-commerce/PDPProductComponent";
 import { mapDbProduct } from "@/components/gpt-commerce/ProductCarousels";
+import { supabase } from "@/integrations/supabase/client";
+import { seedProductConversation } from "@/lib/productConversation";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
 
@@ -63,6 +63,7 @@ export const MobileGPTCommerceShell = () => {
   const [showAccountFull, setShowAccountFull] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
   const isCreatingBasketRef = useRef(false);
+  const handledProductDeepLinkRef = useRef<string | null>(null);
 
   const messages = currentState.messages;
   const cartItems = currentState.cartItems;
@@ -211,25 +212,10 @@ export const MobileGPTCommerceShell = () => {
     handleSendMessage(message);
   }, [pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
 
-  // Tap on a landing carousel product card → no AI; render a deterministic PDP reply
+  // Every storefront product entry uses one deterministic assistant message with inline details.
   const handleLandingProductTap = useCallback((product: Product) => {
     if (isCreatingBasketRef.current) return;
     isCreatingBasketRef.current = true;
-
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      role: "user",
-      content: `درباره ${product.name} بیشتر بگو`,
-      timestamp: new Date(),
-    };
-    const assistantMsg: ChatMessage = {
-      id: `a-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      role: "assistant",
-      content: `این هم جزئیات «${product.name}». اگه سوالی داری یا خواستی به سبد اضافه کنی، همین‌جا بگو.`,
-      inlineProduct: product,
-      timestamp: new Date(),
-    };
-
 
     if (pendingNewChat || !hasStartedChat) {
       const existingNew = baskets.filter(b => b.title.startsWith("سبد جدید") && !b.isSaved);
@@ -250,23 +236,14 @@ export const MobileGPTCommerceShell = () => {
       setBasketStates(prev => ({
         ...prev,
         [newId]: {
-          ...createDefaultBasketState(),
-          hasStartedChat: true,
-          messages: [
-            ...createDefaultBasketState().messages,
-            userMsg,
-            assistantMsg,
-          ],
-          lastRecommendedProducts: [product],
+          ...seedProductConversation(createDefaultBasketState(), product, "فلوکارت"),
         },
       }));
       setPendingNewChat(false);
     } else {
       updateCurrentBasket(prev => ({
         ...prev,
-        hasStartedChat: true,
-        messages: [...prev.messages, userMsg, assistantMsg],
-        lastRecommendedProducts: [product],
+        ...seedProductConversation(prev, product, "فلوکارت"),
       }));
     }
     setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
@@ -348,8 +325,6 @@ export const MobileGPTCommerceShell = () => {
   const lastSyncedRef = useRef<string | null>(null);
   const prevViewKeyRef = useRef<string | null>(null);
   const searchKey = searchParams.toString();
-  const pdpId = searchParams.get("p");
-  const navigateBack = useNavigate();
 
   useEffect(() => {
     if (searchKey === lastSyncedRef.current) return;
@@ -370,6 +345,23 @@ export const MobileGPTCommerceShell = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey]);
+
+  useEffect(() => {
+    const productId = searchParams.get("p");
+    if (!productId || handledProductDeepLinkRef.current === productId) return;
+    handledProductDeepLinkRef.current = productId;
+    let cancelled = false;
+    void supabase.from("products").select("*").eq("id", productId).maybeSingle().then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !data) {
+        handledProductDeepLinkRef.current = null;
+        setSearchParams({}, { replace: true });
+        return;
+      }
+      handleLandingProductTap(mapDbProduct(data));
+    });
+    return () => { cancelled = true; };
+  }, [handleLandingProductTap, searchParams, setSearchParams]);
 
   useEffect(() => {
     const viewKey = [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId].join("|");
@@ -604,27 +596,6 @@ export const MobileGPTCommerceShell = () => {
           }
         }}
       />
-      {pdpId && (
-        <ProductDeepLinkPage
-          fullScreen
-          productId={pdpId}
-          table="products"
-          mapRow={mapDbProduct}
-          onBack={() => {
-            if ((window.history.state?.idx ?? 0) > 0) navigateBack(-1);
-            else setSearchParams({}, { replace: true });
-          }}
-          renderPDP={(p) => (
-            <PDPProductComponent
-              product={p}
-              isInCart={cartItems.some(item => item.id === p.id)}
-              onAddToCart={handleAddToCart}
-              showContextLabel={false}
-              enableSwipeGallery
-            />
-          )}
-        />
-      )}
     </div>
   );
 };

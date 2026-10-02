@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { SquarePen } from "lucide-react";
 import { PetabadBrandLockup } from "@/components/petabad/PetabadBrand";
 import { CategorySelector } from "@/components/petabad/CategorySelector";
@@ -9,7 +9,7 @@ import { CheckoutModalLocalized } from "@/components/CheckoutModalLocalized";
 import { SuccessScreenLocalized } from "@/components/SuccessScreenLocalized";
 import { OTPModal } from "@/components/petabad/OTPModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { toPersianNumber, merchants, type Product, type ChatMessage } from "@/data/petabadData";
+import { toPersianNumber, merchants, type Product } from "@/data/petabadData";
 import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes";
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
 import { useUserData } from "../hooks/useUserData";
@@ -17,9 +17,9 @@ import { useCheckoutFlow } from "../hooks/useCheckoutFlow";
 import { useAgentMessages } from "../hooks/useAgentMessages";
 import { useCartPersistence } from "../hooks/useCartPersistence";
 import { MobileChatLanding } from "./MobileChatLanding";
-import { ProductDeepLinkPage } from "@/components/ProductDeepLinkPage";
-import { PDPProductComponent } from "@/components/petabad/PDPProductComponent";
 import { mapDbProduct } from "@/components/petabad/ProductCarousels";
+import { supabase } from "@/integrations/supabase/client";
+import { seedProductConversation } from "@/lib/productConversation";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
 import "../petabad-theme.css";
@@ -64,6 +64,7 @@ export const MobilePetAbadShell = () => {
   const [showAccountFull, setShowAccountFull] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
   const isCreatingBasketRef = useRef(false);
+  const handledProductDeepLinkRef = useRef<string | null>(null);
 
   const messages = currentState.messages;
   const cartItems = currentState.cartItems;
@@ -212,25 +213,10 @@ export const MobilePetAbadShell = () => {
     handleSendMessage(message);
   }, [pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
 
-  // Tap on a landing carousel product card → no AI; render a deterministic PDP reply
+  // Every storefront product entry uses one deterministic assistant message with inline details.
   const handleLandingProductTap = useCallback((product: Product) => {
     if (isCreatingBasketRef.current) return;
     isCreatingBasketRef.current = true;
-
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      role: "user",
-      content: `درباره ${product.name} بیشتر بگو`,
-      timestamp: new Date(),
-    };
-    const assistantMsg: ChatMessage = {
-      id: `a-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      role: "assistant",
-      content: `این هم جزئیات «${product.name}». اگه سوالی داری یا خواستی به سبد اضافه کنی، همین‌جا بگو.`,
-      inlineProduct: product,
-      timestamp: new Date(),
-    };
-
 
     if (pendingNewChat || !hasStartedChat) {
       const existingNew = baskets.filter(b => b.title.startsWith("سبد جدید") && !b.isSaved);
@@ -251,23 +237,14 @@ export const MobilePetAbadShell = () => {
       setBasketStates(prev => ({
         ...prev,
         [newId]: {
-          ...createDefaultBasketState(),
-          hasStartedChat: true,
-          messages: [
-            ...createDefaultBasketState().messages,
-            userMsg,
-            assistantMsg,
-          ],
-          lastRecommendedProducts: [product],
+          ...seedProductConversation(createDefaultBasketState(), product, "پت آباد"),
         },
       }));
       setPendingNewChat(false);
     } else {
       updateCurrentBasket(prev => ({
         ...prev,
-        hasStartedChat: true,
-        messages: [...prev.messages, userMsg, assistantMsg],
-        lastRecommendedProducts: [product],
+        ...seedProductConversation(prev, product, "پت آباد"),
       }));
     }
     setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
@@ -349,8 +326,6 @@ export const MobilePetAbadShell = () => {
   const lastSyncedRef = useRef<string | null>(null);
   const prevViewKeyRef = useRef<string | null>(null);
   const searchKey = searchParams.toString();
-  const pdpId = searchParams.get("p");
-  const navigateBack = useNavigate();
 
   useEffect(() => {
     if (searchKey === lastSyncedRef.current) return;
@@ -358,7 +333,9 @@ export const MobilePetAbadShell = () => {
     const tab = searchParams.get("tab");
     const order = searchParams.get("order");
     const c = searchParams.get("c");
+    const productId = searchParams.get("p");
     setUrlOrderId(order);
+    if (productId) return;
     if (order || tab === "orders" || tab === "profile") {
       setAccountTab(order || tab === "orders" ? "orders" : "profile");
       setShowAccountFull(true);
@@ -371,6 +348,20 @@ export const MobilePetAbadShell = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey]);
+
+  useEffect(() => {
+    const productId = searchParams.get("p");
+    if (!productId || handledProductDeepLinkRef.current === productId) return;
+    handledProductDeepLinkRef.current = productId;
+    void supabase.from("pet_products").select("*").eq("id", productId).maybeSingle().then(({ data, error }) => {
+      if (error || !data) {
+        handledProductDeepLinkRef.current = null;
+        setSearchParams({}, { replace: true });
+        return;
+      }
+      handleLandingProductTap(mapDbProduct(data));
+    });
+  }, [handleLandingProductTap, searchParams, setSearchParams]);
 
   useEffect(() => {
     const viewKey = [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId].join("|");
@@ -605,27 +596,6 @@ export const MobilePetAbadShell = () => {
           }
         }}
       />
-      {pdpId && (
-        <ProductDeepLinkPage
-          fullScreen
-          productId={pdpId}
-          table="pet_products"
-          mapRow={mapDbProduct}
-          onBack={() => {
-            if ((window.history.state?.idx ?? 0) > 0) navigateBack(-1);
-            else setSearchParams({}, { replace: true });
-          }}
-          renderPDP={(p) => (
-            <PDPProductComponent
-              product={p}
-              isInCart={cartItems.some(item => item.id === p.id)}
-              onAddToCart={handleAddToCart}
-              showContextLabel={false}
-              enableSwipeGallery
-            />
-          )}
-        />
-      )}
     </div>
   );
 };

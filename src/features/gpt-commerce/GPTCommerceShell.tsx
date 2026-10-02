@@ -433,10 +433,8 @@ export const GPTCommerceShell = () => {
     setLandingOverride(false);
     setActiveSection('active-cart');
     setIsCartOpen(true);
-    lastSyncedRef.current = `c=${newId}`;
-    setSearchParams({ c: newId }, { replace: true });
     setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
-  }, [setActiveBasketId, setBasketStates, setBaskets, setSearchParams]);
+  }, [setActiveBasketId, setBasketStates, setBaskets]);
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {
@@ -494,9 +492,7 @@ export const GPTCommerceShell = () => {
     const productId = searchParams.get('p');
     if (!productId || handledProductDeepLinkRef.current === productId) return;
     handledProductDeepLinkRef.current = productId;
-    let cancelled = false;
     void supabase.from('products').select('*').eq('id', productId).maybeSingle().then(({ data, error }) => {
-      if (cancelled) return;
       if (error || !data) {
         handledProductDeepLinkRef.current = null;
         setSearchParams({}, { replace: true });
@@ -504,7 +500,6 @@ export const GPTCommerceShell = () => {
       }
       handleLandingProductSelect(mapDbProduct(data));
     });
-    return () => { cancelled = true; };
   }, [handleLandingProductSelect, searchParams, setSearchParams]);
 
   const inChat = !landingOverride && hasStartedChat;

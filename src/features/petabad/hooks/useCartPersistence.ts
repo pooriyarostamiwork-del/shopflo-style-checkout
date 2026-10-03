@@ -178,7 +178,7 @@ export const useCartPersistence = ({
         if (!user) return;
 
         const basket = baskets.find(b => b.id === activeBasketId);
-        if (!basket || basket.isDraft) { lastSyncedCartRef.current = ''; return; }
+        if (basket?.isDraft) { lastSyncedCartRef.current = ''; return; }
         const messagesForDb = currentState.messages
           .filter((m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation)
           .map(m => ({

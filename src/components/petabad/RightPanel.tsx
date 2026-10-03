@@ -243,16 +243,10 @@ export const RightPanel = ({
                           }}
                         >
                           {/* Vendor Header */}
-                          <div 
-                            className="px-3 py-2 flex items-center gap-2"
-                            style={{ 
-                              background: 'hsl(var(--primary) / 0.03)',
-                              borderBottom: '1px solid hsl(0 0% 0% / 0.06)'
-                            }}
-                          >
-                            <Store className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
-                            <span className="text-xs text-muted-foreground mr-auto">
+                          <div className="flex items-center gap-2.5 border-b border-border/60 bg-muted/30 px-3 py-3">
+                            <Store className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.7} />
+                            <span className="min-w-0 flex-1 break-words text-sm font-semibold text-foreground">{vendorSummary.merchant.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
                               {toPersianNumber(vendorSummary.items.length)} کالا
                             </span>
                           </div>

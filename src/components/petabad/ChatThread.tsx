@@ -158,11 +158,7 @@ export const ChatThread = ({
       {/* Fixed Top Bar */}
       {!embedded && (
       <div
-        className="sticky top-0 z-20 shrink-0 h-[72px] px-4 flex items-center justify-between transition-all duration-300"
-        style={{
-          background: 'hsl(0 0% 100% / 0.9)',
-          borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
-        }}
+        className="sticky top-0 z-20 shrink-0 h-[72px] px-4 flex items-center justify-between border-b border-border/40 bg-background transition-all duration-300"
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.12)' }}>
@@ -190,7 +186,7 @@ export const ChatThread = ({
                     border: '1px solid hsl(0 0% 0% / 0.06)',
                   }}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {msg.content
                       .replace(/\*\*(.*?)\*\*/g, '$1')
                       .replace(/\*(.*?)\*/g, '$1')
@@ -394,13 +390,13 @@ export const ChatThread = ({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110" style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.06)' }} title="ارسال فایل">
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="ارسال فایل" aria-label="ارسال فایل">
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
-              </button>
-              <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110" style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.06)' }} title="پیام صوتی">
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="پیام صوتی" aria-label="پیام صوتی">
                 <Mic className="w-4 h-4 text-muted-foreground" />
-              </button>
-              <Button type="submit" disabled={!inputValue.trim() || isProcessing} className="h-10 w-10 rounded-xl">
+              </Button>
+              <Button type="submit" aria-label="ارسال پیام" disabled={!inputValue.trim() || isProcessing} className="h-10 w-10 rounded-xl shadow-none">
                 <ArrowUp className="w-5 h-5" />
               </Button>
             </div>

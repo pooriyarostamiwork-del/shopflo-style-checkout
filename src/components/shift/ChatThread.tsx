@@ -272,7 +272,7 @@ export const ChatThread = ({
 
               {/* Quick Reply Buttons */}
               {msg.quickReplies && onQuickReply && (
-                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)]" dir="rtl">
+                <div className="ml-11 mr-auto w-fit max-w-[calc(100%-2.75rem)]" dir="rtl">
                   <QuickReplyButtons replies={msg.quickReplies} onSelect={onQuickReply} />
                 </div>
               )}
@@ -315,8 +315,8 @@ export const ChatThread = ({
       </div>
 
       {/* Bottom Input Area */}
-      <div className="border-t" style={{ background: 'hsl(0 0% 100%)', borderColor: 'hsl(0 0% 0% / 0.06)' }}>
-        <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto p-4">
+      <div className="shrink-0 bg-gradient-to-t from-background via-background/80 to-transparent pt-2.5 pb-4">
+        <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto px-4">
           <div
             className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"
             

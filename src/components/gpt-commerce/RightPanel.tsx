@@ -171,28 +171,19 @@ export const RightPanel = ({
   return (
     <>
       {/* Toggle Button - Always Visible */}
-      <button
-        onClick={onToggle}
-        className="fixed left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl transition-all duration-300 hover:scale-110"
-        style={{
-          background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7))',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), 0 0 30px hsl(var(--primary) / 0.15), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
-          border: '1px solid hsl(0 0% 100% / 0.3)'
-        }}
+      <Button
+        type="button" variant="ghost" size="icon" onClick={onToggle}
+        aria-label={isOpen ? "بستن سبد خرید" : "نمایش سبد خرید"}
+        title={isOpen ? "بستن سبد خرید" : "نمایش سبد خرید"}
+        className="fixed left-4 top-1/2 z-50 h-10 w-10 -translate-y-1/2 rounded-lg border border-border bg-background text-foreground"
       >
-        {isOpen ? (
-          <ChevronLeft className="w-5 h-5 text-foreground" />
-        ) : (
-          <div className="relative">
-            <ShoppingCart className="w-5 h-5 text-foreground" />
-            {cartItems.length > 0 && (
-              <span className="absolute -top-2 -right-2 w-4 h-4 bg-primary text-white text-[10px] rounded-full flex items-center justify-center">
-                {toPersianNumber(cartItems.length)}
-              </span>
-            )}
-          </div>
+        {isOpen ? <ChevronLeft className="h-5 w-5" /> : (
+          <span className="relative">
+            <ShoppingCart className="h-5 w-5" />
+            {cartItems.length > 0 && <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground"><bdi>{toPersianNumber(cartItems.length)}</bdi></span>}
+          </span>
         )}
-      </button>
+      </Button>
 
       {/* Sidebar Panel */}
       <div 

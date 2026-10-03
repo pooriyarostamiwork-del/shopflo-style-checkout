@@ -293,7 +293,7 @@ export const ChatThread = ({
 
               {/* Quick Reply Buttons */}
               {msg.quickReplies && onQuickReply && (
-                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)]" dir="rtl">
+                <div className="ml-11 mr-auto w-fit max-w-[calc(100%-2.75rem)]" dir="rtl">
                   <QuickReplyButtons replies={msg.quickReplies} onSelect={onQuickReply} />
                 </div>
               )}

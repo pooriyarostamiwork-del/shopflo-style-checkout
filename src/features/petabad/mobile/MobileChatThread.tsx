@@ -1,3 +1,5 @@
+import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
+import { resolveQuickReplies } from "@/lib/quickReplies";
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { toPersianNumber, encodeJourneyAnswer } from "@/data/petabadData";
@@ -94,6 +96,14 @@ export const MobileChatThread = ({
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const barReplies = resolveQuickReplies({ messages: messages as any, cartCount: cartItems.length, checkoutStep: (agenticState as any)?.step, isProcessing });
+  const pickQuickReply = (text: string) => {
+    setInputValue(text);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) { el.focus(); el.setSelectionRange(text.length, text.length); }
+    });
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -375,6 +385,7 @@ export const MobileChatThread = ({
             "linear-gradient(180deg, hsl(0 0% 100% / 0), hsl(0 0% 100% / 0.95) 30%)",
         }}
       >
+        <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
         <form
           onSubmit={submit}
           className="flex items-center gap-2 p-2 rounded-2xl"

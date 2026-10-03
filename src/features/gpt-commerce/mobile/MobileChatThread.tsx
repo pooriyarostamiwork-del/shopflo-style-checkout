@@ -73,6 +73,7 @@ export const MobileChatThread = ({
   onSaveProduct,
   cartItems,
   isProcessing,
+  agenticState,
   savedProductIds = [],
   onInlineProductDetails,
   onQuickReply,

@@ -46,7 +46,7 @@ export const QuickReplyBar = ({ replies, onPick, className }: QuickReplyBarProps
   const nudge = (dir: 1 | -1) => scrollRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
 
   return (
-    <div className={cn("relative mb-2", className)} dir="rtl">
+    <div className={cn("relative", className)} dir="rtl">
       {canStart && (
         <>
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background to-transparent" />
@@ -72,10 +72,10 @@ export const QuickReplyBar = ({ replies, onPick, className }: QuickReplyBarProps
             title={r.text}
             onClick={() => onPick(r.text)}
             className={cn(
-              "flex h-8 max-w-[240px] shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors",
+              "flex h-8 max-w-[260px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] backdrop-blur-sm transition-colors",
               r.highlight
-                ? "border-primary bg-primary/10 text-primary hover:bg-primary/15"
-                : "border-border bg-background text-foreground/80 hover:border-foreground/30 hover:text-foreground",
+                ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                : "border-border/80 bg-background/80 text-foreground/80 hover:border-foreground/30 hover:text-foreground",
             )}
           >
             {r.executional && <Zap className="h-3.5 w-3.5 shrink-0" />}

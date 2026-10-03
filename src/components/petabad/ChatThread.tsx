@@ -353,9 +353,10 @@ export const ChatThread = ({
       </div>
 
       {/* Bottom Input Area */}
-      <div className="border-t" style={{ background: 'hsl(0 0% 100%)', borderColor: 'hsl(0 0% 0% / 0.06)' }}>
-        <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto p-4">
+      <div className="bg-gradient-to-t from-background via-background/95 to-transparent pt-6 pb-4">
+        <div className="max-w-[820px] mx-auto px-4 space-y-2.5">
           <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
+        <form onSubmit={handleSubmit}>
           <div
             className="flex items-end gap-3 p-3 rounded-xl"
             style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
@@ -403,6 +404,7 @@ export const ChatThread = ({
             </div>
           </div>
         </form>
+        </div>
       </div>
 
       {/* Quick View Modal */}

@@ -154,7 +154,7 @@ export const ChatThread = ({
     >
       {/* Fixed Top Bar */}
       <div
-        className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
+        className="sticky top-0 z-20 h-[72px] px-4 flex items-center justify-between transition-all duration-300"
         style={{
           background: 'hsl(0 0% 100% / 0.9)',
           borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
@@ -174,7 +174,7 @@ export const ChatThread = ({
             <div key={msg.id} className="space-y-4 animate-fade-in">
               {/* Message Bubble — skipped when the turn carries no text */}
               {msg.content?.trim() && (
-              <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-start flex-row-reverse' : 'justify-start'}`}>
+              <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end flex-row-reverse' : 'justify-start flex-row-reverse'}`}>
                 {msg.role === 'assistant' && (
                   <FlowcartMark size="avatar" />
                 )}
@@ -334,7 +334,7 @@ export const ChatThread = ({
       </div>
 
       {/* Bottom Input Area */}
-      <div className="bg-gradient-to-t from-background via-background/95 to-transparent pt-6 pb-4">
+      <div className="bg-gradient-to-t from-background via-background/80 to-transparent pt-2.5 pb-4">
         <div className="max-w-[820px] mx-auto px-4 space-y-2.5">
           <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
         <form onSubmit={handleSubmit}>

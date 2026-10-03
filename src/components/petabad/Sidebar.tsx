@@ -106,7 +106,7 @@ export const Sidebar = ({
   return (
     <aside className="w-[260px] h-screen flex flex-col overflow-hidden bg-background border-l border-border/40" dir="rtl">
       {/* Header */}
-      <div className="p-4 border-b border-border/40 py-[17px]">
+      <div className="h-[72px] px-4 flex items-center border-b border-border/40">
         <PetabadBrandLockup
           imageUrl={chatModeLogo.imageUrl || undefined}
           variant="chat"

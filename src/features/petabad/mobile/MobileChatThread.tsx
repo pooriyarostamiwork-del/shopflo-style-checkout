@@ -386,7 +386,7 @@ export const MobileChatThread = ({
             "linear-gradient(180deg, hsl(0 0% 100% / 0), hsl(0 0% 100% / 0.95) 30%)",
         }}
       >
-        <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
+        <div className="mb-2"><QuickReplyBar replies={barReplies} onPick={pickQuickReply} /></div>
         <form
           onSubmit={submit}
           className="flex items-center gap-2 p-2 rounded-2xl"

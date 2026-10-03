@@ -20,6 +20,7 @@ export interface Product {
   returnGuarantee: boolean;
   inStock: boolean;
   colorOptions?: string[];
+  quickReplies?: import('@/lib/quickReplies').FixedQuickReply[];
 }
 
 export interface CartItem extends Product {

@@ -105,7 +105,7 @@ export const ChatThread = ({
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '56px';
+      textareaRef.current.style.height = '48px';
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(scrollHeight, 160) + 'px';
     }
@@ -135,11 +135,7 @@ export const ChatThread = ({
     >
       {/* Fixed Top Bar */}
       <div
-        className="sticky top-0 z-20 p-4 flex items-center justify-between transition-all duration-300"
-        style={{
-          background: 'hsl(0 0% 100% / 0.9)',
-          borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
-        }}
+        className="sticky top-0 z-20 h-[72px] shrink-0 px-4 flex items-center justify-between border-b border-border/40 bg-background transition-all duration-300"
       >
         <CategorySelector activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
         {content('home.promo_banner', '') && (
@@ -153,28 +149,29 @@ export const ChatThread = ({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="max-w-[820px] mx-auto p-6 space-y-6">
           {messages.map((msg) => (
-            <div key={msg.id} className="space-y-4 animate-fade-in">
+            <div key={msg.id} className="space-y-4 animate-fade-in" dir="ltr">
               {/* Message Bubble */}
-              <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-start flex-row-reverse' : 'justify-start'}`}>
+              <div dir="ltr" className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                     style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))' }}
                   >
-                    <Zap className="w-4 h-4 text-white" />
+                    <Zap className="w-4 h-4 text-primary-foreground" />
                   </div>
                 )}
                 <div
+                  dir="rtl"
                   className={`max-w-[70%] px-4 py-3 ${msg.role === 'user' ? 'rounded-[16px_16px_4px_16px]' : 'rounded-[16px_16px_16px_4px]'}`}
                   style={{
                     background: msg.role === 'user' ? 'hsl(var(--primary) / 0.1)' : 'hsl(0 0% 100%)',
                     border: '1px solid hsl(0 0% 0% / 0.06)',
                   }}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {msg.content
                       .replace(/\*\*(.*?)\*\*/g, '$1')
                       .replace(/\*(.*?)\*/g, '$1')
@@ -187,7 +184,7 @@ export const ChatThread = ({
 
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
-                <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" dir="rtl">
                   {msg.products.map((product, index) => (
                     <ChatProductCard
                       key={product.id}
@@ -208,7 +205,7 @@ export const ChatThread = ({
 
               {/* Inline Product Details */}
               {msg.inlineProduct && (
-                <div className="mr-11 max-w-[600px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[600px]" dir="rtl">
                   <PDPProductComponent
                     product={msg.inlineProduct}
                     isInCart={cartItems.some(item => item.id === msg.inlineProduct?.id)}
@@ -220,7 +217,7 @@ export const ChatThread = ({
 
               {/* Address + Shipping Selector */}
               {msg.addressShipping && onAddressConfirm && onSelectShipping && onAddNewAddress && (
-                <div className="mr-11 max-w-[560px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[560px]" dir="rtl">
                   <AddressShippingSelector
                     mode={msg.addressShipping.mode}
                     addresses={msg.addressShipping.addresses}
@@ -238,7 +235,7 @@ export const ChatThread = ({
 
               {/* Address Selector */}
               {msg.addressSelector && !msg.addressShipping && onAddressSelect && onAddressConfirm && (
-                <div className="mr-11 max-w-[450px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[450px]" dir="rtl">
                   <AddressSelector
                     addresses={msg.addressSelector}
                     selectedAddressId={selectedAddressId || null}
@@ -250,14 +247,14 @@ export const ChatThread = ({
 
               {/* Legacy Address Confirmation */}
               {msg.addressConfirmation && !msg.addressSelector && !msg.addressShipping && onAddressConfirm && (
-                <div className="mr-11 max-w-[400px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[400px]" dir="rtl">
                   <AddressConfirmation address={msg.addressConfirmation} onConfirm={onAddressConfirm} onEdit={() => {}} />
                 </div>
               )}
 
               {/* Payment Options */}
               {msg.paymentOptions && (
-                <div className="mr-11 max-w-[400px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[400px]" dir="rtl">
                   <PaymentSelector
                     options={msg.paymentOptions}
                     selectedPayment={selectedPayment}
@@ -268,21 +265,21 @@ export const ChatThread = ({
 
               {/* Order Summary Card */}
               {msg.orderSummary && (
-                <div className="mr-11 max-w-[480px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[480px]" dir="rtl">
                   <CartSummaryCard orderSummary={msg.orderSummary} cartItems={cartItems} />
                 </div>
               )}
 
               {/* Quick Reply Buttons */}
               {msg.quickReplies && onQuickReply && (
-                <div className="mr-11">
+                <div className="ml-11 mr-auto w-fit max-w-[calc(100%-2.75rem)]" dir="rtl">
                   <QuickReplyButtons replies={msg.quickReplies} onSelect={onQuickReply} />
                 </div>
               )}
 
               {/* CTA Button */}
               {msg.ctaButton && onFinalizePurchase && (
-                <div className="mr-11 max-w-[300px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[300px]" dir="rtl">
                   <CTAButton
                     label={msg.ctaButton.label}
                     onClick={onFinalizePurchase}
@@ -296,14 +293,14 @@ export const ChatThread = ({
 
           {/* Processing Indicator */}
           {isProcessing && (
-            <div className="flex gap-3 animate-fade-in">
+            <div dir="ltr" className="flex items-center justify-start gap-3 animate-fade-in">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))' }}
               >
-                <Zap className="w-4 h-4 text-white" />
+                <Zap className="w-4 h-4 text-primary-foreground" />
               </div>
-              <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
+              <div dir="rtl" className="rounded-[16px_16px_16px_4px] border border-border/60 bg-card px-4 py-3" >
                 <div className="flex gap-1">
                   <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                   <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -318,13 +315,13 @@ export const ChatThread = ({
       </div>
 
       {/* Bottom Input Area */}
-      <div className="border-t" style={{ background: 'hsl(0 0% 100%)', borderColor: 'hsl(0 0% 0% / 0.06)' }}>
-        <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto p-4">
+      <div className="shrink-0 bg-gradient-to-t from-background via-background/80 to-transparent pt-2.5 pb-4">
+        <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto px-4">
           <div
-            className="flex items-end gap-3 p-3 rounded-xl"
-            style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"
+            
           >
-            <div className="relative flex-1">
+            <div className="relative min-w-0 flex-1">
               <textarea
                 ref={textareaRef}
                 value={inputValue}
@@ -337,32 +334,33 @@ export const ChatThread = ({
                 }}
                 placeholder=""
                 disabled={isProcessing}
-                className="w-full min-h-[56px] max-h-[160px] bg-transparent border-none focus:outline-none focus:ring-0 text-right resize-none py-3 px-2"
-                style={{ lineHeight: '1.6' }}
+                rows={1}
+                aria-label="پیام شما"
+                className="block w-full min-h-[48px] max-h-[160px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base leading-6 resize-none py-3 px-2"
                 dir="rtl"
               />
               {!inputValue && (
                 <div
-                  className="absolute inset-0 flex items-start pointer-events-none px-2 py-3"
+                  className="absolute inset-0 flex items-center pointer-events-none px-2 py-3"
                   dir="rtl"
                 >
                   <span
                     key={placeholderIndex}
-                    className="text-muted-foreground/50 text-base text-right w-full whitespace-normal break-words leading-snug"
+                    className="text-muted-foreground/50 text-base text-right w-full whitespace-normal break-words leading-6"
                   >
                     {placeholderTexts[placeholderIndex]}
                   </span>
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 pb-1">
-              <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110" style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.06)' }} title="ارسال فایل">
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="ارسال فایل" aria-label="ارسال فایل">
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
-              </button>
-              <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110" style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.06)' }} title="پیام صوتی">
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="پیام صوتی" aria-label="پیام صوتی">
                 <Mic className="w-4 h-4 text-muted-foreground" />
-              </button>
-              <Button type="submit" disabled={!inputValue.trim() || isProcessing} className="h-10 w-10 rounded-xl">
+              </Button>
+              <Button type="submit" aria-label="ارسال پیام" disabled={!inputValue.trim() || isProcessing} className="h-10 w-10 rounded-xl shadow-none">
                 <ArrowUp className="w-5 h-5" />
               </Button>
             </div>

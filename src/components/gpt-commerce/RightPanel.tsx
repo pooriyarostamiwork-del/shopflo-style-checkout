@@ -1,3 +1,4 @@
+import { CartPanelHeader } from "@/components/chat/CartPanelHeader";
 import { useState } from "react";
 import { ShoppingCart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Sparkles, Store } from "lucide-react";
 import { CartItem, Product, formatPersianPrice, toPersianNumber, calculateOrderSummary } from "@/data/gptCommerceData";
@@ -170,28 +171,19 @@ export const RightPanel = ({
   return (
     <>
       {/* Toggle Button - Always Visible */}
-      <button
-        onClick={onToggle}
-        className="fixed left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-xl transition-all duration-300 hover:scale-110"
-        style={{
-          background: 'linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7))',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), 0 0 30px hsl(var(--primary) / 0.15), inset 0 1px 0 hsl(0 0% 100% / 0.5)',
-          border: '1px solid hsl(0 0% 100% / 0.3)'
-        }}
+      <Button
+        type="button" variant="ghost" size="icon" onClick={onToggle}
+        aria-label={isOpen ? "بستن سبد خرید" : "نمایش سبد خرید"}
+        title={isOpen ? "بستن سبد خرید" : "نمایش سبد خرید"}
+        className="fixed left-4 top-1/2 z-50 h-10 w-10 -translate-y-1/2 rounded-lg border border-border bg-background text-foreground"
       >
-        {isOpen ? (
-          <ChevronLeft className="w-5 h-5 text-foreground" />
-        ) : (
-          <div className="relative">
-            <ShoppingCart className="w-5 h-5 text-foreground" />
-            {cartItems.length > 0 && (
-              <span className="absolute -top-2 -right-2 w-4 h-4 bg-primary text-white text-[10px] rounded-full flex items-center justify-center">
-                {toPersianNumber(cartItems.length)}
-              </span>
-            )}
-          </div>
+        {isOpen ? <ChevronLeft className="h-5 w-5" /> : (
+          <span className="relative">
+            <ShoppingCart className="h-5 w-5" />
+            {cartItems.length > 0 && <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground"><bdi>{toPersianNumber(cartItems.length)}</bdi></span>}
+          </span>
         )}
-      </button>
+      </Button>
 
       {/* Sidebar Panel */}
       <div 
@@ -201,55 +193,8 @@ export const RightPanel = ({
         style={{ width: '340px' }}
         dir="rtl"
       >
-        <div 
-          className="h-full flex flex-col backdrop-blur-xl"
-          style={{
-            background: 'linear-gradient(180deg, hsl(0 0% 100% / 0.95), hsl(0 0% 100% / 0.85))',
-            boxShadow: '4px 0 40px rgba(0, 0, 0, 0.08)',
-            borderRight: '1px solid hsl(0 0% 100% / 0.3)'
-          }}
-        >
-          {/* Tab Bar */}
-          <div className="p-3 pt-4">
-            <div 
-              className="flex rounded-xl p-1 gap-1 backdrop-blur-xl"
-              style={{
-                background: 'hsl(0 0% 0% / 0.03)',
-                border: '1px solid hsl(0 0% 100% / 0.3)'
-              }}
-            >
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 ${
-                    activeTab === tab.id
-                      ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  style={{
-                    background: activeTab === tab.id ? 'hsl(0 0% 100% / 0.9)' : 'transparent',
-                    boxShadow: activeTab === tab.id ? '0 2px 10px rgba(0, 0, 0, 0.05)' : 'none'
-                  }}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span 
-                      className="text-xs px-1.5 py-0.5 rounded-full"
-                      style={{
-                        background: 'hsl(var(--primary) / 0.1)',
-                        color: 'hsl(var(--primary))'
-                      }}
-                    >
-                      {toPersianNumber(tab.count)}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
+        <div className="h-full flex flex-col border-r border-border bg-background">
+          <CartPanelHeader count={toPersianNumber(cartItems.length)} onClose={onToggle} />
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto">
             {activeTab === 'cart' && (
@@ -289,16 +234,10 @@ export const RightPanel = ({
                           }}
                         >
                           {/* Vendor Header */}
-                          <div 
-                            className="px-3 py-2 flex items-center gap-2"
-                            style={{ 
-                              background: 'hsl(var(--primary) / 0.03)',
-                              borderBottom: '1px solid hsl(0 0% 0% / 0.06)'
-                            }}
-                          >
-                            <Store className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm">{vendorSummary.merchant.name}</span>
-                            <span className="text-xs text-muted-foreground mr-auto">
+                          <div className="flex items-center gap-2.5 border-b border-border/60 bg-muted/30 px-3 py-3">
+                            <Store className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.7} />
+                            <span className="min-w-0 flex-1 break-words text-sm font-semibold text-foreground">{vendorSummary.merchant.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
                               {toPersianNumber(vendorSummary.items.length)} کالا
                             </span>
                           </div>

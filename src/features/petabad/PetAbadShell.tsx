@@ -62,6 +62,15 @@ export const PetAbadShell = () => {
   const [pendingNewChat, setPendingNewChat] = useState(false);
   const isCreatingBasketRef = useRef(false);
   const handledProductDeepLinkRef = useRef<string | null>(null);
+  const [pendingOwnedC, setPendingOwnedC] = useState<string | null>(null);
+  // Lazy session: a product-entry conversation stays a local draft (no history, no DB) until the first real interaction.
+  const commitDraft = useCallback(() => {
+    setBaskets(prev => prev.some(b => b.id === activeBasketId && b.isDraft)
+      ? prev.map(b => b.id === activeBasketId ? { ...b, isDraft: false } : b)
+      : prev);
+  }, [activeBasketId, setBaskets]);
+  const activeBasketMeta = baskets.find(b => b.id === activeBasketId);
+  const isDraftActive = !!activeBasketMeta?.isDraft;
 
   // Derived from current basket state
   const messages = currentState.messages;
@@ -192,6 +201,7 @@ export const PetAbadShell = () => {
   }, []);
 
   const handleSendMessageWithPending = useCallback(async (message: string, forceNew?: boolean) => {
+    commitDraft();
     if (pendingNewChat || forceNew) {
       // Duplicate-submit guard: prevent rapid double Enter/click from creating two baskets
       if (isCreatingBasketRef.current) return;
@@ -229,7 +239,7 @@ export const PetAbadShell = () => {
       return;
     }
     handleSendMessage(message);
-  }, [pendingNewChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
+  }, [commitDraft, pendingNewChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
 
   const handleDeleteBasket = useCallback((basketId: string) => {
     setBaskets(prev => prev.filter(b => b.id !== basketId));
@@ -418,13 +428,16 @@ export const PetAbadShell = () => {
     const newBasket: Basket = {
       id: newId,
       title: product.name,
+      productId: product.id,
+      isDraft: true,
       itemCount: 0,
       lastActivity: 'الان',
       savedItems: [],
       isSaved: false,
     };
+    handledProductDeepLinkRef.current = product.id;
     const initialState = createDefaultBasketState();
-    setBaskets(prev => [newBasket, ...prev]);
+    setBaskets(prev => [newBasket, ...prev.filter(b => !b.isDraft)]);
     setBasketStates(prev => ({
       ...prev,
       [newId]: seedProductConversation(initialState, product, 'پت آباد'),
@@ -436,6 +449,11 @@ export const PetAbadShell = () => {
     setIsCartOpen(true);
     setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
   }, [setActiveBasketId, setBasketStates, setBaskets]);
+
+  const handleAddToCartCommitted = useCallback((...args: Parameters<typeof handleAddToCart>) => {
+    commitDraft();
+    return handleAddToCart(...args);
+  }, [commitDraft, handleAddToCart]);
 
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) {
@@ -463,7 +481,7 @@ export const PetAbadShell = () => {
     const order = searchParams.get('order');
     const productId = searchParams.get('p');
     setUrlOrderId(order);
-    if (productId) return;
+    if (productId && !(c && baskets.some(b => b.id === c))) return;
     if (order) {
       setLandingOverride(false);
       setPendingNewChat(false);
@@ -493,19 +511,38 @@ export const PetAbadShell = () => {
     const productId = searchParams.get('p');
     if (!productId || handledProductDeepLinkRef.current === productId) return;
     handledProductDeepLinkRef.current = productId;
-    void supabase.from('pet_products').select('*').eq('id', productId).maybeSingle().then(({ data, error }) => {
-      if (error || !data) {
-        handledProductDeepLinkRef.current = null;
-        setSearchParams({}, { replace: true });
-        return;
-      }
-      handleLandingProductSelect(mapDbProduct(data));
+    const c = searchParams.get('c');
+    if (c && baskets.some(b => b.id === c)) return; // owner's own session
+    const openFreshPdp = () => {
+      void supabase.from('pet_products').select('*').eq('id', productId).maybeSingle().then(({ data, error }) => {
+        if (error || !data) {
+          handledProductDeepLinkRef.current = null;
+          setSearchParams({}, { replace: true });
+          return;
+        }
+        handleLandingProductSelect(mapDbProduct(data));
+      });
+    };
+    if (!c) { openFreshPdp(); return; }
+    // Shared ?p&c link: RLS only returns the basket to its owner; anyone else gets a fresh PDP.
+    void supabase.from('baskets').select('id').eq('id', c).maybeSingle().then(({ data }) => {
+      if (data) setPendingOwnedC(c);
+      else openFreshPdp();
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleLandingProductSelect, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!pendingOwnedC || !baskets.some(b => b.id === pendingOwnedC)) return;
+      setLandingOverride(false);
+      handleBasketSelect(pendingOwnedC);
+    setPendingOwnedC(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOwnedC, baskets]);
 
   const inChat = !landingOverride && hasStartedChat;
   useEffect(() => {
-    const viewKey = [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId].join('|');
+    const viewKey = [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId, isDraftActive].join('|');
     const isFirst = prevViewKeyRef.current === null;
     const unchanged = prevViewKeyRef.current === viewKey;
     prevViewKeyRef.current = viewKey;
@@ -515,13 +552,16 @@ export const PetAbadShell = () => {
     else if (activeSection === 'orders') next.set('tab', 'orders');
     else if (activeSection === 'account') next.set('tab', 'profile');
     else if (pendingNewChat) next.set('chat', 'new');
-    else if (inChat) next.set('c', activeBasketId);
+    else if (inChat) {
+      if (activeBasketMeta?.productId) next.set('p', activeBasketMeta.productId);
+      if (!isDraftActive) next.set('c', activeBasketId);
+    }
     const nextKey = next.toString();
     if (nextKey === searchKey) return;
     lastSyncedRef.current = nextKey;
     setSearchParams(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId]);
+  }, [activeSection, pendingNewChat, inChat, activeBasketId, urlOrderId, isDraftActive]);
 
   const handleSendFromUI = useCallback((message: string, forceNew?: boolean) => {
     const force = forceNew || landingOverride;
@@ -538,7 +578,7 @@ export const PetAbadShell = () => {
           onSectionChange={handleSectionChange}
           cartItemCount={cartItems.length}
           activeOrderCount={dbOrders.length}
-          baskets={baskets}
+          baskets={baskets.filter(b => !b.isDraft)}
           activeBasketId={activeBasketId}
           onBasketSelect={handleBasketSelect}
           onCreateBasket={handleCreateBasket}
@@ -573,7 +613,7 @@ export const PetAbadShell = () => {
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendFromUI}
-          onAddToCart={handleAddToCart}
+          onAddToCart={handleAddToCartCommitted}
           onCompare={handleCompare}
           onSaveProduct={handleSaveProduct}
           cartItems={cartItems}
@@ -609,7 +649,7 @@ export const PetAbadShell = () => {
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveItem}
           onCheckout={handleCheckout}
-          onAddToCart={handleAddToCart}
+          onAddToCart={handleAddToCartCommitted}
           isOpen={isCartOpen}
           onToggle={() => setIsCartOpen(!isCartOpen)}
           onAICheckout={handleFinalizePurchase}

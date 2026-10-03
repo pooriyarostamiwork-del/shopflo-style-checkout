@@ -122,7 +122,7 @@ export const ChatThread = ({
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '56px';
+      textareaRef.current.style.height = '48px';
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = Math.min(scrollHeight, 160) + 'px';
     }
@@ -158,7 +158,7 @@ export const ChatThread = ({
       {/* Fixed Top Bar */}
       {!embedded && (
       <div
-        className="sticky top-0 z-20 h-[72px] px-4 flex items-center justify-between transition-all duration-300"
+        className="sticky top-0 z-20 shrink-0 h-[72px] px-4 flex items-center justify-between transition-all duration-300"
         style={{
           background: 'hsl(0 0% 100% / 0.9)',
           borderBottom: '1px solid hsl(0 0% 0% / 0.06)',
@@ -172,17 +172,18 @@ export const ChatThread = ({
       )}
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="max-w-[820px] mx-auto p-6 space-y-6">
           {messages.map((msg) => (
-            <div key={msg.id} className="space-y-4 animate-fade-in">
+            <div key={msg.id} className="space-y-4 animate-fade-in" dir="ltr">
               {/* Message Bubble — skipped when the turn carries no text */}
               {msg.content?.trim() && (
-              <div className={`flex gap-3 ${msg.role === 'user' ? 'justify-end flex-row-reverse' : 'justify-start flex-row-reverse'}`}>
+              <div dir="ltr" className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <PetabadMark size="avatar" />
                 )}
                 <div
+                  dir="rtl"
                   className={`max-w-[70%] px-4 py-3 ${msg.role === 'user' ? 'rounded-[16px_16px_4px_16px]' : 'rounded-[16px_16px_16px_4px]'}`}
                   style={{
                     background: msg.role === 'user' ? 'hsl(var(--primary) / 0.1)' : 'hsl(0 0% 100%)',
@@ -204,7 +205,7 @@ export const ChatThread = ({
 
               {/* Interactive clarification card */}
               {msg.clarification && (
-                <div className="mr-11 max-w-[520px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[520px]" dir="rtl">
                   <ClarificationBlock
                     clarification={msg.clarification}
                     onAnswer={onSendMessage}
@@ -215,7 +216,7 @@ export const ChatThread = ({
 
               {/* One card for the whole guidance journey */}
               {msg.journey && (
-                <div className="mr-11 max-w-[520px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[520px]" dir="rtl">
                   <JourneyCard
                     journey={msg.journey}
                     onAnswer={(answer) => onSendMessage(encodeJourneyAnswer({ messageId: msg.id, answer }))}
@@ -226,7 +227,7 @@ export const ChatThread = ({
 
               {/* Product Cards */}
               {msg.products && msg.products.length > 0 && (
-                <div className="mr-11 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" dir="rtl">
                   {msg.products.slice(0, 12).map((product, index) => (
 
                     <ChatProductCard
@@ -248,7 +249,7 @@ export const ChatThread = ({
 
               {/* Inline Product Details */}
               {msg.inlineProduct && (
-                <div className="mr-11 max-w-[600px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[600px]" dir="rtl">
                   <PDPProductComponent
                     product={msg.inlineProduct}
                     isInCart={cartItems.some(item => item.id === msg.inlineProduct?.id)}
@@ -260,7 +261,7 @@ export const ChatThread = ({
 
               {/* Address + Shipping Selector */}
               {msg.addressShipping && onAddressConfirm && onSelectShipping && onAddNewAddress && (
-                <div className="mr-11 max-w-[560px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[560px]" dir="rtl">
                   <AddressShippingSelector
                     mode={msg.addressShipping.mode}
                     addresses={msg.addressShipping.addresses}
@@ -278,7 +279,7 @@ export const ChatThread = ({
 
               {/* Address Selector */}
               {msg.addressSelector && !msg.addressShipping && onAddressSelect && onAddressConfirm && (
-                <div className="mr-11 max-w-[450px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[450px]" dir="rtl">
                   <AddressSelector
                     addresses={msg.addressSelector}
                     selectedAddressId={selectedAddressId || null}
@@ -290,14 +291,14 @@ export const ChatThread = ({
 
               {/* Legacy Address Confirmation */}
               {msg.addressConfirmation && !msg.addressSelector && !msg.addressShipping && onAddressConfirm && (
-                <div className="mr-11 max-w-[400px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[400px]" dir="rtl">
                   <AddressConfirmation address={msg.addressConfirmation} onConfirm={onAddressConfirm} onEdit={() => {}} />
                 </div>
               )}
 
               {/* Payment Options */}
               {msg.paymentOptions && (
-                <div className="mr-11 max-w-[400px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[400px]" dir="rtl">
                   <PaymentSelector
                     options={msg.paymentOptions}
                     selectedPayment={selectedPayment}
@@ -308,21 +309,21 @@ export const ChatThread = ({
 
               {/* Order Summary Card */}
               {msg.orderSummary && (
-                <div className="mr-11 max-w-[480px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[480px]" dir="rtl">
                   <CartSummaryCard orderSummary={msg.orderSummary} cartItems={cartItems} />
                 </div>
               )}
 
               {/* Quick Reply Buttons */}
               {msg.quickReplies && onQuickReply && (
-                <div className="mr-11">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)]" dir="rtl">
                   <QuickReplyButtons replies={msg.quickReplies} onSelect={onQuickReply} />
                 </div>
               )}
 
               {/* CTA Button */}
               {msg.ctaButton && onFinalizePurchase && (
-                <div className="mr-11 max-w-[300px]">
+                <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[300px]" dir="rtl">
                   <CTAButton
                     label={msg.ctaButton.label}
                     onClick={onFinalizePurchase}
@@ -336,9 +337,9 @@ export const ChatThread = ({
 
           {/* Processing Indicator */}
           {isProcessing && !messages.some((m) => m.journey?.status === "checking") && (
-            <div className="flex gap-3 animate-fade-in">
+            <div dir="ltr" className="flex items-center justify-start gap-3 animate-fade-in">
               <PetabadMark size="avatar" />
-              <div className="rounded-[16px_16px_16px_4px] px-4 py-3" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.06)' }}>
+              <div dir="rtl" className="rounded-[16px_16px_16px_4px] border border-border/60 bg-card px-4 py-3" >
                 <div className="flex items-center gap-2">
                   <WanderingEyes className="h-5 w-[45px] text-primary" />
                   <ShiningText text={thinkingLabel} className="text-xs" />
@@ -358,10 +359,10 @@ export const ChatThread = ({
           <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
         <form onSubmit={handleSubmit}>
           <div
-            className="flex items-end gap-3 p-3 rounded-xl"
-            style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"
+            
           >
-            <div className="relative flex-1">
+            <div className="relative min-w-0 flex-1">
               <textarea
                 ref={textareaRef}
                 value={inputValue}
@@ -374,24 +375,25 @@ export const ChatThread = ({
                 }}
                 placeholder=""
                 disabled={isProcessing}
-                className="w-full min-h-[56px] max-h-[160px] bg-transparent border-none focus:outline-none focus:ring-0 text-right resize-none py-3 px-2"
-                style={{ lineHeight: '1.6' }}
+                rows={1}
+                aria-label="پیام شما"
+                className="block w-full min-h-[48px] max-h-[160px] bg-transparent border-none focus:outline-none focus:ring-0 text-right text-base leading-6 resize-none py-3 px-2"
                 dir="rtl"
               />
               {!inputValue && (
                 <div
-                  className="absolute inset-0 flex items-start pointer-events-none px-2 py-3"
+                  className="absolute inset-0 flex items-center pointer-events-none px-2 py-3"
                   dir="rtl"
                 >
                   <TypingText
                     key={placeholderIndex}
                     text={placeholderTexts[placeholderIndex]}
-                    className="text-muted-foreground/50 text-base text-right w-full leading-snug"
+                    className="text-muted-foreground/50 text-base text-right w-full leading-6"
                   />
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 pb-1">
+            <div className="flex shrink-0 items-center gap-2">
               <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110" style={{ background: 'hsl(0 0% 98%)', border: '1px solid hsl(0 0% 0% / 0.06)' }} title="ارسال فایل">
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
               </button>

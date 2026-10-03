@@ -1,3 +1,4 @@
+import { CartPanelHeader } from "@/components/chat/CartPanelHeader";
 import { useState } from "react";
 import { ShoppingCart, Heart, Plus, Minus, Trash2, ChevronLeft, ChevronRight, Truck, Tag, ChevronDown, Sparkles, Store } from "lucide-react";
 import { CartItem, Product, formatPersianPrice, toPersianNumber, favorites, calculateOrderSummary } from "@/features/shift/data/shiftData";
@@ -251,53 +252,16 @@ export const RightPanel = ({
         style={{ width: '340px' }}
         dir="rtl"
       >
-        <div 
-          className="h-full flex flex-col backdrop-blur-xl"
-          style={{
-            background: 'linear-gradient(180deg, hsl(0 0% 100% / 0.95), hsl(0 0% 100% / 0.85))',
-            boxShadow: '4px 0 40px rgba(0, 0, 0, 0.08)',
-            borderRight: '1px solid hsl(0 0% 100% / 0.3)'
-          }}
-        >
-          {/* Tab Bar */}
-          <div className="p-3 pt-4">
-            <div 
-              className="flex rounded-xl p-1 gap-1 backdrop-blur-xl"
-              style={{
-                background: 'hsl(0 0% 0% / 0.03)',
-                border: '1px solid hsl(0 0% 100% / 0.3)'
-              }}
-            >
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 ${
-                    activeTab === tab.id
-                      ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  style={{
-                    background: activeTab === tab.id ? 'hsl(0 0% 100% / 0.9)' : 'transparent',
-                    boxShadow: activeTab === tab.id ? '0 2px 10px rgba(0, 0, 0, 0.05)' : 'none'
-                  }}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span 
-                      className="text-xs px-1.5 py-0.5 rounded-full"
-                      style={{
-                        background: 'hsl(var(--primary) / 0.1)',
-                        color: 'hsl(var(--primary))'
-                      }}
-                    >
-                      {toPersianNumber(tab.count)}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+        <div className="h-full flex flex-col border-r border-border bg-background">
+          <CartPanelHeader count={toPersianNumber(cartItems.length)} onClose={onToggle} />
+          <div className="flex gap-2 border-b border-border/40 px-4 py-2" role="tablist" aria-label="سبد و علاقه‌مندی‌ها">
+            {tabs.map((tab) => (
+              <Button key={tab.id} type="button" variant="ghost" role="tab" aria-selected={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`h-9 flex-1 rounded-lg text-xs ${activeTab === tab.id ? "bg-primary/5 text-primary" : "text-muted-foreground"}`}>
+                {tab.icon}{tab.label}
+              </Button>
+            ))}
           </div>
 
           {/* Content Area */}

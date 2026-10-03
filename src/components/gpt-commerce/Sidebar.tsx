@@ -20,6 +20,8 @@ export interface Basket {
   lastActivity: string;
   savedItems: SavedItem[];
   isSaved?: boolean; // Whether this basket is saved (archived)
+  isDraft?: boolean; // Product-entry conversation not yet committed to history/DB
+  productId?: string; // Product this conversation started from (kept as ?p in the URL)
 }
 
 interface SidebarProps {

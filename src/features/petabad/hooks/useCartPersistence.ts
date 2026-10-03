@@ -69,6 +69,7 @@ export const useCartPersistence = ({
           lastActivity: 'قبلاً',
           savedItems: [],
           isSaved: b.status === 'completed',
+          productId: (b as any).product_id || undefined,
         }));
 
         const dbBasketStates: Record<string, BasketState> = {};
@@ -177,6 +178,7 @@ export const useCartPersistence = ({
         if (!user) return;
 
         const basket = baskets.find(b => b.id === activeBasketId);
+        if (basket?.isDraft) { lastSyncedCartRef.current = ''; return; }
         const messagesForDb = currentState.messages
           .filter((m: any) => !m.addressShipping && !m.paymentOptions && !m.addressSelector && !m.addressConfirmation)
           .map(m => ({
@@ -188,6 +190,7 @@ export const useCartPersistence = ({
           id: activeBasketId,
           user_id: user.id,
           title: basket?.title || 'سبد خرید',
+          product_id: basket?.productId ?? null,
           cart_items: currentState.cartItems as any,
           messages: messagesForDb as any,
           agentic_state: { ...currentState.agenticState, step: 'idle' } as any,

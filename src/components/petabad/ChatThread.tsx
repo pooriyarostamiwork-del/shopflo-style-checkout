@@ -1,3 +1,5 @@
+import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
+import { resolveQuickReplies } from "@/lib/quickReplies";
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -92,6 +94,14 @@ export const ChatThread = ({
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const barReplies = resolveQuickReplies({ messages: messages as any, cartCount: cartItems.length, checkoutStep: (agenticState as any)?.step, isProcessing });
+  const pickQuickReply = (text: string) => {
+    setInputValue(text);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) { el.focus(); el.setSelectionRange(text.length, text.length); }
+    });
+  };
 
   const setInputValue = externalSetInputValue || setInputValueInternal;
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -345,6 +355,7 @@ export const ChatThread = ({
       {/* Bottom Input Area */}
       <div className="border-t" style={{ background: 'hsl(0 0% 100%)', borderColor: 'hsl(0 0% 0% / 0.06)' }}>
         <form onSubmit={handleSubmit} className="max-w-[820px] mx-auto p-4">
+          <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
           <div
             className="flex items-end gap-3 p-3 rounded-xl"
             style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(0 0% 0% / 0.08)' }}

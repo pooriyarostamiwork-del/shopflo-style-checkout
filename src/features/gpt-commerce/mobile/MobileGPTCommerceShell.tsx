@@ -64,6 +64,15 @@ export const MobileGPTCommerceShell = () => {
   const [activeCategory, setActiveCategory] = useState("all");
   const isCreatingBasketRef = useRef(false);
   const handledProductDeepLinkRef = useRef<string | null>(null);
+  const [pendingOwnedC, setPendingOwnedC] = useState<string | null>(null);
+  // Lazy session: a product-entry conversation stays a local draft (no history, no DB) until the first real interaction.
+  const commitDraft = useCallback(() => {
+    setBaskets(prev => prev.some(b => b.id === activeBasketId && b.isDraft)
+      ? prev.map(b => b.id === activeBasketId ? { ...b, isDraft: false } : b)
+      : prev);
+  }, [activeBasketId, setBaskets]);
+  const activeBasketMeta = baskets.find(b => b.id === activeBasketId);
+  const isDraftActive = !!activeBasketMeta?.isDraft;
 
   const messages = currentState.messages;
   const cartItems = currentState.cartItems;
@@ -181,6 +190,7 @@ export const MobileGPTCommerceShell = () => {
 
   // Send message; also creates a new basket if needed
   const handleSendMessageWithPending = useCallback(async (message: string, forceNew?: boolean) => {
+    commitDraft();
     if (pendingNewChat || forceNew || !hasStartedChat) {
       if (isCreatingBasketRef.current) return;
       isCreatingBasketRef.current = true;
@@ -210,44 +220,33 @@ export const MobileGPTCommerceShell = () => {
       return;
     }
     handleSendMessage(message);
-  }, [pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
+  }, [commitDraft, pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, handleSendMessage, sendMessageToBasket]);
 
   // Every storefront product entry uses one deterministic assistant message with inline details.
   const handleLandingProductTap = useCallback((product: Product) => {
     if (isCreatingBasketRef.current) return;
     isCreatingBasketRef.current = true;
-
-    if (pendingNewChat || !hasStartedChat) {
-      const existingNew = baskets.filter(b => b.title.startsWith("سبد جدید") && !b.isSaved);
-      const newTitle = existingNew.length > 0
-        ? `سبد جدید ${toPersianNumber(existingNew.length + 1)}`
-        : "سبد جدید";
-      const newId = crypto.randomUUID();
-      const newBasket: Basket = {
-        id: newId,
-        title: newTitle,
-        itemCount: 0,
-        lastActivity: "الان",
-        savedItems: [],
-        isSaved: false,
-      };
-      setBaskets(prev => [newBasket, ...prev]);
-      setActiveBasketId(newId);
-      setBasketStates(prev => ({
-        ...prev,
-        [newId]: {
-          ...seedProductConversation(createDefaultBasketState(), product, "فلوکارت"),
-        },
-      }));
-      setPendingNewChat(false);
-    } else {
-      updateCurrentBasket(prev => ({
-        ...prev,
-        ...seedProductConversation(prev, product, "فلوکارت"),
-      }));
-    }
+    handledProductDeepLinkRef.current = product.id;
+    const newId = crypto.randomUUID();
+    const newBasket: Basket = {
+      id: newId,
+      title: product.name,
+      productId: product.id,
+      isDraft: true,
+      itemCount: 0,
+      lastActivity: "الان",
+      savedItems: [],
+      isSaved: false,
+    };
+    setBaskets(prev => [newBasket, ...prev.filter(b => !b.isDraft)]);
+    setActiveBasketId(newId);
+    setBasketStates(prev => ({
+      ...prev,
+      [newId]: seedProductConversation(createDefaultBasketState(), product, "فلوکارت"),
+    }));
+    setPendingNewChat(false);
     setTimeout(() => { isCreatingBasketRef.current = false; }, 100);
-  }, [pendingNewChat, hasStartedChat, baskets, setBaskets, setActiveBasketId, setBasketStates, updateCurrentBasket]);
+  }, [setBaskets, setActiveBasketId, setBasketStates]);
 
   const handleCreateBasket = useCallback(() => {
     setPendingNewChat(true);
@@ -295,6 +294,11 @@ export const MobileGPTCommerceShell = () => {
     });
   }, [setActiveBasketId, setBasketStates]);
 
+  const handleAddToCartCommitted = useCallback((...args: Parameters<typeof handleAddToCart>) => {
+    commitDraft();
+    return handleAddToCart(...args);
+  }, [commitDraft, handleAddToCart]);
+
   const handleSignInClick = useCallback(() => {
     if (isAuthenticated) return;
     setOtpContext("login");
@@ -334,7 +338,7 @@ export const MobileGPTCommerceShell = () => {
     const c = searchParams.get("c");
     const productId = searchParams.get("p");
     setUrlOrderId(order);
-    if (productId) return;
+    if (productId && !(c && baskets.some(b => b.id === c))) return;
     if (order || tab === "orders" || tab === "profile") {
       setAccountTab(order || tab === "orders" ? "orders" : "profile");
       setShowAccountFull(true);
@@ -352,18 +356,37 @@ export const MobileGPTCommerceShell = () => {
     const productId = searchParams.get("p");
     if (!productId || handledProductDeepLinkRef.current === productId) return;
     handledProductDeepLinkRef.current = productId;
-    void supabase.from("products").select("*").eq("id", productId).maybeSingle().then(({ data, error }) => {
-      if (error || !data) {
-        handledProductDeepLinkRef.current = null;
-        setSearchParams({}, { replace: true });
-        return;
-      }
-      handleLandingProductTap(mapDbProduct(data));
+    const c = searchParams.get("c");
+    if (c && baskets.some(b => b.id === c)) return; // owner's own session
+    const openFreshPdp = () => {
+      void supabase.from("products").select("*").eq("id", productId).maybeSingle().then(({ data, error }) => {
+        if (error || !data) {
+          handledProductDeepLinkRef.current = null;
+          setSearchParams({}, { replace: true });
+          return;
+        }
+        handleLandingProductTap(mapDbProduct(data));
+      });
+    };
+    if (!c) { openFreshPdp(); return; }
+    // Shared ?p&c link: RLS only returns the basket to its owner; anyone else gets a fresh PDP.
+    void supabase.from("baskets").select("id").eq("id", c).maybeSingle().then(({ data }) => {
+      if (data) setPendingOwnedC(c);
+      else openFreshPdp();
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleLandingProductTap, searchParams, setSearchParams]);
 
   useEffect(() => {
-    const viewKey = [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId].join("|");
+    if (!pendingOwnedC || !baskets.some(b => b.id === pendingOwnedC)) return;
+      setShowAccountFull(false);
+      handleBasketSelect(pendingOwnedC);
+    setPendingOwnedC(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOwnedC, baskets]);
+
+  useEffect(() => {
+    const viewKey = [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId, isDraftActive].join("|");
     const isFirst = prevViewKeyRef.current === null;
     const unchanged = prevViewKeyRef.current === viewKey;
     prevViewKeyRef.current = viewKey;
@@ -372,13 +395,16 @@ export const MobileGPTCommerceShell = () => {
     if (showAccountFull) {
       if (accountTab === "orders" && urlOrderId) next.set("order", urlOrderId);
       else next.set("tab", accountTab);
-    } else if (!onLanding) next.set("c", activeBasketId);
+    } else if (!onLanding) {
+      if (activeBasketMeta?.productId) next.set("p", activeBasketMeta.productId);
+      if (!isDraftActive) next.set("c", activeBasketId);
+    }
     const nextKey = next.toString();
     if (nextKey === searchKey) return;
     lastSyncedRef.current = nextKey;
     setSearchParams(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId]);
+  }, [showAccountFull, accountTab, urlOrderId, onLanding, activeBasketId, isDraftActive]);
 
   // ── Account full screen overlay ────────────────────────────────────────
   if (showAccountFull) {
@@ -496,7 +522,7 @@ export const MobileGPTCommerceShell = () => {
         {onLanding ? (
           <MobileChatLanding
             onSendMessage={handleSendMessageWithPending}
-            onAddToCart={handleAddToCart}
+            onAddToCart={handleAddToCartCommitted}
             onCompare={handleCompare}
             onSaveProduct={handleSaveProduct}
             savedProductIds={baskets.find(b => b.id === activeBasketId)?.savedItems.map(i => i.productId) || []}
@@ -514,7 +540,7 @@ export const MobileGPTCommerceShell = () => {
           <MobileChatThread
             messages={messages}
             onSendMessage={handleSendMessageWithPending}
-            onAddToCart={handleAddToCart}
+            onAddToCart={handleAddToCartCommitted}
             onCompare={handleCompare}
             onSaveProduct={handleSaveProduct}
             cartItems={cartItems}
@@ -554,7 +580,7 @@ export const MobileGPTCommerceShell = () => {
         onCheckout={handleFinalizePurchase}
         onAICheckout={handleFinalizePurchase}
         showAICheckout={false}
-        baskets={baskets.filter(b => !b.isSaved)}
+        baskets={baskets.filter(b => !b.isSaved && !b.isDraft)}
         activeBasketId={activeBasketId}
         onBasketSelect={handleBasketSelect}
         onCreateBasket={handleCreateBasket}

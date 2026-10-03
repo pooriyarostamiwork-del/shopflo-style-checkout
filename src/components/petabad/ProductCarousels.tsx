@@ -1,3 +1,4 @@
+import { parseFixedQuickReplies } from "@/lib/quickReplies";
 import { ChevronLeft, ChevronRight, Grid2X2, Star, Store } from "lucide-react";
 import { Product, toPersianNumber, formatPersianPrice, merchants } from "@/data/petabadData";
 import { useRef, useState } from "react";
@@ -30,6 +31,7 @@ const subcategoryConfig: {
 
 export function mapDbProduct(row: any): Product {
   return {
+    quickReplies: parseFixedQuickReplies(row.quick_replies),
     id: row.id,
     name: row.name,
     price: row.price,

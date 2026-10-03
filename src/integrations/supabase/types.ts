@@ -22,6 +22,7 @@ export type Database = {
           id: string
           last_activity: string
           messages: Json
+          product_id: string | null
           selected_address_id: string | null
           shipping_selections: Json | null
           status: string
@@ -35,6 +36,7 @@ export type Database = {
           id?: string
           last_activity?: string
           messages?: Json
+          product_id?: string | null
           selected_address_id?: string | null
           shipping_selections?: Json | null
           status?: string
@@ -48,6 +50,7 @@ export type Database = {
           id?: string
           last_activity?: string
           messages?: Json
+          product_id?: string | null
           selected_address_id?: string | null
           shipping_selections?: Json | null
           status?: string
@@ -224,6 +227,7 @@ export type Database = {
           price: number
           product_line: string | null
           product_type: string | null
+          quick_replies: Json
           rating: number
           review_count: number
           search_vector: unknown
@@ -259,6 +263,7 @@ export type Database = {
           price?: number
           product_line?: string | null
           product_type?: string | null
+          quick_replies?: Json
           rating?: number
           review_count?: number
           search_vector?: unknown
@@ -294,6 +299,7 @@ export type Database = {
           price?: number
           product_line?: string | null
           product_type?: string | null
+          quick_replies?: Json
           rating?: number
           review_count?: number
           search_vector?: unknown
@@ -425,6 +431,7 @@ export type Database = {
           name: string
           original_price: number | null
           price: number
+          quick_replies: Json
           rating: number
           return_guarantee: boolean
           review_count: number
@@ -451,6 +458,7 @@ export type Database = {
           name: string
           original_price?: number | null
           price: number
+          quick_replies?: Json
           rating?: number
           return_guarantee?: boolean
           review_count?: number
@@ -477,6 +485,7 @@ export type Database = {
           name?: string
           original_price?: number | null
           price?: number
+          quick_replies?: Json
           rating?: number
           return_guarantee?: boolean
           review_count?: number

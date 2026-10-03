@@ -404,6 +404,7 @@ export const ChatThread = ({
             </div>
           </div>
         </form>
+        </div>
       </div>
 
       {/* Quick View Modal */}

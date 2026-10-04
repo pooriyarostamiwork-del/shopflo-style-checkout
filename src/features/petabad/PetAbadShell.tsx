@@ -20,6 +20,7 @@ import { Product } from "@/data/petabadData";
 import { mapDbProduct } from "@/components/petabad/ProductCarousels";
 import { supabase } from "@/integrations/supabase/client";
 import { seedProductConversation } from "@/lib/productConversation";
+import { useTelegramSession } from "./hooks/useTelegramSession";
 
 export const PetAbadShell = () => {
   const { isAuthenticated, profile, isNewUser: authIsNewUser, signOut, updateProfileName } = useAuth();
@@ -466,6 +467,7 @@ export const PetAbadShell = () => {
 
   // ── Deep linking: URL <-> view state ───────────────────────────────────
   // Landing: no params · New chat: ?chat=new · Chat: ?c=<basketId> · Account: ?tab=profile|orders
+  useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened: handleBasketSelect });
   const [searchParams, setSearchParams] = useSearchParams();
   const [landingOverride, setLandingOverride] = useState(false);
   const lastSyncedRef = useRef<string | null>(null);

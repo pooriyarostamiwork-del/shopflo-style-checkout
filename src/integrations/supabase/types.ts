@@ -1057,8 +1057,11 @@ export type Database = {
           chat_id: number
           first_name: string | null
           history: Json
+          last_products: Json
           phone: string | null
+          session_token: string
           updated_at: string
+          user_id: string | null
           username: string | null
         }
         Insert: {
@@ -1066,8 +1069,11 @@ export type Database = {
           chat_id: number
           first_name?: string | null
           history?: Json
+          last_products?: Json
           phone?: string | null
+          session_token?: string
           updated_at?: string
+          user_id?: string | null
           username?: string | null
         }
         Update: {
@@ -1075,8 +1081,11 @@ export type Database = {
           chat_id?: number
           first_name?: string | null
           history?: Json
+          last_products?: Json
           phone?: string | null
+          session_token?: string
           updated_at?: string
+          user_id?: string | null
           username?: string | null
         }
         Relationships: []

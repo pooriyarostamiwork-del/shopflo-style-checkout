@@ -1,0 +1,1 @@
+ALTER TABLE public.telegram_chats ADD COLUMN IF NOT EXISTS locked boolean NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS archived jsonb NOT NULL DEFAULT '[]'::jsonb;

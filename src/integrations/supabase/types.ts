@@ -1053,11 +1053,13 @@ export type Database = {
       }
       telegram_chats: {
         Row: {
+          archived: Json
           cart: Json
           chat_id: number
           first_name: string | null
           history: Json
           last_products: Json
+          locked: boolean
           phone: string | null
           session_token: string
           updated_at: string
@@ -1065,11 +1067,13 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          archived?: Json
           cart?: Json
           chat_id: number
           first_name?: string | null
           history?: Json
           last_products?: Json
+          locked?: boolean
           phone?: string | null
           session_token?: string
           updated_at?: string
@@ -1077,11 +1081,13 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          archived?: Json
           cart?: Json
           chat_id?: number
           first_name?: string | null
           history?: Json
           last_products?: Json
+          locked?: boolean
           phone?: string | null
           session_token?: string
           updated_at?: string

@@ -30,14 +30,25 @@ async function deriveSecret() {
   return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-const MAIN_KB = {
-  keyboard: [
-    [{ text: "🛒 سبد خرید من" }, { text: "✨ چی پیشنهاد می‌دی؟" }],
-    [{ text: "📱 ارسال شماره تماس", request_contact: true }],
-  ],
-  resize_keyboard: true,
-  is_persistent: true,
-};
+// No persistent reply keyboard: actions live in inline buttons + the bot Commands menu.
+const MAIN_KB = { remove_keyboard: true };
+const PHONE_KB = { keyboard: [[{ text: "📱 ارسال شماره تماس", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true };
+const NEW_BTN = { text: "➕ شروع گفتگوی جدید", callback_data: "new" };
+const COMMANDS = [
+  { command: "new", description: "شروع گفتگوی جدید" },
+  { command: "cart", description: "سبد خرید من" },
+  { command: "history", description: "سابقه گفتگوها" },
+  { command: "phone", description: "تأیید شماره تماس" },
+];
+const DAY = 24 * 60 * 60 * 1000;
+
+// Inline option button that "says" the text back; callback_data is capped at 64 bytes.
+function sayBtn(text: string) {
+  let t = text;
+  while (new TextEncoder().encode(`q:${t}`).length > 64) t = t.slice(0, -1);
+  return { text, callback_data: `q:${t}` };
+}
+const optionsKb = (opts: string[]) => ({ inline_keyboard: opts.map((o) => [sayBtn(o)]) });
 
 const appUrl = (chat: any) => `${SITE}?tg=${chat.session_token}`;
 
@@ -96,17 +107,20 @@ async function sendCart(chat: any, editMessageId?: number) {
   const text =
     `🛒 <b>سبد خرید تو</b>  ·  ${fa(count)} کالا\n━━━━━━━━━━━━\n\n${lines.join("\n\n")}\n\n━━━━━━━━━━━━\n💳 <b>جمع کل: ${price(cartTotal(cart))}</b>\n\n` +
     `💬 می‌تونی همین‌جا بنویسی سبد رو چطور تغییر بدم؛ مثلاً «دومی رو دوتا کن»، «اولی رو حذف کن» یا «یه غذای ارزون‌تر جاش بذار».`;
-  const rows = cart.slice(0, 8).map((i, k) => [
-    { text: "➖", callback_data: `dec:${k}` },
-    { text: `${fa(k + 1)}. ${String(i.name).slice(0, 18)} (${fa(i.qty)})`, callback_data: "noop" },
-    { text: "➕", callback_data: `inc:${k}` },
-    { text: "🗑", callback_data: `del:${k}` },
+  const rows = cart.slice(0, 8).flatMap((i, k) => [
+    [{ text: `${fa(k + 1)}. ${String(i.name).slice(0, 48)}`, web_app: { url: `${SITE}?p=${encodeURIComponent(i.id)}` } }],
+    [
+      { text: "−", callback_data: `dec:${k}` },
+      { text: `${fa(i.qty)} عدد`, callback_data: "noop" },
+      { text: "+", callback_data: `inc:${k}` },
+      { text: "حذف", callback_data: `del:${k}` },
+    ],
   ]);
   const reply_markup = {
     inline_keyboard: [
       ...rows,
       [{ text: "✅ نهایی کردن خرید", web_app: { url: appUrl(chat) } }],
-      [{ text: "🧹 خالی کردن سبد", callback_data: "clear" }],
+      [{ text: "🧹 خالی کردن سبد", callback_data: "clear" }, NEW_BTN],
     ],
   };
   const body = { chat_id: chat.chat_id, parse_mode: "HTML", text, reply_markup };
@@ -208,8 +222,89 @@ async function applyCartActions(chat: any, actions: any[]) {
   return cart;
 }
 
+// Archive the current conversation and start a clean session (new token = new basket).
+async function rotate(chat: any, reason: "completed" | "expired" | "manual") {
+  const hist: any[] = chat.history || [];
+  const archived: any[] = chat.archived || [];
+  if (hist.length || (chat.cart || []).length) {
+    const first = hist.find((m) => m.role === "user")?.content || "گفتگوی تلگرام";
+    archived.unshift({
+      token: chat.session_token,
+      title: String(first).slice(0, 40),
+      count: (chat.cart || []).reduce((s: number, i: any) => s + i.qty, 0),
+      reason: chat.locked ? "completed" : reason,
+      ended_at: new Date().toISOString(),
+      history: hist,
+      cart: chat.cart || [],
+      last_products: chat.last_products || [],
+    });
+  }
+  await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: archived.slice(0, 10) });
+}
+
+// Lazy 24h expiry, checked on every incoming update.
+async function expireIfStale(chat: any) {
+  const idle = Date.now() - new Date(chat.updated_at || 0).getTime();
+  if (idle <= DAY || !(chat.history || []).length || chat.locked) return false;
+  await rotate(chat, "expired");
+  await tg("sendMessage", { chat_id: chat.chat_id, text: "از آخرین گفتگومون بیشتر از ۲۴ ساعت گذشته بود؛ اون گفتگو رفت توی سوابق و یه گفتگوی تازه شروع کردیم 🐾", reply_markup: MAIN_KB });
+  return true;
+}
+
+const ago = (iso: string) => {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / DAY);
+  return d <= 0 ? "امروز" : d === 1 ? "دیروز" : `${fa(d)} روز پیش`;
+};
+
+async function sendHistory(chat: any) {
+  const list: any[] = (chat.archived || []).slice(0, 3);
+  const rows = list.map((a) => [{
+    text: `${a.reason === "completed" ? "✅" : "💬"} ${String(a.title).slice(0, 28)}${a.count ? ` · ${fa(a.count)} کالا` : ""} · ${ago(a.ended_at)}`,
+    ...(a.reason === "completed" ? { web_app: { url: `${SITE}?tg=${a.token}` } } : { callback_data: `resume:${a.token}` }),
+  }]);
+  rows.push([{ text: "📂 همه گفتگوها در مینی‌اپ", web_app: { url: SITE } }]);
+  rows.push([NEW_BTN]);
+  await tg("sendMessage", {
+    chat_id: chat.chat_id,
+    parse_mode: "HTML",
+    text: list.length ? "📜 <b>گفتگوهای قبلی تو</b>\nیکی رو برای ادامه انتخاب کن یا یه گفتگوی تازه شروع کن:" : "هنوز گفتگوی قبلی‌ای نداری. هر وقت خواستی یه گفتگوی تازه شروع کن 🙂",
+    reply_markup: { inline_keyboard: rows },
+  });
+}
+
+async function resume(chat: any, token: string) {
+  const archived: any[] = chat.archived || [];
+  const entry = archived.find((a) => a.token === token);
+  if (!entry) return false;
+  const rest = archived.filter((a) => a.token !== token);
+  if ((chat.history || []).length || (chat.cart || []).length) {
+    const first = (chat.history || []).find((m: any) => m.role === "user")?.content || "گفتگوی تلگرام";
+    rest.unshift({ token: chat.session_token, title: String(first).slice(0, 40), count: (chat.cart || []).reduce((s: number, i: any) => s + i.qty, 0), reason: "manual", ended_at: new Date().toISOString(), history: chat.history, cart: chat.cart, last_products: chat.last_products });
+  }
+  await saveChat(chat, { session_token: entry.token, history: entry.history || [], cart: entry.cart || [], last_products: entry.last_products || [], locked: false, archived: rest.slice(0, 10) });
+  const lastBot = [...(entry.history || [])].reverse().find((m: any) => m.role === "assistant")?.content || "";
+  await tg("sendMessage", { chat_id: chat.chat_id, text: `برگشتیم به گفتگوی «${entry.title}» 🐾${lastBot ? `\n\nآخرین حرفم این بود:\n${String(lastBot).replace(/\n?\[محصولات نمایش داده شده:[\s\S]*\]$/, "").slice(0, 300)}` : ""}\n\nادامه بدیم؟`, reply_markup: MAIN_KB });
+  if ((entry.cart || []).length) await sendCart(chat);
+  return true;
+}
+
+const lockedNotice = (chatId: number) =>
+  tg("sendMessage", { chat_id: chatId, text: "سفارش قبلیت با موفقیت ثبت شده 🐾\nبرای درخواست یا خرید جدید، یه گفتگوی تازه شروع کن.", reply_markup: { inline_keyboard: [[NEW_BTN], [{ text: "📜 سابقه گفتگوها", callback_data: "history" }]] } });
+
+async function startNew(chat: any) {
+  await rotate(chat, "manual");
+  await tg("sendMessage", { chat_id: chat.chat_id, text: "یه گفتگوی تازه شروع شد ✨ بگو برای کی دنبال چی هستی؟", reply_markup: MAIN_KB });
+}
+
 async function handleText(chatId: number, from: any, text: string) {
   const chat = await loadChat(chatId, from);
+  if (text === "/new") return startNew(chat);
+  if (text === "/history") return sendHistory(chat);
+  if (text === "/phone") return tg("sendMessage", { chat_id: chatId, text: "با دکمه زیر شماره‌ات رو بفرست تا بدون پیامک تأیید بشه:", reply_markup: PHONE_KB });
+  if (!text.startsWith("/start")) {
+    if (chat.locked) return lockedNotice(chatId);
+    await expireIfStale(chat);
+  }
 
   if (text.startsWith("/start")) {
     const payload = text.split(" ")[1];
@@ -218,7 +313,9 @@ async function handleText(chatId: number, from: any, text: string) {
       text: `سلام ${from?.first_name ?? ""}! 🐾 من دستیار خرید هوشمند پت‌آباد هستم (قدرت‌گرفته از Flowcart).\n\nبگو برای کی دنبال چی هستی، مثلاً «غذای خشک گربه عقیم‌شده زیر ۸۰۰ هزار تومن» یا «خاک گربه بی‌بو»؛ بهترین گزینه‌ها رو برات پیدا می‌کنم و همین‌جا به سبدت اضافه می‌کنم.`,
       reply_markup: MAIN_KB,
     });
-    await tg("setChatMenuButton", { chat_id: chatId, menu_button: { type: "web_app", text: "فروشگاه", web_app: { url: appUrl(chat) } } });
+    await tg("setMyCommands", { commands: COMMANDS });
+    await tg("setChatMenuButton", { chat_id: chatId, menu_button: { type: "commands" } });
+    if (chat.locked || (chat.history || []).length) await rotate(chat, "manual");
     if (payload?.startsWith("p_")) {
       const p = await db.from("pet_products").select("name").eq("id", payload.slice(2)).maybeSingle();
       text = p.data ? `درباره «${p.data.name}» بیشتر توضیح بده` : "";
@@ -258,7 +355,7 @@ async function handleText(chatId: number, from: any, text: string) {
     await tg("sendMessage", {
       chat_id: chatId,
       text: content || "انجام شد ✅",
-      reply_markup: opts.length ? { keyboard: [...opts.slice(0, 4).map((o) => [{ text: o }]), [{ text: "🛒 سبد خرید من" }]], resize_keyboard: true, one_time_keyboard: true } : MAIN_KB,
+      reply_markup: opts.length ? optionsKb(opts.slice(0, 4)) : MAIN_KB,
     });
     if (JSON.stringify(cart) !== before) await sendCart(chat);
     return;
@@ -274,7 +371,7 @@ async function handleText(chatId: number, from: any, text: string) {
   await tg("sendMessage", {
     chat_id: chatId,
     text: textOut,
-    reply_markup: cardOpts.length ? { keyboard: [...cardOpts.slice(0, 6).map((o) => [{ text: o }]), [{ text: "🛒 سبد خرید من" }]], resize_keyboard: true, one_time_keyboard: true } : MAIN_KB,
+    reply_markup: cardOpts.length ? optionsKb(cardOpts.slice(0, 6)) : MAIN_KB,
   });
 
   for (const [i, p] of products.entries()) {
@@ -305,6 +402,19 @@ async function handleCallback(cb: any) {
   const chat = await loadChat(chatId, cb.from);
   let cart: any[] = chat.cart || [];
   const ack = (text?: string) => tg("answerCallbackQuery", { callback_query_id: cb.id, ...(text ? { text } : {}) });
+
+  if (data === "new") { await ack(); return startNew(chat); }
+  if (data === "history") { await ack(); return sendHistory(chat); }
+  if (data.startsWith("resume:")) {
+    await ack();
+    if (!(await resume(chat, data.slice(7)))) await tg("sendMessage", { chat_id: chatId, text: "این گفتگو دیگه در دسترس نیست." });
+    return;
+  }
+  if (data.startsWith("q:")) { await ack(); return handleText(chatId, cb.from, data.slice(2)); }
+  if (data === "noop") return ack();
+  if (chat.locked) { await ack(); return lockedNotice(chatId); }
+  if (await expireIfStale(chat)) { await ack(); return; }
+  cart = chat.cart || [];
 
   if (data === "clear") {
     await saveChat(chat, { cart: [] });

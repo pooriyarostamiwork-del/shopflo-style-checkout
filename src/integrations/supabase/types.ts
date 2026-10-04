@@ -1051,6 +1051,36 @@ export type Database = {
           },
         ]
       }
+      telegram_chats: {
+        Row: {
+          cart: Json
+          chat_id: number
+          first_name: string | null
+          history: Json
+          phone: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          cart?: Json
+          chat_id: number
+          first_name?: string | null
+          history?: Json
+          phone?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          cart?: Json
+          chat_id?: number
+          first_name?: string | null
+          history?: Json
+          phone?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       user_addresses: {
         Row: {
           created_at: string

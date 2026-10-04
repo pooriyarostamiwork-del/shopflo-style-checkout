@@ -5,4 +5,4 @@
 - Composer Quick Replies come only from `resolveQuickReplies` in `src/lib/quickReplies.ts` and render via `QuickReplyBar`; one funnel-stage engine serves every shell.
 - Desktop chat uses LTR positioning rails with RTL content; assistant text, loading, and commerce blocks share the same left inset without changing Persian reading direction.
 - Desktop cart panels share `CartPanelHeader`; one stroke-based header keeps title geometry and close controls consistent across storefronts.
-- Telegram bot (@Flowcartbot) lives in the `telegram-webhook` Edge Function and reuses `gpt-commerce-agent`; per-chat history/cart live in service-role-only `telegram_chats`, so the bot never forks agent logic.
+- Telegram bot (@Flowcartbot) lives in `telegram-webhook`, uses `petabad-agent` in agentic mode and opens PetAbad as a Mini App via `?tg=<session_token>` (read by `telegram-session` + `useTelegramSession`); per-chat state stays in service-role-only `telegram_chats`, mirrored to `baskets` only when the phone matches an account, so the bot never forks agent logic.

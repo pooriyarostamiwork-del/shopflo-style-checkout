@@ -137,8 +137,10 @@ function parseOrdinalAdd(text: string): { index: number; qty: number } | null {
   const m = t.match(/(?:شماره|#)\s*(\d)/);
   if (!index && m) index = +m[1];
   if (!index) return null;
-  const q = t.match(/(\d+)\s*(تا|عدد|بسته)/);
-  return { index, qty: q ? Math.max(1, Math.min(20, +q[1])) : 1 };
+  const WORDS: Record<string, number> = { دو: 2, سه: 3, چهار: 4, پنج: 5 };
+  const q = t.match(/(\d+|دو|سه|چهار|پنج)\s*(تا|عدد|بسته)/);
+  const n = q ? (WORDS[q[1]] ?? +q[1]) : 1;
+  return { index, qty: Math.max(1, Math.min(20, n)) };
 }
 
 function productCaption(p: any, i: number) {

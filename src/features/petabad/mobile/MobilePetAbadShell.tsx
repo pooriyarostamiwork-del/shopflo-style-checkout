@@ -20,6 +20,7 @@ import { MobileChatLanding } from "./MobileChatLanding";
 import { mapDbProduct } from "@/components/petabad/ProductCarousels";
 import { supabase } from "@/integrations/supabase/client";
 import { seedProductConversation } from "@/lib/productConversation";
+import { useTelegramSession } from "../hooks/useTelegramSession";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
 import "../petabad-theme.css";
@@ -324,6 +325,7 @@ export const MobilePetAbadShell = () => {
   const onLanding = pendingNewChat || !hasStartedChat;
 
   // ── Deep linking: Landing: none · Chat: ?c=<basketId> · Account: ?tab=profile|orders · Order: ?order=<id>
+  useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened: handleBasketSelect });
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
   const [urlOrderId, setUrlOrderId] = useState<string | null>(null);

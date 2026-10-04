@@ -380,6 +380,8 @@ export const useCheckoutFlow = ({
         cartItems: [],
         isProcessing: false,
       }));
+      // Telegram-born chats (basket id = bot session token): lock the bot chat and send the receipt there.
+      void supabase.functions.invoke('telegram-session', { body: { token: activeBasketId, action: 'complete', order_number: orderId } }).catch(() => {});
       // Auto-finalize basket after successful order
       onFinalizeBasket?.();
     }, 2000);

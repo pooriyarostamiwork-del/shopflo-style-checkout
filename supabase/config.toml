@@ -23,3 +23,5 @@ verify_jwt = false
 
 [functions.shift-embed-products]
 verify_jwt = false
+[functions.telegram-webhook]
+verify_jwt = false

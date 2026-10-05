@@ -1060,6 +1060,7 @@ export type Database = {
           history: Json
           last_products: Json
           locked: boolean
+          pending_text: string | null
           phone: string | null
           session_token: string
           updated_at: string
@@ -1074,6 +1075,7 @@ export type Database = {
           history?: Json
           last_products?: Json
           locked?: boolean
+          pending_text?: string | null
           phone?: string | null
           session_token?: string
           updated_at?: string
@@ -1088,6 +1090,7 @@ export type Database = {
           history?: Json
           last_products?: Json
           locked?: boolean
+          pending_text?: string | null
           phone?: string | null
           session_token?: string
           updated_at?: string

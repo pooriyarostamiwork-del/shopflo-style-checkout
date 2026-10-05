@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { mapDbProduct } from "@/components/petabad/ProductCarousels";
 import type { Basket } from "@/components/petabad/Sidebar";
 import type { CartItem } from "@/data/petabadData";
@@ -14,11 +15,28 @@ interface Args {
   onOpened: (basketId: string) => void;
 }
 
-/** Opens a Telegram bot conversation (?tg=<token>) as a regular PetAbad chat, for guests too. */
+export interface TelegramHistoryItem { token: string; title: string; reason: string; ended_at: string; count: number }
+
+const initData = () => ((window as any).Telegram?.WebApp?.initData as string) || "";
+
+/**
+ * Opens a Telegram bot conversation (?tg=<token>) as a regular PetAbad chat, for guests too.
+ * Signed Telegram initData + a confirmed phone signs the user in (no OTP). `?view=history` opens the history sheet.
+ */
 export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened }: Args) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isAuthenticated, setSessionFromOTP } = useAuth();
   const handled = useRef<string | null>(null);
   const token = searchParams.get("tg");
+  const wantsHistory = searchParams.get("view") === "history";
+  const [pending, setPending] = useState(!!token);
+  const [checkoutIntent, setCheckoutIntent] = useState<string | null>(null);
+  const [history, setHistory] = useState<TelegramHistoryItem[] | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(wantsHistory);
+
+  const applyAuth = async (auth: any) => {
+    if (auth?.access_token && !isAuthenticated) await setSessionFromOTP(auth);
+  };
 
   useEffect(() => {
     const wa = (window as any).Telegram?.WebApp;
@@ -26,15 +44,35 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
   }, []);
 
   useEffect(() => {
+    if (!wantsHistory) return;
+    setHistoryOpen(true);
+    void supabase.functions.invoke("telegram-session", { body: { action: "history", init_data: initData() } }).then(async ({ data }) => {
+      setHistory(data?.items || []);
+      await applyAuth(data?.auth);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsHistory]);
+
+  useEffect(() => {
     if (!token || handled.current === token) return;
     handled.current = token;
+    setPending(true);
+    const intent = searchParams.get("intent");
     const finish = (id: string) => {
       onOpened(id);
       setSearchParams({ c: id }, { replace: true });
+      setHistoryOpen(false);
+      if (intent === "checkout") setCheckoutIntent(id);
+      setPending(false);
     };
-    if (baskets.some(b => b.id === token)) { finish(token); return; }
-    void supabase.functions.invoke("telegram-session", { body: { token } }).then(({ data, error }) => {
-      if (error || !data?.session_id) { setSearchParams({}, { replace: true }); return; }
+    if (baskets.some(b => b.id === token)) {
+      finish(token);
+      void supabase.functions.invoke("telegram-session", { body: { token, init_data: initData() } }).then(({ data }) => applyAuth(data?.auth));
+      return;
+    }
+    void supabase.functions.invoke("telegram-session", { body: { token, init_data: initData() } }).then(async ({ data, error }) => {
+      if (error || !data?.session_id) { setPending(false); setSearchParams({}, { replace: true }); return; }
+      await applyAuth(data.auth);
       const id: string = data.session_id;
       const base = createDefaultBasketState();
       const cartItems: CartItem[] = (data.cart || []).map((c: any) => ({ ...mapDbProduct(c.product), quantity: c.qty }));
@@ -59,4 +97,23 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const openHistoryItem = (t: string) => {
+    handled.current = null;
+    setHistoryOpen(false);
+    setSearchParams({ tg: t }, { replace: true });
+  };
+  const closeHistory = () => {
+    setHistoryOpen(false);
+    const wa = (window as any).Telegram?.WebApp;
+    if (wantsHistory && wa?.close) wa.close();
+    else if (wantsHistory) setSearchParams({}, { replace: true });
+  };
+
+  return {
+    pending: pending || !!token,
+    checkoutIntent,
+    clearCheckoutIntent: () => setCheckoutIntent(null),
+    history, historyOpen, openHistoryItem, closeHistory,
+  };
 }

@@ -397,6 +397,7 @@ async function handleText(chatId: number, from: any, text: string) {
     const cart = addToCart(chat.cart || [], p, ord.qty);
     const reply = `حتماً؛ ${fa(ord.qty)} عدد «${p.name}» به سبدت اضافه شد ✅`;
     await saveChat(chat, { cart, history: [...(chat.history || []), { role: "user", content: text }, { role: "assistant", content: reply }].slice(-14) });
+    await tg("sendMessage", { chat_id: chatId, text: reply, reply_markup: MAIN_KB });
     return sendCart(chat);
   }
 

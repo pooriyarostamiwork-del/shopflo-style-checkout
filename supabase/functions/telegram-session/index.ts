@@ -13,25 +13,38 @@ Deno.serve(async (req) => {
     const { token, action, order_number } = await req.json().catch(() => ({}));
     if (typeof token !== "string" || !UUID.test(token)) return json({ error: "invalid token" }, 400);
 
-    // Checkout finished in the Mini App: lock the bot conversation and send the receipt.
+    // Checkout finished in the Mini App: archive this conversation, send the receipt and
+    // automatically open (and pin) a fresh session for the next purchase.
     if (action === "complete") {
-      const num = typeof order_number === "string" ? order_number.slice(0, 40) : "";
-      const { data: live } = await db.from("telegram_chats").select("chat_id,cart,locked").eq("session_token", token).maybeSingle();
+      const num = typeof order_number === "string" ? order_number.slice(0, 40).replace(/[<>&]/g, "") : "";
+      const { data: live } = await db.from("telegram_chats").select("*").eq("session_token", token).maybeSingle();
       if (!live) return json({ ok: false });
-      if (!live.locked) {
-        await db.from("telegram_chats").update({ locked: true, updated_at: new Date().toISOString() }).eq("chat_id", live.chat_id);
-        const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN");
-        if (BOT) {
-          await fetch(`https://api.telegram.org/bot${BOT}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: live.chat_id,
-              parse_mode: "HTML",
-              text: `سفارشت با موفقیت ثبت شد 🎉${num ? `\nکد پیگیری: <code>${num.replace(/[<>&]/g, "")}</code>` : ""}\n\nاین گفتگو نهایی شد. برای سفارش یا سؤال جدید، یه گفتگوی تازه شروع کن.`,
-              reply_markup: { inline_keyboard: [[{ text: "➕ شروع گفتگوی جدید", callback_data: "new" }], [{ text: "📜 سابقه گفتگوها", callback_data: "history" }]] },
-            }),
-          }).catch((e) => console.error("notify failed", e));
+      const hist: any[] = live.history || [];
+      const first = hist.find((m) => m.role === "user")?.content || "گفتگوی تلگرام";
+      const archived = [{
+        token, title: String(first).slice(0, 40), reason: "completed", ended_at: new Date().toISOString(),
+        count: (live.cart || []).reduce((s: number, i: any) => s + i.qty, 0),
+        history: hist, cart: live.cart || [], last_products: live.last_products || [],
+      }, ...(live.archived || [])].slice(0, 10);
+      await db.from("telegram_chats").update({
+        session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false,
+        pending_text: null, archived, updated_at: new Date().toISOString(),
+      }).eq("chat_id", live.chat_id);
+      const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      if (BOT) {
+        const tg = (m: string, body: unknown) => fetch(`https://api.telegram.org/bot${BOT}/${m}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        }).then((r) => r.json()).catch((e) => { console.error(m, e); return {}; });
+        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📜 گفتگوها" }, { text: "✨ گفتگوی جدید" }]], resize_keyboard: true, is_persistent: true };
+        await tg("sendMessage", { chat_id: live.chat_id, parse_mode: "HTML", text: `سفارشت با موفقیت ثبت شد 🎉${num ? `\nکد پیگیری: <code>${num}</code>` : ""}` });
+        const date = new Date().toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" });
+        const r: any = await tg("sendMessage", {
+          chat_id: live.chat_id, parse_mode: "HTML", reply_markup: KB,
+          text: `📌 <b>گفتگوی جدید شروع شد ✨</b>\n🕒 ${date}\nسفارش قبلی‌ات ثبت و توی «📜 گفتگوها» ذخیره شد؛ از این‌جا به بعد یه گفتگوی تازه‌ست. برای خرید بعدی فقط بنویس دنبال چی هستی.`,
+        });
+        if (r?.ok) {
+          await tg("unpinAllChatMessages", { chat_id: live.chat_id });
+          await tg("pinChatMessage", { chat_id: live.chat_id, message_id: r.result.message_id, disable_notification: true });
         }
       }
       return json({ ok: true });

@@ -312,9 +312,6 @@ async function resume(chat: any, token: string) {
   return true;
 }
 
-const lockedNotice = (chatId: number) =>
-  tg("sendMessage", { chat_id: chatId, text: "سفارش قبلیت با موفقیت ثبت شده 🐾\nبرای درخواست یا خرید جدید، یه گفتگوی تازه شروع کن.", reply_markup: { inline_keyboard: [[NEW_BTN], [{ text: "📜 سابقه گفتگوها", callback_data: "history" }]] } });
-
 async function startNew(chat: any, intro = "گفتگوی جدید شروع شد ✨") {
   if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
   await pinSession(chat.chat_id, `${sessionHeader(intro)}\n\nبگو برای کی دنبال چی هستی؟`);

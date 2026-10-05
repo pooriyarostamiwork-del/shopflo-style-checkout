@@ -30,16 +30,11 @@ async function deriveSecret() {
   return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-// No persistent reply keyboard: actions live in inline buttons + the bot Commands menu.
-const MAIN_KB = { remove_keyboard: true };
+// One clean persistent button row replaces Telegram's standard Commands menu.
+const BTN_CART = "🛒 سبد خرید", BTN_HIST = "📜 گفتگوها", BTN_NEW = "✨ گفتگوی جدید";
+const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_HIST }, { text: BTN_NEW }]], resize_keyboard: true, is_persistent: true };
 const PHONE_KB = { keyboard: [[{ text: "📱 ارسال شماره تماس", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true };
 const NEW_BTN = { text: "➕ شروع گفتگوی جدید", callback_data: "new" };
-const COMMANDS = [
-  { command: "new", description: "شروع گفتگوی جدید" },
-  { command: "cart", description: "سبد خرید من" },
-  { command: "history", description: "سابقه گفتگوها" },
-  { command: "phone", description: "تأیید شماره تماس" },
-];
 const DAY = 24 * 60 * 60 * 1000;
 
 // Inline option button that "says" the text back; callback_data is capped at 64 bytes.
@@ -52,13 +47,30 @@ const optionsKb = (opts: string[]) => ({ inline_keyboard: opts.map((o) => [sayBt
 
 const appUrl = (chat: any) => `${SITE}?tg=${chat.session_token}`;
 
+// Lazy Session: an unknown chat lives only in memory until the first real interaction is saved.
 async function loadChat(chatId: number, from: any) {
   const { data } = await db.from("telegram_chats").select("*").eq("chat_id", chatId).maybeSingle();
   if (data) return data;
-  const row = { chat_id: chatId, username: from?.username ?? null, first_name: from?.first_name ?? null, history: [], cart: [], last_products: [] };
-  const { data: created } = await db.from("telegram_chats").insert(row).select("*").single();
-  return created ?? row;
+  return {
+    _new: true, chat_id: chatId, username: from?.username ?? null, first_name: from?.first_name ?? null,
+    session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], archived: [], locked: false,
+    updated_at: new Date().toISOString(),
+  };
 }
+
+// Checkout requires the one-tap Telegram contact first, so the order and history attach to a phone.
+const checkoutBtn = (chat: any) =>
+  chat.phone ? { text: "✅ نهایی کردن خرید", web_app: { url: appUrl(chat) } } : { text: "✅ نهایی کردن خرید", callback_data: "checkout" };
+
+// Pinned session header: every new session gets one, replacing the previous pin.
+async function pinSession(chatId: number, text: string) {
+  const r = await tg("sendMessage", { chat_id: chatId, parse_mode: "HTML", text, reply_markup: MAIN_KB });
+  if (r.ok) {
+    await tg("unpinAllChatMessages", { chat_id: chatId });
+    await tg("pinChatMessage", { chat_id: chatId, message_id: r.result.message_id, disable_notification: true });
+  }
+}
+const sessionHeader = (title: string) => `📌 <b>${title}</b>\n🕒 ${new Date().toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" })}\nپیام‌های بالای این خط مربوط به گفتگوهای قبلی‌ان و توی «📜 گفتگوها» در دسترسن.`;
 
 // Mirror the Telegram conversation into the linked user's Flowcart history.
 async function mirrorToBasket(chat: any) {
@@ -82,7 +94,16 @@ async function mirrorToBasket(chat: any) {
 
 async function saveChat(chat: any, patch: Record<string, unknown>) {
   Object.assign(chat, patch);
-  await db.from("telegram_chats").update({ ...patch, updated_at: new Date().toISOString() }).eq("chat_id", chat.chat_id);
+  const now = new Date().toISOString();
+  chat.updated_at = now;
+  if (chat._new) {
+    const { _new, cart_full, ...row } = chat;
+    const { error } = await db.from("telegram_chats").insert(row);
+    if (error) console.error("insert chat failed", error);
+    else delete chat._new;
+  } else {
+    await db.from("telegram_chats").update({ ...patch, updated_at: now }).eq("chat_id", chat.chat_id);
+  }
   if (chat.user_id && ("history" in patch || "cart" in patch)) {
     const ids = (chat.cart || []).map((i: any) => i.id);
     const { data } = ids.length ? await db.from("pet_products").select("*").in("id", ids) : { data: [] };
@@ -119,8 +140,8 @@ async function sendCart(chat: any, editMessageId?: number) {
   const reply_markup = {
     inline_keyboard: [
       ...rows,
-      [{ text: "✅ نهایی کردن خرید", web_app: { url: appUrl(chat) } }],
-      [{ text: "🧹 خالی کردن سبد", callback_data: "clear" }, NEW_BTN],
+      [checkoutBtn(chat)],
+      [{ text: "🧹 خالی کردن سبد", callback_data: "clear" }],
     ],
   };
   const body = { chat_id: chat.chat_id, parse_mode: "HTML", text, reply_markup };
@@ -160,11 +181,9 @@ function parseOrdinalAdd(text: string): { index: number; qty: number } | null {
 function productCaption(p: any, i: number) {
   const name = esc(pname(p));
   const parts = [`<b>${fa(i + 1)} │ ${name}</b>`];
-  if (p.brand) parts.push(`🏷 ${esc(p.brand)}`);
   if (p.rating) {
     const r = Number(p.rating);
-    const stars = "★".repeat(Math.round(r)) + "☆".repeat(Math.max(0, 5 - Math.round(r)));
-    parts.push(`${stars}  <b>${fa(r.toFixed(1))}</b>${p.review_count ? ` (${fa(p.review_count)} نظر)` : ""}`);
+    parts.push(`⭐️ <b>${fa(r.toFixed(1))}</b>${p.review_count ? ` (${fa(p.review_count)} نظر)` : ""}`);
   }
   parts.push("");
   if (p.original_price && p.original_price > p.price) {
@@ -243,11 +262,17 @@ async function rotate(chat: any, reason: "completed" | "expired" | "manual") {
 }
 
 // Lazy 24h expiry, checked on every incoming update.
-async function expireIfStale(chat: any) {
+// After 24h idle, ask: continue this conversation or start a new one (the message waits in pending_text).
+async function askIfStale(chat: any, pending: string | null) {
   const idle = Date.now() - new Date(chat.updated_at || 0).getTime();
-  if (idle <= DAY || !(chat.history || []).length || chat.locked) return false;
-  await rotate(chat, "expired");
-  await tg("sendMessage", { chat_id: chat.chat_id, text: "از آخرین گفتگومون بیشتر از ۲۴ ساعت گذشته بود؛ اون گفتگو رفت توی سوابق و یه گفتگوی تازه شروع کردیم 🐾", reply_markup: MAIN_KB });
+  if (chat._new || idle <= DAY || !(chat.history || []).length) return false;
+  await db.from("telegram_chats").update({ pending_text: pending }).eq("chat_id", chat.chat_id);
+  const title = (chat.history || []).find((m: any) => m.role === "user")?.content || "گفتگوی قبلی";
+  await tg("sendMessage", {
+    chat_id: chat.chat_id,
+    text: `خوش برگشتی 🐾 از گفتگوی قبلی‌مون («${String(title).slice(0, 30)}») بیشتر از یه روز گذشته.\nهمون رو ادامه بدیم یا یه گفتگوی تازه شروع کنیم؟`,
+    reply_markup: { inline_keyboard: [[{ text: "↩️ ادامه همین گفتگو", callback_data: "cont" }, { text: "✨ گفتگوی جدید", callback_data: "fresh" }]] },
+  });
   return true;
 }
 
@@ -263,7 +288,6 @@ async function sendHistory(chat: any) {
     ...(a.reason === "completed" ? { web_app: { url: `${SITE}?tg=${a.token}` } } : { callback_data: `resume:${a.token}` }),
   }]);
   rows.push([{ text: "📂 همه گفتگوها در مینی‌اپ", web_app: { url: SITE } }]);
-  rows.push([NEW_BTN]);
   await tg("sendMessage", {
     chat_id: chat.chat_id,
     parse_mode: "HTML",
@@ -291,38 +315,38 @@ async function resume(chat: any, token: string) {
 const lockedNotice = (chatId: number) =>
   tg("sendMessage", { chat_id: chatId, text: "سفارش قبلیت با موفقیت ثبت شده 🐾\nبرای درخواست یا خرید جدید، یه گفتگوی تازه شروع کن.", reply_markup: { inline_keyboard: [[NEW_BTN], [{ text: "📜 سابقه گفتگوها", callback_data: "history" }]] } });
 
-async function startNew(chat: any) {
-  await rotate(chat, "manual");
-  await tg("sendMessage", { chat_id: chat.chat_id, text: "یه گفتگوی تازه شروع شد ✨ بگو برای کی دنبال چی هستی؟", reply_markup: MAIN_KB });
+async function startNew(chat: any, intro = "گفتگوی جدید شروع شد ✨") {
+  if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
+  await pinSession(chat.chat_id, `${sessionHeader(intro)}\n\nبگو برای کی دنبال چی هستی؟`);
 }
 
 async function handleText(chatId: number, from: any, text: string) {
   const chat = await loadChat(chatId, from);
-  if (text === "/new") return startNew(chat);
-  if (text === "/history") return sendHistory(chat);
+  if (text === "/new" || text === BTN_NEW) return startNew(chat);
+  if (text === "/history" || text === BTN_HIST) return sendHistory(chat);
   if (text === "/phone") return tg("sendMessage", { chat_id: chatId, text: "با دکمه زیر شماره‌ات رو بفرست تا بدون پیامک تأیید بشه:", reply_markup: PHONE_KB });
-  if (!text.startsWith("/start")) {
-    if (chat.locked) return lockedNotice(chatId);
-    await expireIfStale(chat);
+  if (!text.startsWith("/start") && text !== BTN_CART && text !== "/cart") {
+    if (await askIfStale(chat, text)) return;
   }
 
   if (text.startsWith("/start")) {
     const payload = text.split(" ")[1];
+    await tg("deleteMyCommands", {});
+    await tg("setChatMenuButton", { chat_id: chatId, menu_button: { type: "default" } });
+    if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
+    await pinSession(chatId, sessionHeader("گفتگوی جدید شروع شد ✨"));
     await tg("sendMessage", {
       chat_id: chatId,
       text: `سلام ${from?.first_name ?? ""}! 🐾 من دستیار خرید هوشمند پت‌آباد هستم (قدرت‌گرفته از Flowcart).\n\nبگو برای کی دنبال چی هستی، مثلاً «غذای خشک گربه عقیم‌شده زیر ۸۰۰ هزار تومن» یا «خاک گربه بی‌بو»؛ بهترین گزینه‌ها رو برات پیدا می‌کنم و همین‌جا به سبدت اضافه می‌کنم.`,
       reply_markup: MAIN_KB,
     });
-    await tg("setMyCommands", { commands: COMMANDS });
-    await tg("setChatMenuButton", { chat_id: chatId, menu_button: { type: "commands" } });
-    if (chat.locked || (chat.history || []).length) await rotate(chat, "manual");
     if (payload?.startsWith("p_")) {
       const p = await db.from("pet_products").select("name").eq("id", payload.slice(2)).maybeSingle();
       text = p.data ? `درباره «${p.data.name}» بیشتر توضیح بده` : "";
       if (!text) return;
     } else return;
   }
-  if (text === "/cart" || text === "🛒 سبد خرید من") return sendCart(chat);
+  if (text === "/cart" || text === BTN_CART || text === "🛒 سبد خرید من") return sendCart(chat);
 
   // Fast path: "محصول چهارم رو اضافه کن"
   const ord = parseOrdinalAdd(text);
@@ -412,8 +436,25 @@ async function handleCallback(cb: any) {
   }
   if (data.startsWith("q:")) { await ack(); return handleText(chatId, cb.from, data.slice(2)); }
   if (data === "noop") return ack();
-  if (chat.locked) { await ack(); return lockedNotice(chatId); }
-  if (await expireIfStale(chat)) { await ack(); return; }
+  if (data === "cont" || data === "fresh") {
+    await ack();
+    const pending = chat.pending_text;
+    await db.from("telegram_chats").update({ pending_text: null }).eq("chat_id", chatId);
+    chat.pending_text = null;
+    if (data === "fresh") await startNew(chat);
+    else {
+      await saveChat(chat, {});
+      await tg("sendMessage", { chat_id: chatId, text: "عالی، ادامه می‌دیم 🐾", reply_markup: MAIN_KB });
+    }
+    if (pending) return handleText(chatId, cb.from, pending);
+    return;
+  }
+  if (data === "checkout") {
+    await ack();
+    if (chat.phone) return tg("sendMessage", { chat_id: chatId, text: "برای تکمیل خرید بزن 👇", reply_markup: { inline_keyboard: [[checkoutBtn(chat)]] } });
+    return tg("sendMessage", { chat_id: chatId, text: "قبل از پرداخت، با یه لمس شماره‌ات رو تأیید کن (بدون پیامک) 👇", reply_markup: PHONE_KB });
+  }
+  if (await askIfStale(chat, null)) { await ack(); return; }
   cart = chat.cart || [];
 
   if (data === "clear") {
@@ -442,7 +483,7 @@ async function handleCallback(cb: any) {
     await tg("sendMessage", {
       chat_id: chatId,
       text: `«${p.name}» به سبدت اضافه شد. الان ${fa(count)} کالا توی سبدته (${price(cartTotal(cart))}).`,
-      reply_markup: { inline_keyboard: [[{ text: "🛒 مشاهده و ویرایش سبد", callback_data: "cart" }], [{ text: "✅ نهایی کردن خرید", web_app: { url: appUrl(chat) } }]] },
+      reply_markup: { inline_keyboard: [[{ text: "🛒 مشاهده و ویرایش سبد", callback_data: "cart" }], [checkoutBtn(chat)]] },
     });
     return;
   }
@@ -475,6 +516,9 @@ async function handleContact(msg: any) {
       : "شماره‌ات ثبت شد ✅ موقع نهایی کردن خرید، با همین شماره وارد بشی گفتگو به حسابت اضافه می‌شه.",
     reply_markup: MAIN_KB,
   });
+  if ((chat.cart || []).length) {
+    await tg("sendMessage", { chat_id: msg.chat.id, text: `سبدت آماده‌ست (${price(cartTotal(chat.cart))}). برای پرداخت بزن 👇`, reply_markup: { inline_keyboard: [[checkoutBtn(chat)]] } });
+  }
 }
 
 Deno.serve(async (req) => {

@@ -66,7 +66,30 @@ async function loadChat(chatId: number, from: any) {
 
 // Checkout requires the one-tap Telegram contact first, so the order and history attach to a phone.
 const checkoutBtn = (chat: any) =>
-  chat.phone ? { text: "✅ نهایی کردن خرید", web_app: { url: `${appUrl(chat)}&intent=checkout` } } : { text: "✅ نهایی کردن خرید", callback_data: "checkout" };
+  ({ text: "✅ نهایی کردن خرید", callback_data: "checkout" });
+const appCheckoutBtn = (chat: any, label = "✅ ادامه در اپ") => ({ text: label, web_app: { url: `${appUrl(chat)}&intent=checkout` } });
+
+// In-bot address step: verified users pick a saved address here and only go to the app for payment;
+// without a saved address they continue in the app's chat to add one.
+async function sendAddressStep(chat: any) {
+  if (!(chat.cart || []).length) return sendCart(chat);
+  const { data } = chat.user_id
+    ? await db.from("user_addresses").select("id,title,full_address,is_default").eq("user_id", chat.user_id).order("is_default", { ascending: false }).order("created_at", { ascending: false }).limit(5)
+    : { data: [] as any[] };
+  if (!data?.length) {
+    return tg("sendMessage", {
+      chat_id: chat.chat_id,
+      text: `سبدت آماده‌ست (${price(cartTotal(chat.cart))}) ✅\n\nهنوز آدرسی ثبت نکردی؛ توی اپ آدرست رو وارد کن و همون‌جا خرید رو تموم کن 👇`,
+      reply_markup: { inline_keyboard: [[appCheckoutBtn(chat, "📍 ثبت آدرس و ادامه خرید")]] },
+    });
+  }
+  const rows = data.map((a: any) => [{ text: `📍 ${a.title} · ${String(a.full_address).slice(0, 36)}`, callback_data: `addr:${a.id}` }]);
+  return tg("sendMessage", {
+    chat_id: chat.chat_id,
+    text: `سبدت آماده‌ست (${price(cartTotal(chat.cart))}) ✅\n\nبه کدوم آدرس بفرستیم؟`,
+    reply_markup: { inline_keyboard: [...rows, [appCheckoutBtn(chat, "➕ آدرس جدید (در اپ)")]] },
+  });
+}
 
 // Pinned session header: every new session gets one, replacing the previous pin.
 async function pinSession(chatId: number, text: string) {
@@ -225,6 +248,17 @@ async function runAgent(chat: any, text: string) {
   return { ans: await res.json(), history };
 }
 
+// Resolve a cart line the model referred to: exact id, 1-based position, or (partial) name; single-item carts resolve to it.
+function cartIdx(cart: any[], ref: unknown) {
+  if (!cart.length) return -1;
+  const r = String(ref ?? "").trim();
+  let k = cart.findIndex((i) => i.id === r);
+  if (k < 0 && /^\d{1,2}$/.test(r) && cart[+r - 1]) k = +r - 1;
+  if (k < 0 && r.length > 2) k = cart.findIndex((i) => String(i.name).includes(r) || r.includes(String(i.name)));
+  if (k < 0 && cart.length === 1) k = 0;
+  return k;
+}
+
 async function applyCartActions(chat: any, actions: any[]) {
   let cart: any[] = [...(chat.cart || [])];
   const last: any[] = chat.last_products || [];
@@ -235,13 +269,17 @@ async function applyCartActions(chat: any, actions: any[]) {
       const src = a.product_index ? byIndex(a.product_index) : a.product_id ? await fetchProduct(a.product_id) : null;
       if (src) cart = addToCart(cart, src, qty);
     } else if (a.type === "remove") {
-      cart = cart.filter((i) => i.id !== a.product_id);
+      const k = cartIdx(cart, a.product_id ?? a.remove_product_id);
+      if (k >= 0) cart = cart.filter((_, j) => j !== k);
     } else if (a.type === "update_quantity") {
-      cart = cart.map((i) => (i.id === a.product_id ? { ...i, qty: Math.max(0, Number(a.quantity) || 0) } : i)).filter((i) => i.qty > 0);
+      const k = cartIdx(cart, a.product_id);
+      if (k >= 0) cart = cart.map((i, j) => (j === k ? { ...i, qty: Math.max(0, Number(a.quantity) || 0) } : i)).filter((i) => i.qty > 0);
     } else if (a.type === "replace") {
-      cart = cart.filter((i) => i.id !== a.remove_product_id);
-      const src = a.add_product_index ? byIndex(a.add_product_index) : null;
-      if (src) cart = addToCart(cart, src, qty);
+      const k = cartIdx(cart, a.remove_product_id ?? a.product_id);
+      const keepQty = k >= 0 ? cart[k].qty : qty;
+      const src = a.add_product_index ? byIndex(a.add_product_index) : a.add_product_id ? await fetchProduct(a.add_product_id) : null;
+      if (k >= 0 && src) cart = cart.filter((_, j) => j !== k);
+      if (src) cart = addToCart(cart, src, a.quantity ? qty : keepQty);
     }
   }
   return cart;
@@ -440,6 +478,18 @@ async function handleCallback(cb: any) {
   }
   if (data.startsWith("q:")) { await ack(); return handleText(chatId, cb.from, data.slice(2)); }
   if (data === "noop") return ack();
+  if (data.startsWith("addr:")) {
+    const id = data.slice(5);
+    const { data: a } = chat.user_id ? await db.from("user_addresses").select("id,title,full_address").eq("id", id).eq("user_id", chat.user_id).maybeSingle() : { data: null };
+    if (!a) return ack("این آدرس پیدا نشد");
+    await ack("✅ آدرس انتخاب شد");
+    await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+    return tg("sendMessage", {
+      chat_id: chatId,
+      text: `📍 ارسال به «${a.title}»\n${a.full_address}\n\nفقط مونده انتخاب روش پرداخت 👇`,
+      reply_markup: { inline_keyboard: [[{ text: "💳 انتخاب روش پرداخت", web_app: { url: `${appUrl(chat)}&intent=payment&addr=${a.id}` } }]] },
+    });
+  }
   if (data.startsWith("m:") || data === "mok") {
     const rows: any[][] = cb.message?.reply_markup?.inline_keyboard || [];
     const opts = rows.filter((r) => String(r[0]?.callback_data || "").startsWith("m:")).map((r) => r[0]);
@@ -475,7 +525,7 @@ async function handleCallback(cb: any) {
   }
   if (data === "checkout") {
     await ack();
-    if (chat.phone) return tg("sendMessage", { chat_id: chatId, text: "برای تکمیل خرید بزن 👇", reply_markup: { inline_keyboard: [[checkoutBtn(chat)]] } });
+    if (chat.phone) return sendAddressStep(chat);
     return tg("sendMessage", { chat_id: chatId, text: "قبل از پرداخت، با یه لمس شماره‌ات رو تأیید کن (بدون پیامک) 👇", reply_markup: PHONE_KB });
   }
   if (await askIfStale(chat, null)) { await ack(); return; }
@@ -541,7 +591,7 @@ async function handleContact(msg: any) {
     reply_markup: MAIN_KB,
   });
   if ((chat.cart || []).length) {
-    await tg("sendMessage", { chat_id: msg.chat.id, text: `سبدت آماده‌ست (${price(cartTotal(chat.cart))}). برای پرداخت بزن 👇`, reply_markup: { inline_keyboard: [[checkoutBtn(chat)]] } });
+    await sendAddressStep(chat);
   }
 }
 

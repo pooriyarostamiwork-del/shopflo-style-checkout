@@ -836,16 +836,22 @@ export const useAgentMessages = ({
             }))
           : undefined;
 
+        const changed = actions.length > 0 && !needsClarification;
         const cartMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
           content: data?.content || 'عملیات انجام شد.',
           quickReplies,
+          ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
           timestamp: new Date(),
         };
         updateCurrentBasket(s => ({
           ...s,
-          messages: [...closeJourneys(s.messages), cartMessage],
+          // Single active CTA: retire older finalize buttons when a new one is shown.
+          messages: [
+            ...closeJourneys(s.messages).map(m => (changed && m.ctaButton?.action === 'finalize' ? { ...m, ctaButton: undefined } : m)),
+            cartMessage,
+          ],
           productMemory: applyMemorySignals(ensureProductMemory(s.productMemory)),
           shoppingContext: goalUpdated,
           isProcessing: false,

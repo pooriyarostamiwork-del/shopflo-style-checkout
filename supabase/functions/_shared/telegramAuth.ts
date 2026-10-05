@@ -3,7 +3,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const enc = new TextEncoder();
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
-async function hmac(key: ArrayBuffer | Uint8Array, data: string) {
+async function hmac(key: BufferSource, data: string) {
   const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return crypto.subtle.sign("HMAC", k, enc.encode(data));
 }
@@ -16,7 +16,7 @@ export async function verifyInitData(initData: unknown, botToken: string): Promi
   if (!hash) return null;
   p.delete("hash");
   const check = [...p.entries()].map(([k, v]) => `${k}=${v}`).sort().join("\n");
-  const secret = await hmac(enc.encode("WebAppData"), botToken);
+  const secret = await hmac(enc.encode("WebAppData") as BufferSource, botToken);
   if (hex(await hmac(secret, check)) !== hash) return null;
   const authDate = Number(p.get("auth_date") || 0);
   if (!authDate || Date.now() / 1000 - authDate > 86400) return null;

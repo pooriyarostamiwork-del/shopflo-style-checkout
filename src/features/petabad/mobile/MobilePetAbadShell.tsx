@@ -23,6 +23,7 @@ import { seedProductConversation } from "@/lib/productConversation";
 import { useTelegramSession } from "../hooks/useTelegramSession";
 import { MobileChatThread } from "./MobileChatThread";
 import { MobileBottomSheet, MobileSheetTab } from "./MobileBottomSheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import "../petabad-theme.css";
 
 export const MobilePetAbadShell = () => {
@@ -322,10 +323,23 @@ export const MobilePetAbadShell = () => {
     .map(s => s.selectedAddressId)
     .filter((id): id is string => !!id);
 
-  const onLanding = pendingNewChat || !hasStartedChat;
-
   // ── Deep linking: Landing: none · Chat: ?c=<basketId> · Account: ?tab=profile|orders · Order: ?order=<id>
-  useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened: handleBasketSelect });
+  const tgSession = useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened: handleBasketSelect });
+  // A Telegram Mini App open goes straight to the chat shell (no storefront flash).
+  const onLanding = !tgSession.pending && (pendingNewChat || !hasStartedChat);
+
+  // "Finalize purchase" from the bot: jump straight into address/shipping once the cart is hydrated.
+  useEffect(() => {
+    const id = tgSession.checkoutIntent;
+    if (!id || activeBasketId !== id || !cartItems.length) return;
+    tgSession.clearCheckoutIntent();
+    const t = setTimeout(() => {
+      handleFinalizePurchase();
+      setTimeout(() => handleQuickReply({ id: "yes", label: "✅ بله، تأیید می‌کنم", type: "confirm-cart" } as any), 50);
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tgSession.checkoutIntent, activeBasketId, cartItems.length]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
   const [urlOrderId, setUrlOrderId] = useState<string | null>(null);
@@ -336,6 +350,7 @@ export const MobilePetAbadShell = () => {
   useEffect(() => {
     if (searchKey === lastSyncedRef.current) return;
     lastSyncedRef.current = searchKey;
+    if (searchParams.get("tg") || searchParams.get("view")) return; // handled by useTelegramSession
     const tab = searchParams.get("tab");
     const order = searchParams.get("order");
     const c = searchParams.get("c");
@@ -570,6 +585,34 @@ export const MobilePetAbadShell = () => {
           />
         )}
       </div>
+
+      {/* Telegram history sheet (opened from the bot keyboard, sends nothing into the chat) */}
+      <Sheet open={tgSession.historyOpen} onOpenChange={(o) => { if (!o) tgSession.closeHistory(); }}>
+        <SheetContent side="bottom" className="petabad-theme max-h-[80dvh] overflow-y-auto rounded-t-2xl" dir="rtl">
+          <SheetHeader><SheetTitle className="text-right">گفتگوهای تو</SheetTitle></SheetHeader>
+          <div className="mt-4 space-y-2">
+            {tgSession.history === null && <p className="text-sm text-muted-foreground">در حال بارگذاری…</p>}
+            {tgSession.history?.length === 0 && <p className="text-sm text-muted-foreground">هنوز گفتگویی نداری.</p>}
+            {tgSession.history?.map((h) => (
+              <button
+                key={h.token}
+                onClick={() => tgSession.openHistoryItem(h.token)}
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-right transition-colors hover:bg-muted"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">{h.title}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {h.reason === "completed" ? "✅ خرید شده" : h.reason === "live" ? "● فعلی" : "💬"}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {new Date(h.ended_at).toLocaleDateString("fa-IR")}{h.count ? ` · ${toPersianNumber(h.count)} کالا` : ""}
+                </div>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Bottom sheet */}
       <MobileBottomSheet

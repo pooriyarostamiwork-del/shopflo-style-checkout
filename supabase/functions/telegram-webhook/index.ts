@@ -32,7 +32,7 @@ async function deriveSecret() {
 
 // One clean persistent button row replaces Telegram's standard Commands menu.
 const BTN_CART = "🛒 سبد خرید", BTN_HIST = "📜 گفتگوها", BTN_NEW = "✨ گفتگوی جدید";
-const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_HIST }, { text: BTN_NEW }]], resize_keyboard: true, is_persistent: true };
+const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_HIST, web_app: { url: `${SITE}?view=history` } }, { text: BTN_NEW }]], resize_keyboard: true, is_persistent: true };
 const PHONE_KB = { keyboard: [[{ text: "📱 ارسال شماره تماس", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true };
 const NEW_BTN = { text: "➕ شروع گفتگوی جدید", callback_data: "new" };
 const DAY = 24 * 60 * 60 * 1000;
@@ -44,6 +44,12 @@ function sayBtn(text: string) {
   return { text, callback_data: `q:${t}` };
 }
 const optionsKb = (opts: string[]) => ({ inline_keyboard: opts.map((o) => [sayBtn(o)]) });
+// Multi-select checklist: state lives in the keyboard itself (◻️/✅ prefix), toggled via editMessageReplyMarkup.
+const OFF = "◻️ ", ON = "✅ ";
+const confirmBtn = (n: number) => ({ text: n ? `🏁 تأیید انتخاب‌ها (${fa(n)} مورد)` : "🏁 یکی یا چندتا رو انتخاب کن", callback_data: "mok" });
+const multiKb = (opts: string[]) => ({
+  inline_keyboard: [...opts.map((o, i) => [{ text: OFF + o, callback_data: `m:${i}` }]), [confirmBtn(0)]],
+});
 
 const appUrl = (chat: any) => `${SITE}?tg=${chat.session_token}`;
 
@@ -60,7 +66,7 @@ async function loadChat(chatId: number, from: any) {
 
 // Checkout requires the one-tap Telegram contact first, so the order and history attach to a phone.
 const checkoutBtn = (chat: any) =>
-  chat.phone ? { text: "✅ نهایی کردن خرید", web_app: { url: appUrl(chat) } } : { text: "✅ نهایی کردن خرید", callback_data: "checkout" };
+  chat.phone ? { text: "✅ نهایی کردن خرید", web_app: { url: `${appUrl(chat)}&intent=checkout` } } : { text: "✅ نهایی کردن خرید", callback_data: "checkout" };
 
 // Pinned session header: every new session gets one, replacing the previous pin.
 async function pinSession(chatId: number, text: string) {
@@ -386,13 +392,14 @@ async function handleText(chatId: number, from: any, text: string) {
   const card = ans.clarification || ans.card;
   const cardOpts: string[] = (card?.options || card?.steps?.[0]?.options || []).map((o: any) => (typeof o === "string" ? o : o?.label)).filter(Boolean);
   const cardQ = card?.question || card?.steps?.[0]?.question;
+  const cardMulti = !!(card?.multi || card?.kind === "multi" || card?.steps?.[0]?.multi);
   const products: any[] = (ans.products || []).slice(0, 4);
 
   const textOut = [content, cardQ && !content.includes(cardQ) ? cardQ : ""].filter(Boolean).join("\n\n") || "…";
   await tg("sendMessage", {
     chat_id: chatId,
     text: textOut,
-    reply_markup: cardOpts.length ? optionsKb(cardOpts.slice(0, 6)) : MAIN_KB,
+    reply_markup: cardOpts.length ? (cardMulti ? multiKb(cardOpts.slice(0, 8)) : optionsKb(cardOpts.slice(0, 6))) : MAIN_KB,
   });
 
   for (const [i, p] of products.entries()) {
@@ -433,6 +440,26 @@ async function handleCallback(cb: any) {
   }
   if (data.startsWith("q:")) { await ack(); return handleText(chatId, cb.from, data.slice(2)); }
   if (data === "noop") return ack();
+  if (data.startsWith("m:") || data === "mok") {
+    const rows: any[][] = cb.message?.reply_markup?.inline_keyboard || [];
+    const opts = rows.filter((r) => String(r[0]?.callback_data || "").startsWith("m:")).map((r) => r[0]);
+    if (data === "mok") {
+      const picked = opts.filter((b) => b.text.startsWith(ON)).map((b) => b.text.slice(ON.length));
+      if (!picked.length) return ack("حداقل یه گزینه رو انتخاب کن");
+      await ack();
+      await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+      return handleText(chatId, cb.from, picked.join(" و "));
+    }
+    const idx = Number(data.slice(2));
+    const next = opts.map((b, i) => {
+      const label = b.text.replace(/^(◻️ |✅ )/, "");
+      const on = b.text.startsWith(ON) !== (i === idx);
+      return [{ text: (on ? ON : OFF) + label, callback_data: b.callback_data }];
+    });
+    const n = next.filter((r) => r[0].text.startsWith(ON)).length;
+    await ack();
+    return tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [...next, [confirmBtn(n)]] } });
+  }
   if (data === "cont" || data === "fresh") {
     await ack();
     const pending = chat.pending_text;

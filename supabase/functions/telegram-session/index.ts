@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
         const tg = (m: string, body: unknown) => fetch(`https://api.telegram.org/bot${BOT}/${m}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         }).then((r) => r.json()).catch((e) => { console.error(m, e); return {}; });
-        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📜 گفتگوها" }, { text: "✨ گفتگوی جدید" }]], resize_keyboard: true, is_persistent: true };
+        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📜 گفتگوها", web_app: { url: "https://flowcart.space/petabad?view=history" } }, { text: "✨ گفتگوی جدید" }]], resize_keyboard: true, is_persistent: true };
         await tg("sendMessage", { chat_id: live.chat_id, parse_mode: "HTML", text: `سفارشت با موفقیت ثبت شد 🎉${num ? `\nکد پیگیری: <code>${num}</code>` : ""}` });
         const date = new Date().toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" });
         const r: any = await tg("sendMessage", {

@@ -328,18 +328,28 @@ export const MobilePetAbadShell = () => {
   // A Telegram Mini App open goes straight to the chat shell (no storefront flash).
   const onLanding = !tgSession.pending && (pendingNewChat || !hasStartedChat);
 
-  // "Finalize purchase" from the bot: jump straight into address/shipping once the cart is hydrated.
+  // "Finalize purchase" from the bot: the basket was already reviewed in Telegram, so skip the
+  // cart summary and jump straight into address/shipping (or payment when an address was picked in the bot).
+  const pendingAddrRef = useRef<string | null>(null);
   useEffect(() => {
     const id = tgSession.checkoutIntent;
     if (!id || activeBasketId !== id || !cartItems.length) return;
+    pendingAddrRef.current = tgSession.checkoutAddr;
     tgSession.clearCheckoutIntent();
-    const t = setTimeout(() => {
-      handleFinalizePurchase();
-      setTimeout(() => handleQuickReply({ id: "yes", label: "✅ بله، تأیید می‌کنم", type: "confirm-cart" } as any), 50);
-    }, 300);
+    const t = setTimeout(() => handleQuickReply({ id: "yes", label: "✅ بله، تأیید می‌کنم", type: "confirm-cart" } as any), 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tgSession.checkoutIntent, activeBasketId, cartItems.length]);
+  useEffect(() => {
+    const addr = pendingAddrRef.current;
+    if (!addr || agenticState.step !== "address-confirmation") return;
+    if (currentState.selectedAddressId !== addr) { handleAddressSelect(addr); return; }
+    const ready = cartItems.every(i => selectedShippingByMerchant[i.merchant.id]);
+    if (!ready) return;
+    pendingAddrRef.current = null;
+    handleAddressConfirm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agenticState.step, currentState.selectedAddressId, selectedShippingByMerchant]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
   const [urlOrderId, setUrlOrderId] = useState<string | null>(null);

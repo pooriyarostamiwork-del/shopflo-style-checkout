@@ -1,0 +1,1 @@
+ALTER TABLE public.telegram_chats ADD COLUMN IF NOT EXISTS pending_text text;

@@ -31,6 +31,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
   const wantsHistory = searchParams.get("view") === "history";
   const [pending, setPending] = useState(!!token);
   const [checkoutIntent, setCheckoutIntent] = useState<string | null>(null);
+  const [checkoutAddr, setCheckoutAddr] = useState<string | null>(null);
   const [history, setHistory] = useState<TelegramHistoryItem[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(wantsHistory);
 
@@ -62,7 +63,10 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
       onOpened(id);
       setSearchParams({ c: id }, { replace: true });
       setHistoryOpen(false);
-      if (intent === "checkout") setCheckoutIntent(id);
+      if (intent === "checkout" || intent === "payment") {
+        setCheckoutAddr(intent === "payment" ? searchParams.get("addr") : null);
+        setCheckoutIntent(id);
+      }
       setPending(false);
     };
     if (baskets.some(b => b.id === token)) {
@@ -113,6 +117,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
   return {
     pending: pending || !!token,
     checkoutIntent,
+    checkoutAddr,
     clearCheckoutIntent: () => setCheckoutIntent(null),
     history, historyOpen, openHistoryItem, closeHistory,
   };

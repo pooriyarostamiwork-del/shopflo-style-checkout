@@ -8,3 +8,4 @@
 - Telegram bot (@Flowcartbot) lives in `telegram-webhook`, uses `petabad-agent` in agentic mode and opens PetAbad as a Mini App via `?tg=<session_token>` (read by `telegram-session` + `useTelegramSession`); per-chat state stays in service-role-only `telegram_chats`, mirrored to `baskets` only when the phone matches an account, so the bot never forks agent logic.
 
 - Telegram chat lifecycle is lazy: no `telegram_chats` row until the first saved interaction; a successful Mini App checkout auto-rotates to a fresh pinned session, and after 24h idle the bot asks continue-or-new (message parked in `pending_text`), so no cron is needed.
+- Telegram Mini App SSO only trusts HMAC-verified `initData` whose user id equals the chat's `chat_id` and which has a confirmed phone (`_shared/telegramAuth.ts`); the session token alone never grants login.

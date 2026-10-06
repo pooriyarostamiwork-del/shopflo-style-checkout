@@ -940,6 +940,43 @@ export const useAgentMessages = ({
     }
   }, [setBasketStates]);
 
+  /**
+   * Tap on a server choice («کدوم رویال؟»، «برگردون به سبد»، «آدرس خونه»): runs exactly what the
+   * choice carries, retires the question's buttons, and records the answer — no second model call.
+   * Returns false when the reply is not a choice.
+   */
+  const handleChoice = useCallback((reply: { action?: string; label: string }): boolean | 'nav' => {
+    if (!reply.action?.startsWith('choice:')) return false;
+    let choice: any;
+    try { choice = JSON.parse(reply.action.slice(7)); } catch { return true; }
+    // Buttons of the answered question disappear (same rule as the Telegram bot).
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: s.messages.map(m => (m.quickReplies?.some(q => q.action === reply.action) ? { ...m, quickReplies: undefined } : m)),
+    }));
+    if (choice.nav) return 'nav';
+    if (choice.say) { void handleSendMessage(String(choice.say)); return true; }
+    const acts = Array.isArray(choice.actions) ? choice.actions : [];
+    if (acts.length) executeCartActions(acts);
+    if (choice.checkout?.kind && choice.checkout?.id) checkoutBridge?.current?.apply(choice.checkout);
+    const changed = acts.length > 0;
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: [
+        ...s.messages.map(m => (changed && m.ctaButton?.action === 'finalize' ? { ...m, ctaButton: undefined } : m)),
+        { id: `user-${Date.now()}`, role: 'user', content: reply.label, timestamp: new Date() },
+        {
+          id: `assistant-${Date.now() + 1}`,
+          role: 'assistant',
+          content: choice.done || 'انجام شد ✅',
+          ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
+          timestamp: new Date(),
+        },
+      ],
+    }));
+    return true;
+  }, [updateCurrentBasket, handleSendMessage, executeCartActions, checkoutBridge]);
+
   const handleMoreResults = useCallback(() => {
     handleSendMessage('نتایج بیشتر نشون بده');
   }, [handleSendMessage]);
@@ -954,5 +991,6 @@ export const useAgentMessages = ({
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleChoice,
   };
 };

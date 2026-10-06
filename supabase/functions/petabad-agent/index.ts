@@ -2793,6 +2793,22 @@ serve(async (req) => {
         break;
       }
     }
+    // Breed / size: the newest mention since the current animal was named sticks for the whole chat
+    // («سگم شیتزوئه» → small breed for every later dog search).
+    let lockedBreedSize: string | null = null;
+    let lockedBreedName: string | null = null;
+    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+      const size = inferBreedSize(userTurns[i]);
+      if (size) {
+        lockedBreedSize = size;
+        lockedBreedName = inferBreedLine(userTurns[i]);
+        break;
+      }
+    }
+    if (!lockedBreedSize && lockedSpecies === "سگ" && pet_memory && typeof pet_memory === "object") {
+      const memSize = (pet_memory as any).breed_size || inferBreedSize(String((pet_memory as any).breed || ""));
+      if (memSize) lockedBreedSize = String(memSize);
+    }
     // ── "other brands" turn: brands already shown are subtracted from the search ──
     const assistantTurns = (userMessages || [])
       .filter((m: any) => m.role === "assistant")

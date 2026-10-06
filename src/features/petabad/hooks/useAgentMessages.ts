@@ -124,6 +124,7 @@ export const mapDbProduct = (dbProduct: any): Product => {
     specs: specsObj && specsObj.length > 0 ? specsObj : undefined,
     reviewsSummary: dbProduct.review_count ? `${dbProduct.review_count} نظر` : undefined,
     merchant: merchants[0],
+    brand: dbProduct.brand || undefined,
     rating: Number(dbProduct.rating) || 4.0,
     fastDelivery: dbProduct.fast_delivery || false,
     returnGuarantee: dbProduct.return_guarantee ?? true,
@@ -586,50 +587,45 @@ export const useAgentMessages = ({
     handleTransactionalQuantityUpdate, handleTransactionalCheckout,
   ]);
 
-  // ── Execute cart actions returned by cart_manipulation agent (batched) ──
+  // ── Execute validated cart actions (server contract: product ids resolved, absolute quantities) ──
   const executeCartActions = useCallback((actions: any[]) => {
     updateCurrentBasket(s => {
       let newCartItems = [...s.cartItems];
-
       const mem = ensureProductMemory(s.productMemory);
       const addedIds: string[] = [];
       const removedIds: string[] = [];
 
-      // Resolve an action target by stable id first, then by badge position
-      const resolveTarget = (action: any, indexField = 'product_index'): Product | undefined => {
-        if (action.product_id) {
-          const byId = resolveById(mem, action.product_id) ||
-            lastRecommendedProducts.find(p => p.id === action.product_id);
+      // Stable id first (memory → last list → cart), then legacy badge position.
+      const resolveProduct = (id?: string, index?: number, groupId?: string): Product | undefined => {
+        if (id) {
+          const byId = resolveById(mem, id) || s.lastRecommendedProducts?.find(p => p.id === id) ||
+            lastRecommendedProducts.find(p => p.id === id) || s.cartItems.find(i => i.id === id);
           if (byId) return byId;
         }
-        const idx = action[indexField];
-        if (idx && idx >= 1) {
-          return resolveByPosition(mem, idx, action.group_id) || lastRecommendedProducts[idx - 1];
-        }
+        if (index && index >= 1) return resolveByPosition(mem, index, groupId) || lastRecommendedProducts[index - 1];
         return undefined;
+      };
+      const addLine = (product: Product, qty: number) => {
+        addedIds.push(product.id);
+        const existing = newCartItems.find(item => item.id === product.id);
+        newCartItems = existing
+          ? newCartItems.map(item => (item.id === product.id ? { ...item, quantity: item.quantity + qty } : item))
+          : [...newCartItems, { ...product, quantity: qty }];
       };
 
       for (const action of actions) {
         switch (action.type) {
+          case 'clear':
+            removedIds.push(...newCartItems.map(i => i.id));
+            newCartItems = [];
+            break;
           case 'add': {
-            const product = resolveTarget(action);
-            if (product) {
-              addedIds.push(product.id);
-              const qty = action.quantity || 1;
-              const existing = newCartItems.find(item => item.id === product.id);
-              if (existing) {
-                newCartItems = newCartItems.map(item =>
-                  item.id === product.id ? { ...item, quantity: item.quantity + qty } : item
-                );
-              } else {
-                newCartItems = [...newCartItems, { ...product, quantity: qty }];
-              }
-            }
+            const product = resolveProduct(action.product_id, action.product_index, action.group_id);
+            if (product) addLine(product, Math.max(1, Number(action.quantity) || 1));
             break;
           }
           case 'remove': {
-            const target = resolveTarget(action);
-            const pid = action.product_id || target?.id;
+            const pid = action.product_id || resolveProduct(undefined, action.product_index)?.id;
             if (pid) {
               removedIds.push(pid);
               newCartItems = newCartItems.filter(item => item.id !== pid);
@@ -638,35 +634,25 @@ export const useAgentMessages = ({
           }
           case 'update_quantity': {
             const pid = action.product_id;
-            const qty = action.quantity || 1;
-            if (pid) {
-              if (qty < 1) {
-                newCartItems = newCartItems.filter(item => item.id !== pid);
-              } else {
-                newCartItems = newCartItems.map(item =>
-                  item.id === pid ? { ...item, quantity: qty } : item
-                );
-              }
+            const qty = Number(action.quantity) || 0;
+            if (!pid) break;
+            if (qty < 1) {
+              removedIds.push(pid);
+              newCartItems = newCartItems.filter(item => item.id !== pid);
+            } else {
+              newCartItems = newCartItems.map(item => (item.id === pid ? { ...item, quantity: Math.min(50, qty) } : item));
             }
             break;
           }
           case 'replace': {
-            if (action.remove_product_id) {
-              removedIds.push(action.remove_product_id);
-              newCartItems = newCartItems.filter(item => item.id !== action.remove_product_id);
+            const removed = newCartItems.find(item => item.id === action.remove_product_id);
+            const product = resolveProduct(action.add_product_id, action.add_product_index, action.group_id);
+            if (!product) break; // never leave the cart half-swapped
+            if (removed) {
+              removedIds.push(removed.id);
+              newCartItems = newCartItems.filter(item => item.id !== removed.id);
             }
-            const product = resolveTarget({ product_id: action.add_product_id, add_product_index: action.add_product_index, group_id: action.group_id }, 'add_product_index');
-            if (product) {
-              addedIds.push(product.id);
-              const existing = newCartItems.find(item => item.id === product.id);
-              if (existing) {
-                newCartItems = newCartItems.map(item =>
-                  item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-                );
-              } else {
-                newCartItems = [...newCartItems, { ...product, quantity: 1 }];
-              }
-            }
+            addLine(product, Math.max(1, Number(action.quantity) || removed?.quantity || 1));
             break;
           }
         }
@@ -674,12 +660,25 @@ export const useAgentMessages = ({
 
       let nextMemory = mem;
       if (addedIds.length) nextMemory = markCommitment(nextMemory, addedIds, 'inCart');
-      if (removedIds.length) nextMemory = unmarkInCart(nextMemory, removedIds);
+      const gone = removedIds.filter(id => !newCartItems.some(i => i.id === id));
+      if (gone.length) nextMemory = unmarkInCart(nextMemory, gone);
 
       return { ...s, cartItems: newCartItems, productMemory: nextMemory };
     });
     setIsCartOpen(true);
   }, [lastRecommendedProducts, updateCurrentBasket, setIsCartOpen]);
+
+  /** Quick replies for server "choices": each one carries what to run when tapped. */
+  const toChoiceReplies = (choices: any[], extra: any[] = []) =>
+    [...(Array.isArray(choices) ? choices : []), ...extra]
+      .filter(c => c && typeof c.label === 'string' && c.label.trim())
+      .slice(0, 8)
+      .map((c, i) => ({
+        id: `choice-${Date.now()}-${i}`,
+        label: c.label,
+        type: 'custom' as QuickReplyType,
+        action: `choice:${JSON.stringify(c)}`,
+      }));
 
   // ── Single unified agent call: search / details / cart tools, model decides ──
   const callUnifiedAgent = useCallback(async (

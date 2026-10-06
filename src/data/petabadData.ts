@@ -202,6 +202,7 @@ export interface ChatMessage {
     mode: 'existing' | 'new';
     addresses: DeliveryAddress[];
     shippingMethods: ShippingMethod[];
+    openForm?: boolean;
   };
   paymentOptions?: PaymentOption[];
   showCartSummary?: boolean;

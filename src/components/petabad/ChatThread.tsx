@@ -260,6 +260,7 @@ export const ChatThread = ({
                 <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[560px]" dir="rtl">
                   <AddressShippingSelector
                     mode={msg.addressShipping.mode}
+                    startWithForm={msg.addressShipping.openForm}
                     addresses={msg.addressShipping.addresses}
                     selectedAddressId={selectedAddressId || null}
                     onSelectAddressId={(id) => onAddressSelect?.(id)}

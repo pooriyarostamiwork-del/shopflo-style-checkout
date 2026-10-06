@@ -32,6 +32,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
   const [pending, setPending] = useState(!!token);
   const [checkoutIntent, setCheckoutIntent] = useState<string | null>(null);
   const [checkoutAddr, setCheckoutAddr] = useState<string | null>(null);
+  const [checkoutMode, setCheckoutMode] = useState<string | null>(null);
   const [history, setHistory] = useState<TelegramHistoryItem[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(wantsHistory);
 
@@ -63,8 +64,9 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
       onOpened(id);
       setSearchParams({ c: id }, { replace: true });
       setHistoryOpen(false);
-      if (intent === "checkout" || intent === "payment") {
+      if (intent === "checkout" || intent === "payment" || intent === "new_address") {
         setCheckoutAddr(intent === "payment" ? searchParams.get("addr") : null);
+        setCheckoutMode(intent);
         setCheckoutIntent(id);
       }
       setPending(false);
@@ -82,6 +84,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
       const cartItems: CartItem[] = (data.cart || []).map((c: any) => ({ ...mapDbProduct(c.product), quantity: c.qty }));
       const msgs = (data.messages || []).map((m: any, i: number) => ({
         id: `tg-${i}`, role: m.role, content: m.content, timestamp: new Date(),
+        ...(m.products?.length ? { products: m.products.map(mapDbProduct), productIndexStart: 1 } : {}),
       }));
       const firstUser = msgs.find((m: any) => m.role === "user")?.content;
       setBaskets(prev => prev.some(b => b.id === id) ? prev : [{
@@ -118,6 +121,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
     pending: pending || !!token,
     checkoutIntent,
     checkoutAddr,
+    checkoutMode,
     clearCheckoutIntent: () => setCheckoutIntent(null),
     history, historyOpen, openHistoryItem, closeHistory,
   };

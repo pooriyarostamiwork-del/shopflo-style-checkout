@@ -209,7 +209,12 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   let undo: Choice | undefined;
   const notes: string[] = [];
   const silent = new Set<string>();
-  const raw = Array.isArray(input.modelActions) ? input.modelActions : [];
+  let raw = Array.isArray(input.modelActions) ? input.modelActions : [];
+  // «هرکدوم بهتره اضافه کن» with no concrete action from the model → one add the resolver picks.
+  if (input.delegate && !raw.some((a) => a?.type === "add") && /اضافه|بذار|بزار|بنداز|بخر|بریز/.test(normFa(text)) && offers.length) {
+    raw = [...raw, { type: "add" }];
+    trace.push("delegate-synth-add");
+  }
   const pickedAddIds = raw.map((a) => offerAt(a?.product_index)?.id || a?.product_id).filter(Boolean) as string[];
   const pickedCartIds = raw.map((a) => a?.product_id || a?.remove_product_id).filter(Boolean) as string[];
   const projected = () => {

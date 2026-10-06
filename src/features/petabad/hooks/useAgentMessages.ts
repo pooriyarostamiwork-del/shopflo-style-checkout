@@ -100,6 +100,10 @@ export interface CheckoutBridge {
   paymentId: string | null;
   step: string;
   apply: (directive: { kind: 'select_address' | 'select_shipping' | 'select_payment'; id: string }) => void;
+  /** Same as tapping «✅ بله، تأیید می‌کنم» on the order summary. */
+  confirmCart?: () => void;
+  /** Same as tapping the confirm button on the address/shipping card. */
+  confirmAddress?: () => void;
 }
 
 interface UseAgentMessagesProps {
@@ -342,9 +346,12 @@ export const useAgentMessages = ({
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
       return;
     }
-    handleFinalizePurchase();
+    // Already looking at the order summary: «بریم تسویه» means approve it, not rebuild it.
+    const bridge = checkoutBridge?.current;
+    if (bridge?.step === 'cart-confirmation' && bridge.confirmCart) bridge.confirmCart();
+    else handleFinalizePurchase();
     updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-  }, [cartItems.length, handleFinalizePurchase, updateCurrentBasket]);
+  }, [cartItems.length, handleFinalizePurchase, updateCurrentBasket, checkoutBridge]);
 
   // ── Main message handler: local fast paths, then ONE unified tool-calling agent ──
   const handleSendMessage = useCallback(async (content: string) => {
@@ -437,6 +444,39 @@ export const useAgentMessages = ({
     const isQuestion = /[?؟]\s*$/.test(norm)
       || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
 
+    // ── Open checkout step: a typed reply is judged in context by a decision model (no word lists).
+    // Unsure / failure → the normal agent path below; nothing is guessed.
+    const bridge = checkoutBridge?.current;
+    const step = bridge?.step;
+    if (bridge && cartItems.length > 0 && (step === 'cart-confirmation' || step === 'address-confirmation' || step === 'payment-selection')) {
+      try {
+        const { data: intent } = await invokeWithTimeout('checkout-intent', {
+          step,
+          message: content.slice(0, 500),
+          payments: step === 'payment-selection' ? paymentOptions.filter(p => p.available).map(p => ({ id: p.id, label: p.label })) : undefined,
+          cart: cartItems.slice(0, 30).map(i => i.name),
+        }, 6000);
+        const decision = String(intent?.decision || 'unsure');
+        if (decision === 'confirm' && step === 'cart-confirmation' && bridge.confirmCart) {
+          bridge.confirmCart();
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+          return;
+        }
+        if (decision === 'confirm' && step === 'address-confirmation' && bridge.confirmAddress && bridge.selectedAddressId) {
+          bridge.confirmAddress();
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+          return;
+        }
+        if (decision.startsWith('pay:') && step === 'payment-selection') {
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+          bridge.apply({ kind: 'select_payment', id: decision.slice(4) });
+          return;
+        }
+      } catch (e) {
+        console.warn('checkout-intent unavailable, using agent', e);
+      }
+    }
+
     if (checkoutRe.test(norm) && !checkoutDetailRe.test(norm) && cartItems.length > 0 && !isQuestion) {
       handleTransactionalCheckout();
       return;
@@ -464,7 +504,7 @@ export const useAgentMessages = ({
     await callUnifiedAgent(content, trimHistoryForAgent(messages), isFirstMessage);
   }, [
     cartItems, lastRecommendedProducts, messages, updateCurrentBasket,
-    handleTransactionalCartAdd, handleTransactionalCheckout,
+    handleTransactionalCartAdd, handleTransactionalCheckout, checkoutBridge,
   ]);
 
   // ── Execute validated cart actions (server contract: product ids resolved, absolute quantities) ──
@@ -748,7 +788,7 @@ export const useAgentMessages = ({
 
       // ── Cart branch (validated: ids resolved, ties turned into tap-to-answer choices) ──
       if (data?.response_type === 'cart' || actions.length > 0 || needsClarification) {
-        if (actions.length > 0 && !needsClarification) executeCartActions(actions);
+        if (actions.length > 0) executeCartActions(actions);
 
         const choices = Array.isArray(data?.choices) && data.choices.length
           ? data.choices
@@ -757,7 +797,7 @@ export const useAgentMessages = ({
           ? toChoiceReplies(choices)
           : data?.undo ? toChoiceReplies([data.undo]) : [];
 
-        const changed = actions.length > 0 && !needsClarification;
+        const changed = actions.length > 0;
         const cartMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',

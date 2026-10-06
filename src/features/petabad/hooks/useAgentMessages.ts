@@ -945,7 +945,7 @@ export const useAgentMessages = ({
    * choice carries, retires the question's buttons, and records the answer — no second model call.
    * Returns false when the reply is not a choice.
    */
-  const handleChoice = useCallback((reply: { action?: string; label: string }): boolean | 'nav' => {
+  const handleChoice = useCallback((reply: { action?: string; label: string }): boolean | { nav: string } => {
     if (!reply.action?.startsWith('choice:')) return false;
     let choice: any;
     try { choice = JSON.parse(reply.action.slice(7)); } catch { return true; }
@@ -954,7 +954,7 @@ export const useAgentMessages = ({
       ...s,
       messages: s.messages.map(m => (m.quickReplies?.some(q => q.action === reply.action) ? { ...m, quickReplies: undefined } : m)),
     }));
-    if (choice.nav) return 'nav';
+    if (choice.nav) return { nav: String(choice.nav) };
     if (choice.say) { void handleSendMessage(String(choice.say)); return true; }
     const acts = Array.isArray(choice.actions) ? choice.actions : [];
     if (acts.length) executeCartActions(acts);

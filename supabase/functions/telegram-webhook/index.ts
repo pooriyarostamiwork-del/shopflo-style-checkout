@@ -24,7 +24,7 @@ const pname = (p: any) => p?.name_fa || p?.name || "";
 // Threaded Mode (Topics): each shopping session lives in its own topic. The current update's topic is
 // carried per-request so every outgoing message lands in the active session's thread.
 const thread = new AsyncLocalStorage<{ id?: number }>();
-const THREADED = new Set(["sendMessage", "sendPhoto", "sendChatAction"]);
+const THREADED = new Set(["sendMessage", "sendPhoto", "sendChatAction", "sendMessageDraft"]);
 async function tg(method: string, body: any) {
   const t = thread.getStore()?.id;
   if (t && THREADED.has(method) && body && body.message_thread_id === undefined) body = { ...body, message_thread_id: t };
@@ -219,11 +219,34 @@ function parseOrdinalAdd(text: string): { index: number; qty: number } | null {
   return { index, qty: Math.max(1, Math.min(20, n)) };
 }
 
-function productCaption(p: any, i: number) {
+// Splits the agent's answer into a short intro and per-product reasons (numbered "۱. name\nreason" blocks),
+// so each Telegram card carries its own explanation and the first message stays a brief overview.
+const DIG = "0-9۰-۹";
+function splitProductText(content: string) {
+  const re = new RegExp(`^\\s*([${DIG}]+)\\s*[.)\\-–]\\s*(.*)$`);
+  const lines = content.split("\n");
+  const first = lines.findIndex((l) => re.test(l));
+  if (first < 0) return { intro: content, reasons: [] as string[], outro: "" };
+  const blocks: string[][] = [];
+  let outro: string[] = [];
+  for (const l of lines.slice(first)) {
+    const m = l.match(re);
+    if (m) { blocks.push([m[2]]); outro = []; continue; }
+    if (!l.trim() && blocks.length) { outro.push(l); continue; }
+    if (outro.length && blocks.length > 0) { outro.push(l); continue; }
+    blocks[blocks.length - 1].push(l);
+  }
+  const reasons = blocks.map((b) => b.slice(1).join("\n").trim() || "");
+  return { intro: lines.slice(0, first).join("\n").trim(), reasons, outro: outro.join("\n").trim() };
+}
+
+function productCaption(p: any, i: number, reason = "") {
   const name = esc(pname(p));
   const parts = [`<b>${fa(i + 1)} │ ${name}</b>`];
+  if (reason) parts.push("", esc(reason.length > 600 ? reason.slice(0, 597) + "…" : reason));
   if (p.rating) {
     const r = Number(p.rating);
+    if (reason) parts.push("");
     parts.push(`⭐️ <b>${fa(r.toFixed(1))}</b>${p.review_count ? ` (${fa(p.review_count)} نظر)` : ""}`);
   }
   parts.push("");
@@ -234,6 +257,19 @@ function productCaption(p: any, i: number) {
   parts.push(`💰 <b>${price(p.price)}</b>`);
   if (p.in_stock === false) parts.push("⛔️ ناموجود");
   return parts.join("\n");
+}
+
+// Streaming Replies: Telegram renders sendMessageDraft as a live-typing bubble, then the final sendMessage replaces it.
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function streamDraft(chatId: number, text: string) {
+  const draft_id = Math.floor(Math.random() * 2 ** 31) || 1;
+  const words = text.split(/(\s+)/);
+  const steps = Math.min(8, Math.max(2, Math.ceil(words.length / 6)));
+  for (let k = 1; k <= steps; k++) {
+    const r = await tg("sendMessageDraft", { chat_id: chatId, draft_id, text: words.slice(0, Math.ceil((words.length * k) / steps)).join("") || "…" });
+    if (!r?.ok) return;
+    await sleep(120);
+  }
 }
 
 async function runAgent(chat: any, text: string) {
@@ -471,6 +507,7 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
     const cart = ans.needs_clarification ? chat.cart || [] : await applyCartActions(chat, ans.cart_actions);
     await saveChat(chat, { cart, history: [...history, { role: "assistant", content }].slice(-14) });
     const opts: string[] = ans.clarification_options || [];
+    await streamDraft(chatId, content || "انجام شد ✅");
     await tg("sendMessage", {
       chat_id: chatId,
       text: content || "انجام شد ✅",
@@ -487,7 +524,11 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
   const cardMulti = !!(card?.multi || card?.kind === "multi" || card?.steps?.[0]?.multi);
   const products: any[] = (ans.products || []).slice(0, 6);
 
-  const textOut = [content, cardQ && !content.includes(cardQ) ? cardQ : ""].filter(Boolean).join("\n\n") || "…";
+  const split = products.length ? splitProductText(content) : { intro: content, reasons: [] as string[], outro: "" };
+  const perCard = split.reasons.length > 0 && !!split.intro;
+  const lead = perCard ? split.intro : content;
+  const textOut = [lead, cardQ && !content.includes(cardQ) ? cardQ : ""].filter(Boolean).join("\n\n") || "…";
+  await streamDraft(chatId, textOut);
   await tg("sendMessage", {
     chat_id: chatId,
     text: textOut,
@@ -502,10 +543,11 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
       ],
     };
     const photo = p.image_url || p.image || p.image_urls?.[0];
-    const caption = productCaption(p, i);
+    const caption = productCaption(p, i, perCard ? split.reasons[i] || "" : "");
     const r = photo ? await tg("sendPhoto", { chat_id: chatId, photo, caption, parse_mode: "HTML", reply_markup: kb }) : null;
     if (!r?.ok) await tg("sendMessage", { chat_id: chatId, text: caption, parse_mode: "HTML", reply_markup: kb });
   }
+  if (perCard && split.outro) await tg("sendMessage", { chat_id: chatId, text: split.outro, reply_markup: MAIN_KB });
 
   const patch: Record<string, unknown> = {};
   if (products.length) {
@@ -517,6 +559,12 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
   await saveChat(chat, patch);
 }
 
+// Answered questions keep their text plus the user's choice; the buttons disappear for every question type.
+const markAnswered = (chatId: number, msg: any, choice: string) => {
+  const base = String(msg?.text || msg?.caption || "").trim();
+  return tg("editMessageText", { chat_id: chatId, message_id: msg.message_id, text: `${base}\n\n👈 انتخاب شما: ${choice}`.slice(0, 4096), reply_markup: { inline_keyboard: [] } });
+};
+
 async function handleCallback(cb: any) {
   const chatId = cb.message?.chat?.id;
   const data: string = cb.data || "";
@@ -526,7 +574,12 @@ async function handleCallback(cb: any) {
   let cart: any[] = chat.cart || [];
 
   if (data === "new") { await ack(); return startNew(chat); }
-  if (data.startsWith("q:")) { await ack(); return handleText(chatId, cb.from, data.slice(2)); }
+  if (data.startsWith("q:")) {
+    await ack();
+    const btn = (cb.message?.reply_markup?.inline_keyboard || []).flat().find((b: any) => b.callback_data === data);
+    await markAnswered(chatId, cb.message, btn?.text || data.slice(2));
+    return handleText(chatId, cb.from, data.slice(2));
+  }
   if (data === "noop") return ack();
   if (data.startsWith("addr:")) {
     const id = data.slice(5);
@@ -563,7 +616,7 @@ async function handleCallback(cb: any) {
       const picked = opts.filter((b) => b.text.startsWith(ON)).map((b) => b.text.slice(ON.length));
       if (!picked.length) return ack("حداقل یه گزینه رو انتخاب کن");
       await ack();
-      await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+      await markAnswered(chatId, cb.message, picked.join("، "));
       return handleText(chatId, cb.from, picked.join(" و "));
     }
     const idx = Number(data.slice(2));

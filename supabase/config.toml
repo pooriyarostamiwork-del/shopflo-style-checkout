@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.telegram-session]
 verify_jwt = false
+
+[functions.checkout-intent]
+verify_jwt = false

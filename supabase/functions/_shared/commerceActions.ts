@@ -117,10 +117,28 @@ export interface CartTurnResult {
   trace: string[];
 }
 
+const NEG_CLAUSE_RE = /(نمی\s*خوا[مهی]|نمیخوا[مهی]|نخواستم|لازم\s*نیست|نیاز\s*ندارم|نمی\s*خواد|نمیخواد|(^|\s)نه(\s|$))/;
+
+/** Split a compound turn into wanted vs. negated clauses («غذا و هپی پت رو اضافه کن، شامپو رو نمی‌خوام»). */
+export function splitPolarity(text: string): { pos: string[]; neg: string[] } {
+  // A clause also ends at its verb: «هپی پتو اضافه کن شامپو رو نمیخوام» → two clauses.
+  const marked = normFa(text).replace(/(اضافه\s*کن|بکن|کن|بذار|بزار|بنداز|بریز|بخر|بفرست|می\s*خوام|میخوام|نمی\s*خوام|نمیخوام|نخواستم|نیست|ندارم)(?=\s|$)/g, "$1|");
+  const clauses = marked.split(/\|/).flatMap((c) => c.split(/[،,.;!؟?\n]|\s(?:ولی|اما|ولیکن|به\s*جز|بجز|غیر\s*از)\s/));
+  const pos: string[] = [];
+  const neg: string[] = [];
+  for (const c of clauses) (NEG_CLAUSE_RE.test(c) ? neg : pos).push(...tokens(c));
+  return { pos, neg };
+}
+
 export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const { cart, offers } = input;
   const text = input.userText || "";
   const tt = tokens(text);
+  const polarity = splitPolarity(text);
+  // Offers are matched only against wanted clauses, so a negated name never wins an add.
+  const posTt = polarity.neg.length ? polarity.pos : tt;
+  const isNegated = (p: { name: string; brand?: string | null }) =>
+    polarity.neg.length > 0 && mentioned(p, polarity.neg).length > 0 && mentioned(p, polarity.pos).length === 0;
   const recent = (input.recentUserTexts || []).flatMap(tokens);
   const ordinal = parseOrdinal(text);
   const wantsAll = ALL_RE.test(normFa(text));
@@ -146,9 +164,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     return r ? shown.find((o) => o.id === r) || cart.find((c) => c.id === r) : undefined;
   };
   /** Pool items whose name the text points at (by mentioned tokens). */
-  const textMatches = <T extends { name: string; brand?: string | null }>(pool: T[]) => {
-    if (!tt.length) return [] as T[];
-    const scored = pool.map((p) => ({ p, n: mentioned(p, tt).length })).filter((x) => x.n > 0);
+  const textMatches = <T extends { name: string; brand?: string | null }>(pool: T[], toks: string[] = tt) => {
+    if (!toks.length) return [] as T[];
+    const scored = pool.map((p) => ({ p, n: mentioned(p, toks).length })).filter((x) => x.n > 0);
     const best = Math.max(0, ...scored.map((x) => x.n));
     return scored.filter((x) => x.n === best).map((x) => x.p);
   };
@@ -158,16 +176,22 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
    * broken only by a word from earlier turns that exactly one tied item carries (memory);
    * otherwise the turn must ask.
    */
-  const narrow = <T extends { id: string; name: string; brand?: string | null }>(target: T | undefined, pool: T[], pickedIds: string[]):
+  const narrow = <T extends { id: string; name: string; brand?: string | null }>(target: T | undefined, pool: T[], pickedIds: string[], toks: string[] = tt):
     { item?: T; tie?: T[] } => {
     if (ordinal || wantsAll) return { item: target };
-    const best = textMatches(pool).filter((p) => !pickedIds.includes(p.id) || p.id === target?.id);
+    const best = textMatches(pool, toks).filter((p) => !pickedIds.includes(p.id) || p.id === target?.id);
     if (!best.length) return { item: target };
     if (best.length === 1) {
       if (target && target.id !== best[0].id) trace.push(`text-overrode-model:${target.id}->${best[0].id}`);
       return { item: best[0] };
     }
-    const keys = new Set(best.flatMap((p) => mentioned(p, tt)));
+    // The model's own pick stands when the text names it by a word no other tied item carries
+    // («هپی پت» among foods also matching «غذا»).
+    if (target && best.some((b) => b.id === target.id)) {
+      const others = best.filter((b) => b.id !== target.id);
+      if (mentioned(target, toks).some((t) => !others.some((o) => nameTokens(o).some((x) => tokenHit(x, t))))) return { item: target };
+    }
+    const keys = new Set(best.flatMap((p) => mentioned(p, toks)));
     const own = (p: T) => nameTokens(p).filter((t) => !keys.has(t) && !best.some((o) => o.id !== p.id && nameTokens(o).includes(t)));
     const byMemory = best.filter((p) => own(p).some((d) => recent.some((x) => tokenHit(x, d))));
     if (byMemory.length === 1) { trace.push(`tie-resolved-by-memory:${byMemory[0].id}`); return { item: byMemory[0] }; }
@@ -175,7 +199,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   };
 
   const resolved: CartAction[] = [];
-  let pending: { question: string; choices: Choice[] } | null = null;
+  // Only the first ambiguity is asked; every clear part of the turn still runs now.
+  // `base` = how many resolved actions existed when it was asked (choices carry only their own action).
+  let pending: { question: string; choices: Choice[]; base: number } | null = null;
   let undo: Choice | undefined;
   const notes: string[] = [];
   const silent = new Set<string>();
@@ -189,7 +215,8 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     return c;
   };
   const ask = (question: string, choices: Choice[]) => {
-    if (!pending) pending = { question, choices };
+    if (!pending) pending = { question, choices, base: resolved.length };
+    else trace.push("extra-ambiguity-deferred");
   };
 
   /** Cart line for remove/update/replace: id → offer position in cart → ordinal → name → single line → pronoun-last-added. */
@@ -219,8 +246,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   /** Offer for add/replace-add: ordinal wins, then index, then id, then name; pronoun needs a single focus. */
   const resolveOffer = (a: any, idxField: string, idField: string): { offer?: Offer; ambiguous?: Offer[] } => {
     let offer = (raw.length === 1 && ordOffer) || offerAt(a?.[idxField]) || findShown(a?.[idField]);
+    if (offer && isNegated(offer)) return { offer }; // the caller drops it; never re-target a «نمی‌خوام» item
     if (!(raw.length === 1 && ordOffer)) {
-      const n = narrow(offer, shown, pickedAddIds);
+      const n = narrow(offer, shown, pickedAddIds, posTt);
       if (n.tie) return { ambiguous: n.tie };
       offer = n.item;
     }
@@ -234,7 +262,6 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   };
 
   for (const a of raw) {
-    if (pending) break;
     const type = String(a?.type || "");
     if (type === "clear") {
       if (!cart.length) { notes.push("سبدت از قبل خالیه."); continue; }
@@ -247,15 +274,17 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     if (type === "add") {
       const { offer, ambiguous } = resolveOffer(a, "product_index", "product_id");
       const qty = Math.max(1, clampQty(a?.quantity, 1));
+      if (offer && isNegated(offer)) { trace.push(`negated-add-dropped:${offer.id}`); continue; }
       if (!offer) {
-        const pool = (ambiguous || []).slice(0, 6);
+        const already = new Set(resolved.map((r) => (r.type === "add" ? r.product_id : "")));
+        const pool = (ambiguous || []).filter((o) => !isNegated(o) && !already.has(o.id)).slice(0, 6);
         if (!pool.length) { notes.push("محصولی برای افزودن پیدا نکردم؛ اول بگو دنبال چی هستی تا نشونت بدم."); continue; }
         const choices: Choice[] = pool.map((o) => ({
           label: shortName(o.name) + priceTag(o.price),
           actions: [...resolved, { type: "add", product_id: o.id, quantity: qty }],
           done: `${qty > 1 ? `${faNum(qty)} عدد ` : ""}«${o.name}» به سبدت اضافه شد.`,
         }));
-        if (pool.length > 1 && pool.length <= 3 && ambiguous !== offers) {
+        if (pool.length > 1 && pool.length <= 4) {
           choices.push({
             label: `همه‌شون (${faNum(pool.length)} مورد)`,
             actions: [...resolved, ...pool.map((o) => ({ type: "add" as const, product_id: o.id, quantity: qty }))],
@@ -265,6 +294,7 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
         ask("کدوم رو به سبدت اضافه کنم؟", choices);
         continue;
       }
+      if (resolved.some((r) => r.type === "add" && r.product_id === offer.id)) continue;
       resolved.push({ type: "add", product_id: offer.id, quantity: qty });
       continue;
     }
@@ -362,8 +392,13 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   }
 
   if (pending) {
-    const p = pending as { question: string; choices: Choice[] };
-    return { actions: [], content: p.question, needs_clarification: true, choices: p.choices, changed: false, trace };
+    // Clear parts already ran (returned as actions); each choice carries only its own action.
+    const p = pending as { question: string; choices: Choice[]; base: number };
+    const ran = resolved;
+    const choices = p.choices.map((c) => (c.actions ? { ...c, actions: c.actions.slice(p.base) } : c));
+    const done = [describeActions(ran.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...notes].filter(Boolean).join("\n");
+    const lead = ran.length ? p.question.replace(/^کدوم رو/, "از بقیه، کدوم رو") : p.question;
+    return { actions: ran, content: done ? `${done}\n\n${lead}` : lead, needs_clarification: true, choices, undo, changed: ran.length > 0, trace };
   }
   // The model asked on its own (no actions) — keep its options as spoken answers.
   if (!resolved.length && input.modelNeedsClarification && (input.modelOptions || []).length) {

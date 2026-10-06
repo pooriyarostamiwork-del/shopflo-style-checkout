@@ -11,3 +11,4 @@
 - PetAbad app and Telegram import greeting and shipping definitions from a runtime-neutral shared module under functions/_shared; this prevents copy, shipping IDs and fees drifting between channels.
 - Mini App checkout receives owner-validated address/shipping from telegram-session, and completion requires an authenticated owner and matching order; bearer links alone never authorize checkout mutations.
 - Telegram Mini App SSO only trusts HMAC-verified `initData` whose user id equals the chat's `chat_id` and which has a confirmed phone (`_shared/telegramAuth.ts`); the session token alone never grants login.
+- Free-text replies during an open checkout step are judged by the `checkout-intent` function (Jev typed choice) before any regex; unsure/failed decisions fall back to the agent, so no word list decides checkout progress.

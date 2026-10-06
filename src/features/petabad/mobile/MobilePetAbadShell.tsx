@@ -149,6 +149,8 @@ export const MobilePetAbadShell = () => {
     paymentId: agenticState.selectedPayment,
     step: agenticState.step,
     apply: applyCheckoutDirective,
+    confirmCart: () => handleQuickReply({ id: 'yes', label: '✅ بله، تأیید می‌کنم', type: 'confirm-cart' } as any),
+    confirmAddress: () => handleAddressConfirm(),
   };
 
   const {

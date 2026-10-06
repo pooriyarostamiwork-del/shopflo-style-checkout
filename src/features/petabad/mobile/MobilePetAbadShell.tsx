@@ -377,7 +377,7 @@ export const MobilePetAbadShell = () => {
       return () => clearTimeout(t);
     }
     tgSession.clearCheckoutIntent();
-    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address", tgSession.checkoutShipping, tgSession.checkoutAddress);
+    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address", tgSession.checkoutShipping, tgSession.checkoutAddress, tgSession.checkoutPayment);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tgSession.checkoutIntent, activeBasketId, cartItems.length, globalAddresses, tgTick]);
   const [searchParams, setSearchParams] = useSearchParams();

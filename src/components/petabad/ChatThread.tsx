@@ -47,7 +47,7 @@ interface ChatThreadProps {
   savedProductIds?: string[];
   onInlineProductDetails?: (product: Product) => void;
   onQuickReply?: (reply: QuickReply) => void;
-  onFinalizePurchase?: () => void;
+  onFinalizePurchase?: (action?: string) => void;
   onAddressConfirm?: () => void;
   onAddressSelect?: (addressId: string) => void;
   selectedAddressId?: string | null;
@@ -323,7 +323,7 @@ export const ChatThread = ({
                 <div className="ml-11 mr-auto w-[calc(100%-2.75rem)] max-w-[300px]" dir="rtl">
                   <CTAButton
                     label={msg.ctaButton.label}
-                    onClick={onFinalizePurchase}
+                    onClick={() => onFinalizePurchase(msg.ctaButton?.action)}
                     disabled={msg.ctaButton.disabled}
                     disabledReason={msg.ctaButton.disabledReason}
                   />

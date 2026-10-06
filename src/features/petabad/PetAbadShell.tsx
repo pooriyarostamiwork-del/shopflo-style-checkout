@@ -179,6 +179,11 @@ export const PetAbadShell = () => {
   // Wrap handleQuickReply to intercept more_results and disambiguation
   // Native screens chat may point to (profile/addresses, orders); set below once their state exists.
   const navRef = useRef<(target: string) => void>(() => {});
+  navRef.current = (target: string) => {
+    setLandingOverride(false);
+    setIsCartOpen(false);
+    setActiveSection(target === 'open_orders' ? 'orders' : 'account');
+  };
   const handleCtaAction = useCallback((action?: string) => {
     if (action?.startsWith('pay:')) { handlePaymentSelect(action.slice(4)); return; }
     if (action === 'view-orders') { navRef.current('open_orders'); return; }

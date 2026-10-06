@@ -382,6 +382,10 @@ export const MobilePetAbadShell = () => {
   }, [tgSession.checkoutIntent, activeBasketId, cartItems.length, globalAddresses, tgTick]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
+  navRef.current = (target: string) => {
+    setAccountTab(target === "open_orders" ? "orders" : "profile");
+    setShowAccountFull(true);
+  };
   const [urlOrderId, setUrlOrderId] = useState<string | null>(null);
   const lastSyncedRef = useRef<string | null>(null);
   const prevViewKeyRef = useRef<string | null>(null);

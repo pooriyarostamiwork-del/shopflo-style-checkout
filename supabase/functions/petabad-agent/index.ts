@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { askJev, jevYes } from "../_shared/jev.ts";
 import {
   detectCheckoutIntent,
   detectGuideIntent,
@@ -855,6 +856,20 @@ function inferBreedLine(text: string): string | null {
   return null;
 }
 
+const SIZE_WORDS: Record<string, RegExp> = {
+  کوچک: /نژاد\s*(های\s*)?کوچک|سگ\s*کوچک|\bmini\b|\bsmall\b|\btoy\b|\bx-?small\b/i,
+  متوسط: /نژاد\s*(های\s*)?متوسط|\bmedium\b/i,
+  بزرگ: /نژاد\s*(های\s*)?(بزرگ|غول)|سگ\s*(بزرگ|نگهبان|گارد)|نگهبان|گارد|\bmaxi\b|\blarge\b|\bgiant\b|\bguard\b/i,
+};
+/** True when a product title is explicitly made for a different dog size than `size`. */
+function breedSizeMismatch(title: string, size: string): boolean {
+  const t = normalizePersian(title || "");
+  const own = SIZE_WORDS[size];
+  if (own && own.test(t)) return false;
+  const otherLine = BREED_SIZE.some(([re, s]) => s !== size && re.test(t));
+  return otherLine || Object.entries(SIZE_WORDS).some(([s, re]) => s !== size && re.test(t));
+}
+
 function inferBreedSize(text: string): string | null {
   const norm = normalizePersian(text || "");
   for (const [re, size] of BREED_SIZE) if (re.test(norm)) return size;
@@ -1107,6 +1122,7 @@ async function executeSearch(
     lifeStage?: string | null;
     excludeBrands?: string[] | null;
     foreignOnly?: boolean | null;
+    breedSize?: string | null;
   },
 ): Promise<any> {
   const {
@@ -1178,7 +1194,9 @@ async function executeSearch(
   };
   const canonStage = canon("life_stage", filters?.life_stage);
   if (canonStage) rpcParams.p_life_stage = canonStage;
-  const rawBreedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`);
+  // The breed named anywhere in the conversation (lock) applies to dog searches the model forgot to tag.
+  const lockBreedSize = lock?.breedSize && (!lock?.species || lock.species === "سگ") ? lock.breedSize : null;
+  const rawBreedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`) || lockBreedSize;
   const breedSize = canon("breed_size", rawBreedSize);
   if (breedSize) rpcParams.p_breed_size = breedSize;
   if (Array.isArray(filters?.needs) && filters.needs.length > 0) {
@@ -1400,6 +1418,13 @@ async function executeSearch(
   // Stated life stage: matching rows lead, contradictory rows are kept but deprioritized
   // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
   results = applyStagePreference(results, stageLock);
+
+  // A product made for another dog size (large-breed / guard-dog food for a Shih Tzu) is never shown.
+  const sizeForFit = rpcParams.p_breed_size || lockBreedSize;
+  if (sizeForFit) {
+    const fitting = results.filter((r: any) => !breedSizeMismatch(`${r.name || ""} ${r.name_fa || ""}`, sizeForFit));
+    if (fitting.length) results = fitting;
+  }
 
   // Honest fallback signal: the shopper named a REAL brand we cannot serve.
   // Colloquial words misread as brands never produce this claim.
@@ -2769,6 +2794,22 @@ serve(async (req) => {
         break;
       }
     }
+    // Breed / size: the newest mention since the current animal was named sticks for the whole chat
+    // («سگم شیتزوئه» → small breed for every later dog search).
+    let lockedBreedSize: string | null = null;
+    let lockedBreedName: string | null = null;
+    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+      const size = inferBreedSize(userTurns[i]);
+      if (size) {
+        lockedBreedSize = size;
+        lockedBreedName = inferBreedLine(userTurns[i]);
+        break;
+      }
+    }
+    if (!lockedBreedSize && lockedSpecies === "سگ" && pet_memory && typeof pet_memory === "object") {
+      const memSize = (pet_memory as any).breed_size || inferBreedSize(String((pet_memory as any).breed || ""));
+      if (memSize) lockedBreedSize = String(memSize);
+    }
     // ── "other brands" turn: brands already shown are subtracted from the search ──
     const assistantTurns = (userMessages || [])
       .filter((m: any) => m.role === "assistant")
@@ -2934,6 +2975,43 @@ serve(async (req) => {
         });
       }
     }
+    // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
+    // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
+    // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
+    const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
+    const DELEGATE_RE = /(هر\s*کدوم|هرکدوم|هر\s*کدام)\s*(که\s*)?(بهتر|مناسب|خوب)|خودت\s*(انتخاب|یکی|بهترین|بگو|بذار|بزار)|به\s*انتخاب\s*خودت|بهترینش(و|رو)?\s*(اضافه|بذار|بزار|بده)|فرقی\s*نمی\s*کنه/;
+    const ABOUT_SHOWN_RE = /کدوم(ش|شون|یکی)?\s*(از\s*(این|اینا|اینها))?.{0,30}(مناسب|بهتر|بهترین|خوبه|مناسبه)|(این|اینا|اینها)\s*.{0,20}(مناسب|خوبه)/;
+    let delegatesPick = DELEGATE_RE.test(normLastUser);
+    let aboutShown = latestShown.length > 0 && ABOUT_SHOWN_RE.test(normLastUser);
+    if (latestShown.length > 0 && lastUserText.trim() && effectiveMode !== "discovery") {
+      const j = await askJev(
+        { message: lastUserText, shown_products: latestShown, pet: { species: lockedSpecies, breed: lockedBreedName, breed_size: lockedBreedSize, life_stage: lockedStage } },
+        {
+          delegate: {
+            type: "noul",
+            instructions: "In `message` (casual Persian), does the shopper leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن»، «بهترینشو بذار»), instead of naming a specific product?",
+          },
+          about_shown: {
+            type: "noul",
+            instructions: "Is `message` a question or request about the products in `shown_products` (which of them suits the pet, comparing them, picking among them), rather than asking for a different kind of product or a new search?",
+          },
+        },
+      );
+      const d = jevYes(j?.delegate);
+      const a = jevYes(j?.about_shown);
+      if (d !== null) delegatesPick = d;
+      if (a !== null) aboutShown = a;
+    }
+    if (aboutShown || delegatesPick) {
+      wantsGuidance = false;
+      systemPrompt += `\n\nSHOWN_PRODUCTS_TURN: سؤال کاربر درباره‌ی همین محصولاتیه که الان نشونش دادی (product_memory). پرسشنامه یا سؤال عمومی «چه نوع محصولی» نپرس و جستجوی نوع دیگه نکن.
+- از بین همون‌ها با توجه به حیوان${lockedBreedName ? `، نژاد ${lockedBreedName}` : ""}${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""} «یک» گزینه‌ی مشخص رو انتخاب کن و در یکی دو جمله بگو چرا.
+- محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
+    }
+    if (delegatesPick) {
+      systemPrompt += `\n\nDELEGATE_TURN: کاربر انتخاب رو به تو سپرده. ازش نپرس «کدوم رو اضافه کنم»؛ خودت بهترین گزینه‌ی مناسب رو انتخاب کن و اگه خواسته اضافه بشه، همون یکی رو با execute_cart_operations اضافه کن.`;
+    }
+
     // ── Adaptive question flow: one catalog-grounded question per turn ──
     // Guidance («راهنماییم کن») and bundle («پک کامل») requests are answered by a
     // deterministic flow: every option is checked against stock, questions are asked
@@ -2950,6 +3028,7 @@ serve(async (req) => {
         detectProductTypes,
         buildBudgetOptions,
         needSpecs: NEED_SPECS,
+        inferBreedSize,
       };
       let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
       if (flow && flow.pending && !flow.done) {
@@ -2967,6 +3046,7 @@ serve(async (req) => {
         const sameAnimal = memPet?.species && lockedSpecies && detectSpecies(String(memPet.species)) === lockedSpecies;
         const known: FlowSeed = {
           lifeStage: lockedStage || (sameAnimal ? memPet?.life_stage || null : null),
+          breedSize: lockedSpecies === "سگ" ? lockedBreedSize : null,
           foreignOnly: stickyForeign,
           healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
         };
@@ -2995,6 +3075,7 @@ serve(async (req) => {
           if (!SPECIES_TOKENS.some(([n]) => n === lockedSpecies)) lockedSpecies = detectSpecies(lockedSpecies) || lockedSpecies;
         }
         if (flowSummary.lifeStage) lockedStage = flowSummary.lifeStage;
+        if (flowSummary.breedSize) lockedBreedSize = flowSummary.breedSize;
         if (flowSummary.foreignOnly !== null) stickyForeign = flowSummary.foreignOnly;
         if (flowSummary.needKeys.length > 0) bundleNeeds = NEED_SPECS.filter((n) => flowSummary!.needKeys.includes(n.key));
         wantsGuidance = false;
@@ -3008,7 +3089,11 @@ serve(async (req) => {
       lifeStage: lockedStage,
       excludeBrands: shownBrands,
       foreignOnly: stickyForeign,
+      breedSize: lockedBreedSize,
     };
+    if (lockedBreedSize && lockedSpecies !== "گربه") {
+      systemPrompt += `\n\nBREED_LOCK: سگ کاربر نژاد «${lockedBreedSize}» است${lockedBreedName ? ` (${lockedBreedName})` : ""}. در search_products مقدار filters.breed_size را «${lockedBreedSize}» بفرست${lockedBreedName ? ` و breed را «${lockedBreedName}»` : ""}. محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده و دوباره نژاد را نپرس.`;
+    }
     if (shownBrands.length > 0) {
       systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
 - در search_products همین‌ها را در exclude_brands بفرست.
@@ -3297,6 +3382,8 @@ serve(async (req) => {
             offers: (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || ""), brand: p.brand ?? null, price: p.price })),
             shown: shownPool,
             focusIds: Array.isArray(focus_ids) ? focus_ids.map(String) : [],
+            delegate: delegatesPick,
+            unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
           return jsonResponse({

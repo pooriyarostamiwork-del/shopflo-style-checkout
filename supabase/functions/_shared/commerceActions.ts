@@ -105,6 +105,10 @@ export interface CartTurnInput {
   /** Everything shown earlier in this conversation (product memory); offers are the latest group. */
   shown?: Offer[];
   focusIds?: string[];
+  /** The shopper left the pick to the assistant («هرکدوم بهتره اضافه کن»): never ask which. */
+  delegate?: boolean;
+  /** Offers that do not fit the known pet (e.g. large-breed food for a Shih Tzu). */
+  unfit?: (o: Offer) => boolean;
 }
 
 export interface CartTurnResult {
@@ -205,7 +209,12 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   let undo: Choice | undefined;
   const notes: string[] = [];
   const silent = new Set<string>();
-  const raw = Array.isArray(input.modelActions) ? input.modelActions : [];
+  let raw = Array.isArray(input.modelActions) ? input.modelActions : [];
+  // «هرکدوم بهتره اضافه کن» with no concrete action from the model → one add the resolver picks.
+  if (input.delegate && !raw.some((a) => a?.type === "add") && /اضافه|بذار|بزار|بنداز|بخر|بریز/.test(normFa(text)) && offers.length) {
+    raw = [...raw, { type: "add" }];
+    trace.push("delegate-synth-add");
+  }
   const pickedAddIds = raw.map((a) => offerAt(a?.product_index)?.id || a?.product_id).filter(Boolean) as string[];
   const pickedCartIds = raw.map((a) => a?.product_id || a?.remove_product_id).filter(Boolean) as string[];
   const projected = () => {
@@ -277,7 +286,17 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
       if (offer && isNegated(offer)) { trace.push(`negated-add-dropped:${offer.id}`); continue; }
       if (!offer) {
         const already = new Set(resolved.map((r) => (r.type === "add" ? r.product_id : "")));
-        const pool = (ambiguous || []).filter((o) => !isNegated(o) && !already.has(o.id)).slice(0, 6);
+        const unfit = input.unfit || (() => false);
+        const all = (ambiguous || []).filter((o) => !isNegated(o) && !already.has(o.id));
+        const pool = (all.some((o) => !unfit(o)) ? all.filter((o) => !unfit(o)) : all).slice(0, 6);
+        if (pool.length && (input.delegate || pool.length === 1)) {
+          // Offers keep the ranking the shopper saw: the top fitting one is the assistant's pick.
+          const pick = pool[0];
+          trace.push(`${input.delegate ? "delegated" : "single-fit"}-pick:${pick.id}`);
+          resolved.push({ type: "add", product_id: pick.id, quantity: qty });
+          if (input.delegate) notes.push(`از بین گزینه‌ها «${pick.name}» رو برات انتخاب کردم که با شرایط حیوانت جور درمیاد.`);
+          continue;
+        }
         if (!pool.length) { notes.push("محصولی برای افزودن پیدا نکردم؛ اول بگو دنبال چی هستی تا نشونت بدم."); continue; }
         const choices: Choice[] = pool.map((o) => ({
           label: shortName(o.name) + priceTag(o.price),
@@ -396,7 +415,7 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     const p = pending as { question: string; choices: Choice[]; base: number };
     const ran = resolved;
     const choices = p.choices.map((c) => (c.actions ? { ...c, actions: c.actions.slice(p.base) } : c));
-    const done = [describeActions(ran.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...notes].filter(Boolean).join("\n");
+    const done = [describeActions(ran.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...new Set(notes)].filter(Boolean).join("\n");
     const lead = ran.length ? p.question.replace(/^کدوم رو/, "از بقیه، کدوم رو") : p.question;
     return { actions: ran, content: done ? `${done}\n\n${lead}` : lead, needs_clarification: true, choices, undo, changed: ran.length > 0, trace };
   }
@@ -405,7 +424,7 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     const opts = (input.modelOptions || []).map((o: any) => String(typeof o === "string" ? o : o?.label || "")).filter(Boolean).slice(0, 6);
     return { actions: [], content: input.modelMessage || "کدوم؟", needs_clarification: true, choices: opts.map((o) => ({ label: o, say: o })), changed: false, trace };
   }
-  const content = [describeActions(resolved.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...notes].filter(Boolean).join("\n") ||
+  const content = [describeActions(resolved.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...new Set(notes)].filter(Boolean).join("\n") ||
     (input.modelMessage || "").trim() || "متوجه نشدم کدوم قلم منظورته؛ می‌تونی اسمش یا شماره‌اش رو بگی؟";
   return { actions: resolved, content, needs_clarification: false, choices: [], undo, changed: resolved.length > 0, trace };
 }

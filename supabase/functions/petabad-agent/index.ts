@@ -2975,6 +2975,43 @@ serve(async (req) => {
         });
       }
     }
+    // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
+    // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
+    // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
+    const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
+    const DELEGATE_RE = /(هر\s*کدوم|هرکدوم|هر\s*کدام)\s*(که\s*)?(بهتر|مناسب|خوب)|خودت\s*(انتخاب|یکی|بهترین|بگو|بذار|بزار)|به\s*انتخاب\s*خودت|بهترینش(و|رو)?\s*(اضافه|بذار|بزار|بده)|فرقی\s*نمی\s*کنه/;
+    const ABOUT_SHOWN_RE = /کدوم(ش|شون|یکی)?\s*(از\s*(این|اینا|اینها))?.{0,30}(مناسب|بهتر|بهترین|خوبه|مناسبه)|(این|اینا|اینها)\s*.{0,20}(مناسب|خوبه)/;
+    let delegatesPick = DELEGATE_RE.test(normLastUser);
+    let aboutShown = latestShown.length > 0 && ABOUT_SHOWN_RE.test(normLastUser);
+    if (latestShown.length > 0 && lastUserText.trim() && effectiveMode !== "discovery") {
+      const j = await askJev(
+        { message: lastUserText, shown_products: latestShown, pet: { species: lockedSpecies, breed: lockedBreedName, breed_size: lockedBreedSize, life_stage: lockedStage } },
+        {
+          delegate: {
+            type: "noul",
+            instructions: "In `message` (casual Persian), does the shopper leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن»، «بهترینشو بذار»), instead of naming a specific product?",
+          },
+          about_shown: {
+            type: "noul",
+            instructions: "Is `message` a question or request about the products in `shown_products` (which of them suits the pet, comparing them, picking among them), rather than asking for a different kind of product or a new search?",
+          },
+        },
+      );
+      const d = jevYes(j?.delegate);
+      const a = jevYes(j?.about_shown);
+      if (d !== null) delegatesPick = d;
+      if (a !== null) aboutShown = a;
+    }
+    if (aboutShown || delegatesPick) {
+      wantsGuidance = false;
+      systemPrompt += `\n\nSHOWN_PRODUCTS_TURN: سؤال کاربر درباره‌ی همین محصولاتیه که الان نشونش دادی (product_memory). پرسشنامه یا سؤال عمومی «چه نوع محصولی» نپرس و جستجوی نوع دیگه نکن.
+- از بین همون‌ها با توجه به حیوان${lockedBreedName ? `، نژاد ${lockedBreedName}` : ""}${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""} «یک» گزینه‌ی مشخص رو انتخاب کن و در یکی دو جمله بگو چرا.
+- محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
+    }
+    if (delegatesPick) {
+      systemPrompt += `\n\nDELEGATE_TURN: کاربر انتخاب رو به تو سپرده. ازش نپرس «کدوم رو اضافه کنم»؛ خودت بهترین گزینه‌ی مناسب رو انتخاب کن و اگه خواسته اضافه بشه، همون یکی رو با execute_cart_operations اضافه کن.`;
+    }
+
     // ── Adaptive question flow: one catalog-grounded question per turn ──
     // Guidance («راهنماییم کن») and bundle («پک کامل») requests are answered by a
     // deterministic flow: every option is checked against stock, questions are asked
@@ -3345,6 +3382,8 @@ serve(async (req) => {
             offers: (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || ""), brand: p.brand ?? null, price: p.price })),
             shown: shownPool,
             focusIds: Array.isArray(focus_ids) ? focus_ids.map(String) : [],
+            delegate: delegatesPick,
+            unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
           return jsonResponse({

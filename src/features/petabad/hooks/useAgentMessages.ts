@@ -154,13 +154,6 @@ async function invokeWithTimeout(fn: string, body: any, ms = 25000) {
   ]) as { data: any; error: any };
 }
 
-// ── Fuzzy match products by name (returns ALL matches) ──
-function fuzzyMatchProducts(name: string, products: Product[]): Product[] {
-  if (!name || products.length === 0) return [];
-  const lowerName = name.toLowerCase();
-  return products.filter(p => p.name.toLowerCase().includes(lowerName));
-}
-
 // ── Trim conversation history for agent calls ──
 function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: string }[] {
   // Keep recent turns from BOTH roles (product lists live in structured memory)
@@ -338,118 +331,6 @@ export const useAgentMessages = ({
     handleAddToCart(product, quantity);
     updateCurrentBasket(s => ({ ...s, isProcessing: false }));
   }, [lastRecommendedProducts, handleAddToCart, updateCurrentBasket]);
-
-  const handleTransactionalCartAddByName = useCallback((name: string, quantity: number = 1) => {
-    const matches = fuzzyMatchProducts(name, lastRecommendedProducts);
-    
-    if (matches.length === 0) {
-      // Also try cart items
-      const cartMatches = fuzzyMatchProducts(name, cartItems as Product[]);
-      if (cartMatches.length === 1) {
-        handleAddToCart(cartMatches[0], quantity);
-        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-        return;
-      }
-      const msg: ChatMessage = {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: `محصولی با نام "${name}" پیدا نکردم. می‌خوای برات جستجو کنم؟`,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
-    
-    if (matches.length === 1) {
-      handleAddToCart(matches[0], quantity);
-      updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-      return;
-    }
-    
-    // Multiple matches → client-side disambiguation with quick-reply chips
-    const quickReplies = matches.slice(0, 4).map((p, i) => ({
-      id: `disambig-${i}`,
-      label: p.name.length > 45 ? p.name.slice(0, 42) + '…' : p.name,
-      type: 'custom' as QuickReplyType,
-      action: `add_product_${p.id}_qty_${quantity}`,
-    }));
-    const msg: ChatMessage = {
-      id: `disambig-${Date.now()}`, role: 'assistant',
-      content: `چند محصول "${name}" پیدا کردم. کدومشو می‌خوای اضافه کنم؟`,
-      quickReplies,
-      timestamp: new Date(),
-    };
-    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-  }, [lastRecommendedProducts, cartItems, handleAddToCart, updateCurrentBasket]);
-
-  const handleTransactionalCartRemove = useCallback((ref?: number, name?: string) => {
-    let productToRemove: CartItem | undefined;
-    if (ref && ref >= 1 && ref <= lastRecommendedProducts.length) {
-      const refProduct = lastRecommendedProducts[ref - 1];
-      productToRemove = cartItems.find(item => item.id === refProduct.id);
-    } else if (name) {
-      productToRemove = cartItems.find(item => item.name.toLowerCase().includes(name.toLowerCase()));
-    } else if (cartItems.length === 1) {
-      productToRemove = cartItems[0];
-    }
-
-    if (!productToRemove) {
-      const msg: ChatMessage = {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: 'محصول مورد نظر در سبد خریدت پیدا نشد.',
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
-
-    const removedName = productToRemove.name;
-    handleRemoveItem(productToRemove.id);
-    const msg: ChatMessage = {
-      id: `removed-${Date.now()}`, role: 'assistant',
-      content: `${removedName} از سبد خریدت حذف شد. ❌`,
-      timestamp: new Date(),
-    };
-    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-  }, [lastRecommendedProducts, cartItems, handleRemoveItem, updateCurrentBasket]);
-
-  const handleTransactionalQuantityUpdate = useCallback((ref: number | undefined, quantity: number, delta?: number) => {
-    let targetItem: CartItem | undefined;
-    if (ref && ref >= 1 && ref <= lastRecommendedProducts.length) {
-      const refProduct = lastRecommendedProducts[ref - 1];
-      targetItem = cartItems.find(item => item.id === refProduct.id);
-    } else if (cartItems.length === 1) {
-      targetItem = cartItems[0];
-    }
-
-    if (!targetItem) {
-      const msg: ChatMessage = {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: 'محصول مورد نظر در سبد خریدت پیدا نشد.',
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
-
-    const newQty = delta ? targetItem.quantity + delta : quantity;
-    if (newQty < 1) {
-      handleRemoveItem(targetItem.id);
-      const msg: ChatMessage = {
-        id: `removed-${Date.now()}`, role: 'assistant',
-        content: `${targetItem.name} از سبد خریدت حذف شد.`,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-    } else {
-      handleUpdateQuantity(targetItem.id, newQty);
-      const msg: ChatMessage = {
-        id: `qty-${Date.now()}`, role: 'assistant',
-        content: `تعداد ${targetItem.name} به ${newQty} عدد تغییر کرد. ✅`,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-    }
-  }, [lastRecommendedProducts, cartItems, handleRemoveItem, handleUpdateQuantity, updateCurrentBasket]);
 
   const handleTransactionalCheckout = useCallback(() => {
     if (cartItems.length === 0) {

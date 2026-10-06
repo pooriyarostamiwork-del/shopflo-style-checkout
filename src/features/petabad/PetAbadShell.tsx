@@ -13,7 +13,7 @@ import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes
 import { useBasketState, createDefaultBasketState } from "./hooks/useBasketState";
 import { useUserData } from "./hooks/useUserData";
 import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
-import { useAgentMessages } from "./hooks/useAgentMessages";
+import { useAgentMessages, type CheckoutBridge } from "./hooks/useAgentMessages";
 import { useCartPersistence } from "./hooks/useCartPersistence";
 import "./petabad-theme.css";
 import { Product } from "@/data/petabadData";
@@ -98,6 +98,7 @@ export const PetAbadShell = () => {
     handleCheckout,
     handleCheckoutSuccess,
     handleSuccessClose,
+    applyCheckoutDirective,
   } = useCheckoutFlow({
     updateCurrentBasket,
     globalAddresses,
@@ -132,6 +133,18 @@ export const PetAbadShell = () => {
     }, [activeBasketId, setBaskets, setBasketStates]),
   });
 
+  // Chat commands («بفرست خونه»، «با اکسپرس»، «از کیف پول») read and drive the live checkout through this bridge.
+  const checkoutBridgeRef = useRef<CheckoutBridge | null>(null);
+  checkoutBridgeRef.current = {
+    loggedIn: isOTPVerified,
+    addresses: globalAddresses,
+    selectedAddressId,
+    shippingId: Object.values(selectedShippingByMerchant || {})[0] || null,
+    paymentId: agenticState.selectedPayment,
+    step: agenticState.step,
+    apply: applyCheckoutDirective,
+  };
+
   const {
     handleSendMessage,
     sendMessageToBasket,
@@ -142,7 +155,10 @@ export const PetAbadShell = () => {
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleChoice,
   } = useAgentMessages({
+    checkoutBridge: checkoutBridgeRef,
+    surface: 'web',
     updateCurrentBasket,
     setBasketStates,
     setBaskets,
@@ -161,7 +177,25 @@ export const PetAbadShell = () => {
   });
 
   // Wrap handleQuickReply to intercept more_results and disambiguation
+  // Native screens chat may point to (profile/addresses, orders); set below once their state exists.
+  const navRef = useRef<(target: string) => void>(() => {});
+  navRef.current = (target: string) => {
+    setLandingOverride(false);
+    setIsCartOpen(false);
+    setActiveSection(target === 'open_orders' ? 'orders' : 'account');
+  };
+  const handleCtaAction = useCallback((action?: string) => {
+    if (action?.startsWith('pay:')) { handlePaymentSelect(action.slice(4)); return; }
+    if (action === 'view-orders') { navRef.current('open_orders'); return; }
+    handleFinalizePurchase();
+  }, [handlePaymentSelect, handleFinalizePurchase]);
+
   const handleQuickReplyWrapped = useCallback((reply: any) => {
+    const chosen = handleChoice(reply);
+    if (chosen) {
+      if (typeof chosen === 'object') navRef.current(chosen.nav);
+      return;
+    }
     if (reply.type === 'custom' && reply.action === 'more_results') {
       handleMoreResults();
       return;
@@ -180,7 +214,7 @@ export const PetAbadShell = () => {
       }
     }
     handleQuickReply(reply);
-  }, [handleQuickReply, handleMoreResults, lastRecommendedProducts, handleAddToCart]);
+  }, [handleQuickReply, handleMoreResults, lastRecommendedProducts, handleAddToCart, handleChoice]);
 
   // ── Basket item count sync ──────────────────────────────────────────────
   useEffect(() => {
@@ -629,7 +663,7 @@ export const PetAbadShell = () => {
           savedProductIds={savedProductIds}
           onInlineProductDetails={handleInlineProductDetails}
           onQuickReply={handleQuickReplyWrapped}
-          onFinalizePurchase={handleFinalizePurchase}
+          onFinalizePurchase={handleCtaAction}
           onAddressConfirm={handleAddressConfirm}
           onAddressSelect={handleAddressSelect}
           selectedAddressId={selectedAddressId}

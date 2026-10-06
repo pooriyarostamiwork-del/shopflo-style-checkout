@@ -34,6 +34,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
   const [checkoutAddr, setCheckoutAddr] = useState<string | null>(null);
   const [checkoutMode, setCheckoutMode] = useState<string | null>(null);
   const [checkoutShipping, setCheckoutShipping] = useState<string | null>(null);
+  const [checkoutPayment, setCheckoutPayment] = useState<string | null>(null);
   const [checkoutAddress, setCheckoutAddress] = useState<DeliveryAddress | null>(null);
   const [history, setHistory] = useState<TelegramHistoryItem[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(wantsHistory);
@@ -64,11 +65,13 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
     const intent = searchParams.get("intent");
     const finish = (id: string, selection?: any) => {
       onOpened(id);
-      setSearchParams({ c: id }, { replace: true });
+      // intent=profile: the bot sent the shopper to edit addresses/profile natively.
+      setSearchParams(intent === "profile" ? { c: id, tab: "profile" } : { c: id }, { replace: true });
       setHistoryOpen(false);
       if (intent === "checkout" || intent === "payment" || intent === "new_address") {
         setCheckoutAddr(intent === "payment" ? selection?.address?.id || searchParams.get("addr") : null);
         setCheckoutShipping(intent === "payment" ? selection?.shipping_id || searchParams.get("ship") : null);
+        setCheckoutPayment(intent === "payment" ? selection?.payment_id || null : null);
         setCheckoutAddress(intent === "payment" ? selection?.address || null : null);
         setCheckoutMode(intent);
         setCheckoutIntent(id);
@@ -122,6 +125,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
     checkoutAddr,
     checkoutMode,
     checkoutShipping,
+    checkoutPayment,
     checkoutAddress,
     clearCheckoutIntent: () => setCheckoutIntent(null),
     history, historyOpen, openHistoryItem, closeHistory,

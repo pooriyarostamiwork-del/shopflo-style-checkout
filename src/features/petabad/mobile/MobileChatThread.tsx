@@ -47,7 +47,7 @@ interface MobileChatThreadProps {
   savedProductIds?: string[];
   onInlineProductDetails?: (product: Product) => void;
   onQuickReply?: (reply: QuickReply) => void;
-  onFinalizePurchase?: () => void;
+  onFinalizePurchase?: (action?: string) => void;
   onAddressConfirm?: () => void;
   onAddressSelect?: (addressId: string) => void;
   selectedAddressId?: string | null;
@@ -347,7 +347,7 @@ export const MobileChatThread = ({
                 <div className="ml-9">
                   <CTAButton
                     label={msg.ctaButton.label}
-                    onClick={onFinalizePurchase}
+                    onClick={() => onFinalizePurchase(msg.ctaButton?.action)}
                     disabled={msg.ctaButton.disabled}
                     disabledReason={msg.ctaButton.disabledReason}
                   />

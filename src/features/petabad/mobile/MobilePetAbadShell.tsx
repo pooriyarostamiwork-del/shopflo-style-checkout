@@ -15,7 +15,7 @@ import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes
 import { useBasketState, createDefaultBasketState } from "../hooks/useBasketState";
 import { useUserData } from "../hooks/useUserData";
 import { useCheckoutFlow } from "../hooks/useCheckoutFlow";
-import { useAgentMessages } from "../hooks/useAgentMessages";
+import { useAgentMessages, type CheckoutBridge } from "../hooks/useAgentMessages";
 import { useCartPersistence } from "../hooks/useCartPersistence";
 import { MobileChatLanding } from "./MobileChatLanding";
 import { mapDbProduct } from "@/components/petabad/ProductCarousels";
@@ -106,6 +106,7 @@ export const MobilePetAbadShell = () => {
     handleCheckout,
     handleCheckoutSuccess,
     handleSuccessClose,
+    applyCheckoutDirective,
   } = useCheckoutFlow({
     updateCurrentBasket,
     globalAddresses,
@@ -138,6 +139,18 @@ export const MobilePetAbadShell = () => {
     }, [activeBasketId, setBaskets, setBasketStates]),
   });
 
+  // Chat commands («بفرست خونه»، «با اکسپرس»، «از کیف پول») read and drive the live checkout through this bridge.
+  const checkoutBridgeRef = useRef<CheckoutBridge | null>(null);
+  checkoutBridgeRef.current = {
+    loggedIn: isOTPVerified,
+    addresses: globalAddresses,
+    selectedAddressId,
+    shippingId: Object.values(selectedShippingByMerchant || {})[0] || null,
+    paymentId: agenticState.selectedPayment,
+    step: agenticState.step,
+    apply: applyCheckoutDirective,
+  };
+
   const {
     handleSendMessage,
     sendMessageToBasket,
@@ -148,7 +161,10 @@ export const MobilePetAbadShell = () => {
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleChoice,
   } = useAgentMessages({
+    checkoutBridge: checkoutBridgeRef,
+    surface: 'mobile',
     updateCurrentBasket,
     setBasketStates,
     setBaskets,
@@ -166,7 +182,20 @@ export const MobilePetAbadShell = () => {
     shoppingContext: currentState.shoppingContext,
   });
 
+  // Native screens chat may point to (profile/addresses, orders); set below once their state exists.
+  const navRef = useRef<(target: string) => void>(() => {});
+  const handleCtaAction = useCallback((action?: string) => {
+    if (action?.startsWith('pay:')) { handlePaymentSelect(action.slice(4)); return; }
+    if (action === 'view-orders') { navRef.current('open_orders'); return; }
+    handleFinalizePurchase();
+  }, [handlePaymentSelect, handleFinalizePurchase]);
+
   const handleQuickReplyWrapped = useCallback((reply: any) => {
+    const chosen = handleChoice(reply);
+    if (chosen) {
+      if (typeof chosen === 'object') navRef.current(chosen.nav);
+      return;
+    }
     if (reply.type === "custom" && reply.action === "more_results") {
       handleMoreResults();
       return;
@@ -184,7 +213,7 @@ export const MobilePetAbadShell = () => {
       }
     }
     handleQuickReply(reply);
-  }, [handleQuickReply, handleMoreResults, lastRecommendedProducts, handleAddToCart]);
+  }, [handleQuickReply, handleMoreResults, lastRecommendedProducts, handleAddToCart, handleChoice]);
 
   // Sync basket item counts
   useEffect(() => {
@@ -348,11 +377,15 @@ export const MobilePetAbadShell = () => {
       return () => clearTimeout(t);
     }
     tgSession.clearCheckoutIntent();
-    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address", tgSession.checkoutShipping, tgSession.checkoutAddress);
+    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address", tgSession.checkoutShipping, tgSession.checkoutAddress, tgSession.checkoutPayment);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tgSession.checkoutIntent, activeBasketId, cartItems.length, globalAddresses, tgTick]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
+  navRef.current = (target: string) => {
+    setAccountTab(target === "open_orders" ? "orders" : "profile");
+    setShowAccountFull(true);
+  };
   const [urlOrderId, setUrlOrderId] = useState<string | null>(null);
   const lastSyncedRef = useRef<string | null>(null);
   const prevViewKeyRef = useRef<string | null>(null);
@@ -583,7 +616,7 @@ export const MobilePetAbadShell = () => {
             savedProductIds={baskets.find(b => b.id === activeBasketId)?.savedItems.map(i => i.productId) || []}
             onInlineProductDetails={handleInlineProductDetails}
             onQuickReply={handleQuickReplyWrapped}
-            onFinalizePurchase={handleFinalizePurchase}
+            onFinalizePurchase={handleCtaAction}
             onAddressConfirm={handleAddressConfirm}
             onAddressSelect={handleAddressSelect}
             selectedAddressId={selectedAddressId}

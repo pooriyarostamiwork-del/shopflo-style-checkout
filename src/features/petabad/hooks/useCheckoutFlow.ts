@@ -118,21 +118,21 @@ export const useCheckoutFlow = ({
         },
         timestamp: new Date(),
       };
-      updateCurrentBasket(s => ({
-        ...s,
-        messages: [...s.messages, addressMessage],
-        agenticState: {
-          ...s.agenticState,
-          step: 'address-confirmation',
-          ...((!isNewUser && globalAddresses[0]) ? {
-            selectedAddress: globalAddresses[0],
-            isLoggedIn: true,
-            hasStoredCheckoutDetails: true,
-          } : {}),
-        },
-        selectedAddressId: (!isNewUser && globalAddresses[0]) ? globalAddresses[0].id : null,
-        selectedShippingByMerchant: {},
-      }));
+      updateCurrentBasket(s => {
+        // An address/shipping already chosen in chat («بفرست خونه»، «با اکسپرس») survives cart confirmation.
+        const chosen = !isNewUser ? globalAddresses.find(a => a.id === s.selectedAddressId) || globalAddresses[0] : undefined;
+        return {
+          ...s,
+          messages: [...s.messages, addressMessage],
+          agenticState: {
+            ...s.agenticState,
+            step: 'address-confirmation',
+            ...(chosen ? { selectedAddress: chosen, isLoggedIn: true, hasStoredCheckoutDetails: true } : {}),
+          },
+          selectedAddressId: chosen ? chosen.id : null,
+          selectedShippingByMerchant: s.selectedShippingByMerchant || {},
+        };
+      });
     } else if (reply.type === 'add-more') {
       const moreMessage: ChatMessage = {
         id: `more-${Date.now()}`,
@@ -213,18 +213,24 @@ export const useCheckoutFlow = ({
     const allSelected = merchantShipping.every(ms => selectedShippingByMerchant[ms.merchant.id]);
     if (!allSelected) return;
 
-    const paymentMessage: ChatMessage = {
-      id: `payment-${Date.now()}`,
-      role: 'assistant',
-      content: `✅ آدرس و نحوه ارسال تأیید شد\n\nحالا روش پرداخت رو انتخاب کن:`,
-      paymentOptions: paymentOptions,
-      timestamp: new Date(),
-    };
-    updateCurrentBasket(s => ({
-      ...s,
-      messages: [...s.messages, paymentMessage],
-      agenticState: { ...s.agenticState, step: 'payment-selection' },
-    }));
+    updateCurrentBasket(s => {
+      const preferred = paymentOptions.find(p => p.id === s.agenticState.selectedPayment && p.available);
+      const paymentMessage: ChatMessage = {
+        id: `payment-${Date.now()}`,
+        role: 'assistant',
+        content: preferred
+          ? `✅ آدرس و نحوه ارسال تأیید شد\n\nروش پرداختی که گفتی «${preferred.label}» بود؛ دکمه زیر رو بزن یا روش دیگه‌ای انتخاب کن:`
+          : `✅ آدرس و نحوه ارسال تأیید شد\n\nحالا روش پرداخت رو انتخاب کن:`,
+        paymentOptions: paymentOptions,
+        ...(preferred ? { ctaButton: { label: `پرداخت با ${preferred.label}`, action: `pay:${preferred.id}`, disabled: false } } : {}),
+        timestamp: new Date(),
+      };
+      return {
+        ...s,
+        messages: [...s.messages.map(m => (m.ctaButton ? { ...m, ctaButton: undefined } : m)), paymentMessage],
+        agenticState: { ...s.agenticState, step: 'payment-selection' },
+      };
+    });
   }, [selectedShippingByMerchant, getMerchantShipping, updateCurrentBasket]);
 
   const handleAddNewAddress = useCallback(async (addr: Omit<DeliveryAddress, "id">) => {
@@ -439,7 +445,50 @@ export const useCheckoutFlow = ({
 
   // Telegram Mini App entry: the basket (and maybe the address) was already confirmed in the bot,
   // so land directly on the right step instead of replaying the cart confirmation.
-  const jumpFromTelegram = useCallback((addrId: string | null, openForm: boolean, shippingId?: string | null, verifiedAddress?: DeliveryAddress | null) => {
+  /**
+   * Chat-issued checkout picks («بفرست خونه»، «با اکسپرس»، «از کیف پول»). Selections are stored on the
+   * basket so they apply now (card on screen) or later (when that step opens). Payment never charges
+   * from chat: at the payment step it becomes the single final CTA the shopper taps.
+   */
+  const applyCheckoutDirective = useCallback((d: { kind: string; id: string }) => {
+    if (d.kind === 'select_address') {
+      const addr = globalAddresses.find(a => a.id === d.id);
+      if (!addr) return;
+      updateCurrentBasket(s => ({ ...s, selectedAddressId: addr.id, agenticState: { ...s.agenticState, selectedAddress: addr } }));
+      return;
+    }
+    if (d.kind === 'select_shipping') {
+      const method = resolvePetabadShipping(d.id);
+      if (!method) return;
+      const merchantIds = [...new Set(cartItems.map(item => item.merchant.id))];
+      updateCurrentBasket(s => ({
+        ...s,
+        selectedShippingByMerchant: { ...s.selectedShippingByMerchant, ...Object.fromEntries(merchantIds.map(id => [id, method.id])) },
+      }));
+      return;
+    }
+    if (d.kind === 'select_payment') {
+      const option = paymentOptions.find(p => p.id === d.id && p.available);
+      if (!option) return;
+      updateCurrentBasket(s => {
+        const atPayment = s.agenticState.step === 'payment-selection';
+        return {
+          ...s,
+          agenticState: { ...s.agenticState, selectedPayment: option.id as PaymentMethod },
+          messages: atPayment
+            ? [...s.messages.map(m => (m.ctaButton ? { ...m, ctaButton: undefined } : m)), {
+                id: `pay-cta-${Date.now()}`, role: 'assistant' as const, content: '',
+                ctaButton: { label: `پرداخت با ${option.label}`, action: `pay:${option.id}`, disabled: false },
+                timestamp: new Date(),
+              }]
+            : s.messages,
+        };
+      });
+    }
+  }, [globalAddresses, cartItems, updateCurrentBasket]);
+
+  const jumpFromTelegram = useCallback((addrId: string | null, openForm: boolean, shippingId?: string | null, verifiedAddress?: DeliveryAddress | null, paymentId?: string | null) => {
+    const preferred = paymentOptions.find(p => p.id === paymentId && p.available);
     const addr = addrId ? globalAddresses.find(a => a.id === addrId) || (verifiedAddress?.id === addrId ? verifiedAddress : undefined) : undefined;
     const selectedMethod = resolvePetabadShipping(shippingId);
     const shipping: Record<string, string> = {};
@@ -448,8 +497,14 @@ export const useCheckoutFlow = ({
       updateCurrentBasket(s => ({
         ...s,
         isOTPVerified: true,
-        messages: [...s.messages, { id: `payment-${Date.now()}`, role: 'assistant', content: `📍 ارسال به «${addr.title}»${selectedMethod ? `\n🚚 ${selectedMethod.label} · ${selectedMethod.priceLabel}` : ''}\n\nروش پرداخت رو انتخاب کن:`, paymentOptions, timestamp: new Date() }],
-        agenticState: { ...s.agenticState, step: 'payment-selection', selectedAddress: addr, isLoggedIn: true, hasStoredCheckoutDetails: true },
+        messages: [...s.messages, {
+          id: `payment-${Date.now()}`, role: 'assistant',
+          content: `📍 ارسال به «${addr.title}»${selectedMethod ? `\n🚚 ${selectedMethod.label} · ${selectedMethod.priceLabel}` : ''}\n\n${preferred ? `روش پرداختی که توی بات گفتی «${preferred.label}» بود؛ دکمه زیر رو بزن یا روش دیگه‌ای انتخاب کن:` : 'روش پرداخت رو انتخاب کن:'}`,
+          paymentOptions,
+          ...(preferred ? { ctaButton: { label: `پرداخت با ${preferred.label}`, action: `pay:${preferred.id}`, disabled: false } } : {}),
+          timestamp: new Date(),
+        }],
+        agenticState: { ...s.agenticState, step: 'payment-selection', selectedAddress: addr, isLoggedIn: true, hasStoredCheckoutDetails: true, ...(preferred ? { selectedPayment: preferred.id as PaymentMethod } : {}) },
         selectedAddressId: addr.id,
         selectedShippingByMerchant: { ...s.selectedShippingByMerchant, ...shipping },
       }));
@@ -473,6 +528,7 @@ export const useCheckoutFlow = ({
 
   return {
     jumpFromTelegram,
+    applyCheckoutDirective,
     getMerchantShipping,
     handleQuickReply,
     handleOTPVerified,

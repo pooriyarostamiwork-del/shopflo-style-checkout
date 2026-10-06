@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  detectCheckoutIntent,
+  detectGuideIntent,
+  guideTurn,
+  resolveCartTurn,
+  resolveCheckoutTurn,
+  type CheckoutContext,
+  type Surface,
+} from "../_shared/commerceActions.ts";
+import {
   detectGoal,
   isFlow,
   nextQuestion,
@@ -191,6 +200,15 @@ SELECTED_IDS:["id1","id2","id3"]
 - بودجه فقط برای همون دسته‌ای که کاربر گفته اعمال میشه؛ به دسته بعدی منتقلش نکن
 - اگه کاربر صریحاً هدف رو عوض کرد، هدف قبلی رو کنار بذار
 
+دستورهای اجرایی (سبد و تسویه):
+- دستور صریح («اضافه کن»، «یکی کم کن»، «حذفش کن») را بلافاصله با execute_cart_operations اجرا کن؛ هرگز نپرس «مطمئنی؟» (فقط خالی کردن کل سبد تأیید می‌خواد و سیستم خودش می‌پرسه)
+- «یکی دیگه / زیادش کن» = update_quantity با delta=1؛ «یکی کم کن» = delta=-1؛ «بکنش ۳ تا» = quantity=3
+- «سبدمو خالی کن» = type=clear
+- اگه چند محصول با اسم یا برند گفته‌شده جور درمیاد، باز هم ابزار را با بهترین حدس صدا بزن؛ سیستم خودش ابهام را با دکمه می‌پرسه. سؤال متنی ننویس
+- «حذف/کم/زیاد/عوض» همیشه درباره‌ی اقلام سبده، حتی اگه محصول مشابهی تازه پیشنهاد شده باشه
+- انتخاب آدرس/ارسال/پرداخت فقط از فهرست «اطلاعات تسویه»؛ آدرسی که در فهرست نیست را نساز
+- ثبت/ویرایش آدرس، تغییر شماره، شارژ کیف پول و کد تخفیف از گفتگو انجام نمی‌شه → checkout_action با kind=guide
+
 پرسیدن سؤال (قانون قطعی):
 - هیچ‌وقت سؤال‌هات رو به شکل متن یا لیست بولت‌دار در پاسخ ننویس. هر سؤالی که از کاربر داری فقط و فقط با ask_clarification پرسیده میشه (کارت تعاملی)
 - درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification فقط با یک سؤال (options) در هر نوبت؛ سؤال بعدی بر اساس جواب قبلی پرسیده میشه. ترتیب: اول فهم نیاز (حیوان، سن، نیاز، اقلام)، بعد ترجیح برند، و قیمت همیشه آخر. فقط گزینه‌هایی بده که واقعاً در کاتالوگ موجودن
@@ -209,7 +227,9 @@ SELECTED_IDS:["id1","id2","id3"]
 - سؤال شمارشی/فهرستی درباره کل فروشگاه → catalog_facets
 - کاربر می‌خواد محصولی که قبلاً دیده رو دوباره ببینه یا بفرستی → recall_products با شناسه‌های همون محصولات
 - جزئیات یک محصول → get_product_details
-- افزودن/حذف/تغییر تعداد سبد → execute_cart_operations (می‌تونی product_id از حافظه بدی)
+- افزودن/حذف/تغییر تعداد/جایگزینی/خالی کردن سبد → execute_cart_operations (می‌تونی product_id از حافظه بدی)
+- انتخاب آدرس ذخیره‌شده، روش ارسال یا روش پرداخت → checkout_action
+- ثبت آدرس جدید، ویرایش/حذف آدرس، تغییر شماره یا اطلاعات حساب، شارژ کیف پول، کد تخفیف → checkout_action با kind=guide (هرگز از کاربر نخواه آدرس یا کدپستی رو توی چت بنویسه)
 - ابهام واقعی یا هر سؤالی از کاربر → ask_clarification
 - مقایسه یا سوال درباره اطلاعاتی که قبلاً گفتی → بدون ابزار جواب بده
 
@@ -407,6 +427,33 @@ const DETAILS_TOOL = {
   },
 };
 
+// ── Checkout selections & native-UI guidance ──
+const CHECKOUT_TOOL = {
+  type: "function",
+  function: {
+    name: "checkout_action",
+    description:
+      "Pick an EXISTING saved address, a shipping method or a payment method from the lists in «اطلاعات تسویه»; or (kind=guide) send the user to the native screen for things chat must not do: adding/editing/deleting an address, changing phone/profile, wallet top-up, coupons.",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["select_address", "select_shipping", "select_payment", "guide"] },
+        address_id: { type: "string", description: "id from the saved address list (select_address)" },
+        address_query: { type: "string", description: "the words the user used for the address, e.g. «خونه» or «سعادت‌آباد»" },
+        shipping_id: { type: "string", description: "standard | express | courier" },
+        payment_id: { type: "string", description: "wallet | gateway | bnpl" },
+        target: {
+          type: "string",
+          enum: ["add_address", "edit_address", "delete_address", "edit_profile", "change_phone", "wallet", "coupon", "orders"],
+          description: "guide target",
+        },
+      },
+      required: ["kind"],
+      additionalProperties: false,
+    },
+  },
+};
+
 // ── Cart operations tool ──
 const CART_OPERATIONS_TOOL = {
   type: "function",
@@ -424,7 +471,11 @@ const CART_OPERATIONS_TOOL = {
             properties: {
               type: {
                 type: "string",
-                enum: ["add", "remove", "update_quantity", "replace"],
+                enum: ["add", "remove", "update_quantity", "replace", "clear"],
+              },
+              delta: {
+                type: "number",
+                description: "Relative change for update_quantity: «یکی دیگه» = 1, «یکی کم کن» = -1. Use instead of quantity when the user speaks relatively.",
               },
               product_index: {
                 type: "number",
@@ -448,7 +499,7 @@ const CART_OPERATIONS_TOOL = {
               },
               quantity: {
                 type: "number",
-                description: "Quantity for add or update_quantity operations",
+                description: "Quantity for add, or the ABSOLUTE new quantity for update_quantity («بکنش ۳ تا» = 3)",
               },
             },
             required: ["type"],
@@ -737,6 +788,7 @@ const MODE_TOOLS: Record<string, any[]> = {
     DETAILS_TOOL,
     RECALL_TOOL,
     CART_OPERATIONS_TOOL,
+    CHECKOUT_TOOL,
     CLARIFY_TOOL,
     WEB_LOOKUP_TOOL,
     FAQ_TOOL,
@@ -2530,7 +2582,12 @@ serve(async (req) => {
       question_flow,
       pet_memory,
       purchase_context,
+      surface: rawSurface,
+      checkout_context,
+      focus_ids,
     } = await req.json();
+    const surface: Surface = rawSurface === "telegram" || rawSurface === "mobile" ? rawSurface : "web";
+    const checkoutCtx: CheckoutContext = checkout_context && typeof checkout_context === "object" ? checkout_context : {};
     if (!userMessages || !Array.isArray(userMessages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
         status: 400,
@@ -2600,6 +2657,14 @@ serve(async (req) => {
       } else {
         systemPrompt += `\n\nسبد خرید فعلی: خالی`;
       }
+      {
+        const addrs = Array.isArray(checkoutCtx.addresses) ? checkoutCtx.addresses.slice(0, 12) : [];
+        systemPrompt += `\n\nاطلاعات تسویه (کانال: ${surface === "telegram" ? "بات تلگرام" : "اپ"}):\n` +
+          (checkoutCtx.logged_in
+            ? (addrs.length ? `آدرس‌های ذخیره‌شده:\n${addrs.map((a, i) => `${i + 1}. [${a.id}] ${a.title}${a.summary ? ` — ${a.summary}` : ""}`).join("\n")}` : "آدرس ذخیره‌شده: ندارد")
+            : "کاربر هنوز وارد حساب نشده") +
+          `\nروش‌های ارسال: standard (ارسال عادی)، express (اکسپرس)، courier (پیک، پس‌کرایه)\nروش‌های پرداخت: wallet (کیف پول)، gateway (درگاه)، bnpl (اقساطی)`;
+      }
       if (typeof shopping_context === "string" && shopping_context.trim()) {
         systemPrompt += `\n\nهدف خرید:\n${shopping_context.trim()}`;
       }
@@ -2614,6 +2679,34 @@ serve(async (req) => {
     // ── Deterministic guidance detection: "help me choose" turns must ask via card ──
     const lastUserText = String(userMessages[userMessages.length - 1]?.content || "");
     const normLastUser = normalizePersian(lastUserText);
+
+    // ── Executional requests that chat must not perform (forms, identity, money in/out) or
+    // that are exact checkout picks: resolved deterministically, before any model call. ──
+    const cartCount = Array.isArray(cart_context?.items) ? cart_context.items.length : 0;
+    const jsonResponse = (body: unknown) =>
+      new Response(JSON.stringify(body), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const checkoutPayload = (turn: ReturnType<typeof guideTurn>) => ({
+      response_type: turn.response_type,
+      content: turn.content,
+      directive: turn.directive || null,
+      guide: turn.guide || null,
+      choices: turn.choices,
+      clarification_options: turn.choices.map((c) => c.label),
+      products: [],
+      quickReplies: [],
+    });
+    if (effectiveMode === "agentic") {
+      const guideTarget = detectGuideIntent(lastUserText);
+      if (guideTarget) {
+        console.log("exec: guide pre-route", guideTarget);
+        return jsonResponse(checkoutPayload(guideTurn(guideTarget, surface, checkoutCtx)));
+      }
+      const pick = detectCheckoutIntent(lastUserText);
+      if (pick) {
+        console.log("exec: checkout pre-route", pick.kind);
+        return jsonResponse(checkoutPayload(resolveCheckoutTurn({ kind: pick.kind, userText: lastUserText, ctx: checkoutCtx, surface, cartCount })));
+      }
+    }
     let wantsGuidance = GUIDANCE_RE.test(normLastUser);
     const wantsCounts = COUNT_QUESTION_RE.test(normLastUser) && !ASKS_FOR_SOME_RE.test(normLastUser);
     const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
@@ -3167,6 +3260,15 @@ serve(async (req) => {
           }
         }
 
+        const checkoutCall = choice.message.tool_calls.find((t: any) => t.function?.name === "checkout_action");
+        if (checkoutCall) {
+          let args: any = {};
+          try { args = JSON.parse(checkoutCall.function.arguments); } catch { args = {}; }
+          const turn = resolveCheckoutTurn({ ...args, kind: String(args.kind || "guide"), userText: lastUserText, ctx: checkoutCtx, surface, cartCount });
+          console.log("exec: checkout tool", JSON.stringify(args), "→", turn.response_type, turn.directive?.kind || turn.guide?.target || "choices");
+          return jsonResponse(checkoutPayload(turn));
+        }
+
         const cartCall = choice.message.tool_calls.find((t: any) => t.function?.name === "execute_cart_operations");
         if (effectiveMode === "cart_manipulation" || cartCall) {
           const toolCall = cartCall || choice.message.tool_calls[0];
@@ -3174,21 +3276,38 @@ serve(async (req) => {
           try {
             cartResult = JSON.parse(toolCall.function.arguments);
           } catch {
-            cartResult = { actions: [], message: "متوجه نشدم. دوباره بگو.", needs_clarification: false };
+            cartResult = { actions: [], message: "", needs_clarification: false };
           }
-          console.log("Cart manipulation result:", JSON.stringify(cartResult));
-          return new Response(
-            JSON.stringify({
-              response_type: "cart",
-              cart_actions: cartResult.actions || [],
-              content: sanitizeVisibleText(cartResult.message || "") || "عملیات انجام شد.",
-              needs_clarification: cartResult.needs_clarification || false,
-              clarification_options: cartResult.clarification_options || [],
-              products: [],
-              quickReplies: [],
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          // Every model-proposed mutation is validated against the real cart and the shown products:
+          // hallucinated ids are re-resolved, brand/name ties become one tap-to-answer question,
+          // relative quantities are computed, and the reply text always matches what ran.
+          const shownPool = (Array.isArray(memory_index) ? memory_index : []).flatMap((g: any) =>
+            (Array.isArray(g?.items) ? g.items : []).map((it: any) => ({ id: String(it.id), name: String(it.name || ""), brand: it.brand ?? null, price: it.price })),
           );
+          const turn = resolveCartTurn({
+            modelActions: cartResult.actions || [],
+            modelMessage: sanitizeVisibleText(cartResult.message || ""),
+            modelNeedsClarification: cartResult.needs_clarification === true,
+            modelOptions: cartResult.clarification_options || [],
+            userText: lastUserText,
+            recentUserTexts: userMessages.slice(0, -1).filter((m: any) => m?.role === "user").slice(-3).map((m: any) => String(m.content || "")),
+            cart: (cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || ""), brand: i.brand ?? null, quantity: Number(i.quantity) || 1, price: i.price })),
+            offers: (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || ""), brand: p.brand ?? null, price: p.price })),
+            shown: shownPool,
+            focusIds: Array.isArray(focus_ids) ? focus_ids.map(String) : [],
+          });
+          console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
+          return jsonResponse({
+            response_type: "cart",
+            cart_actions: turn.actions,
+            content: turn.content,
+            needs_clarification: turn.needs_clarification,
+            clarification_options: turn.choices.map((c) => c.label),
+            choices: turn.choices,
+            undo: turn.undo || null,
+            products: [],
+            quickReplies: [],
+          });
         }
       }
 

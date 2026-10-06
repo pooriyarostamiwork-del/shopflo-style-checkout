@@ -100,6 +100,8 @@ Deno.serve(async (req) => {
       if (address) checkoutSelection = {
         address: { id: address.id, title: address.title, fullAddress: address.full_address, recipientName: address.recipient_name, phone: address.phone, isDefault: address.is_default },
         shipping_id: resolvePetabadShipping(selected.shipping_id)?.id || null,
+        // Payment preference said in the bot («از کیف پول») — only a known, active method; never charges by itself.
+        payment_id: ["wallet", "gateway", "bnpl"].includes(selected.payment_id) ? selected.payment_id : null,
       };
     }
     const cart: any[] = chat.cart || [];

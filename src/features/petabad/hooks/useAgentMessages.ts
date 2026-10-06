@@ -91,7 +91,20 @@ const closeJourneys = (msgs: ChatMessage[]): ChatMessage[] =>
     : msgs;
 
 
+/** Live checkout state + actions the shell exposes so chat commands can drive the native checkout. */
+export interface CheckoutBridge {
+  loggedIn: boolean;
+  addresses: DeliveryAddress[];
+  selectedAddressId: string | null;
+  shippingId: string | null;
+  paymentId: string | null;
+  step: string;
+  apply: (directive: { kind: 'select_address' | 'select_shipping' | 'select_payment'; id: string }) => void;
+}
+
 interface UseAgentMessagesProps {
+  checkoutBridge?: React.MutableRefObject<CheckoutBridge | null>;
+  surface?: 'web' | 'mobile';
   updateCurrentBasket: (updater: (prev: BasketState) => BasketState) => void;
   setBasketStates: React.Dispatch<React.SetStateAction<Record<string, BasketState>>>;
   setBaskets: React.Dispatch<React.SetStateAction<Basket[]>>;
@@ -124,6 +137,7 @@ export const mapDbProduct = (dbProduct: any): Product => {
     specs: specsObj && specsObj.length > 0 ? specsObj : undefined,
     reviewsSummary: dbProduct.review_count ? `${dbProduct.review_count} نظر` : undefined,
     merchant: merchants[0],
+    brand: dbProduct.brand || undefined,
     rating: Number(dbProduct.rating) || 4.0,
     fastDelivery: dbProduct.fast_delivery || false,
     returnGuarantee: dbProduct.return_guarantee ?? true,
@@ -138,13 +152,6 @@ async function invokeWithTimeout(fn: string, body: any, ms = 25000) {
     supabase.functions.invoke(fn, { body }),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
   ]) as { data: any; error: any };
-}
-
-// ── Fuzzy match products by name (returns ALL matches) ──
-function fuzzyMatchProducts(name: string, products: Product[]): Product[] {
-  if (!name || products.length === 0) return [];
-  const lowerName = name.toLowerCase();
-  return products.filter(p => p.name.toLowerCase().includes(lowerName));
 }
 
 // ── Trim conversation history for agent calls ──
@@ -215,6 +222,8 @@ export const useAgentMessages = ({
   lastRecommendedProducts,
   productMemory,
   shoppingContext,
+  checkoutBridge,
+  surface = 'web',
 }: UseAgentMessagesProps) => {
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
@@ -323,118 +332,6 @@ export const useAgentMessages = ({
     updateCurrentBasket(s => ({ ...s, isProcessing: false }));
   }, [lastRecommendedProducts, handleAddToCart, updateCurrentBasket]);
 
-  const handleTransactionalCartAddByName = useCallback((name: string, quantity: number = 1) => {
-    const matches = fuzzyMatchProducts(name, lastRecommendedProducts);
-    
-    if (matches.length === 0) {
-      // Also try cart items
-      const cartMatches = fuzzyMatchProducts(name, cartItems as Product[]);
-      if (cartMatches.length === 1) {
-        handleAddToCart(cartMatches[0], quantity);
-        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-        return;
-      }
-      const msg: ChatMessage = {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: `محصولی با نام "${name}" پیدا نکردم. می‌خوای برات جستجو کنم؟`,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
-    
-    if (matches.length === 1) {
-      handleAddToCart(matches[0], quantity);
-      updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-      return;
-    }
-    
-    // Multiple matches → client-side disambiguation with quick-reply chips
-    const quickReplies = matches.slice(0, 4).map((p, i) => ({
-      id: `disambig-${i}`,
-      label: p.name.length > 45 ? p.name.slice(0, 42) + '…' : p.name,
-      type: 'custom' as QuickReplyType,
-      action: `add_product_${p.id}_qty_${quantity}`,
-    }));
-    const msg: ChatMessage = {
-      id: `disambig-${Date.now()}`, role: 'assistant',
-      content: `چند محصول "${name}" پیدا کردم. کدومشو می‌خوای اضافه کنم؟`,
-      quickReplies,
-      timestamp: new Date(),
-    };
-    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-  }, [lastRecommendedProducts, cartItems, handleAddToCart, updateCurrentBasket]);
-
-  const handleTransactionalCartRemove = useCallback((ref?: number, name?: string) => {
-    let productToRemove: CartItem | undefined;
-    if (ref && ref >= 1 && ref <= lastRecommendedProducts.length) {
-      const refProduct = lastRecommendedProducts[ref - 1];
-      productToRemove = cartItems.find(item => item.id === refProduct.id);
-    } else if (name) {
-      productToRemove = cartItems.find(item => item.name.toLowerCase().includes(name.toLowerCase()));
-    } else if (cartItems.length === 1) {
-      productToRemove = cartItems[0];
-    }
-
-    if (!productToRemove) {
-      const msg: ChatMessage = {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: 'محصول مورد نظر در سبد خریدت پیدا نشد.',
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
-
-    const removedName = productToRemove.name;
-    handleRemoveItem(productToRemove.id);
-    const msg: ChatMessage = {
-      id: `removed-${Date.now()}`, role: 'assistant',
-      content: `${removedName} از سبد خریدت حذف شد. ❌`,
-      timestamp: new Date(),
-    };
-    updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-  }, [lastRecommendedProducts, cartItems, handleRemoveItem, updateCurrentBasket]);
-
-  const handleTransactionalQuantityUpdate = useCallback((ref: number | undefined, quantity: number, delta?: number) => {
-    let targetItem: CartItem | undefined;
-    if (ref && ref >= 1 && ref <= lastRecommendedProducts.length) {
-      const refProduct = lastRecommendedProducts[ref - 1];
-      targetItem = cartItems.find(item => item.id === refProduct.id);
-    } else if (cartItems.length === 1) {
-      targetItem = cartItems[0];
-    }
-
-    if (!targetItem) {
-      const msg: ChatMessage = {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: 'محصول مورد نظر در سبد خریدت پیدا نشد.',
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
-
-    const newQty = delta ? targetItem.quantity + delta : quantity;
-    if (newQty < 1) {
-      handleRemoveItem(targetItem.id);
-      const msg: ChatMessage = {
-        id: `removed-${Date.now()}`, role: 'assistant',
-        content: `${targetItem.name} از سبد خریدت حذف شد.`,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-    } else {
-      handleUpdateQuantity(targetItem.id, newQty);
-      const msg: ChatMessage = {
-        id: `qty-${Date.now()}`, role: 'assistant',
-        content: `تعداد ${targetItem.name} به ${newQty} عدد تغییر کرد. ✅`,
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-    }
-  }, [lastRecommendedProducts, cartItems, handleRemoveItem, handleUpdateQuantity, updateCurrentBasket]);
-
   const handleTransactionalCheckout = useCallback(() => {
     if (cartItems.length === 0) {
       const msg: ChatMessage = {
@@ -514,37 +411,33 @@ export const useAgentMessages = ({
     const p2l = (s: string) => s.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
     const norm = p2l(content).trim().toLowerCase();
 
-    const ordinalMap: Record<string, number> = {
-      'اول': 1, 'اولی': 1, 'یکم': 1,
-      'دوم': 2, 'دومی': 2,
-      'سوم': 3, 'سومی': 3,
-      'چهارم': 4, 'چهارمی': 4,
-      'پنجم': 5, 'پنجمی': 5,
-      'ششم': 6, 'ششمی': 6,
-    };
-    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*)(\d+)/) || norm.match(/\b(\d+)\s*(?:ام|امی|م)?\b/);
+    // Only explicit positions are resolved locally («دومی»، «شماره ۳»، «آخری»); a bare number is a quantity.
+    const ordinalWords: Array<[string, number]> = [
+      ['اول', 1], ['اولی', 1], ['دوم', 2], ['دومی', 2], ['سوم', 3], ['سومی', 3],
+      ['چهارم', 4], ['چهارمی', 4], ['پنجم', 5], ['پنجمی', 5], ['ششم', 6], ['ششمی', 6],
+    ];
+    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*|گزینه\s*)(\d+)/);
     let refNum: number | undefined = refMatch ? parseInt(refMatch[1]) : undefined;
     if (!refNum) {
-      for (const [word, num] of Object.entries(ordinalMap)) {
-        if (norm.includes(word)) { refNum = num; break; }
+      for (const [word, num] of ordinalWords) {
+        if (new RegExp(`(^|\\s)${word}(ی|و|رو|را)?(\\s|$)`).test(norm)) { refNum = num; break; }
       }
     }
-    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته)/);
+    if (!refNum && /(^|\s)(آخری|اخری|آخرین)(و|رو|را)?(\s|$)/.test(norm) && lastRecommendedProducts.length) refNum = lastRecommendedProducts.length;
+    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته|دونه)/);
     const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
     const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
-    // Verb-shaped only: informational words that merely CONTAIN these letters
-    // (e.g. «خارجیاشون» containing «خارج») must never trigger a cart removal.
-    const removeRe = /(حذف\s*(کن|کنش|شون|ش)?|حذفش|بردار|پاکش|پاک\s*کن|از\s*سبد\s*(خارج|بردار|حذف)|درش\s*بیار|در\s*بیار|نمی‌?خوامش|دیگه\s*نمی‌?خوام)/;
+    const mutateRe = /(حذف|بردار|پاک|کم|زیاد|عوض|جایگزین|جای|بجای)/;
+    // «پرداخت» alone finalizes; a named method/address/shipping is a checkout command for the agent.
     const checkoutRe = /(نهایی|پرداخت|چک اوت|checkout|تسویه|ثبت سفارش|تموم کن|تمام کن)/;
-    const qtyUpRe = /(زیاد کن|بیشتر کن)/;
-    const qtyDownRe = /(کم کن|کمتر کن)/;
+    const checkoutDetailRe = /(کیف\s*پول|درگاه|قسط|اقساط|برداشت|آدرس|ادرس|اکسپرس|پیک|ارسال|بفرست|کد\s*تخفیف|کوپن)/;
     const ordersRe = /(سفارش‌?ها|سفارشاتم|پیگیری سفارش|کد رهگیری)/;
     // A question is a question: it goes to the assistant, never to a cart shortcut.
     const isQuestion = /[?؟]\s*$/.test(norm)
       || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
 
-    if (checkoutRe.test(norm) && cartItems.length > 0 && !isQuestion) {
+    if (checkoutRe.test(norm) && !checkoutDetailRe.test(norm) && cartItems.length > 0 && !isQuestion) {
       handleTransactionalCheckout();
       return;
     }
@@ -559,77 +452,60 @@ export const useAgentMessages = ({
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
       return;
     }
-    if (!isQuestion && removeRe.test(norm) && (refNum || cartItems.length >= 1)) {
-      handleTransactionalCartRemove(refNum);
-      return;
-    }
-    if (!isQuestion && addRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
+    // Exact positional add («دومی رو ۲ تا بنداز تو سبد») runs locally; everything with a name,
+    // a pronoun or a cart mutation goes to the agent, whose output is validated against the cart.
+    if (!isQuestion && addRe.test(norm) && !mutateRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
       handleTransactionalCartAdd(refNum, qty);
       return;
     }
-    if (!isQuestion && qtyUpRe.test(norm) && (refNum || cartItems.length === 1)) {
-      handleTransactionalQuantityUpdate(refNum, qty, +qty);
-      return;
-    }
-    if (!isQuestion && qtyDownRe.test(norm) && (refNum || cartItems.length === 1)) {
-      handleTransactionalQuantityUpdate(refNum, qty, -qty);
-      return;
-    }
-
 
     // ── Everything else: one agent call, the model picks the tool ──
     const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;
     await callUnifiedAgent(content, trimHistoryForAgent(messages), isFirstMessage);
   }, [
     cartItems, lastRecommendedProducts, messages, updateCurrentBasket,
-    handleTransactionalCartAdd, handleTransactionalCartRemove,
-    handleTransactionalQuantityUpdate, handleTransactionalCheckout,
+    handleTransactionalCartAdd, handleTransactionalCheckout,
   ]);
 
-  // ── Execute cart actions returned by cart_manipulation agent (batched) ──
+  // ── Execute validated cart actions (server contract: product ids resolved, absolute quantities) ──
   const executeCartActions = useCallback((actions: any[]) => {
     updateCurrentBasket(s => {
       let newCartItems = [...s.cartItems];
-
       const mem = ensureProductMemory(s.productMemory);
       const addedIds: string[] = [];
       const removedIds: string[] = [];
 
-      // Resolve an action target by stable id first, then by badge position
-      const resolveTarget = (action: any, indexField = 'product_index'): Product | undefined => {
-        if (action.product_id) {
-          const byId = resolveById(mem, action.product_id) ||
-            lastRecommendedProducts.find(p => p.id === action.product_id);
+      // Stable id first (memory → last list → cart), then legacy badge position.
+      const resolveProduct = (id?: string, index?: number, groupId?: string): Product | undefined => {
+        if (id) {
+          const byId = resolveById(mem, id) || s.lastRecommendedProducts?.find(p => p.id === id) ||
+            lastRecommendedProducts.find(p => p.id === id) || s.cartItems.find(i => i.id === id);
           if (byId) return byId;
         }
-        const idx = action[indexField];
-        if (idx && idx >= 1) {
-          return resolveByPosition(mem, idx, action.group_id) || lastRecommendedProducts[idx - 1];
-        }
+        if (index && index >= 1) return resolveByPosition(mem, index, groupId) || lastRecommendedProducts[index - 1];
         return undefined;
+      };
+      const addLine = (product: Product, qty: number) => {
+        addedIds.push(product.id);
+        const existing = newCartItems.find(item => item.id === product.id);
+        newCartItems = existing
+          ? newCartItems.map(item => (item.id === product.id ? { ...item, quantity: item.quantity + qty } : item))
+          : [...newCartItems, { ...product, quantity: qty }];
       };
 
       for (const action of actions) {
         switch (action.type) {
+          case 'clear':
+            removedIds.push(...newCartItems.map(i => i.id));
+            newCartItems = [];
+            break;
           case 'add': {
-            const product = resolveTarget(action);
-            if (product) {
-              addedIds.push(product.id);
-              const qty = action.quantity || 1;
-              const existing = newCartItems.find(item => item.id === product.id);
-              if (existing) {
-                newCartItems = newCartItems.map(item =>
-                  item.id === product.id ? { ...item, quantity: item.quantity + qty } : item
-                );
-              } else {
-                newCartItems = [...newCartItems, { ...product, quantity: qty }];
-              }
-            }
+            const product = resolveProduct(action.product_id, action.product_index, action.group_id);
+            if (product) addLine(product, Math.max(1, Number(action.quantity) || 1));
             break;
           }
           case 'remove': {
-            const target = resolveTarget(action);
-            const pid = action.product_id || target?.id;
+            const pid = action.product_id || resolveProduct(undefined, action.product_index)?.id;
             if (pid) {
               removedIds.push(pid);
               newCartItems = newCartItems.filter(item => item.id !== pid);
@@ -638,35 +514,25 @@ export const useAgentMessages = ({
           }
           case 'update_quantity': {
             const pid = action.product_id;
-            const qty = action.quantity || 1;
-            if (pid) {
-              if (qty < 1) {
-                newCartItems = newCartItems.filter(item => item.id !== pid);
-              } else {
-                newCartItems = newCartItems.map(item =>
-                  item.id === pid ? { ...item, quantity: qty } : item
-                );
-              }
+            const qty = Number(action.quantity) || 0;
+            if (!pid) break;
+            if (qty < 1) {
+              removedIds.push(pid);
+              newCartItems = newCartItems.filter(item => item.id !== pid);
+            } else {
+              newCartItems = newCartItems.map(item => (item.id === pid ? { ...item, quantity: Math.min(50, qty) } : item));
             }
             break;
           }
           case 'replace': {
-            if (action.remove_product_id) {
-              removedIds.push(action.remove_product_id);
-              newCartItems = newCartItems.filter(item => item.id !== action.remove_product_id);
+            const removed = newCartItems.find(item => item.id === action.remove_product_id);
+            const product = resolveProduct(action.add_product_id, action.add_product_index, action.group_id);
+            if (!product) break; // never leave the cart half-swapped
+            if (removed) {
+              removedIds.push(removed.id);
+              newCartItems = newCartItems.filter(item => item.id !== removed.id);
             }
-            const product = resolveTarget({ product_id: action.add_product_id, add_product_index: action.add_product_index, group_id: action.group_id }, 'add_product_index');
-            if (product) {
-              addedIds.push(product.id);
-              const existing = newCartItems.find(item => item.id === product.id);
-              if (existing) {
-                newCartItems = newCartItems.map(item =>
-                  item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-                );
-              } else {
-                newCartItems = [...newCartItems, { ...product, quantity: 1 }];
-              }
-            }
+            addLine(product, Math.max(1, Number(action.quantity) || removed?.quantity || 1));
             break;
           }
         }
@@ -674,12 +540,25 @@ export const useAgentMessages = ({
 
       let nextMemory = mem;
       if (addedIds.length) nextMemory = markCommitment(nextMemory, addedIds, 'inCart');
-      if (removedIds.length) nextMemory = unmarkInCart(nextMemory, removedIds);
+      const gone = removedIds.filter(id => !newCartItems.some(i => i.id === id));
+      if (gone.length) nextMemory = unmarkInCart(nextMemory, gone);
 
       return { ...s, cartItems: newCartItems, productMemory: nextMemory };
     });
     setIsCartOpen(true);
   }, [lastRecommendedProducts, updateCurrentBasket, setIsCartOpen]);
+
+  /** Quick replies for server "choices": each one carries what to run when tapped. */
+  const toChoiceReplies = (choices: any[], extra: any[] = []) =>
+    [...(Array.isArray(choices) ? choices : []), ...extra]
+      .filter(c => c && typeof c.label === 'string' && c.label.trim())
+      .slice(0, 8)
+      .map((c, i) => ({
+        id: `choice-${Date.now()}-${i}`,
+        label: c.label,
+        type: 'custom' as QuickReplyType,
+        action: `choice:${JSON.stringify(c)}`,
+      }));
 
   // ── Single unified agent call: search / details / cart tools, model decides ──
   const callUnifiedAgent = useCallback(async (
@@ -694,9 +573,10 @@ export const useAgentMessages = ({
         messages: [...conversationHistory, { role: 'user', content }],
         mode: 'agentic',
         is_first_message: isFirstMessage,
+        surface,
         cart_context: {
           items: cartItems.map(item => ({
-            id: item.id, name: item.name, price: item.price, quantity: item.quantity,
+            id: item.id, name: item.name, price: item.price, quantity: item.quantity, brand: item.brand,
           })),
           total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
         },
@@ -709,12 +589,25 @@ export const useAgentMessages = ({
           items: g.productIds
             .map(id => mem.entries[id])
             .filter(Boolean)
-            .map(e => ({ position: e.position, id: e.product.id, name: e.product.name, price: e.product.price })),
+            .map(e => ({ position: e.position, id: e.product.id, name: e.product.name, price: e.product.price, brand: e.product.brand })),
         })),
         products_context: lastRecommendedProducts.slice(0, 6).map(p => ({
-          id: p.id, name: p.name, price: p.price, brand: p.merchant?.name, rating: p.rating,
+          id: p.id, name: p.name, price: p.price, brand: p.brand || null, rating: p.rating,
         })),
+        // A single focused product («this») — set when the shopper opened one product's details.
+        focus_ids: mem.focus?.productIds?.length === 1 ? mem.focus.productIds : [],
       };
+      const bridge = checkoutBridge?.current;
+      if (bridge) {
+        body.checkout_context = {
+          logged_in: bridge.loggedIn,
+          addresses: bridge.addresses.map(a => ({ id: a.id, title: a.title, summary: String(a.fullAddress || '').slice(0, 60), is_default: a.isDefault })),
+          selected_address_id: bridge.selectedAddressId,
+          shipping_id: bridge.shippingId,
+          payment_id: bridge.paymentId,
+          step: bridge.step,
+        };
+      }
 
       const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
       // A carry-over question was on screen: this reply decides whether the old
@@ -826,22 +719,50 @@ export const useAgentMessages = ({
         return;
       }
 
-      // ── Cart branch ──
-      if (actions.length > 0 || needsClarification) {
+      // ── Checkout selections & native-UI guidance (validated server-side) ──
+      if (data?.response_type === 'checkout' || data?.response_type === 'guide') {
+        const directive = data?.directive;
+        if (directive?.kind && directive?.id) checkoutBridge?.current?.apply(directive);
+        const target = data?.guide?.target as string | undefined;
+        const nav: any[] = [];
+        if (target && ['add_address', 'edit_address', 'delete_address', 'edit_profile'].includes(target)
+          && !(target === 'add_address' && checkoutBridge?.current?.step === 'address-confirmation')) {
+          nav.push({ label: '👤 رفتن به پروفایل', nav: 'open_profile' });
+        }
+        if (target === 'orders') nav.push({ label: '📦 مشاهده سفارش‌ها', nav: 'open_orders' });
+        const replies = toChoiceReplies(data?.choices || [], nav);
+        updateCurrentBasket(s => ({
+          ...s,
+          messages: [...closeJourneys(s.messages), {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: data?.content || '',
+            quickReplies: replies.length ? replies : undefined,
+            timestamp: new Date(),
+          }],
+          shoppingContext: goalUpdated,
+          isProcessing: false,
+        }));
+        return;
+      }
+
+      // ── Cart branch (validated: ids resolved, ties turned into tap-to-answer choices) ──
+      if (data?.response_type === 'cart' || actions.length > 0 || needsClarification) {
         if (actions.length > 0 && !needsClarification) executeCartActions(actions);
 
-        const quickReplies = needsClarification && clarificationOptions.length > 0
-          ? clarificationOptions.map((opt: string, i: number) => ({
-              id: `clarify-${i}`, label: opt, type: 'custom' as QuickReplyType, action: `clarify_${i}`,
-            }))
-          : undefined;
+        const choices = Array.isArray(data?.choices) && data.choices.length
+          ? data.choices
+          : clarificationOptions.map((opt: string) => ({ label: opt, say: opt }));
+        const quickReplies = needsClarification
+          ? toChoiceReplies(choices)
+          : data?.undo ? toChoiceReplies([data.undo]) : [];
 
         const changed = actions.length > 0 && !needsClarification;
         const cartMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
           content: data?.content || 'عملیات انجام شد.',
-          quickReplies,
+          quickReplies: quickReplies.length ? quickReplies : undefined,
           ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
           timestamp: new Date(),
         };
@@ -924,7 +845,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages.map(reopen), fallbackMessage], isProcessing: false }));
     }
-  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext]);
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext, checkoutBridge, surface]);
 
   // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {
@@ -1019,6 +940,43 @@ export const useAgentMessages = ({
     }
   }, [setBasketStates]);
 
+  /**
+   * Tap on a server choice («کدوم رویال؟»، «برگردون به سبد»، «آدرس خونه»): runs exactly what the
+   * choice carries, retires the question's buttons, and records the answer — no second model call.
+   * Returns false when the reply is not a choice.
+   */
+  const handleChoice = useCallback((reply: { action?: string; label: string }): boolean | { nav: string } => {
+    if (!reply.action?.startsWith('choice:')) return false;
+    let choice: any;
+    try { choice = JSON.parse(reply.action.slice(7)); } catch { return true; }
+    // Buttons of the answered question disappear (same rule as the Telegram bot).
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: s.messages.map(m => (m.quickReplies?.some(q => q.action === reply.action) ? { ...m, quickReplies: undefined } : m)),
+    }));
+    if (choice.nav) return { nav: String(choice.nav) };
+    if (choice.say) { void handleSendMessage(String(choice.say)); return true; }
+    const acts = Array.isArray(choice.actions) ? choice.actions : [];
+    if (acts.length) executeCartActions(acts);
+    if (choice.checkout?.kind && choice.checkout?.id) checkoutBridge?.current?.apply(choice.checkout);
+    const changed = acts.length > 0;
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: [
+        ...s.messages.map(m => (changed && m.ctaButton?.action === 'finalize' ? { ...m, ctaButton: undefined } : m)),
+        { id: `user-${Date.now()}`, role: 'user', content: reply.label, timestamp: new Date() },
+        {
+          id: `assistant-${Date.now() + 1}`,
+          role: 'assistant',
+          content: choice.done || 'انجام شد ✅',
+          ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
+          timestamp: new Date(),
+        },
+      ],
+    }));
+    return true;
+  }, [updateCurrentBasket, handleSendMessage, executeCartActions, checkoutBridge]);
+
   const handleMoreResults = useCallback(() => {
     handleSendMessage('نتایج بیشتر نشون بده');
   }, [handleSendMessage]);
@@ -1033,5 +991,6 @@ export const useAgentMessages = ({
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleChoice,
   };
 };

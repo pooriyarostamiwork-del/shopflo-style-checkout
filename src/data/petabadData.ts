@@ -16,6 +16,7 @@ export interface Product {
   description?: string;
   specs?: Array<{label: string; value: string}>;
   reviewsSummary?: string;
+  brand?: string;
   merchant: Merchant;
   rating: number;
   fastDelivery: boolean;

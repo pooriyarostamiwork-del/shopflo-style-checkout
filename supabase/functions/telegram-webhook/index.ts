@@ -620,7 +620,7 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
 
   if (ans.response_type === "cart") {
     const before = JSON.stringify(chat.cart || []);
-    const cart = ans.needs_clarification ? chat.cart || [] : await applyCartActions(chat, ans.cart_actions);
+    const cart = (ans.cart_actions || []).length ? await applyCartActions(chat, ans.cart_actions) : chat.cart || [];
     await saveChat(chat, { cart, history: [...history, { role: "assistant", content }].slice(-14) });
     // Choice buttons are encoded against the cart the question was asked about.
     const choices: Choice[] = ans.needs_clarification ? ans.choices || (ans.clarification_options || []).map((o: string) => ({ label: o, say: o })) : ans.undo ? [ans.undo] : [];

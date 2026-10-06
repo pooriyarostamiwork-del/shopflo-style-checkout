@@ -162,9 +162,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     return r ? shown.find((o) => o.id === r) || cart.find((c) => c.id === r) : undefined;
   };
   /** Pool items whose name the text points at (by mentioned tokens). */
-  const textMatches = <T extends { name: string; brand?: string | null }>(pool: T[]) => {
-    if (!tt.length) return [] as T[];
-    const scored = pool.map((p) => ({ p, n: mentioned(p, tt).length })).filter((x) => x.n > 0);
+  const textMatches = <T extends { name: string; brand?: string | null }>(pool: T[], toks: string[] = tt) => {
+    if (!toks.length) return [] as T[];
+    const scored = pool.map((p) => ({ p, n: mentioned(p, toks).length })).filter((x) => x.n > 0);
     const best = Math.max(0, ...scored.map((x) => x.n));
     return scored.filter((x) => x.n === best).map((x) => x.p);
   };
@@ -174,16 +174,16 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
    * broken only by a word from earlier turns that exactly one tied item carries (memory);
    * otherwise the turn must ask.
    */
-  const narrow = <T extends { id: string; name: string; brand?: string | null }>(target: T | undefined, pool: T[], pickedIds: string[]):
+  const narrow = <T extends { id: string; name: string; brand?: string | null }>(target: T | undefined, pool: T[], pickedIds: string[], toks: string[] = tt):
     { item?: T; tie?: T[] } => {
     if (ordinal || wantsAll) return { item: target };
-    const best = textMatches(pool).filter((p) => !pickedIds.includes(p.id) || p.id === target?.id);
+    const best = textMatches(pool, toks).filter((p) => !pickedIds.includes(p.id) || p.id === target?.id);
     if (!best.length) return { item: target };
     if (best.length === 1) {
       if (target && target.id !== best[0].id) trace.push(`text-overrode-model:${target.id}->${best[0].id}`);
       return { item: best[0] };
     }
-    const keys = new Set(best.flatMap((p) => mentioned(p, tt)));
+    const keys = new Set(best.flatMap((p) => mentioned(p, toks)));
     const own = (p: T) => nameTokens(p).filter((t) => !keys.has(t) && !best.some((o) => o.id !== p.id && nameTokens(o).includes(t)));
     const byMemory = best.filter((p) => own(p).some((d) => recent.some((x) => tokenHit(x, d))));
     if (byMemory.length === 1) { trace.push(`tie-resolved-by-memory:${byMemory[0].id}`); return { item: byMemory[0] }; }
@@ -191,7 +191,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   };
 
   const resolved: CartAction[] = [];
-  let pending: { question: string; choices: Choice[] } | null = null;
+  // Only the first ambiguity is asked; every clear part of the turn still runs now.
+  // `base` = how many resolved actions existed when it was asked (choices carry only their own action).
+  let pending: { question: string; choices: Choice[]; base: number } | null = null;
   let undo: Choice | undefined;
   const notes: string[] = [];
   const silent = new Set<string>();
@@ -205,7 +207,8 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     return c;
   };
   const ask = (question: string, choices: Choice[]) => {
-    if (!pending) pending = { question, choices };
+    if (!pending) pending = { question, choices, base: resolved.length };
+    else trace.push("extra-ambiguity-deferred");
   };
 
   /** Cart line for remove/update/replace: id → offer position in cart → ordinal → name → single line → pronoun-last-added. */

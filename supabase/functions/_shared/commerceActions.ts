@@ -117,10 +117,26 @@ export interface CartTurnResult {
   trace: string[];
 }
 
+const NEG_CLAUSE_RE = /(نمی\s*خوا[مهی]|نمیخوا[مهی]|نخواستم|لازم\s*نیست|نیاز\s*ندارم|نمی\s*خواد|نمیخواد|(^|\s)نه(\s|$))/;
+
+/** Split a compound turn into wanted vs. negated clauses («غذا و هپی پت رو اضافه کن، شامپو رو نمی‌خوام»). */
+export function splitPolarity(text: string): { pos: string[]; neg: string[] } {
+  const clauses = normFa(text).split(/[،,.;!؟?\n]|\s(?:ولی|اما|ولیکن|به\s*جز|بجز|غیر\s*از)\s/);
+  const pos: string[] = [];
+  const neg: string[] = [];
+  for (const c of clauses) (NEG_CLAUSE_RE.test(c) ? neg : pos).push(...tokens(c));
+  return { pos, neg };
+}
+
 export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const { cart, offers } = input;
   const text = input.userText || "";
   const tt = tokens(text);
+  const polarity = splitPolarity(text);
+  // Offers are matched only against wanted clauses, so a negated name never wins an add.
+  const posTt = polarity.neg.length ? polarity.pos : tt;
+  const isNegated = (p: { name: string; brand?: string | null }) =>
+    polarity.neg.length > 0 && mentioned(p, polarity.neg).length > 0 && mentioned(p, polarity.pos).length === 0;
   const recent = (input.recentUserTexts || []).flatMap(tokens);
   const ordinal = parseOrdinal(text);
   const wantsAll = ALL_RE.test(normFa(text));

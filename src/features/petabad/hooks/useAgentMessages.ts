@@ -91,7 +91,20 @@ const closeJourneys = (msgs: ChatMessage[]): ChatMessage[] =>
     : msgs;
 
 
+/** Live checkout state + actions the shell exposes so chat commands can drive the native checkout. */
+export interface CheckoutBridge {
+  loggedIn: boolean;
+  addresses: DeliveryAddress[];
+  selectedAddressId: string | null;
+  shippingId: string | null;
+  paymentId: string | null;
+  step: string;
+  apply: (directive: { kind: 'select_address' | 'select_shipping' | 'select_payment'; id: string }) => void;
+}
+
 interface UseAgentMessagesProps {
+  checkoutBridge?: React.MutableRefObject<CheckoutBridge | null>;
+  surface?: 'web' | 'mobile';
   updateCurrentBasket: (updater: (prev: BasketState) => BasketState) => void;
   setBasketStates: React.Dispatch<React.SetStateAction<Record<string, BasketState>>>;
   setBaskets: React.Dispatch<React.SetStateAction<Basket[]>>;
@@ -216,6 +229,8 @@ export const useAgentMessages = ({
   lastRecommendedProducts,
   productMemory,
   shoppingContext,
+  checkoutBridge,
+  surface = 'web',
 }: UseAgentMessagesProps) => {
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
@@ -693,9 +708,10 @@ export const useAgentMessages = ({
         messages: [...conversationHistory, { role: 'user', content }],
         mode: 'agentic',
         is_first_message: isFirstMessage,
+        surface,
         cart_context: {
           items: cartItems.map(item => ({
-            id: item.id, name: item.name, price: item.price, quantity: item.quantity,
+            id: item.id, name: item.name, price: item.price, quantity: item.quantity, brand: item.brand,
           })),
           total: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
         },
@@ -708,12 +724,25 @@ export const useAgentMessages = ({
           items: g.productIds
             .map(id => mem.entries[id])
             .filter(Boolean)
-            .map(e => ({ position: e.position, id: e.product.id, name: e.product.name, price: e.product.price })),
+            .map(e => ({ position: e.position, id: e.product.id, name: e.product.name, price: e.product.price, brand: e.product.brand })),
         })),
         products_context: lastRecommendedProducts.slice(0, 6).map(p => ({
-          id: p.id, name: p.name, price: p.price, brand: p.merchant?.name, rating: p.rating,
+          id: p.id, name: p.name, price: p.price, brand: p.brand || null, rating: p.rating,
         })),
+        // A single focused product («this») — set when the shopper opened one product's details.
+        focus_ids: mem.focus?.productIds?.length === 1 ? mem.focus.productIds : [],
       };
+      const bridge = checkoutBridge?.current;
+      if (bridge) {
+        body.checkout_context = {
+          logged_in: bridge.loggedIn,
+          addresses: bridge.addresses.map(a => ({ id: a.id, title: a.title, summary: String(a.fullAddress || '').slice(0, 60), is_default: a.isDefault })),
+          selected_address_id: bridge.selectedAddressId,
+          shipping_id: bridge.shippingId,
+          payment_id: bridge.paymentId,
+          step: bridge.step,
+        };
+      }
 
       const nextShopping = updateFromMessage(ensureShoppingContext(shoppingContext), content);
       // A carry-over question was on screen: this reply decides whether the old
@@ -825,22 +854,50 @@ export const useAgentMessages = ({
         return;
       }
 
-      // ── Cart branch ──
-      if (actions.length > 0 || needsClarification) {
+      // ── Checkout selections & native-UI guidance (validated server-side) ──
+      if (data?.response_type === 'checkout' || data?.response_type === 'guide') {
+        const directive = data?.directive;
+        if (directive?.kind && directive?.id) checkoutBridge?.current?.apply(directive);
+        const target = data?.guide?.target as string | undefined;
+        const nav: any[] = [];
+        if (target && ['add_address', 'edit_address', 'delete_address', 'edit_profile'].includes(target)
+          && !(target === 'add_address' && checkoutBridge?.current?.step === 'address-confirmation')) {
+          nav.push({ label: '👤 رفتن به پروفایل', nav: 'open_profile' });
+        }
+        if (target === 'orders') nav.push({ label: '📦 مشاهده سفارش‌ها', nav: 'open_orders' });
+        const replies = toChoiceReplies(data?.choices || [], nav);
+        updateCurrentBasket(s => ({
+          ...s,
+          messages: [...closeJourneys(s.messages), {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: data?.content || '',
+            quickReplies: replies.length ? replies : undefined,
+            timestamp: new Date(),
+          }],
+          shoppingContext: goalUpdated,
+          isProcessing: false,
+        }));
+        return;
+      }
+
+      // ── Cart branch (validated: ids resolved, ties turned into tap-to-answer choices) ──
+      if (data?.response_type === 'cart' || actions.length > 0 || needsClarification) {
         if (actions.length > 0 && !needsClarification) executeCartActions(actions);
 
-        const quickReplies = needsClarification && clarificationOptions.length > 0
-          ? clarificationOptions.map((opt: string, i: number) => ({
-              id: `clarify-${i}`, label: opt, type: 'custom' as QuickReplyType, action: `clarify_${i}`,
-            }))
-          : undefined;
+        const choices = Array.isArray(data?.choices) && data.choices.length
+          ? data.choices
+          : clarificationOptions.map((opt: string) => ({ label: opt, say: opt }));
+        const quickReplies = needsClarification
+          ? toChoiceReplies(choices)
+          : data?.undo ? toChoiceReplies([data.undo]) : [];
 
         const changed = actions.length > 0 && !needsClarification;
         const cartMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
           content: data?.content || 'عملیات انجام شد.',
-          quickReplies,
+          quickReplies: quickReplies.length ? quickReplies : undefined,
           ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
           timestamp: new Date(),
         };

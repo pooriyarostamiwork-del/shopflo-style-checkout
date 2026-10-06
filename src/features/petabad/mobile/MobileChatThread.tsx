@@ -286,6 +286,7 @@ export const MobileChatThread = ({
                 <div className="ml-9">
                   <AddressShippingSelector
                     mode={msg.addressShipping.mode}
+                    startWithForm={msg.addressShipping.openForm}
                     addresses={msg.addressShipping.addresses}
                     selectedAddressId={selectedAddressId || null}
                     onSelectAddressId={(id) => onAddressSelect?.(id)}

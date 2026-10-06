@@ -1,0 +1,1 @@
+ALTER TABLE public.telegram_chats ADD COLUMN IF NOT EXISTS thread_id bigint;

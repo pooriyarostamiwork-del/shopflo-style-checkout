@@ -443,7 +443,41 @@ export const useCheckoutFlow = ({
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, postPurchaseMessage] }));
   }, [updateCurrentBasket, setShowSuccess]);
 
+  // Telegram Mini App entry: the basket (and maybe the address) was already confirmed in the bot,
+  // so land directly on the right step instead of replaying the cart confirmation.
+  const jumpFromTelegram = useCallback((addrId: string | null, openForm: boolean) => {
+    const addr = addrId ? globalAddresses.find(a => a.id === addrId) : undefined;
+    const shipping: Record<string, string> = {};
+    getMerchantShipping().forEach(ms => { shipping[ms.merchant.id] = (ms.methods.find(m => m.isDefault) || ms.methods[0]).id; });
+    if (addr) {
+      updateCurrentBasket(s => ({
+        ...s,
+        isOTPVerified: true,
+        messages: [...s.messages, { id: `payment-${Date.now()}`, role: 'assistant', content: `📍 ارسال به «${addr.title}»\n\nروش پرداخت رو انتخاب کن:`, paymentOptions, timestamp: new Date() }],
+        agenticState: { ...s.agenticState, step: 'payment-selection', selectedAddress: addr, isLoggedIn: true, hasStoredCheckoutDetails: true },
+        selectedAddressId: addr.id,
+        selectedShippingByMerchant: { ...shipping, ...s.selectedShippingByMerchant },
+      }));
+      return;
+    }
+    const existing = !openForm && globalAddresses.length > 0;
+    updateCurrentBasket(s => ({
+      ...s,
+      isOTPVerified: true,
+      messages: [...s.messages, {
+        id: `addr-${Date.now()}`, role: 'assistant',
+        content: openForm ? 'آدرس جدیدت رو وارد کن:' : 'آدرس و نحوه ارسال را انتخاب کنید:',
+        addressShipping: { mode: existing ? 'existing' : 'new', addresses: globalAddresses, shippingMethods: [], openForm },
+        timestamp: new Date(),
+      }],
+      agenticState: { ...s.agenticState, step: 'address-confirmation', isLoggedIn: true },
+      selectedAddressId: existing ? globalAddresses[0].id : null,
+      selectedShippingByMerchant: shipping,
+    }));
+  }, [globalAddresses, getMerchantShipping, updateCurrentBasket]);
+
   return {
+    jumpFromTelegram,
     getMerchantShipping,
     handleQuickReply,
     handleOTPVerified,

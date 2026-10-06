@@ -1063,6 +1063,7 @@ export type Database = {
           pending_text: string | null
           phone: string | null
           session_token: string
+          thread_id: number | null
           updated_at: string
           user_id: string | null
           username: string | null
@@ -1078,6 +1079,7 @@ export type Database = {
           pending_text?: string | null
           phone?: string | null
           session_token?: string
+          thread_id?: number | null
           updated_at?: string
           user_id?: string | null
           username?: string | null
@@ -1093,6 +1095,7 @@ export type Database = {
           pending_text?: string | null
           phone?: string | null
           session_token?: string
+          thread_id?: number | null
           updated_at?: string
           user_id?: string | null
           username?: string | null

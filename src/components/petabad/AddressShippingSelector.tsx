@@ -31,6 +31,7 @@ interface AddressShippingSelectorProps {
   onSubmitNewAddress: (address: Omit<DeliveryAddress, "id">) => void;
   onAddNewAddress: (address: Omit<DeliveryAddress, "id">) => void;
   onConfirm: () => void;
+  startWithForm?: boolean;
 }
 
 export const AddressShippingSelector = ({
@@ -43,14 +44,14 @@ export const AddressShippingSelector = ({
   onSelectShipping,
   onSubmitNewAddress,
   onAddNewAddress,
-  onConfirm,
+  onConfirm, startWithForm,
 }: AddressShippingSelectorProps) => {
   const selectedAddress = useMemo(
     () => addresses.find((a) => a.id === selectedAddressId) ?? null,
     [addresses, selectedAddressId],
   );
 
-  const [showAddForm, setShowAddForm] = useState(mode === "new" && addresses.length === 0);
+  const [showAddForm, setShowAddForm] = useState(!!startWithForm || (mode === "new" && addresses.length === 0));
   const [newAddress, setNewAddress] = useState({
     title: "",
     province: "",

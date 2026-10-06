@@ -47,28 +47,29 @@ Deno.serve(async (req) => {
       const archived = [{
         token, title: String(first).slice(0, 40), reason: "completed", ended_at: new Date().toISOString(),
         count: (live.cart || []).reduce((s: number, i: any) => s + i.qty, 0),
-        history: hist, cart: live.cart || [], last_products: live.last_products || [],
+        history: hist, cart: live.cart || [], last_products: live.last_products || [], thread_id: live.thread_id ?? null,
       }, ...(live.archived || [])].slice(0, 10);
       await db.from("telegram_chats").update({
         session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false,
-        pending_text: null, archived, updated_at: new Date().toISOString(),
+        pending_text: null, archived, thread_id: null, updated_at: new Date().toISOString(),
       }).eq("chat_id", live.chat_id);
       const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN");
       if (BOT) {
         const tg = (m: string, body: unknown) => fetch(`https://api.telegram.org/bot${BOT}/${m}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         }).then((r) => r.json()).catch((e) => { console.error(m, e); return {}; });
-        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📜 گفتگوها", web_app: { url: "https://flowcart.space/petabad?view=history" } }, { text: "✨ گفتگوی جدید" }]], resize_keyboard: true, is_persistent: true };
-        await tg("sendMessage", { chat_id: live.chat_id, parse_mode: "HTML", text: `سفارشت با موفقیت ثبت شد 🎉${num ? `\nکد پیگیری: <code>${num}</code>` : ""}` });
-        const date = new Date().toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" });
-        const r: any = await tg("sendMessage", {
-          chat_id: live.chat_id, parse_mode: "HTML", reply_markup: KB,
-          text: `📌 <b>گفتگوی جدید شروع شد ✨</b>\n🕒 ${date}\nسفارش قبلی‌ات ثبت و توی «📜 گفتگوها» ذخیره شد؛ از این‌جا به بعد یه گفتگوی تازه‌ست. برای خرید بعدی فقط بنویس دنبال چی هستی.`,
+        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📦 پیگیری سفارش" }]], resize_keyboard: true, is_persistent: true };
+        const old = live.thread_id ? { message_thread_id: live.thread_id } : {};
+        await tg("sendMessage", { chat_id: live.chat_id, ...old, parse_mode: "HTML", text: `سفارشت با موفقیت ثبت شد 🎉${num ? `\nکد پیگیری: <code>${num}</code>` : ""}` });
+        // Threaded Mode: close the finished topic under a "✅" name and open a fresh one for the next purchase.
+        if (live.thread_id) await tg("editForumTopic", { chat_id: live.chat_id, message_thread_id: live.thread_id, name: `✅ ${String(first).slice(0, 40)}` });
+        const t: any = await tg("createForumTopic", { chat_id: live.chat_id, name: "🛍 خرید جدید" });
+        const tid = t?.ok ? t.result.message_thread_id : null;
+        if (tid) await db.from("telegram_chats").update({ thread_id: tid }).eq("chat_id", live.chat_id);
+        await tg("sendMessage", {
+          chat_id: live.chat_id, ...(tid ? { message_thread_id: tid } : {}), reply_markup: KB,
+          text: "گفتگوی جدید آماده‌ست ✨ برای خرید بعدی فقط بنویس دنبال چی هستی 🐾",
         });
-        if (r?.ok) {
-          await tg("unpinAllChatMessages", { chat_id: live.chat_id });
-          await tg("pinChatMessage", { chat_id: live.chat_id, message_id: r.result.message_id, disable_notification: true });
-        }
       }
       return json({ ok: true });
     }
@@ -87,6 +88,7 @@ Deno.serve(async (req) => {
     const messages = (chat.history || []).map((m: any) => ({
       role: m.role,
       content: String(m.content || "").replace(/\n?\[محصولات نمایش داده شده:[\s\S]*\]$/, ""),
+      ...(Array.isArray(m.products) && m.products.length ? { products: m.products } : {}),
     }));
     return json({
       session_id: chat.session_token,

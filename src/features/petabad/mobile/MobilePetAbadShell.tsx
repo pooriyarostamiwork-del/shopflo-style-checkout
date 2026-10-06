@@ -98,6 +98,7 @@ export const MobilePetAbadShell = () => {
     handleAddressSelect,
     handleSelectShipping,
     handleAddressConfirm,
+    jumpFromTelegram,
     handleAddNewAddress,
     handlePaymentSelect,
     handleFinalizePurchase,
@@ -330,26 +331,21 @@ export const MobilePetAbadShell = () => {
 
   // "Finalize purchase" from the bot: the basket was already reviewed in Telegram, so skip the
   // cart summary and jump straight into address/shipping (or payment when an address was picked in the bot).
-  const pendingAddrRef = useRef<string | null>(null);
+  const tgWaitRef = useRef(0);
+  const [tgTick, setTgTick] = useState(0);
   useEffect(() => {
     const id = tgSession.checkoutIntent;
     if (!id || activeBasketId !== id || !cartItems.length) return;
-    pendingAddrRef.current = tgSession.checkoutAddr;
+    const addr = tgSession.checkoutAddr;
+    // Wait (briefly) for the signed-in user's addresses so the bot-picked address resolves.
+    if (addr && !globalAddresses.some(a => a.id === addr) && tgWaitRef.current < 20) {
+      const t = setTimeout(() => { tgWaitRef.current++; setTgTick(n => n + 1); }, 150);
+      return () => clearTimeout(t);
+    }
     tgSession.clearCheckoutIntent();
-    const t = setTimeout(() => handleQuickReply({ id: "yes", label: "✅ بله، تأیید می‌کنم", type: "confirm-cart" } as any), 300);
-    return () => clearTimeout(t);
+    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tgSession.checkoutIntent, activeBasketId, cartItems.length]);
-  useEffect(() => {
-    const addr = pendingAddrRef.current;
-    if (!addr || agenticState.step !== "address-confirmation") return;
-    if (currentState.selectedAddressId !== addr) { handleAddressSelect(addr); return; }
-    const ready = cartItems.every(i => selectedShippingByMerchant[i.merchant.id]);
-    if (!ready) return;
-    pendingAddrRef.current = null;
-    handleAddressConfirm();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agenticState.step, currentState.selectedAddressId, selectedShippingByMerchant]);
+  }, [tgSession.checkoutIntent, activeBasketId, cartItems.length, globalAddresses, tgTick]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountTab, setAccountTab] = useState<"profile" | "orders">("profile");
   const [urlOrderId, setUrlOrderId] = useState<string | null>(null);

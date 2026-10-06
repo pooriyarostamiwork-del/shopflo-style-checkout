@@ -1,3 +1,4 @@
+import { WanderingEyes } from "@/components/petabad/WanderingEyes";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SquarePen } from "lucide-react";
@@ -325,7 +326,11 @@ export const MobilePetAbadShell = () => {
     .filter((id): id is string => !!id);
 
   // ── Deep linking: Landing: none · Chat: ?c=<basketId> · Account: ?tab=profile|orders · Order: ?order=<id>
-  const tgSession = useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened: handleBasketSelect });
+  // Remember the Telegram-opened chat so the ?c URL sync never mistakes it for an unknown basket
+  // (state may not have committed yet) and never re-selects it, which would wipe the checkout step.
+  const tgOpenedRef = useRef<string | null>(null);
+  const handleTgOpened = useCallback((id: string) => { tgOpenedRef.current = id; handleBasketSelect(id); }, [handleBasketSelect]);
+  const tgSession = useTelegramSession({ baskets, setBaskets, setActiveBasketId, setBasketStates, onOpened: handleTgOpened });
   // A Telegram Mini App open goes straight to the chat shell (no storefront flash).
   const onLanding = !tgSession.pending && (pendingNewChat || !hasStartedChat);
 
@@ -361,6 +366,7 @@ export const MobilePetAbadShell = () => {
     const order = searchParams.get("order");
     const c = searchParams.get("c");
     const productId = searchParams.get("p");
+    if (c && c === tgOpenedRef.current && !tab && !order) return;
     setUrlOrderId(order);
     if (productId && !(c && baskets.some(b => b.id === c))) return;
     if (order || tab === "orders" || tab === "profile") {
@@ -543,7 +549,12 @@ export const MobilePetAbadShell = () => {
 
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        {onLanding ? (
+        {tgSession.pending ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 animate-fade-in" role="status">
+            <WanderingEyes className="text-primary" />
+            <p className="text-sm text-muted-foreground">در حال آماده‌سازی گفتگوی شما…</p>
+          </div>
+        ) : onLanding ? (
           <MobileChatLanding
             onSendMessage={handleSendMessageWithPending}
             onAddToCart={handleAddToCartCommitted}

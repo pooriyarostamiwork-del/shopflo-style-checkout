@@ -384,8 +384,7 @@ async function startNew(chat: any, commandMessageId?: number) {
   await greetTopic(chat);
   const navigation = await tg("sendMessage", {
     chat_id: chat.chat_id, message_thread_id: previousThread || 0,
-    text: "گفتگوی جدید آماده شد.",
-    reply_markup: { inline_keyboard: [[{ text: "ورود به گفتگوی جدید", url: `https://t.me/Flowcartbot?topic=${id}` }]] },
+    text: "گفتگوی جدید ساخته شد ✅\nاز لیست گفتگوها (بالای صفحه) واردش شو.",
   });
   if (navigation.ok) {
     const ids = [commandMessageId, navigation.result.message_id].filter((n): n is number => typeof n === "number");
@@ -396,6 +395,7 @@ async function startNew(chat: any, commandMessageId?: number) {
 // A topic opened from Telegram's native compose button: bind a fresh session and greet inside it.
 async function handleTopicCreated(msg: any) {
   if (msg.from?.is_bot) return; // bot-created topics are greeted by startNew
+  if (String(msg.forum_topic_created?.name || "").startsWith("/")) return; // /start topic is greeted by the /start handler
   const chat = await loadChat(msg.chat.id, msg.from);
   if (!(await syncThread(chat, msg.message_thread_id))) return;
   if ((chat.history || []).length) return;
@@ -427,12 +427,10 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
     const payload = text.split(" ")[1];
     await tg("deleteMyCommands", {});
     await tg("setChatMenuButton", { chat_id: chatId, menu_button: { type: "default" } });
-    if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
-    await tg("sendMessage", {
-      chat_id: chatId,
-      text: PETABAD_GREETING,
-      reply_markup: MAIN_KB,
-    });
+    const hasUser = (chat.history || []).some((m: any) => m.role === "user");
+    if (!chat._new && (hasUser || (chat.cart || []).length)) await rotate(chat, "manual");
+    await renameTopic(chat, thread.getStore()?.id || chat.thread_id, "خرید جدید");
+    if (!(chat.history || []).some((m: any) => m.role === "assistant" && m.content === PETABAD_GREETING) || hasUser) await greetTopic(chat);
     if (payload?.startsWith("p_")) {
       const p = await db.from("pet_products").select("name").eq("id", payload.slice(2)).maybeSingle();
       text = p.data ? `درباره «${p.data.name}» بیشتر توضیح بده` : "";
@@ -487,7 +485,7 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
   const cardOpts: string[] = (card?.options || card?.steps?.[0]?.options || []).map((o: any) => (typeof o === "string" ? o : o?.label)).filter(Boolean);
   const cardQ = card?.question || card?.steps?.[0]?.question;
   const cardMulti = !!(card?.multi || card?.kind === "multi" || card?.steps?.[0]?.multi);
-  const products: any[] = (ans.products || []).slice(0, 4);
+  const products: any[] = (ans.products || []).slice(0, 6);
 
   const textOut = [content, cardQ && !content.includes(cardQ) ? cardQ : ""].filter(Boolean).join("\n\n") || "…";
   await tg("sendMessage", {
@@ -552,10 +550,9 @@ async function handleCallback(cb: any) {
     if (!method || !address || !(chat.cart || []).length) return ack("اول آدرس و سبد خرید رو انتخاب کن");
     await saveChat(chat, { checkout_selection: { address_id: address.id, shipping_id: method.id } });
     await ack("روش ارسال انتخاب شد");
-    await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
-    return tg("sendMessage", {
-      chat_id: chatId,
-      text: `📍 آدرس: «${address.title}»\n🚚 ${method.label} · ${method.deliveryWindow}\nهزینه ارسال: ${method.priceLabel}\n💰 مجموع پرداختی: ${price(cartTotal(chat.cart) + method.fee)}${method.id === "courier" ? " (هزینه پیک جداگانه، پس کرایه)" : ""}`,
+    return tg("editMessageText", {
+      chat_id: chatId, message_id: cb.message.message_id,
+      text: `📍 ارسال به «${address.title}»\n${address.full_address}\n\n🚚 روش ارسال: ${method.label} · ${method.deliveryWindow}\nهزینه ارسال: ${method.priceLabel}\n💰 مجموع پرداختی: ${price(cartTotal(chat.cart) + method.fee)}${method.id === "courier" ? " (هزینه پیک جداگانه، پس کرایه)" : ""}`,
       reply_markup: { inline_keyboard: [[{ text: "💳 پرداخت و ثبت سفارش", web_app: { url: `${appUrl(chat)}&intent=payment&addr=${address.id}&ship=${method.id}` } }]] },
     });
   }

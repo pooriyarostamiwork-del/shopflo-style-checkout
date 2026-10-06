@@ -3,6 +3,7 @@
 // executes cart operations, renders photo cards, and opens the PetAbad
 // Mini App (web_app buttons) carrying the same conversation via ?tg=<token>.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -18,7 +19,13 @@ const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, 
 const stripMd = (s: string) => String(s ?? "").replace(/\*\*|__|#+\s?|`/g, "").replace(/SELECTED_IDS:.*$/gm, "").trim();
 const pname = (p: any) => p?.name_fa || p?.name || "";
 
-async function tg(method: string, body: unknown) {
+// Threaded Mode (Topics): each shopping session lives in its own topic. The current update's topic is
+// carried per-request so every outgoing message lands in the active session's thread.
+const thread = new AsyncLocalStorage<{ id?: number }>();
+const THREADED = new Set(["sendMessage", "sendPhoto", "sendChatAction"]);
+async function tg(method: string, body: any) {
+  const t = thread.getStore()?.id;
+  if (t && THREADED.has(method) && body && body.message_thread_id === undefined) body = { ...body, message_thread_id: t };
   const r = await fetch(`${API}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (!j.ok) console.error(`telegram ${method} failed`, JSON.stringify(j));
@@ -31,8 +38,9 @@ async function deriveSecret() {
 }
 
 // One clean persistent button row replaces Telegram's standard Commands menu.
-const BTN_CART = "🛒 سبد خرید", BTN_HIST = "📜 گفتگوها", BTN_NEW = "✨ گفتگوی جدید";
-const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_HIST, web_app: { url: `${SITE}?view=history` } }, { text: BTN_NEW }]], resize_keyboard: true, is_persistent: true };
+// New conversations are Telegram's own "new topic" button, so only cart + order tracking remain.
+const BTN_CART = "🛒 سبد خرید", BTN_TRACK = "📦 پیگیری سفارش";
+const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_TRACK }]], resize_keyboard: true, is_persistent: true };
 const PHONE_KB = { keyboard: [[{ text: "📱 ارسال شماره تماس", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true };
 const NEW_BTN = { text: "➕ شروع گفتگوی جدید", callback_data: "new" };
 const DAY = 24 * 60 * 60 * 1000;
@@ -80,26 +88,26 @@ async function sendAddressStep(chat: any) {
     return tg("sendMessage", {
       chat_id: chat.chat_id,
       text: `سبدت آماده‌ست (${price(cartTotal(chat.cart))}) ✅\n\nهنوز آدرسی ثبت نکردی؛ توی اپ آدرست رو وارد کن و همون‌جا خرید رو تموم کن 👇`,
-      reply_markup: { inline_keyboard: [[appCheckoutBtn(chat, "📍 ثبت آدرس و ادامه خرید")]] },
+      reply_markup: { inline_keyboard: [[{ text: "📍 ثبت آدرس و ادامه خرید", web_app: { url: `${appUrl(chat)}&intent=new_address` } }]] },
     });
   }
   const rows = data.map((a: any) => [{ text: `📍 ${a.title} · ${String(a.full_address).slice(0, 36)}`, callback_data: `addr:${a.id}` }]);
   return tg("sendMessage", {
     chat_id: chat.chat_id,
     text: `سبدت آماده‌ست (${price(cartTotal(chat.cart))}) ✅\n\nبه کدوم آدرس بفرستیم؟`,
-    reply_markup: { inline_keyboard: [...rows, [appCheckoutBtn(chat, "➕ آدرس جدید (در اپ)")]] },
+    reply_markup: { inline_keyboard: [...rows, [{ text: "➕ آدرس جدید (در اپ)", web_app: { url: `${appUrl(chat)}&intent=new_address` } }]] },
   });
 }
 
-// Pinned session header: every new session gets one, replacing the previous pin.
-async function pinSession(chatId: number, text: string) {
-  const r = await tg("sendMessage", { chat_id: chatId, parse_mode: "HTML", text, reply_markup: MAIN_KB });
-  if (r.ok) {
-    await tg("unpinAllChatMessages", { chat_id: chatId });
-    await tg("pinChatMessage", { chat_id: chatId, message_id: r.result.message_id, disable_notification: true });
-  }
+// Topic helpers: create a fresh topic for a new session, rename topics after their content/outcome.
+async function openTopic(chat: any, name: string) {
+  const r = await tg("createForumTopic", { chat_id: chat.chat_id, name: name.slice(0, 128) });
+  const id = r?.ok ? r.result.message_thread_id : null;
+  if (id) { thread.getStore() && (thread.getStore()!.id = id); }
+  return id as number | null;
 }
-const sessionHeader = (title: string) => `📌 <b>${title}</b>\n🕒 ${new Date().toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" })}\nپیام‌های بالای این خط مربوط به گفتگوهای قبلی‌ان و توی «📜 گفتگوها» در دسترسن.`;
+const renameTopic = (chat: any, id: number | null | undefined, name: string) =>
+  id ? tg("editForumTopic", { chat_id: chat.chat_id, message_thread_id: id, name: name.slice(0, 128) }) : null;
 
 // Mirror the Telegram conversation into the linked user's Flowcart history.
 async function mirrorToBasket(chat: any) {
@@ -235,7 +243,7 @@ async function runAgent(chat: any, text: string) {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
     body: JSON.stringify({
-      messages: history,
+      messages: history.map((m: any) => ({ role: m.role, content: m.content })),
       mode: "agentic",
       is_first_message: history.length <= 1,
       cart_context: { items: cart.map((i) => ({ id: i.id, name: i.name, price: i.price, quantity: i.qty })), total: cartTotal(cart) },
@@ -300,9 +308,10 @@ async function rotate(chat: any, reason: "completed" | "expired" | "manual") {
       history: hist,
       cart: chat.cart || [],
       last_products: chat.last_products || [],
+      thread_id: chat.thread_id ?? null,
     });
   }
-  await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: archived.slice(0, 10) });
+  await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: archived.slice(0, 10), thread_id: null });
 }
 
 // Lazy 24h expiry, checked on every incoming update.
@@ -325,46 +334,49 @@ const ago = (iso: string) => {
   return d <= 0 ? "امروز" : d === 1 ? "دیروز" : `${fa(d)} روز پیش`;
 };
 
-async function sendHistory(chat: any) {
-  const list: any[] = (chat.archived || []).slice(0, 3);
-  const rows = list.map((a) => [{
-    text: `${a.reason === "completed" ? "✅" : "💬"} ${String(a.title).slice(0, 28)}${a.count ? ` · ${fa(a.count)} کالا` : ""} · ${ago(a.ended_at)}`,
-    ...(a.reason === "completed" ? { web_app: { url: `${SITE}?tg=${a.token}` } } : { callback_data: `resume:${a.token}` }),
-  }]);
-  rows.push([{ text: "📂 همه گفتگوها در مینی‌اپ", web_app: { url: SITE } }]);
-  await tg("sendMessage", {
-    chat_id: chat.chat_id,
-    parse_mode: "HTML",
-    text: list.length ? "📜 <b>گفتگوهای قبلی تو</b>\nیکی رو برای ادامه انتخاب کن یا یه گفتگوی تازه شروع کن:" : "هنوز گفتگوی قبلی‌ای نداری. هر وقت خواستی یه گفتگوی تازه شروع کن 🙂",
-    reply_markup: { inline_keyboard: rows },
-  });
-}
-
-async function resume(chat: any, token: string) {
+// Map the incoming topic to its session: an archived topic is resumed, an unknown one starts a fresh session.
+async function syncThread(chat: any, t: number | undefined) {
+  if (!t || chat.thread_id === t) return true;
   const archived: any[] = chat.archived || [];
-  const entry = archived.find((a) => a.token === token);
-  if (!entry) return false;
-  const rest = archived.filter((a) => a.token !== token);
+  const entry = archived.find((a) => a.thread_id === t);
+  if (entry?.reason === "completed") {
+    await tg("sendMessage", { chat_id: chat.chat_id, text: "این خرید ثبت و تموم شده ✅ برای خرید تازه یه تاپیک جدید باز کن یا توی تاپیک فعلی ادامه بده 🐾", reply_markup: MAIN_KB });
+    return false;
+  }
+  const rest = archived.filter((a) => a !== entry);
   if ((chat.history || []).length || (chat.cart || []).length) {
     const first = (chat.history || []).find((m: any) => m.role === "user")?.content || "گفتگوی تلگرام";
-    rest.unshift({ token: chat.session_token, title: String(first).slice(0, 40), count: (chat.cart || []).reduce((s: number, i: any) => s + i.qty, 0), reason: "manual", ended_at: new Date().toISOString(), history: chat.history, cart: chat.cart, last_products: chat.last_products });
+    rest.unshift({ token: chat.session_token, title: String(first).slice(0, 40), count: (chat.cart || []).reduce((s: number, i: any) => s + i.qty, 0), reason: "manual", ended_at: new Date().toISOString(), history: chat.history, cart: chat.cart, last_products: chat.last_products, thread_id: chat.thread_id ?? null });
   }
-  await saveChat(chat, { session_token: entry.token, history: entry.history || [], cart: entry.cart || [], last_products: entry.last_products || [], locked: false, archived: rest.slice(0, 10) });
-  const lastBot = [...(entry.history || [])].reverse().find((m: any) => m.role === "assistant")?.content || "";
-  await tg("sendMessage", { chat_id: chat.chat_id, text: `برگشتیم به گفتگوی «${entry.title}» 🐾${lastBot ? `\n\nآخرین حرفم این بود:\n${String(lastBot).replace(/\n?\[محصولات نمایش داده شده:[\s\S]*\]$/, "").slice(0, 300)}` : ""}\n\nادامه بدیم؟`, reply_markup: MAIN_KB });
-  if ((entry.cart || []).length) await sendCart(chat);
+  if (entry) await saveChat(chat, { session_token: entry.token, history: entry.history || [], cart: entry.cart || [], last_products: entry.last_products || [], locked: false, archived: rest.slice(0, 10), thread_id: t, pending_text: null });
+  else if (chat._new) Object.assign(chat, { thread_id: t });
+  else await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: rest.slice(0, 10), thread_id: t, pending_text: null });
   return true;
 }
 
 async function startNew(chat: any, intro = "گفتگوی جدید شروع شد ✨") {
   if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
-  await pinSession(chat.chat_id, `${sessionHeader(intro)}\n\nبگو برای کی دنبال چی هستی؟`);
+  const id = await openTopic(chat, "🛍 خرید جدید");
+  if (id) { if (chat._new) chat.thread_id = id; else await saveChat(chat, { thread_id: id }); }
+  await tg("sendMessage", { chat_id: chat.chat_id, text: `${intro}\n\nبگو برای کی دنبال چی هستی؟`, reply_markup: MAIN_KB });
+}
+
+async function sendTracking(chat: any) {
+  if (!chat.user_id) {
+    return tg("sendMessage", { chat_id: chat.chat_id, text: "برای دیدن سفارش‌هات اول شماره‌ات رو تأیید کن 👇", reply_markup: PHONE_KB });
+  }
+  const { data } = await db.from("orders").select("order_number,status,total,created_at").eq("user_id", chat.user_id).order("created_at", { ascending: false }).limit(3);
+  if (!data?.length) return tg("sendMessage", { chat_id: chat.chat_id, text: "هنوز سفارشی ثبت نکردی 🙂", reply_markup: MAIN_KB });
+  const ST: Record<string, string> = { pending: "در انتظار پرداخت", paid: "پرداخت‌شده", processing: "در حال آماده‌سازی", confirmed: "تأییدشده", shipped: "ارسال‌شده", delivered: "تحویل‌شده", cancelled: "لغوشده" };
+  const lines = data.map((o: any) => `📦 <code>${esc(o.order_number)}</code>\n     ${ST[o.status] || esc(o.status)} · ${price(o.total)} · ${new Date(o.created_at).toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" })}`);
+  return tg("sendMessage", { chat_id: chat.chat_id, parse_mode: "HTML", text: `<b>آخرین سفارش‌هات</b>\n\n${lines.join("\n\n")}`, reply_markup: MAIN_KB });
 }
 
 async function handleText(chatId: number, from: any, text: string) {
   const chat = await loadChat(chatId, from);
-  if (text === "/new" || text === BTN_NEW) return startNew(chat);
-  if (text === "/history" || text === BTN_HIST) return sendHistory(chat);
+  if (!(await syncThread(chat, thread.getStore()?.id))) return;
+  if (text === "/new" || text === "✨ گفتگوی جدید") return startNew(chat);
+  if (text === "/track" || text === BTN_TRACK || text === "📜 گفتگوها") return sendTracking(chat);
   if (text === "/phone") return tg("sendMessage", { chat_id: chatId, text: "با دکمه زیر شماره‌ات رو بفرست تا بدون پیامک تأیید بشه:", reply_markup: PHONE_KB });
   if (!text.startsWith("/start") && text !== BTN_CART && text !== "/cart") {
     if (await askIfStale(chat, text)) return;
@@ -375,7 +387,6 @@ async function handleText(chatId: number, from: any, text: string) {
     await tg("deleteMyCommands", {});
     await tg("setChatMenuButton", { chat_id: chatId, menu_button: { type: "default" } });
     if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
-    await pinSession(chatId, sessionHeader("گفتگوی جدید شروع شد ✨"));
     await tg("sendMessage", {
       chat_id: chatId,
       text: `سلام ${from?.first_name ?? ""}! 🐾 من دستیار خرید هوشمند پت‌آباد هستم (قدرت‌گرفته از Flowcart).\n\nبگو برای کی دنبال چی هستی، مثلاً «غذای خشک گربه عقیم‌شده زیر ۸۰۰ هزار تومن» یا «خاک گربه بی‌بو»؛ بهترین گزینه‌ها رو برات پیدا می‌کنم و همین‌جا به سبدت اضافه می‌کنم.`,
@@ -401,6 +412,7 @@ async function handleText(chatId: number, from: any, text: string) {
     return sendCart(chat);
   }
 
+  if (!(chat.history || []).length && chat.thread_id) await renameTopic(chat, chat.thread_id, `🛍 ${text.slice(0, 40)}`);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   let out;
   try {
@@ -458,7 +470,8 @@ async function handleText(chatId: number, from: any, text: string) {
     patch.last_products = products.map((p) => ({ id: p.id, name: pname(p), price: p.price, brand: p.brand ?? null }));
   }
   const summary = products.length ? `${textOut}\n[محصولات نمایش داده شده: ${products.map((p, i) => `#${i + 1} ${pname(p)} (id:${p.id})`).join("، ")}]` : textOut;
-  patch.history = [...history, { role: "assistant", content: summary }].slice(-14);
+  const slim = products.map((p) => ({ id: p.id, name_fa: pname(p), price: p.price, original_price: p.original_price ?? null, image_url: p.image_url || p.image || p.image_urls?.[0] || null, image_urls: p.image_urls || null, brand: p.brand ?? null, rating: p.rating ?? null, review_count: p.review_count ?? 0, in_stock: p.in_stock !== false, category: p.category ?? null, subcategory: p.subcategory ?? null, species: p.species ?? null, weight: p.weight ?? null }));
+  patch.history = [...history, { role: "assistant", content: summary, ...(slim.length ? { products: slim } : {}) }].slice(-14);
   await saveChat(chat, patch);
 }
 
@@ -466,16 +479,11 @@ async function handleCallback(cb: any) {
   const chatId = cb.message?.chat?.id;
   const data: string = cb.data || "";
   const chat = await loadChat(chatId, cb.from);
-  let cart: any[] = chat.cart || [];
   const ack = (text?: string) => tg("answerCallbackQuery", { callback_query_id: cb.id, ...(text ? { text } : {}) });
+  if (!(await syncThread(chat, thread.getStore()?.id))) return ack();
+  let cart: any[] = chat.cart || [];
 
   if (data === "new") { await ack(); return startNew(chat); }
-  if (data === "history") { await ack(); return sendHistory(chat); }
-  if (data.startsWith("resume:")) {
-    await ack();
-    if (!(await resume(chat, data.slice(7)))) await tg("sendMessage", { chat_id: chatId, text: "این گفتگو دیگه در دسترس نیست." });
-    return;
-  }
   if (data.startsWith("q:")) { await ack(); return handleText(chatId, cb.from, data.slice(2)); }
   if (data === "noop") return ack();
   if (data.startsWith("addr:")) {
@@ -576,6 +584,7 @@ function phoneVariants(raw: string) {
 
 async function handleContact(msg: any) {
   const chat = await loadChat(msg.chat.id, msg.from);
+  await syncThread(chat, thread.getStore()?.id);
   if (msg.contact.user_id && msg.contact.user_id !== msg.from?.id) {
     return tg("sendMessage", { chat_id: msg.chat.id, text: "لطفاً شماره‌ی خودت رو با همون دکمه بفرست 🙏", reply_markup: MAIN_KB });
   }
@@ -601,9 +610,12 @@ Deno.serve(async (req) => {
   if (req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== secret) return new Response("Unauthorized", { status: 401 });
   try {
     const update = await req.json();
-    if (update.callback_query) await handleCallback(update.callback_query);
-    else if (update.message?.contact) await handleContact(update.message);
-    else if (update.message?.text) await handleText(update.message.chat.id, update.message.from, update.message.text.trim());
+    const m = update.message ?? update.callback_query?.message;
+    await thread.run({ id: m?.message_thread_id }, async () => {
+      if (update.callback_query) await handleCallback(update.callback_query);
+      else if (update.message?.contact) await handleContact(update.message);
+      else if (update.message?.text) await handleText(update.message.chat.id, update.message.from, update.message.text.trim());
+    });
   } catch (e) {
     console.error("webhook error", e);
   }

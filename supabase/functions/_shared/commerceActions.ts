@@ -185,6 +185,12 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
       if (target && target.id !== best[0].id) trace.push(`text-overrode-model:${target.id}->${best[0].id}`);
       return { item: best[0] };
     }
+    // The model's own pick stands when the text names it by a word no other tied item carries
+    // («هپی پت» among foods also matching «غذا»).
+    if (target && best.some((b) => b.id === target.id)) {
+      const others = best.filter((b) => b.id !== target.id);
+      if (mentioned(target, toks).some((t) => !others.some((o) => nameTokens(o).some((x) => tokenHit(x, t))))) return { item: target };
+    }
     const keys = new Set(best.flatMap((p) => mentioned(p, toks)));
     const own = (p: T) => nameTokens(p).filter((t) => !keys.has(t) && !best.some((o) => o.id !== p.id && nameTokens(o).includes(t)));
     const byMemory = best.filter((p) => own(p).some((d) => recent.some((x) => tokenHit(x, d))));

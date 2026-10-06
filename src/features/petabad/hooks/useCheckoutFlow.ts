@@ -81,6 +81,34 @@ export const useCheckoutFlow = ({
   const updateCurrentBasketRef = useRef(updateCurrentBasket);
   updateCurrentBasketRef.current = updateCurrentBasket;
 
+  // The address card in chat always shows the account's live saved addresses (they may hydrate
+  // after the card was created). A card opened explicitly for a new address keeps its form.
+  useEffect(() => {
+    if (!globalAddresses.length) return;
+    updateCurrentBasketRef.current(s => {
+      let touched = false;
+      const messages = s.messages.map(m => {
+        const as = m.addressShipping;
+        if (!as || as.openForm) return m;
+        const same = (as.addresses || []).length === globalAddresses.length
+          && (as.addresses || []).every((a, i) => a.id === globalAddresses[i]?.id);
+        if (same && as.mode === 'existing') return m;
+        touched = true;
+        return { ...m, addressShipping: { ...as, mode: 'existing' as const, addresses: globalAddresses } };
+      });
+      if (!touched) return s;
+      const keep = globalAddresses.find(a => a.id === s.selectedAddressId) || globalAddresses[0];
+      return {
+        ...s,
+        messages,
+        selectedAddressId: keep.id,
+        agenticState: s.agenticState.step === 'address-confirmation'
+          ? { ...s.agenticState, selectedAddress: keep, hasStoredCheckoutDetails: true }
+          : s.agenticState,
+      };
+    });
+  }, [globalAddresses]);
+
   // Pre-populate shipping defaults — only when step transitions TO 'address-confirmation'
   // Deps are limited to agenticState.step so cart/basket switches don't spuriously re-fire this
   useEffect(() => {

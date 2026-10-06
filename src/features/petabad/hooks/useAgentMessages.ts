@@ -530,37 +530,33 @@ export const useAgentMessages = ({
     const p2l = (s: string) => s.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
     const norm = p2l(content).trim().toLowerCase();
 
-    const ordinalMap: Record<string, number> = {
-      'اول': 1, 'اولی': 1, 'یکم': 1,
-      'دوم': 2, 'دومی': 2,
-      'سوم': 3, 'سومی': 3,
-      'چهارم': 4, 'چهارمی': 4,
-      'پنجم': 5, 'پنجمی': 5,
-      'ششم': 6, 'ششمی': 6,
-    };
-    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*)(\d+)/) || norm.match(/\b(\d+)\s*(?:ام|امی|م)?\b/);
+    // Only explicit positions are resolved locally («دومی»، «شماره ۳»، «آخری»); a bare number is a quantity.
+    const ordinalWords: Array<[string, number]> = [
+      ['اول', 1], ['اولی', 1], ['دوم', 2], ['دومی', 2], ['سوم', 3], ['سومی', 3],
+      ['چهارم', 4], ['چهارمی', 4], ['پنجم', 5], ['پنجمی', 5], ['ششم', 6], ['ششمی', 6],
+    ];
+    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*|گزینه\s*)(\d+)/);
     let refNum: number | undefined = refMatch ? parseInt(refMatch[1]) : undefined;
     if (!refNum) {
-      for (const [word, num] of Object.entries(ordinalMap)) {
-        if (norm.includes(word)) { refNum = num; break; }
+      for (const [word, num] of ordinalWords) {
+        if (new RegExp(`(^|\\s)${word}(ی|و|رو|را)?(\\s|$)`).test(norm)) { refNum = num; break; }
       }
     }
-    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته)/);
+    if (!refNum && /(^|\s)(آخری|اخری|آخرین)(و|رو|را)?(\s|$)/.test(norm) && lastRecommendedProducts.length) refNum = lastRecommendedProducts.length;
+    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته|دونه)/);
     const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
     const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
-    // Verb-shaped only: informational words that merely CONTAIN these letters
-    // (e.g. «خارجیاشون» containing «خارج») must never trigger a cart removal.
-    const removeRe = /(حذف\s*(کن|کنش|شون|ش)?|حذفش|بردار|پاکش|پاک\s*کن|از\s*سبد\s*(خارج|بردار|حذف)|درش\s*بیار|در\s*بیار|نمی‌?خوامش|دیگه\s*نمی‌?خوام)/;
+    const mutateRe = /(حذف|بردار|پاک|کم|زیاد|عوض|جایگزین|جای|بجای)/;
+    // «پرداخت» alone finalizes; a named method/address/shipping is a checkout command for the agent.
     const checkoutRe = /(نهایی|پرداخت|چک اوت|checkout|تسویه|ثبت سفارش|تموم کن|تمام کن)/;
-    const qtyUpRe = /(زیاد کن|بیشتر کن)/;
-    const qtyDownRe = /(کم کن|کمتر کن)/;
+    const checkoutDetailRe = /(کیف\s*پول|درگاه|قسط|اقساط|برداشت|آدرس|ادرس|اکسپرس|پیک|ارسال|بفرست|کد\s*تخفیف|کوپن)/;
     const ordersRe = /(سفارش‌?ها|سفارشاتم|پیگیری سفارش|کد رهگیری)/;
     // A question is a question: it goes to the assistant, never to a cart shortcut.
     const isQuestion = /[?؟]\s*$/.test(norm)
       || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
 
-    if (checkoutRe.test(norm) && cartItems.length > 0 && !isQuestion) {
+    if (checkoutRe.test(norm) && !checkoutDetailRe.test(norm) && cartItems.length > 0 && !isQuestion) {
       handleTransactionalCheckout();
       return;
     }
@@ -575,31 +571,19 @@ export const useAgentMessages = ({
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
       return;
     }
-    if (!isQuestion && removeRe.test(norm) && (refNum || cartItems.length >= 1)) {
-      handleTransactionalCartRemove(refNum);
-      return;
-    }
-    if (!isQuestion && addRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
+    // Exact positional add («دومی رو ۲ تا بنداز تو سبد») runs locally; everything with a name,
+    // a pronoun or a cart mutation goes to the agent, whose output is validated against the cart.
+    if (!isQuestion && addRe.test(norm) && !mutateRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
       handleTransactionalCartAdd(refNum, qty);
       return;
     }
-    if (!isQuestion && qtyUpRe.test(norm) && (refNum || cartItems.length === 1)) {
-      handleTransactionalQuantityUpdate(refNum, qty, +qty);
-      return;
-    }
-    if (!isQuestion && qtyDownRe.test(norm) && (refNum || cartItems.length === 1)) {
-      handleTransactionalQuantityUpdate(refNum, qty, -qty);
-      return;
-    }
-
 
     // ── Everything else: one agent call, the model picks the tool ──
     const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;
     await callUnifiedAgent(content, trimHistoryForAgent(messages), isFirstMessage);
   }, [
     cartItems, lastRecommendedProducts, messages, updateCurrentBasket,
-    handleTransactionalCartAdd, handleTransactionalCartRemove,
-    handleTransactionalQuantityUpdate, handleTransactionalCheckout,
+    handleTransactionalCartAdd, handleTransactionalCheckout,
   ]);
 
   // ── Execute validated cart actions (server contract: product ids resolved, absolute quantities) ──
@@ -980,7 +964,7 @@ export const useAgentMessages = ({
       };
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages.map(reopen), fallbackMessage], isProcessing: false }));
     }
-  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext]);
+  }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext, checkoutBridge, surface]);
 
   // ── sendMessageToBasket: targets an explicit basket ID ──
   const sendMessageToBasket = useCallback(async (targetBasketId: string, content: string) => {

@@ -246,6 +246,7 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   /** Offer for add/replace-add: ordinal wins, then index, then id, then name; pronoun needs a single focus. */
   const resolveOffer = (a: any, idxField: string, idField: string): { offer?: Offer; ambiguous?: Offer[] } => {
     let offer = (raw.length === 1 && ordOffer) || offerAt(a?.[idxField]) || findShown(a?.[idField]);
+    if (offer && isNegated(offer)) return { offer }; // the caller drops it; never re-target a «نمی‌خوام» item
     if (!(raw.length === 1 && ordOffer)) {
       const n = narrow(offer, shown, pickedAddIds, posTt);
       if (n.tie) return { ambiguous: n.tie };

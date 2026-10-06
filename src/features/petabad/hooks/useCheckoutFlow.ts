@@ -140,15 +140,15 @@ export const useCheckoutFlow = ({
         role: 'assistant',
         content: 'آدرس و نحوه ارسال را انتخاب کنید:',
         addressShipping: {
-          mode: isNewUser ? 'new' : 'existing',
-          addresses: isNewUser ? [] : globalAddresses,
+          mode: globalAddresses.length ? 'existing' : 'new',
+          addresses: globalAddresses,
           shippingMethods: [],
         },
         timestamp: new Date(),
       };
       updateCurrentBasket(s => {
         // An address/shipping already chosen in chat («بفرست خونه»، «با اکسپرس») survives cart confirmation.
-        const chosen = !isNewUser ? globalAddresses.find(a => a.id === s.selectedAddressId) || globalAddresses[0] : undefined;
+        const chosen = globalAddresses.find(a => a.id === s.selectedAddressId) || globalAddresses[0];
         return {
           ...s,
           messages: [...s.messages, addressMessage],
@@ -498,22 +498,19 @@ export const useCheckoutFlow = ({
     if (d.kind === 'select_payment') {
       const option = paymentOptions.find(p => p.id === d.id && p.available);
       if (!option) return;
-      updateCurrentBasket(s => {
-        const atPayment = s.agenticState.step === 'payment-selection';
-        return {
+      // An explicit typed pick at the payment step («با درگاه بزن») IS the decision: pay now,
+      // never a second button. Earlier in the flow it is stored and preselected for later.
+      if (agenticState.step === 'payment-selection') {
+        updateCurrentBasket(s => ({
           ...s,
-          agenticState: { ...s.agenticState, selectedPayment: option.id as PaymentMethod },
-          messages: atPayment
-            ? [...s.messages.map(m => (m.ctaButton ? { ...m, ctaButton: undefined } : m)), {
-                id: `pay-cta-${Date.now()}`, role: 'assistant' as const, content: '',
-                ctaButton: { label: `پرداخت با ${option.label}`, action: `pay:${option.id}`, disabled: false },
-                timestamp: new Date(),
-              }]
-            : s.messages,
-        };
-      });
+          messages: s.messages.map(m => (m.ctaButton ? { ...m, ctaButton: undefined } : m)),
+        }));
+        handlePaymentSelect(option.id);
+        return;
+      }
+      updateCurrentBasket(s => ({ ...s, agenticState: { ...s.agenticState, selectedPayment: option.id as PaymentMethod } }));
     }
-  }, [globalAddresses, cartItems, updateCurrentBasket]);
+  }, [globalAddresses, cartItems, updateCurrentBasket, agenticState.step, handlePaymentSelect]);
 
   const jumpFromTelegram = useCallback((addrId: string | null, openForm: boolean, shippingId?: string | null, verifiedAddress?: DeliveryAddress | null, paymentId?: string | null) => {
     const preferred = paymentOptions.find(p => p.id === paymentId && p.available);

@@ -13,7 +13,7 @@ import { checkoutModes, upsellProducts, couponTiers } from "@/data/checkoutModes
 import { useBasketState, createDefaultBasketState } from "./hooks/useBasketState";
 import { useUserData } from "./hooks/useUserData";
 import { useCheckoutFlow } from "./hooks/useCheckoutFlow";
-import { useAgentMessages } from "./hooks/useAgentMessages";
+import { useAgentMessages, type CheckoutBridge } from "./hooks/useAgentMessages";
 import { useCartPersistence } from "./hooks/useCartPersistence";
 import "./petabad-theme.css";
 import { Product } from "@/data/petabadData";

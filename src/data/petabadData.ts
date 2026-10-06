@@ -1,3 +1,5 @@
+import { resolvePetabadShipping } from '../../supabase/functions/_shared/petabadExperience';
+
 export interface Merchant {
   id: string;
   name: string;
@@ -540,7 +542,7 @@ export const formatPersianPrice = (price: number): string => {
 };
 
 // Calculate order summary from cart items
-export const calculateOrderSummary = (cartItems: CartItem[]): OrderSummary => {
+export const calculateOrderSummary = (cartItems: CartItem[], shipping: Record<string, string> = {}): OrderSummary => {
   const vendorMap = new Map<string, VendorOrderSummary>();
   
   cartItems.forEach(item => {
@@ -550,13 +552,14 @@ export const calculateOrderSummary = (cartItems: CartItem[]): OrderSummary => {
         merchant: item.merchant,
         items: [],
         subtotal: 0,
-        deliveryFee: item.fastDelivery ? 0 : 35000, // Free delivery for fast delivery items
+        deliveryFee: resolvePetabadShipping(shipping[merchantId])?.fee ?? (item.fastDelivery ? 0 : 35000),
         discount: 0,
         total: 0,
       });
     }
     
-    const vendor = vendorMap.get(merchantId)!;
+    const vendor = vendorMap.get(merchantId);
+    if (!vendor) return;
     vendor.items.push(item);
     vendor.subtotal += item.price * item.quantity;
     

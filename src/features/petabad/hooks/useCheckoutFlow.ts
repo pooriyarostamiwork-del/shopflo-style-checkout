@@ -12,6 +12,7 @@ import {
   calculateOrderSummary,
 } from "@/data/petabadData";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
+import { PETABAD_SHIPPING, resolvePetabadShipping } from '../../../../supabase/functions/_shared/petabadExperience';
 
 interface MerchantShippingMethod {
   id: string;
@@ -68,16 +69,9 @@ export const useCheckoutFlow = ({
 
   const getMerchantShipping = useCallback((): MerchantShippingGroup[] => {
     const merchantIds = [...new Set(cartItems.map(item => item.merchant.id))];
-    return merchantIds.map(merchantId => {
+    return merchantIds.flatMap(merchantId => {
       const merchant = cartItems.find(item => item.merchant.id === merchantId)?.merchant;
-      return {
-        merchant: merchant!,
-        methods: [
-          { id: 'standard', label: 'ارسال عادی', deliveryWindow: '۲ تا ۷ روز کاری', priceLabel: '۵۵٬۰۰۰ تومان', isDefault: true },
-          { id: 'express', label: 'ارسال اکسپرس', deliveryWindow: '۲ تا ۴ روز کاری', priceLabel: '۸۵٬۰۰۰ تومان', isDefault: false },
-          { id: 'courier', label: 'ارسال با پیک', deliveryWindow: 'امروز', priceLabel: 'پس کرایه', isDefault: false },
-        ],
-      };
+      return merchant ? [{ merchant, methods: PETABAD_SHIPPING.map(method => ({ ...method })) }] : [];
     });
   }, [cartItems]);
 
@@ -299,7 +293,7 @@ export const useCheckoutFlow = ({
 
       if (isAuthenticated) {
         const currentBasketState = basketStates[activeBasketId] || createDefaultBasketState();
-        const orderSummary = calculateOrderSummary(currentBasketState.cartItems);
+        const orderSummary = calculateOrderSummary(currentBasketState.cartItems, currentBasketState.selectedShippingByMerchant);
 
         // Re-fetch address from DB to avoid stale closure and temp-ID issues
         let selectedAddr: { title: string; fullAddress: string; recipientName: string; phone: string } | null = null;
@@ -445,18 +439,19 @@ export const useCheckoutFlow = ({
 
   // Telegram Mini App entry: the basket (and maybe the address) was already confirmed in the bot,
   // so land directly on the right step instead of replaying the cart confirmation.
-  const jumpFromTelegram = useCallback((addrId: string | null, openForm: boolean) => {
-    const addr = addrId ? globalAddresses.find(a => a.id === addrId) : undefined;
+  const jumpFromTelegram = useCallback((addrId: string | null, openForm: boolean, shippingId?: string | null, verifiedAddress?: DeliveryAddress | null) => {
+    const addr = addrId ? globalAddresses.find(a => a.id === addrId) || (verifiedAddress?.id === addrId ? verifiedAddress : undefined) : undefined;
+    const selectedMethod = resolvePetabadShipping(shippingId);
     const shipping: Record<string, string> = {};
-    getMerchantShipping().forEach(ms => { shipping[ms.merchant.id] = (ms.methods.find(m => m.isDefault) || ms.methods[0]).id; });
+    getMerchantShipping().forEach(ms => { shipping[ms.merchant.id] = selectedMethod?.id || (ms.methods.find(m => m.isDefault) || ms.methods[0]).id; });
     if (addr) {
       updateCurrentBasket(s => ({
         ...s,
         isOTPVerified: true,
-        messages: [...s.messages, { id: `payment-${Date.now()}`, role: 'assistant', content: `📍 ارسال به «${addr.title}»\n\nروش پرداخت رو انتخاب کن:`, paymentOptions, timestamp: new Date() }],
+        messages: [...s.messages, { id: `payment-${Date.now()}`, role: 'assistant', content: `📍 ارسال به «${addr.title}»${selectedMethod ? `\n🚚 ${selectedMethod.label} · ${selectedMethod.priceLabel}` : ''}\n\nروش پرداخت رو انتخاب کن:`, paymentOptions, timestamp: new Date() }],
         agenticState: { ...s.agenticState, step: 'payment-selection', selectedAddress: addr, isLoggedIn: true, hasStoredCheckoutDetails: true },
         selectedAddressId: addr.id,
-        selectedShippingByMerchant: { ...shipping, ...s.selectedShippingByMerchant },
+        selectedShippingByMerchant: { ...s.selectedShippingByMerchant, ...shipping },
       }));
       return;
     }

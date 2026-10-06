@@ -855,6 +855,20 @@ function inferBreedLine(text: string): string | null {
   return null;
 }
 
+const SIZE_WORDS: Record<string, RegExp> = {
+  کوچک: /نژاد\s*(های\s*)?کوچک|سگ\s*کوچک|\bmini\b|\bsmall\b|\btoy\b|\bx-?small\b/i,
+  متوسط: /نژاد\s*(های\s*)?متوسط|\bmedium\b/i,
+  بزرگ: /نژاد\s*(های\s*)?(بزرگ|غول)|سگ\s*(بزرگ|نگهبان|گارد)|نگهبان|گارد|\bmaxi\b|\blarge\b|\bgiant\b|\bguard\b/i,
+};
+/** True when a product title is explicitly made for a different dog size than `size`. */
+function breedSizeMismatch(title: string, size: string): boolean {
+  const t = normalizePersian(title || "");
+  const own = SIZE_WORDS[size];
+  if (own && own.test(t)) return false;
+  const otherLine = BREED_SIZE.some(([re, s]) => s !== size && re.test(t));
+  return otherLine || Object.entries(SIZE_WORDS).some(([s, re]) => s !== size && re.test(t));
+}
+
 function inferBreedSize(text: string): string | null {
   const norm = normalizePersian(text || "");
   for (const [re, size] of BREED_SIZE) if (re.test(norm)) return size;
@@ -1107,6 +1121,7 @@ async function executeSearch(
     lifeStage?: string | null;
     excludeBrands?: string[] | null;
     foreignOnly?: boolean | null;
+    breedSize?: string | null;
   },
 ): Promise<any> {
   const {
@@ -1178,7 +1193,9 @@ async function executeSearch(
   };
   const canonStage = canon("life_stage", filters?.life_stage);
   if (canonStage) rpcParams.p_life_stage = canonStage;
-  const rawBreedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`);
+  // The breed named anywhere in the conversation (lock) applies to dog searches the model forgot to tag.
+  const lockBreedSize = lock?.breedSize && (!lock?.species || lock.species === "سگ") ? lock.breedSize : null;
+  const rawBreedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`) || lockBreedSize;
   const breedSize = canon("breed_size", rawBreedSize);
   if (breedSize) rpcParams.p_breed_size = breedSize;
   if (Array.isArray(filters?.needs) && filters.needs.length > 0) {
@@ -1400,6 +1417,13 @@ async function executeSearch(
   // Stated life stage: matching rows lead, contradictory rows are kept but deprioritized
   // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
   results = applyStagePreference(results, stageLock);
+
+  // A product made for another dog size (large-breed / guard-dog food for a Shih Tzu) is never shown.
+  const sizeForFit = rpcParams.p_breed_size || lockBreedSize;
+  if (sizeForFit) {
+    const fitting = results.filter((r: any) => !breedSizeMismatch(`${r.name || ""} ${r.name_fa || ""}`, sizeForFit));
+    if (fitting.length) results = fitting;
+  }
 
   // Honest fallback signal: the shopper named a REAL brand we cannot serve.
   // Colloquial words misread as brands never produce this claim.
@@ -2950,6 +2974,7 @@ serve(async (req) => {
         detectProductTypes,
         buildBudgetOptions,
         needSpecs: NEED_SPECS,
+        inferBreedSize,
       };
       let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
       if (flow && flow.pending && !flow.done) {
@@ -2967,6 +2992,7 @@ serve(async (req) => {
         const sameAnimal = memPet?.species && lockedSpecies && detectSpecies(String(memPet.species)) === lockedSpecies;
         const known: FlowSeed = {
           lifeStage: lockedStage || (sameAnimal ? memPet?.life_stage || null : null),
+          breedSize: lockedSpecies === "سگ" ? lockedBreedSize : null,
           foreignOnly: stickyForeign,
           healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
         };
@@ -2995,6 +3021,7 @@ serve(async (req) => {
           if (!SPECIES_TOKENS.some(([n]) => n === lockedSpecies)) lockedSpecies = detectSpecies(lockedSpecies) || lockedSpecies;
         }
         if (flowSummary.lifeStage) lockedStage = flowSummary.lifeStage;
+        if (flowSummary.breedSize) lockedBreedSize = flowSummary.breedSize;
         if (flowSummary.foreignOnly !== null) stickyForeign = flowSummary.foreignOnly;
         if (flowSummary.needKeys.length > 0) bundleNeeds = NEED_SPECS.filter((n) => flowSummary!.needKeys.includes(n.key));
         wantsGuidance = false;
@@ -3008,7 +3035,11 @@ serve(async (req) => {
       lifeStage: lockedStage,
       excludeBrands: shownBrands,
       foreignOnly: stickyForeign,
+      breedSize: lockedBreedSize,
     };
+    if (lockedBreedSize && lockedSpecies !== "گربه") {
+      systemPrompt += `\n\nBREED_LOCK: سگ کاربر نژاد «${lockedBreedSize}» است${lockedBreedName ? ` (${lockedBreedName})` : ""}. در search_products مقدار filters.breed_size را «${lockedBreedSize}» بفرست${lockedBreedName ? ` و breed را «${lockedBreedName}»` : ""}. محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده و دوباره نژاد را نپرس.`;
+    }
     if (shownBrands.length > 0) {
       systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
 - در search_products همین‌ها را در exclude_brands بفرست.

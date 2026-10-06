@@ -39,8 +39,8 @@ async function deriveSecret() {
 
 // One clean persistent button row replaces Telegram's standard Commands menu.
 // New conversations are Telegram's own "new topic" button, so only cart + order tracking remain.
-const BTN_CART = "🛒 سبد خرید", BTN_TRACK = "📦 پیگیری سفارش";
-const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_TRACK }]], resize_keyboard: true, is_persistent: true };
+const BTN_CART = "🛒 سبد خرید", BTN_TRACK = "📦 پیگیری سفارش", BTN_NEW = "➕ گفتگوی جدید";
+const MAIN_KB = { keyboard: [[{ text: BTN_CART }, { text: BTN_TRACK }], [{ text: BTN_NEW }]], resize_keyboard: true, is_persistent: true };
 const PHONE_KB = { keyboard: [[{ text: "📱 ارسال شماره تماس", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true };
 const NEW_BTN = { text: "➕ شروع گفتگوی جدید", callback_data: "new" };
 const DAY = 24 * 60 * 60 * 1000;
@@ -356,9 +356,18 @@ async function syncThread(chat: any, t: number | undefined) {
 
 async function startNew(chat: any, intro = "گفتگوی جدید شروع شد ✨") {
   if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
-  const id = await openTopic(chat, "🛍 خرید جدید");
+  const id = await openTopic(chat, "خرید جدید");
   if (id) { if (chat._new) chat.thread_id = id; else await saveChat(chat, { thread_id: id }); }
   await tg("sendMessage", { chat_id: chat.chat_id, text: `${intro}\n\nبگو برای کی دنبال چی هستی؟`, reply_markup: MAIN_KB });
+}
+
+// A topic opened from Telegram's native compose button: bind a fresh session and greet inside it.
+async function handleTopicCreated(msg: any) {
+  if (msg.from?.is_bot) return; // bot-created topics are greeted by startNew
+  const chat = await loadChat(msg.chat.id, msg.from);
+  if (!(await syncThread(chat, msg.message_thread_id))) return;
+  if ((chat.history || []).length) return;
+  await tg("sendMessage", { chat_id: chat.chat_id, text: "سلام! 👋 بگو برای کی دنبال چی هستی؟", reply_markup: MAIN_KB });
 }
 
 async function sendTracking(chat: any) {
@@ -375,7 +384,7 @@ async function sendTracking(chat: any) {
 async function handleText(chatId: number, from: any, text: string) {
   const chat = await loadChat(chatId, from);
   if (!(await syncThread(chat, thread.getStore()?.id))) return;
-  if (text === "/new" || text === "✨ گفتگوی جدید") return startNew(chat);
+  if (text === "/new" || text === BTN_NEW || text === "✨ گفتگوی جدید") return startNew(chat);
   if (text === "/track" || text === BTN_TRACK || text === "📜 گفتگوها") return sendTracking(chat);
   if (text === "/phone") return tg("sendMessage", { chat_id: chatId, text: "با دکمه زیر شماره‌ات رو بفرست تا بدون پیامک تأیید بشه:", reply_markup: PHONE_KB });
   if (!text.startsWith("/start") && text !== BTN_CART && text !== "/cart") {
@@ -412,7 +421,6 @@ async function handleText(chatId: number, from: any, text: string) {
     return sendCart(chat);
   }
 
-  if (!(chat.history || []).length && chat.thread_id) await renameTopic(chat, chat.thread_id, `🛍 ${text.slice(0, 40)}`);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   let out;
   try {
@@ -614,6 +622,7 @@ Deno.serve(async (req) => {
     await thread.run({ id: m?.message_thread_id }, async () => {
       if (update.callback_query) await handleCallback(update.callback_query);
       else if (update.message?.contact) await handleContact(update.message);
+      else if (update.message?.forum_topic_created) await handleTopicCreated(update.message);
       else if (update.message?.text) await handleText(update.message.chat.id, update.message.from, update.message.text.trim());
     });
   } catch (e) {

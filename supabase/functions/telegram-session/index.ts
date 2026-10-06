@@ -3,8 +3,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { mintPhoneSession, verifyInitData } from "../_shared/telegramAuth.ts";
+import { PETABAD_GREETING, resolvePetabadShipping } from "../_shared/petabadExperience.ts";
 
-const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const url = Deno.env.get("SUPABASE_URL") || "";
+const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+if (!url || !key) throw new Error("Session configuration missing");
+const db = createClient(url, key);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -18,7 +22,7 @@ Deno.serve(async (req) => {
     const authFor = async (c: { chat_id?: number; phone?: string | null } | null) => {
       if (!c?.phone || !tgUser || tgUser !== Number(c.chat_id)) return null;
       const s = await mintPhoneSession(db, c.phone);
-      if (s) await db.from("telegram_chats").update({ user_id: s.user_id }).eq("chat_id", c.chat_id!);
+      if (s && c.chat_id) await db.from("telegram_chats").update({ user_id: s.user_id }).eq("chat_id", c.chat_id);
       return s ? { access_token: s.access_token, refresh_token: s.refresh_token } : null;
     };
 
@@ -42,6 +46,11 @@ Deno.serve(async (req) => {
       const num = typeof order_number === "string" ? order_number.slice(0, 40).replace(/[<>&]/g, "") : "";
       const { data: live } = await db.from("telegram_chats").select("*").eq("session_token", token).maybeSingle();
       if (!live) return json({ ok: false });
+      const bearer = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+      const { data: identity } = bearer ? await db.auth.getUser(bearer) : { data: { user: null } };
+      if (!identity.user || identity.user.id !== live.user_id) return json({ error: "unauthorized" }, 401);
+      const { data: order } = await db.from("orders").select("id").eq("order_number", num).eq("user_id", identity.user.id).maybeSingle();
+      if (!order) return json({ error: "order not found" }, 400);
       const hist: any[] = live.history || [];
       const first = hist.find((m) => m.role === "user")?.content || "گفتگوی تلگرام";
       const archived = [{
@@ -51,37 +60,48 @@ Deno.serve(async (req) => {
       }, ...(live.archived || [])].slice(0, 10);
       await db.from("telegram_chats").update({
         session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false,
-        pending_text: null, archived, thread_id: null, updated_at: new Date().toISOString(),
+        pending_text: null, archived, thread_id: null, checkout_selection: {}, updated_at: new Date().toISOString(),
       }).eq("chat_id", live.chat_id);
       const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN");
       if (BOT) {
         const tg = (m: string, body: unknown) => fetch(`https://api.telegram.org/bot${BOT}/${m}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         }).then((r) => r.json()).catch((e) => { console.error(m, e); return {}; });
-        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📦 پیگیری سفارش" }]], resize_keyboard: true, is_persistent: true };
+        const KB = { keyboard: [[{ text: "🛒 سبد خرید" }, { text: "📦 پیگیری سفارش" }], [{ text: "➕ گفتگوی جدید" }]], resize_keyboard: true, is_persistent: true };
         const old = live.thread_id ? { message_thread_id: live.thread_id } : {};
         await tg("sendMessage", { chat_id: live.chat_id, ...old, parse_mode: "HTML", text: `سفارشت با موفقیت ثبت شد 🎉${num ? `\nکد پیگیری: <code>${num}</code>` : ""}` });
         // Threaded Mode: close the finished topic under a "✅" name and open a fresh one for the next purchase.
-        if (live.thread_id) await tg("editForumTopic", { chat_id: live.chat_id, message_thread_id: live.thread_id, name: `✅ ${String(first).slice(0, 40)}` });
-        const t: any = await tg("createForumTopic", { chat_id: live.chat_id, name: "🛍 خرید جدید" });
+        const t: any = await tg("createForumTopic", { chat_id: live.chat_id, name: "خرید جدید" });
         const tid = t?.ok ? t.result.message_thread_id : null;
         if (tid) await db.from("telegram_chats").update({ thread_id: tid }).eq("chat_id", live.chat_id);
         await tg("sendMessage", {
           chat_id: live.chat_id, ...(tid ? { message_thread_id: tid } : {}), reply_markup: KB,
-          text: "گفتگوی جدید آماده‌ست ✨ برای خرید بعدی فقط بنویس دنبال چی هستی 🐾",
+          text: PETABAD_GREETING,
         });
       }
       return json({ ok: true });
     }
 
-    let { data: chat } = await db.from("telegram_chats").select("session_token,history,cart,first_name,chat_id,phone").eq("session_token", token).maybeSingle();
+    let { data: chat } = await db.from("telegram_chats").select("session_token,history,cart,first_name,chat_id,phone,user_id,checkout_selection").eq("session_token", token).maybeSingle();
     if (!chat) {
       // Archived conversation (expired, completed or switched away from).
-      const { data: owner } = await db.from("telegram_chats").select("first_name,archived,chat_id,phone").contains("archived", [{ token }]).maybeSingle();
+      const { data: owner } = await db.from("telegram_chats").select("first_name,archived,chat_id,phone,user_id").contains("archived", [{ token }]).maybeSingle();
       const entry = (owner?.archived || []).find((a: any) => a.token === token);
-      if (entry) chat = { session_token: token, history: entry.history || [], cart: entry.cart || [], first_name: owner!.first_name, chat_id: owner!.chat_id, phone: owner!.phone };
+      if (entry && owner) chat = { session_token: token, history: entry.history || [], cart: entry.cart || [], first_name: owner.first_name, chat_id: owner.chat_id, phone: owner.phone, user_id: owner.user_id, checkout_selection: entry.checkout_selection || {} };
     }
     if (!chat) return json({ error: "not found" }, 404);
+    const auth = await authFor(chat);
+    let checkoutSelection = null;
+    const selected = chat.checkout_selection || {};
+    if (tgUser === Number(chat.chat_id) && chat.phone && selected.address_id) {
+      // SSO can create an account, so resolve ownership again after minting the session.
+      const { data: owner } = await db.from("telegram_chats").select("user_id").eq("chat_id", chat.chat_id).maybeSingle();
+      const { data: address } = owner?.user_id ? await db.from("user_addresses").select("id,title,full_address,recipient_name,phone,is_default").eq("id", selected.address_id).eq("user_id", owner.user_id).maybeSingle() : { data: null };
+      if (address) checkoutSelection = {
+        address: { id: address.id, title: address.title, fullAddress: address.full_address, recipientName: address.recipient_name, phone: address.phone, isDefault: address.is_default },
+        shipping_id: resolvePetabadShipping(selected.shipping_id)?.id || null,
+      };
+    }
     const cart: any[] = chat.cart || [];
     const ids = cart.map((i) => i.id);
     const { data: products } = ids.length ? await db.from("pet_products").select("*").in("id", ids) : { data: [] };
@@ -93,7 +113,8 @@ Deno.serve(async (req) => {
     return json({
       session_id: chat.session_token,
       first_name: chat.first_name,
-      auth: await authFor(chat),
+      auth,
+      checkout_selection: checkoutSelection,
       messages,
       cart: cart.map((i) => ({ qty: i.qty, product: (products || []).find((p: any) => p.id === i.id) || null })).filter((i) => i.product),
     });

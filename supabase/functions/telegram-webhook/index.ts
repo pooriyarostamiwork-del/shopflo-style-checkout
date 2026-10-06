@@ -4,6 +4,7 @@
 // Mini App (web_app buttons) carrying the same conversation via ?tg=<token>.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { applyActions, describeActions, type CartAction, type Choice } from "../_shared/commerceActions.ts";
 import { PETABAD_GREETING, PETABAD_SHIPPING, resolvePetabadShipping, topicName, transientPair } from "../_shared/petabadExperience.ts";
 
 const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
@@ -200,7 +201,7 @@ async function fetchProduct(id: string) {
 
 function addToCart(cart: any[], p: { id: string; name: string; price: number }, qty = 1) {
   const ex = cart.find((i) => i.id === p.id);
-  return ex ? cart.map((i) => (i.id === p.id ? { ...i, qty: i.qty + qty } : i)) : [...cart, { id: p.id, name: pname(p), price: p.price, qty }];
+  return ex ? cart.map((i) => (i.id === p.id ? { ...i, qty: i.qty + qty } : i)) : [...cart, { id: p.id, name: pname(p), price: p.price, qty, brand: (p as any).brand ?? null }];
 }
 
 const ORDINALS: Record<string, number> = { اول: 1, اولی: 1, یک: 1, دوم: 2, دومی: 2, سوم: 3, سومی: 3, چهارم: 4, چهارمی: 4, پنجم: 5, ششم: 6 };
@@ -279,17 +280,27 @@ async function runAgent(chat: any, text: string) {
   const memory = last.length
     ? last.map((p, i) => `#${i + 1} [${p.id}] ${p.name} - ${p.price} تومان${p.brand ? ` (${p.brand})` : ""}`).join("\n")
     : "";
+  const { data: addrs } = chat.user_id && chat.phone
+    ? await db.from("user_addresses").select("id,title,full_address,is_default").eq("user_id", chat.user_id).order("is_default", { ascending: false }).order("created_at", { ascending: false })
+    : { data: [] as any[] };
+  const sel = chat.checkout_selection || {};
   const res = await fetch(`${SUPABASE_URL}/functions/v1/petabad-agent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
     body: JSON.stringify({
       messages: history.map((m: any) => ({ role: m.role, content: m.content })),
       mode: "agentic",
+      surface: "telegram",
       is_first_message: history.length <= 1,
-      cart_context: { items: cart.map((i) => ({ id: i.id, name: i.name, price: i.price, quantity: i.qty })), total: cartTotal(cart) },
+      checkout_context: {
+        logged_in: !!(chat.user_id && chat.phone),
+        addresses: (addrs || []).map((a: any) => ({ id: a.id, title: a.title, summary: String(a.full_address || "").slice(0, 60), is_default: a.is_default })),
+        selected_address_id: sel.address_id || null, shipping_id: sel.shipping_id || null, payment_id: sel.payment_id || null,
+      },
+      cart_context: { items: cart.map((i) => ({ id: i.id, name: i.name, price: i.price, quantity: i.qty, brand: i.brand ?? null })), total: cartTotal(cart) },
       product_memory: memory,
       products_context: last.map((p) => ({ id: p.id, name: p.name, price: p.price, brand: p.brand })),
-      memory_index: [{ group_id: "tg", turn: 1, query: "", items: last.map((p, i) => ({ position: i + 1, id: p.id, name: p.name, price: p.price })) }],
+      memory_index: [{ group_id: "tg", turn: 1, query: "", items: last.map((p, i) => ({ position: i + 1, id: p.id, name: p.name, price: p.price, brand: p.brand ?? null })) }],
     }),
   });
   if (!res.ok) throw new Error(`agent ${res.status}: ${await res.text()}`);
@@ -313,8 +324,9 @@ async function applyCartActions(chat: any, actions: any[]) {
   const byIndex = (n: number) => last[n - 1];
   for (const a of actions || []) {
     const qty = Math.max(1, Number(a.quantity) || 1);
+    if (a.type === "clear") { cart = []; continue; }
     if (a.type === "add") {
-      const src = a.product_index ? byIndex(a.product_index) : a.product_id ? await fetchProduct(a.product_id) : null;
+      const src = a.product_index ? byIndex(a.product_index) : a.product_id ? last.find((p) => p.id === a.product_id) || await fetchProduct(a.product_id) : null;
       if (src) cart = addToCart(cart, src, qty);
     } else if (a.type === "remove") {
       const k = cartIdx(cart, a.product_id ?? a.remove_product_id);
@@ -325,7 +337,7 @@ async function applyCartActions(chat: any, actions: any[]) {
     } else if (a.type === "replace") {
       const k = cartIdx(cart, a.remove_product_id ?? a.product_id);
       const keepQty = k >= 0 ? cart[k].qty : qty;
-      const src = a.add_product_index ? byIndex(a.add_product_index) : a.add_product_id ? await fetchProduct(a.add_product_id) : null;
+      const src = a.add_product_index ? byIndex(a.add_product_index) : a.add_product_id ? last.find((p) => p.id === a.add_product_id) || await fetchProduct(a.add_product_id) : null;
       if (k >= 0 && src) cart = cart.filter((_, j) => j !== k);
       if (src) cart = addToCart(cart, src, a.quantity ? qty : keepQty);
     }
@@ -449,6 +461,95 @@ async function sendTracking(chat: any) {
   return tg("sendMessage", { chat_id: chat.chat_id, parse_mode: "HTML", text: `<b>آخرین سفارش‌هات</b>\n\n${lines.join("\n\n")}`, reply_markup: MAIN_KB });
 }
 
+// ── Executional choices: one 64-byte callback carries exactly what a tap runs ──
+// x:<sig>:<ops> — ops: a<r|c><i>.<q> add · d<c> remove · s<c>.<q> set qty · r<c>.<r>.<q> replace · k clear.
+// <sig> pins the cart the question was asked about; a changed cart makes the old buttons refuse.
+const cartSig = (cart: any[]) => (cart.map((i) => `${i.id}:${i.qty}`).join("|").split("").reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 1296, 7)).toString(36).padStart(2, "0");
+function encodeActions(chat: any, actions: CartAction[]): string | null {
+  const cart: any[] = chat.cart || [], last: any[] = chat.last_products || [];
+  const ref = (id: string) => { const r = last.findIndex((p) => p.id === id); if (r >= 0) return `r${r}`; const c = cart.findIndex((i) => i.id === id); return c >= 0 ? `c${c}` : null; };
+  const ops: string[] = [];
+  for (const a of actions) {
+    if (a.type === "clear") ops.push("k");
+    else if (a.type === "add") { const r = ref(a.product_id); if (!r) return null; ops.push(`a${r}.${a.quantity}`); }
+    else if (a.type === "remove") { const k = cart.findIndex((i) => i.id === a.product_id); if (k < 0) return null; ops.push(`d${k}`); }
+    else if (a.type === "update_quantity") { const k = cart.findIndex((i) => i.id === a.product_id); if (k < 0) return null; ops.push(`s${k}.${a.quantity}`); }
+    else if (a.type === "replace") { const k = cart.findIndex((i) => i.id === a.remove_product_id); const r = last.findIndex((p) => p.id === a.add_product_id); if (k < 0 || r < 0) return null; ops.push(`r${k}.${r}.${a.quantity}`); }
+  }
+  const data = `x:${cartSig(cart)}:${ops.join(",")}`;
+  return new TextEncoder().encode(data).length <= 64 ? data : null;
+}
+function decodeActions(chat: any, ops: string): CartAction[] | null {
+  const cart: any[] = chat.cart || [], last: any[] = chat.last_products || [];
+  const out: CartAction[] = [];
+  for (const op of ops.split(",").filter(Boolean)) {
+    let m;
+    if (op === "k") out.push({ type: "clear" });
+    else if ((m = op.match(/^a([rc])(\d+)\.(\d+)$/))) { const p = (m[1] === "r" ? last : cart)[+m[2]]; if (!p) return null; out.push({ type: "add", product_id: p.id, quantity: +m[3] }); }
+    else if ((m = op.match(/^d(\d+)$/))) { if (!cart[+m[1]]) return null; out.push({ type: "remove", product_id: cart[+m[1]].id }); }
+    else if ((m = op.match(/^s(\d+)\.(\d+)$/))) { if (!cart[+m[1]]) return null; out.push({ type: "update_quantity", product_id: cart[+m[1]].id, quantity: +m[2] }); }
+    else if ((m = op.match(/^r(\d+)\.(\d+)\.(\d+)$/))) { if (!cart[+m[1]] || !last[+m[2]]) return null; out.push({ type: "replace", remove_product_id: cart[+m[1]].id, add_product_id: last[+m[2]].id, quantity: +m[3] }); }
+    else return null;
+  }
+  return out;
+}
+const CK: Record<string, string> = { select_address: "addr", select_shipping: "ship", select_payment: "pay" };
+function choiceButton(chat: any, c: Choice) {
+  if (c.checkout) return { text: c.label, callback_data: `${CK[c.checkout.kind]}:${c.checkout.id}`.slice(0, 64) };
+  if (c.actions) {
+    const data = encodeActions(chat, c.actions);
+    if (data) return { text: c.label, callback_data: data };
+  }
+  const b = sayBtn(c.say || c.label);
+  return { text: c.label, callback_data: b.callback_data };
+}
+const choicesKb = (chat: any, choices: Choice[]) => ({ inline_keyboard: choices.slice(0, 8).map((c) => [choiceButton(chat, c)]) });
+
+// Checkout steps reused by buttons and by chat commands («بفرست خونه»، «با اکسپرس»، «از کیف پول»).
+async function ownedAddress(chat: any, id: unknown) {
+  if (!chat.user_id || !id) return null;
+  const { data } = await db.from("user_addresses").select("id,title,full_address").eq("id", String(id)).eq("user_id", chat.user_id).maybeSingle();
+  return data;
+}
+function shipPrompt(chat: any, a: any) {
+  return tg("sendMessage", {
+    chat_id: chat.chat_id,
+    text: `📍 ارسال به «${a.title}»\n${a.full_address}\n\nروش ارسال رو انتخاب کن:`,
+    reply_markup: { inline_keyboard: PETABAD_SHIPPING.map(method => [{ text: `${method.label} · ${method.priceLabel} · ${method.deliveryWindow}`, callback_data: `ship:${method.id}` }]) },
+  });
+}
+function summaryBody(chat: any, address: any, method: any) {
+  const pay = { wallet: "کیف پول", gateway: "درگاه پرداخت", bnpl: "پرداخت اقساطی" }[String(chat.checkout_selection?.payment_id || "")] as string | undefined;
+  return {
+    text: `📍 ارسال به «${address.title}»\n${address.full_address}\n\n🚚 روش ارسال: ${method.label} · ${method.deliveryWindow}\nهزینه ارسال: ${method.priceLabel}\n💰 مجموع پرداختی: ${price(cartTotal(chat.cart) + method.fee)}${method.id === "courier" ? " (هزینه پیک جداگانه، پس کرایه)" : ""}${pay ? `\n💳 روش پرداخت: ${pay}` : ""}`,
+    reply_markup: { inline_keyboard: [[{ text: pay ? `💳 پرداخت با ${pay}` : "💳 پرداخت و ثبت سفارش", web_app: { url: `${appUrl(chat)}&intent=payment&addr=${address.id}&ship=${method.id}` } }]] },
+  };
+}
+/** Applies a validated checkout directive from chat and shows the next checkout step. */
+async function applyDirective(chat: any, d: { kind: string; id: string }) {
+  const sel = { ...(chat.checkout_selection || {}) };
+  if (d.kind === "select_address") {
+    const a = await ownedAddress(chat, d.id);
+    if (!a) return tg("sendMessage", { chat_id: chat.chat_id, text: "این آدرس بین آدرس‌هات پیدا نشد." });
+    await saveChat(chat, { checkout_selection: { ...sel, address_id: a.id } });
+    chat.checkout_selection = { ...sel, address_id: a.id };
+    if (!(chat.cart || []).length) return;
+    const m = resolvePetabadShipping(sel.shipping_id);
+    return m ? tg("sendMessage", { chat_id: chat.chat_id, ...summaryBody(chat, a, m) }) : shipPrompt(chat, a);
+  }
+  if (d.kind === "select_shipping" || d.kind === "select_payment") {
+    const next = d.kind === "select_shipping" ? { ...sel, shipping_id: d.id } : { ...sel, payment_id: d.id };
+    await saveChat(chat, { checkout_selection: next });
+    chat.checkout_selection = next;
+    if (!(chat.cart || []).length) return;
+    const a = await ownedAddress(chat, next.address_id);
+    const m = resolvePetabadShipping(next.shipping_id);
+    if (a && m) return tg("sendMessage", { chat_id: chat.chat_id, ...summaryBody(chat, a, m) });
+    if (!a) return chat.phone ? sendAddressStep(chat) : undefined;
+    return shipPrompt(chat, a);
+  }
+}
+
 async function handleText(chatId: number, from: any, text: string, messageId?: number) {
   const chat = await loadChat(chatId, from);
   if (!(await syncThread(chat, thread.getStore()?.id))) return;
@@ -502,16 +603,32 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
   const { ans, history } = out;
   const content = stripMd(ans.content || "");
 
+  // Checkout picks and native-UI guidance: validated in petabad-agent, executed here.
+  if (ans.response_type === "checkout" || ans.response_type === "guide") {
+    await saveChat(chat, { history: [...history, { role: "assistant", content }].slice(-14) });
+    const target = ans.guide?.target;
+    const appBtn = (label: string, intent: string) => ({ inline_keyboard: [[{ text: label, web_app: { url: `${appUrl(chat)}&intent=${intent}` } }]] });
+    const markup = (ans.choices || []).length ? choicesKb(chat, ans.choices)
+      : target === "add_address" ? appBtn("📍 ثبت آدرس جدید در اپ", "new_address")
+      : ["edit_address", "delete_address", "edit_profile"].includes(target) ? appBtn("👤 باز کردن پروفایل در اپ", "profile")
+      : target === "login" ? PHONE_KB : MAIN_KB;
+    await streamDraft(chatId, content || "…");
+    await tg("sendMessage", { chat_id: chatId, text: content || "…", reply_markup: markup });
+    if (ans.directive?.kind) await applyDirective(chat, ans.directive);
+    return;
+  }
+
   if (ans.response_type === "cart") {
     const before = JSON.stringify(chat.cart || []);
     const cart = ans.needs_clarification ? chat.cart || [] : await applyCartActions(chat, ans.cart_actions);
     await saveChat(chat, { cart, history: [...history, { role: "assistant", content }].slice(-14) });
-    const opts: string[] = ans.clarification_options || [];
+    // Choice buttons are encoded against the cart the question was asked about.
+    const choices: Choice[] = ans.needs_clarification ? ans.choices || (ans.clarification_options || []).map((o: string) => ({ label: o, say: o })) : ans.undo ? [ans.undo] : [];
     await streamDraft(chatId, content || "انجام شد ✅");
     await tg("sendMessage", {
       chat_id: chatId,
       text: content || "انجام شد ✅",
-      reply_markup: opts.length ? optionsKb(opts.slice(0, 4)) : MAIN_KB,
+      reply_markup: choices.length ? choicesKb({ ...chat, cart }, choices) : MAIN_KB,
     });
     if (JSON.stringify(cart) !== before) await sendCart(chat);
     return;
@@ -582,32 +699,48 @@ async function handleCallback(cb: any) {
   }
   if (data === "noop") return ack();
   if (data.startsWith("addr:")) {
-    const id = data.slice(5);
-    const { data: a } = chat.user_id ? await db.from("user_addresses").select("id,title,full_address").eq("id", id).eq("user_id", chat.user_id).maybeSingle() : { data: null };
+    const a = await ownedAddress(chat, data.slice(5));
     if (!a) return ack("این آدرس پیدا نشد");
     await ack("✅ آدرس انتخاب شد");
-    await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
-    await saveChat(chat, { checkout_selection: { address_id: a.id, shipping_id: null } });
-    return tg("sendMessage", {
-      chat_id: chatId,
-      text: `📍 ارسال به «${a.title}»\n${a.full_address}\n\nروش ارسال رو انتخاب کن:`,
-      reply_markup: { inline_keyboard: PETABAD_SHIPPING.map(method => [{ text: `${method.label} · ${method.priceLabel} · ${method.deliveryWindow}`, callback_data: `ship:${method.id}` }]) },
-    });
+    await markAnswered(chatId, cb.message, `📍 ${a.title}`);
+    return applyDirective(chat, { kind: "select_address", id: a.id });
   }
   if (data.startsWith("ship:")) {
     const method = resolvePetabadShipping(data.slice(5));
     const selection = chat.checkout_selection || {};
-    const { data: address } = chat.user_id && selection.address_id
-      ? await db.from("user_addresses").select("id,title,full_address").eq("id", selection.address_id).eq("user_id", chat.user_id).maybeSingle()
-      : { data: null };
-    if (!method || !address || !(chat.cart || []).length) return ack("اول آدرس و سبد خرید رو انتخاب کن");
-    await saveChat(chat, { checkout_selection: { address_id: address.id, shipping_id: method.id } });
+    const address = await ownedAddress(chat, selection.address_id);
+    if (!method || !address || !(chat.cart || []).length) {
+      if (method) { await saveChat(chat, { checkout_selection: { ...selection, shipping_id: method.id } }); await ack("روش ارسال ثبت شد؛ حالا آدرس رو انتخاب کن"); chat.checkout_selection = { ...selection, shipping_id: method.id }; return chat.phone ? sendAddressStep(chat) : undefined; }
+      return ack("اول آدرس و سبد خرید رو انتخاب کن");
+    }
+    const next = { ...selection, address_id: address.id, shipping_id: method.id };
+    await saveChat(chat, { checkout_selection: next });
+    chat.checkout_selection = next;
     await ack("روش ارسال انتخاب شد");
-    return tg("editMessageText", {
-      chat_id: chatId, message_id: cb.message.message_id,
-      text: `📍 ارسال به «${address.title}»\n${address.full_address}\n\n🚚 روش ارسال: ${method.label} · ${method.deliveryWindow}\nهزینه ارسال: ${method.priceLabel}\n💰 مجموع پرداختی: ${price(cartTotal(chat.cart) + method.fee)}${method.id === "courier" ? " (هزینه پیک جداگانه، پس کرایه)" : ""}`,
-      reply_markup: { inline_keyboard: [[{ text: "💳 پرداخت و ثبت سفارش", web_app: { url: `${appUrl(chat)}&intent=payment&addr=${address.id}&ship=${method.id}` } }]] },
-    });
+    return tg("editMessageText", { chat_id: chatId, message_id: cb.message.message_id, ...summaryBody(chat, address, method) });
+  }
+  if (data.startsWith("pay:")) {
+    const id = data.slice(4);
+    if (!["wallet", "gateway", "bnpl"].includes(id)) return ack("این روش فعال نیست");
+    await ack("روش پرداخت ثبت شد");
+    await markAnswered(chatId, cb.message, ({ wallet: "کیف پول", gateway: "درگاه پرداخت", bnpl: "پرداخت اقساطی" } as any)[id]);
+    return applyDirective(chat, { kind: "select_payment", id });
+  }
+  if (data.startsWith("x:")) {
+    const [, sig, ops = ""] = data.split(":");
+    if (sig !== cartSig(cart)) return ack("سبدت از اون موقع تغییر کرده؛ دوباره بگو چی کار کنم");
+    const actions = decodeActions(chat, ops);
+    if (!actions) return ack("این گزینه دیگه معتبر نیست");
+    const btn = (cb.message?.reply_markup?.inline_keyboard || []).flat().find((b: any) => b.callback_data === data);
+    await ack();
+    await markAnswered(chatId, cb.message, btn?.text || "انجام شد");
+    const names = new Map<string, string>([...(chat.last_products || []), ...cart].map((p: any) => [p.id, p.name]));
+    const next = await applyCartActions(chat, actions);
+    await saveChat(chat, { cart: next });
+    const text = actions.length ? describeActions(actions, (id) => names.get(id) || "محصول", cart.map((i) => ({ id: i.id, name: i.name, quantity: i.qty }))) : "باشه، سبدت دست‌نخورده موند.";
+    await tg("sendMessage", { chat_id: chatId, text, reply_markup: MAIN_KB });
+    if (actions.length) return sendCart({ ...chat, cart: next });
+    return;
   }
   if (data.startsWith("m:") || data === "mok") {
     const rows: any[][] = cb.message?.reply_markup?.inline_keyboard || [];

@@ -383,8 +383,13 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   }
 
   if (pending) {
-    const p = pending as { question: string; choices: Choice[] };
-    return { actions: [], content: p.question, needs_clarification: true, choices: p.choices, changed: false, trace };
+    // Clear parts already ran (returned as actions); each choice carries only its own action.
+    const p = pending as { question: string; choices: Choice[]; base: number };
+    const ran = resolved;
+    const choices = p.choices.map((c) => (c.actions ? { ...c, actions: c.actions.slice(p.base) } : c));
+    const done = [describeActions(ran.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...notes].filter(Boolean).join("\n");
+    const lead = ran.length ? p.question.replace(/^کدوم رو/, "از بقیه، کدوم رو") : p.question;
+    return { actions: ran, content: done ? `${done}\n\n${lead}` : lead, needs_clarification: true, choices, undo, changed: ran.length > 0, trace };
   }
   // The model asked on its own (no actions) — keep its options as spoken answers.
   if (!resolved.length && input.modelNeedsClarification && (input.modelOptions || []).length) {

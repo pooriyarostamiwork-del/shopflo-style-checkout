@@ -343,12 +343,12 @@ export const MobilePetAbadShell = () => {
     if (!id || activeBasketId !== id || !cartItems.length) return;
     const addr = tgSession.checkoutAddr;
     // Wait (briefly) for the signed-in user's addresses so the bot-picked address resolves.
-    if (addr && !globalAddresses.some(a => a.id === addr) && tgWaitRef.current < 20) {
+    if (addr && tgSession.checkoutAddress?.id !== addr && !globalAddresses.some(a => a.id === addr) && tgWaitRef.current < 20) {
       const t = setTimeout(() => { tgWaitRef.current++; setTgTick(n => n + 1); }, 150);
       return () => clearTimeout(t);
     }
     tgSession.clearCheckoutIntent();
-    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address");
+    jumpFromTelegram(addr, tgSession.checkoutMode === "new_address", tgSession.checkoutShipping, tgSession.checkoutAddress);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tgSession.checkoutIntent, activeBasketId, cartItems.length, globalAddresses, tgTick]);
   const [searchParams, setSearchParams] = useSearchParams();

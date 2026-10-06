@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { mapDbProduct } from "@/components/petabad/ProductCarousels";
 import type { Basket } from "@/components/petabad/Sidebar";
-import type { CartItem } from "@/data/petabadData";
+import type { CartItem, DeliveryAddress } from "@/data/petabadData";
 import { BasketState, createDefaultBasketState } from "./useBasketState";
 
 interface Args {
@@ -33,6 +33,8 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
   const [checkoutIntent, setCheckoutIntent] = useState<string | null>(null);
   const [checkoutAddr, setCheckoutAddr] = useState<string | null>(null);
   const [checkoutMode, setCheckoutMode] = useState<string | null>(null);
+  const [checkoutShipping, setCheckoutShipping] = useState<string | null>(null);
+  const [checkoutAddress, setCheckoutAddress] = useState<DeliveryAddress | null>(null);
   const [history, setHistory] = useState<TelegramHistoryItem[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(wantsHistory);
 
@@ -60,22 +62,19 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
     handled.current = token;
     setPending(true);
     const intent = searchParams.get("intent");
-    const finish = (id: string) => {
+    const finish = (id: string, selection?: any) => {
       onOpened(id);
       setSearchParams({ c: id }, { replace: true });
       setHistoryOpen(false);
       if (intent === "checkout" || intent === "payment" || intent === "new_address") {
-        setCheckoutAddr(intent === "payment" ? searchParams.get("addr") : null);
+        setCheckoutAddr(intent === "payment" ? selection?.address?.id || searchParams.get("addr") : null);
+        setCheckoutShipping(intent === "payment" ? selection?.shipping_id || searchParams.get("ship") : null);
+        setCheckoutAddress(intent === "payment" ? selection?.address || null : null);
         setCheckoutMode(intent);
         setCheckoutIntent(id);
       }
       setPending(false);
     };
-    if (baskets.some(b => b.id === token)) {
-      finish(token);
-      void supabase.functions.invoke("telegram-session", { body: { token, init_data: initData() } }).then(({ data }) => applyAuth(data?.auth));
-      return;
-    }
     void supabase.functions.invoke("telegram-session", { body: { token, init_data: initData() } }).then(async ({ data, error }) => {
       if (error || !data?.session_id) { setPending(false); setSearchParams({}, { replace: true }); return; }
       await applyAuth(data.auth);
@@ -100,7 +99,7 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
         [id]: { ...base, messages: msgs.length ? msgs : base.messages, cartItems, hasStartedChat: true },
       }));
       setActiveBasketId(id);
-      finish(id);
+      finish(id, data.checkout_selection);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -122,6 +121,8 @@ export function useTelegramSession({ baskets, setBaskets, setActiveBasketId, set
     checkoutIntent,
     checkoutAddr,
     checkoutMode,
+    checkoutShipping,
+    checkoutAddress,
     clearCheckoutIntent: () => setCheckoutIntent(null),
     history, historyOpen, openHistoryItem, closeHistory,
   };

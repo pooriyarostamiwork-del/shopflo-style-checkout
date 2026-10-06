@@ -4,10 +4,12 @@
 // Mini App (web_app buttons) carrying the same conversation via ?tg=<token>.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { PETABAD_GREETING, PETABAD_SHIPPING, resolvePetabadShipping, topicName, transientPair } from "../_shared/petabadExperience.ts";
 
-const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+if (!TOKEN || !SUPABASE_URL || !SERVICE_KEY) throw new Error("Telegram configuration missing");
 const SITE = "https://flowcart.space/petabad";
 const API = `https://api.telegram.org/bot${TOKEN}`;
 const db = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -82,7 +84,7 @@ const appCheckoutBtn = (chat: any, label = "✅ ادامه در اپ") => ({ tex
 async function sendAddressStep(chat: any) {
   if (!(chat.cart || []).length) return sendCart(chat);
   const { data } = chat.user_id
-    ? await db.from("user_addresses").select("id,title,full_address,is_default").eq("user_id", chat.user_id).order("is_default", { ascending: false }).order("created_at", { ascending: false }).limit(5)
+    ? await db.from("user_addresses").select("id,title,full_address,is_default").eq("user_id", chat.user_id).order("is_default", { ascending: false }).order("created_at", { ascending: false })
     : { data: [] as any[] };
   if (!data?.length) {
     return tg("sendMessage", {
@@ -103,7 +105,8 @@ async function sendAddressStep(chat: any) {
 async function openTopic(chat: any, name: string) {
   const r = await tg("createForumTopic", { chat_id: chat.chat_id, name: name.slice(0, 128) });
   const id = r?.ok ? r.result.message_thread_id : null;
-  if (id) { thread.getStore() && (thread.getStore()!.id = id); }
+  const store = thread.getStore();
+  if (id && store) store.id = id;
   return id as number | null;
 }
 const renameTopic = (chat: any, id: number | null | undefined, name: string) =>
@@ -116,6 +119,7 @@ async function mirrorToBasket(chat: any) {
     id: `tg-${i}`,
     role: m.role,
     content: String(m.content || "").replace(/\n?\[محصولات نمایش داده شده:[\s\S]*\]$/, ""),
+    ...(m.products?.length ? { products: m.products } : {}),
     timestamp: new Date().toISOString(),
   }));
   const first = (chat.history || []).find((m: any) => m.role === "user")?.content;
@@ -311,7 +315,7 @@ async function rotate(chat: any, reason: "completed" | "expired" | "manual") {
       thread_id: chat.thread_id ?? null,
     });
   }
-  await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: archived.slice(0, 10), thread_id: null });
+  await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: archived.slice(0, 10), thread_id: null, checkout_selection: {} });
 }
 
 // Lazy 24h expiry, checked on every incoming update.
@@ -346,19 +350,47 @@ async function syncThread(chat: any, t: number | undefined) {
   const rest = archived.filter((a) => a !== entry);
   if ((chat.history || []).length || (chat.cart || []).length) {
     const first = (chat.history || []).find((m: any) => m.role === "user")?.content || "گفتگوی تلگرام";
-    rest.unshift({ token: chat.session_token, title: String(first).slice(0, 40), count: (chat.cart || []).reduce((s: number, i: any) => s + i.qty, 0), reason: "manual", ended_at: new Date().toISOString(), history: chat.history, cart: chat.cart, last_products: chat.last_products, thread_id: chat.thread_id ?? null });
+    rest.unshift({ token: chat.session_token, title: String(first).slice(0, 40), count: (chat.cart || []).reduce((s: number, i: any) => s + i.qty, 0), reason: "manual", ended_at: new Date().toISOString(), history: chat.history, cart: chat.cart, last_products: chat.last_products, thread_id: chat.thread_id ?? null, checkout_selection: chat.checkout_selection || {} });
   }
-  if (entry) await saveChat(chat, { session_token: entry.token, history: entry.history || [], cart: entry.cart || [], last_products: entry.last_products || [], locked: false, archived: rest.slice(0, 10), thread_id: t, pending_text: null });
+  if (entry) await saveChat(chat, { session_token: entry.token, history: entry.history || [], cart: entry.cart || [], last_products: entry.last_products || [], locked: false, archived: rest.slice(0, 10), thread_id: t, pending_text: null, checkout_selection: entry.checkout_selection || {} });
   else if (chat._new) Object.assign(chat, { thread_id: t });
-  else await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: rest.slice(0, 10), thread_id: t, pending_text: null });
+  else await saveChat(chat, { session_token: crypto.randomUUID(), history: [], cart: [], last_products: [], locked: false, archived: rest.slice(0, 10), thread_id: t, pending_text: null, checkout_selection: {} });
   return true;
 }
 
-async function startNew(chat: any, intro = "گفتگوی جدید شروع شد ✨") {
+async function greetTopic(chat: any) {
+  await tg("sendMessage", { chat_id: chat.chat_id, text: PETABAD_GREETING, reply_markup: MAIN_KB });
+  await saveChat(chat, { history: [{ role: "assistant", content: PETABAD_GREETING }] });
+}
+
+async function cleanupTransientMessages(chatId: number) {
+  const { data: chat } = await db.from("telegram_chats").select("transient_messages").eq("chat_id", chatId).maybeSingle();
+  const pairs: any[] = chat?.transient_messages || [];
+  const remaining = [];
+  for (const pair of pairs) {
+    if (Number(pair.expires_at) > Date.now()) { remaining.push(pair); continue; }
+    const result = await tg("deleteMessages", { chat_id: chatId, message_ids: pair.message_ids });
+    if (!result.ok) remaining.push(pair);
+  }
+  if (remaining.length !== pairs.length) await db.from("telegram_chats").update({ transient_messages: remaining }).eq("chat_id", chatId);
+}
+
+async function startNew(chat: any, commandMessageId?: number) {
+  const previousThread = thread.getStore()?.id || chat.thread_id;
   if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
   const id = await openTopic(chat, "خرید جدید");
-  if (id) { if (chat._new) chat.thread_id = id; else await saveChat(chat, { thread_id: id }); }
-  await tg("sendMessage", { chat_id: chat.chat_id, text: `${intro}\n\nبگو برای کی دنبال چی هستی؟`, reply_markup: MAIN_KB });
+  if (!id) return tg("sendMessage", { chat_id: chat.chat_id, text: "گفتگوی جدید ساخته نشد؛ دوباره امتحان کن." });
+  await saveChat(chat, { thread_id: id });
+  await greetTopic(chat);
+  const navigation = await tg("sendMessage", {
+    chat_id: chat.chat_id, message_thread_id: previousThread || 0,
+    text: "گفتگوی جدید آماده شد.",
+    reply_markup: { inline_keyboard: [[{ text: "ورود به گفتگوی جدید", url: `https://t.me/Flowcartbot?topic=${id}` }]] },
+  });
+  if (navigation.ok) {
+    const ids = [commandMessageId, navigation.result.message_id].filter((n): n is number => typeof n === "number");
+    await saveChat(chat, { transient_messages: [...(chat.transient_messages || []), transientPair(ids)] });
+  }
 }
 
 // A topic opened from Telegram's native compose button: bind a fresh session and greet inside it.
@@ -367,7 +399,7 @@ async function handleTopicCreated(msg: any) {
   const chat = await loadChat(msg.chat.id, msg.from);
   if (!(await syncThread(chat, msg.message_thread_id))) return;
   if ((chat.history || []).length) return;
-  await tg("sendMessage", { chat_id: chat.chat_id, text: "سلام! 👋 بگو برای کی دنبال چی هستی؟", reply_markup: MAIN_KB });
+  await greetTopic(chat);
 }
 
 async function sendTracking(chat: any) {
@@ -381,10 +413,10 @@ async function sendTracking(chat: any) {
   return tg("sendMessage", { chat_id: chat.chat_id, parse_mode: "HTML", text: `<b>آخرین سفارش‌هات</b>\n\n${lines.join("\n\n")}`, reply_markup: MAIN_KB });
 }
 
-async function handleText(chatId: number, from: any, text: string) {
+async function handleText(chatId: number, from: any, text: string, messageId?: number) {
   const chat = await loadChat(chatId, from);
   if (!(await syncThread(chat, thread.getStore()?.id))) return;
-  if (text === "/new" || text === BTN_NEW || text === "✨ گفتگوی جدید") return startNew(chat);
+  if (text === "/new" || text === BTN_NEW || text === "✨ گفتگوی جدید") return startNew(chat, messageId);
   if (text === "/track" || text === BTN_TRACK || text === "📜 گفتگوها") return sendTracking(chat);
   if (text === "/phone") return tg("sendMessage", { chat_id: chatId, text: "با دکمه زیر شماره‌ات رو بفرست تا بدون پیامک تأیید بشه:", reply_markup: PHONE_KB });
   if (!text.startsWith("/start") && text !== BTN_CART && text !== "/cart") {
@@ -398,7 +430,7 @@ async function handleText(chatId: number, from: any, text: string) {
     if (!chat._new && ((chat.history || []).length || (chat.cart || []).length)) await rotate(chat, "manual");
     await tg("sendMessage", {
       chat_id: chatId,
-      text: `سلام ${from?.first_name ?? ""}! 🐾 من دستیار خرید هوشمند پت‌آباد هستم (قدرت‌گرفته از Flowcart).\n\nبگو برای کی دنبال چی هستی، مثلاً «غذای خشک گربه عقیم‌شده زیر ۸۰۰ هزار تومن» یا «خاک گربه بی‌بو»؛ بهترین گزینه‌ها رو برات پیدا می‌کنم و همین‌جا به سبدت اضافه می‌کنم.`,
+      text: PETABAD_GREETING,
       reply_markup: MAIN_KB,
     });
     if (payload?.startsWith("p_")) {
@@ -408,6 +440,10 @@ async function handleText(chatId: number, from: any, text: string) {
     } else return;
   }
   if (text === "/cart" || text === BTN_CART || text === "🛒 سبد خرید من") return sendCart(chat);
+
+  if (!(chat.history || []).some((m: any) => m.role === "user")) {
+    await renameTopic(chat, chat.thread_id, topicName(text));
+  }
 
   // Fast path: "محصول چهارم رو اضافه کن"
   const ord = parseOrdinalAdd(text);
@@ -500,10 +536,27 @@ async function handleCallback(cb: any) {
     if (!a) return ack("این آدرس پیدا نشد");
     await ack("✅ آدرس انتخاب شد");
     await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+    await saveChat(chat, { checkout_selection: { address_id: a.id, shipping_id: null } });
     return tg("sendMessage", {
       chat_id: chatId,
-      text: `📍 ارسال به «${a.title}»\n${a.full_address}\n\nفقط مونده انتخاب روش پرداخت 👇`,
-      reply_markup: { inline_keyboard: [[{ text: "💳 انتخاب روش پرداخت", web_app: { url: `${appUrl(chat)}&intent=payment&addr=${a.id}` } }]] },
+      text: `📍 ارسال به «${a.title}»\n${a.full_address}\n\nروش ارسال رو انتخاب کن:`,
+      reply_markup: { inline_keyboard: PETABAD_SHIPPING.map(method => [{ text: `${method.label} · ${method.priceLabel} · ${method.deliveryWindow}`, callback_data: `ship:${method.id}` }]) },
+    });
+  }
+  if (data.startsWith("ship:")) {
+    const method = resolvePetabadShipping(data.slice(5));
+    const selection = chat.checkout_selection || {};
+    const { data: address } = chat.user_id && selection.address_id
+      ? await db.from("user_addresses").select("id,title,full_address").eq("id", selection.address_id).eq("user_id", chat.user_id).maybeSingle()
+      : { data: null };
+    if (!method || !address || !(chat.cart || []).length) return ack("اول آدرس و سبد خرید رو انتخاب کن");
+    await saveChat(chat, { checkout_selection: { address_id: address.id, shipping_id: method.id } });
+    await ack("روش ارسال انتخاب شد");
+    await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+    return tg("sendMessage", {
+      chat_id: chatId,
+      text: `📍 آدرس: «${address.title}»\n🚚 ${method.label} · ${method.deliveryWindow}\nهزینه ارسال: ${method.priceLabel}\n💰 مجموع پرداختی: ${price(cartTotal(chat.cart) + method.fee)}${method.id === "courier" ? " (هزینه پیک جداگانه، پس کرایه)" : ""}`,
+      reply_markup: { inline_keyboard: [[{ text: "💳 پرداخت و ثبت سفارش", web_app: { url: `${appUrl(chat)}&intent=payment&addr=${address.id}&ship=${method.id}` } }]] },
     });
   }
   if (data.startsWith("m:") || data === "mok") {
@@ -619,11 +672,13 @@ Deno.serve(async (req) => {
   try {
     const update = await req.json();
     const m = update.message ?? update.callback_query?.message;
+    if (m?.chat?.id) await cleanupTransientMessages(m.chat.id);
     await thread.run({ id: m?.message_thread_id }, async () => {
       if (update.callback_query) await handleCallback(update.callback_query);
       else if (update.message?.contact) await handleContact(update.message);
       else if (update.message?.forum_topic_created) await handleTopicCreated(update.message);
-      else if (update.message?.text) await handleText(update.message.chat.id, update.message.from, update.message.text.trim());
+      else if (update.message?.forum_topic_edited && update.message.from?.is_bot) await tg("deleteMessage", { chat_id: m.chat.id, message_id: m.message_id });
+      else if (update.message?.text) await handleText(update.message.chat.id, update.message.from, update.message.text.trim(), update.message.message_id);
     });
   } catch (e) {
     console.error("webhook error", e);

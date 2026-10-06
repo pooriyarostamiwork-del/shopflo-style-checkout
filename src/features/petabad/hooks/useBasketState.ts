@@ -9,6 +9,7 @@ import {
 import { Basket } from "@/components/petabad/Sidebar";
 import { ProductMemory, createEmptyProductMemory } from "./productMemory";
 import { ShoppingContext, createEmptyShoppingContext } from "./shoppingContext";
+import { PETABAD_GREETING } from "../../../../supabase/functions/_shared/petabadExperience";
 
 // ========== PER-BASKET STATE ==========
 export interface BasketState {
@@ -31,7 +32,7 @@ export const createDefaultBasketState = (): BasketState => ({
   messages: [{
     id: `welcome-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     role: 'assistant',
-    content: 'سلام! 👋 من دستیار خرید هوشمند پت آباد هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بگی دنبال چی می‌گردی، یا از من بخوای محصولات رو مقایسه کنم.',
+    content: PETABAD_GREETING,
     timestamp: new Date(),
   }],
   cartItems: [],

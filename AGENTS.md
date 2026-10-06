@@ -7,5 +7,7 @@
 - Desktop cart panels share `CartPanelHeader`; one stroke-based header keeps title geometry and close controls consistent across storefronts.
 - Telegram bot (@Flowcartbot) lives in `telegram-webhook`, uses `petabad-agent` in agentic mode and opens PetAbad as a Mini App via `?tg=<session_token>` (read by `telegram-session` + `useTelegramSession`); per-chat state stays in service-role-only `telegram_chats`, mirrored to `baskets` only when the phone matches an account, so the bot never forks agent logic.
 
-- Telegram chat lifecycle is lazy and topic-based (Threaded Mode): one `telegram_chats` row per chat holds the active session's `thread_id`; other topics live in `archived` with their `thread_id` and are swapped in when a message arrives there; checkout renames the topic ✅ and opens a fresh one, so sessions map 1:1 to topics without a cron.
+- Telegram chat lifecycle is lazy and topic-based: archived topics retain their checkout selections, new-topic command/navigation pairs expire together on incoming updates, and completion opens a fresh topic without renaming the old title; this keeps session state isolated without a cron.
+- PetAbad app and Telegram import greeting and shipping definitions from a runtime-neutral shared module under functions/_shared; this prevents copy, shipping IDs and fees drifting between channels.
+- Mini App checkout receives owner-validated address/shipping from telegram-session, and completion requires an authenticated owner and matching order; bearer links alone never authorize checkout mutations.
 - Telegram Mini App SSO only trusts HMAC-verified `initData` whose user id equals the chat's `chat_id` and which has a confirmed phone (`_shared/telegramAuth.ts`); the session token alone never grants login.

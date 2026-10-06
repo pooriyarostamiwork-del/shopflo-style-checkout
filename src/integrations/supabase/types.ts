@@ -1056,6 +1056,7 @@ export type Database = {
           archived: Json
           cart: Json
           chat_id: number
+          checkout_selection: Json
           first_name: string | null
           history: Json
           last_products: Json
@@ -1064,6 +1065,7 @@ export type Database = {
           phone: string | null
           session_token: string
           thread_id: number | null
+          transient_messages: Json
           updated_at: string
           user_id: string | null
           username: string | null
@@ -1072,6 +1074,7 @@ export type Database = {
           archived?: Json
           cart?: Json
           chat_id: number
+          checkout_selection?: Json
           first_name?: string | null
           history?: Json
           last_products?: Json
@@ -1080,6 +1083,7 @@ export type Database = {
           phone?: string | null
           session_token?: string
           thread_id?: number | null
+          transient_messages?: Json
           updated_at?: string
           user_id?: string | null
           username?: string | null
@@ -1088,6 +1092,7 @@ export type Database = {
           archived?: Json
           cart?: Json
           chat_id?: number
+          checkout_selection?: Json
           first_name?: string | null
           history?: Json
           last_products?: Json
@@ -1096,6 +1101,7 @@ export type Database = {
           phone?: string | null
           session_token?: string
           thread_id?: number | null
+          transient_messages?: Json
           updated_at?: string
           user_id?: string | null
           username?: string | null

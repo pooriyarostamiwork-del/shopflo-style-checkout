@@ -1,0 +1,1 @@
+ALTER TABLE public.telegram_chats ADD COLUMN IF NOT EXISTS transient_messages jsonb NOT NULL DEFAULT '[]'::jsonb, ADD COLUMN IF NOT EXISTS checkout_selection jsonb NOT NULL DEFAULT '{}'::jsonb;

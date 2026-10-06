@@ -121,7 +121,9 @@ const NEG_CLAUSE_RE = /(نمی\s*خوا[مهی]|نمیخوا[مهی]|نخواس�
 
 /** Split a compound turn into wanted vs. negated clauses («غذا و هپی پت رو اضافه کن، شامپو رو نمی‌خوام»). */
 export function splitPolarity(text: string): { pos: string[]; neg: string[] } {
-  const clauses = normFa(text).split(/[،,.;!؟?\n]|\s(?:ولی|اما|ولیکن|به\s*جز|بجز|غیر\s*از)\s/);
+  // A clause also ends at its verb: «هپی پتو اضافه کن شامپو رو نمیخوام» → two clauses.
+  const marked = normFa(text).replace(/(اضافه\s*کن|بکن|کن|بذار|بزار|بنداز|بریز|بخر|بفرست|می\s*خوام|میخوام|نمی\s*خوام|نمیخوام|نخواستم|نیست|ندارم)(?=\s|$)/g, "$1|");
+  const clauses = marked.split(/\|/).flatMap((c) => c.split(/[،,.;!؟?\n]|\s(?:ولی|اما|ولیکن|به\s*جز|بجز|غیر\s*از)\s/);
   const pos: string[] = [];
   const neg: string[] = [];
   for (const c of clauses) (NEG_CLAUSE_RE.test(c) ? neg : pos).push(...tokens(c));

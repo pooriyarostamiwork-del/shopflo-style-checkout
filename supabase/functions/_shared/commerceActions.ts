@@ -239,7 +239,7 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const resolveOffer = (a: any, idxField: string, idField: string): { offer?: Offer; ambiguous?: Offer[] } => {
     let offer = (raw.length === 1 && ordOffer) || offerAt(a?.[idxField]) || findShown(a?.[idField]);
     if (!(raw.length === 1 && ordOffer)) {
-      const n = narrow(offer, shown, pickedAddIds);
+      const n = narrow(offer, shown, pickedAddIds, posTt);
       if (n.tie) return { ambiguous: n.tie };
       offer = n.item;
     }
@@ -253,7 +253,6 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   };
 
   for (const a of raw) {
-    if (pending) break;
     const type = String(a?.type || "");
     if (type === "clear") {
       if (!cart.length) { notes.push("سبدت از قبل خالیه."); continue; }
@@ -266,15 +265,17 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     if (type === "add") {
       const { offer, ambiguous } = resolveOffer(a, "product_index", "product_id");
       const qty = Math.max(1, clampQty(a?.quantity, 1));
+      if (offer && isNegated(offer)) { trace.push(`negated-add-dropped:${offer.id}`); continue; }
       if (!offer) {
-        const pool = (ambiguous || []).slice(0, 6);
+        const already = new Set(resolved.map((r) => (r.type === "add" ? r.product_id : "")));
+        const pool = (ambiguous || []).filter((o) => !isNegated(o) && !already.has(o.id)).slice(0, 6);
         if (!pool.length) { notes.push("محصولی برای افزودن پیدا نکردم؛ اول بگو دنبال چی هستی تا نشونت بدم."); continue; }
         const choices: Choice[] = pool.map((o) => ({
           label: shortName(o.name) + priceTag(o.price),
           actions: [...resolved, { type: "add", product_id: o.id, quantity: qty }],
           done: `${qty > 1 ? `${faNum(qty)} عدد ` : ""}«${o.name}» به سبدت اضافه شد.`,
         }));
-        if (pool.length > 1 && pool.length <= 3 && ambiguous !== offers) {
+        if (pool.length > 1 && pool.length <= 4) {
           choices.push({
             label: `همه‌شون (${faNum(pool.length)} مورد)`,
             actions: [...resolved, ...pool.map((o) => ({ type: "add" as const, product_id: o.id, quantity: qty }))],
@@ -284,6 +285,7 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
         ask("کدوم رو به سبدت اضافه کنم؟", choices);
         continue;
       }
+      if (resolved.some((r) => r.type === "add" && r.product_id === offer.id)) continue;
       resolved.push({ type: "add", product_id: offer.id, quantity: qty });
       continue;
     }

@@ -3185,7 +3185,9 @@ serve(async (req) => {
       toolTrace.push(...toolNames);
 
       // Short-circuit: clarification / cart on first round only (preserves current UX)
-      if (round === 0) {
+      // Cart/checkout tool calls execute on every round; ask-cards stay first-round only.
+      const execCall = choice.message.tool_calls.some((t: any) => ["checkout_action", "execute_cart_operations"].includes(t.function?.name));
+      if (round === 0 || execCall) {
         const clarifyCall = choice.message.tool_calls.find((t: any) => t.function?.name === "ask_clarification");
         if (clarifyCall) {
           let payload: any = {};

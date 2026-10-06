@@ -30,6 +30,8 @@ export interface FlowSeed {
   foreignOnly?: boolean | null;
   healthNeeds?: string[] | null;
   productTypes?: string[] | null;
+  /** Dog breed size (کوچک / متوسط / بزرگ) already known from the breed the shopper named. */
+  breedSize?: string | null;
 }
 
 export type FacetPrice = { min: number; q1: number; median: number; q3: number; max: number } | null;
@@ -43,6 +45,8 @@ export interface FlowDeps {
   detectProductTypes: (text: string) => string[];
   buildBudgetOptions: (price: FacetPrice) => any[] | null;
   needSpecs: Array<{ key: string; label: string; query: (sp: string) => string }>;
+  /** Breed name / size words → کوچک / متوسط / بزرگ (null when unknown). */
+  inferBreedSize?: (text: string) => string | null;
 }
 
 type Bucket = { value: string; count: number };
@@ -61,6 +65,7 @@ export interface FlowSummary {
   seed: string;
   species: string | null;
   lifeStage: string | null;
+  breedSize: string | null;
   healthNeeds: string[];
   productTypes: string[];
   needKeys: string[];
@@ -115,6 +120,10 @@ export function startFlow(
   if (known?.lifeStage && STAGE_ANSWER[known.lifeStage]) {
     answers["age"] = STAGE_ANSWER[known.lifeStage];
     asked.push("age");
+  }
+  if (known?.breedSize) {
+    answers["size"] = known.breedSize;
+    asked.push("size");
   }
   if (known?.foreignOnly === true || known?.foreignOnly === false) {
     answers["origin"] = known.foreignOnly ? "خارجی" : "ایرانی";
@@ -333,14 +342,42 @@ const ageQuestion: Builder = async (deps, flow) => {
   const f = flow.goal === "bundle" ? await facets(deps, sp ? { p_species: sp } : {}) : await singleSlice(deps, flow);
   if (!f) return null;
   const buckets = splitting(f.life_stages, f.total, 3);
-  if (buckets.length < 2) return null;
+  // A new dog/cat bundle always needs the age (puppy food ≠ adult food), even when one stage dominates.
+  const mustAsk = flow.goal === "bundle" && (flow.species === "سگ" || flow.species === "گربه");
+  if (buckets.length < 2 && !mustAsk) return null;
   const options: FlowCard["options"] = ["نابالغ", "بالغ", "سنیور"]
-    .filter((k) => buckets.some((b) => b.value === k))
+    .filter((k) => mustAsk || buckets.some((b) => b.value === k))
     .map((k) => ({ label: STAGE_LABEL[k].label, hint: STAGE_LABEL[k].hint }));
   options.push({ label: "مهم نیست" });
   const name = flow.species && !UMBRELLA.includes(flow.species) ? `${flow.species}‌ت` : "حیوانت";
   return { kind: "single", id: "age", title: "سن", question: `${name} تو چه سنیه؟`, options };
 };
+
+/** Dog size decides food kibble, portion and accessories; asked once, answerable by breed name. */
+const sizeQuestion: Builder = async (_deps, flow) => {
+  if (flow.species !== "سگ") return null;
+  if (flow.goal === "single" && !/غذا|تشویقی|قلاده|لباس|باکس|جای\s*خواب|اسباب/.test(flow.seed)) return null;
+  return {
+    kind: "single",
+    id: "size",
+    title: "نژاد",
+    question: "سگت چه نژادیه؟",
+    helper: "اگه نژادش رو می‌دونی بنویس، وگرنه اندازه‌اش رو بزن",
+    options: [
+      { label: "کوچک", hint: "مثل شیتزو، پامرانیان، پودل" },
+      { label: "متوسط", hint: "مثل بیگل، کوکر" },
+      { label: "بزرگ", hint: "مثل ژرمن، گلدن، هاسکی" },
+      { label: "نمی‌دونم" },
+    ],
+  };
+};
+
+function breedSizeOf(deps: FlowDeps, flow: QuestionFlow): string | null {
+  const a = flow.answers["size"] || "";
+  if (!a) return null;
+  if (/^(کوچک|متوسط|بزرگ)$/.test(a.trim())) return a.trim();
+  return deps.inferBreedSize?.(a) || (/کوچک/.test(a) ? "کوچک" : /متوسط/.test(a) ? "متوسط" : /بزرگ/.test(a) ? "بزرگ" : null);
+}
 
 const essentialsQuestion: Builder = async (deps, flow) => {
   const slices = await bundleSlices(deps, flow, deps.needSpecs.map((n) => n.key));
@@ -478,6 +515,7 @@ const PLANS: Record<FlowGoal, Array<[string, Builder]>> = {
   bundle: [
     ["species", speciesQuestion],
     ["age", ageQuestion],
+    ["size", sizeQuestion],
     ["essentials", essentialsQuestion],
     ["completeness", completenessQuestion],
     ["origin", originQuestion],
@@ -486,6 +524,7 @@ const PLANS: Record<FlowGoal, Array<[string, Builder]>> = {
   single: [
     ["species", speciesQuestion],
     ["age", ageQuestion],
+    ["size", sizeQuestion],
     ["type", typeQuestion],
     ["need", needQuestion],
     ["origin", originQuestion],
@@ -527,6 +566,7 @@ export async function nextQuestion(
 
 export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
   const lifeStage = currentStage(flow);
+  const breedSize = breedSizeOf(deps, flow);
   const foreignOnly = currentForeign(flow);
   const healthNeeds = selectedHealthNeeds(flow);
   const productTypes = currentTypes(flow);
@@ -564,6 +604,8 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
   ];
   if (flow.species) lines.push(`حیوان: ${flow.species}`);
   if (lifeStage) lines.push(`مرحله سنی: ${lifeStage} (filters.life_stage)`);
+  if (breedSize) lines.push(`اندازه نژاد: ${breedSize} (filters.breed_size) — محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده`);
+  if (flow.answers["size"] && !/^(کوچک|متوسط|بزرگ|نمی)/.test(flow.answers["size"])) lines.push(`نژاد: ${flow.answers["size"]} (breed)`);
   if (needKeys.length) {
     const labels = deps.needSpecs.filter((n) => needKeys.includes(n.key)).map((n) => n.label);
     lines.push(`اقلام پک: ${labels.join("، ")} — ${complete ? "برای هر قلم دو گزینه" : "برای هر قلم یک گزینه مطمئن"}`);
@@ -585,6 +627,7 @@ export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {
     seed: flow.seed,
     species: flow.species || null,
     lifeStage,
+    breedSize,
     healthNeeds,
     productTypes,
     needKeys,

@@ -428,30 +428,76 @@ const DETAILS_TOOL = {
 // ── Executional intent: one typed Jev decision, no word lists. Null = let the agent decide. ──
 type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping" | "select_payment" | "guide"; id?: string; target?: string; fast?: boolean };
 
-// One batched Jev call decides how this turn is routed. No word lists: when Jev
-// cannot judge, every flag stays false and the agent answers the turn normally.
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean };
-async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[]): Promise<TurnIntent> {
-  const none: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false };
-  if (!message.trim()) return none;
+// One batched Jev call decides how this turn is routed AND which pet facts / product
+// reference the message states. No word lists: when Jev cannot judge, every flag stays
+// false, every slot stays null and the agent answers the turn normally.
+type TurnSlots = { species: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; slots: TurnSlots };
+const NO_SLOTS: TurnSlots = { species: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, slots: NO_SLOTS };
+async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null): Promise<TurnIntent> {
+  if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
-  const j = await askJev(
-    { message, recent_messages: recent, shown_products: shown, pet },
-    {
-      guidance: q("Does the shopper in `message` (casual Persian, pet shop) ask for help or advice choosing what to buy, without already specifying exactly which product they want?"),
-      bundle: q("Does `message` ask for a complete set / starter pack / everything a pet needs (e.g. a newly adopted pet), i.e. several different product types at once, rather than one product type?"),
-      compare: q("Does `message` ask to compare products or brands, or ask which of two or more named options is better or how they differ?"),
-      info: q("Is `message` a knowledge question about brands, origins, categories or what the shop carries (answerable in words), rather than a request to be shown products to buy?"),
-      business: q("Is `message` a question about shop policies or services: shipping, delivery time, returns, warranty, authenticity, payment terms, discounts, store hours or contact?"),
-      counts: q("Does `message` explicitly ask about quantities, how many options exist, totals, or the price range / cheapest / most expensive?"),
-      delegate: q("Does the shopper in `message` leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن») instead of naming a specific product?"),
-      about_shown: q("Is `message` a question or request about the products in `shown_products` (which of them suits the pet, picking among them), rather than asking for a different kind of product or a new search? If `shown_products` is empty, answer no."),
+  const ordinalCriteria: Record<string, string> = { none: "The message does not point at one specific product of `shown_products` by position." };
+  shown.slice(0, 12).forEach((name, i) => (ordinalCriteria[`p${i + 1}`] = `Points at product #${i + 1} of \`shown_products\` («${name}»), e.g. by its position (first/second/last), its number or an unambiguous pronoun.`));
+  const questions: Record<string, unknown> = {
+    guidance: q("Does the shopper in `message` (casual Persian, pet shop) ask for help or advice choosing what to buy, without already specifying exactly which product they want?"),
+    bundle: q("Does `message` ask for a complete set / starter pack / everything a pet needs (e.g. a newly adopted pet), i.e. several different product types at once, rather than one product type?"),
+    compare: q("Does `message` ask to compare products or brands, or ask which of two or more named options is better or how they differ?"),
+    info: q("Is `message` a knowledge question about brands, origins, categories or what the shop carries (answerable in words), rather than a request to be shown products to buy?"),
+    business: q("Is `message` a question about shop policies or services: shipping, delivery time, returns, warranty, authenticity, payment terms, discounts, store hours or contact?"),
+    counts: q("Does `message` explicitly ask about quantities, how many options exist, totals, or the price range / cheapest / most expensive?"),
+    delegate: q("Does the shopper in `message` leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن») instead of naming a specific product?"),
+    about_shown: q("Is `message` a question or request about the products in `shown_products` (which of them suits the pet, picking among them), rather than asking for a different kind of product or a new search? If `shown_products` is empty, answer no."),
+    species: {
+      type: "choice",
+      instructions: "Which animal is `message` about? Use only what `message` itself says (pet words, nicknames, breed names such as شیتزو → dog, پرشین → cat). If it names two, pick the one the purchase is for.",
+      criteria: {
+        none: "`message` names or implies no animal.",
+        "سگ": "A dog or puppy, or a dog breed.",
+        "گربه": "A cat or kitten, or a cat breed.",
+        "پرنده": "A bird (parrot, canary, budgie, cockatiel…).",
+        "ماهی و آکواریوم": "Fish or an aquarium.",
+        "سایر حیوانات خانگی": "Another small pet: rabbit, hamster, guinea pig, rodent, turtle, reptile, ferret.",
+      },
     },
-  );
-  if (!j) return none;
+    life_stage: {
+      type: "choice",
+      instructions: "What life stage of the pet does `message` state (explicit age, puppy/kitten talk, old age)? Only what `message` says.",
+      criteria: { none: "No age or life stage stated.", "نابالغ": "Young: puppy, kitten, baby, under one year.", "بالغ": "Adult: roughly 1 to 7 years.", "سنیور": "Senior / old: roughly 7 years or older." },
+    },
+    breed_size: {
+      type: "choice",
+      instructions: "If `message` is about a dog, what body size does it state or imply through the breed (شیتزو/پامرانیان/پودل small, بیگل/کوکر medium, ژرمن/گلدن/هاسکی large)? Only what `message` says.",
+      criteria: { none: "No dog size or breed stated, or not about a dog.", "کوچک": "Small / toy breed.", "متوسط": "Medium breed.", "بزرگ": "Large or giant breed." },
+    },
+    ordinal: { type: "choice", instructions: "Does `message` point at one specific product of `shown_products`?", criteria: ordinalCriteria },
+  };
+  if (pendingQuestion) {
+    questions.skip = q("The shopper was just asked `pending_question`. Does `message` decline to choose or say it does not matter / they do not know / leave it to the assistant?");
+    questions.new_request = q("The shopper was just asked `pending_question`. Is `message` a different new request (another product or topic) instead of an answer to that question?");
+  }
+  const j = await askJev({ message, recent_messages: recent, shown_products: shown, pet, pending_question: pendingQuestion }, questions);
+  if (!j) return NO_TURN;
   const y = (k: string) => jevYes(j[k]) === true;
-  return { guidance: y("guidance"), bundle: y("bundle"), compare: y("compare"), info: y("info"), business: y("business"), counts: y("counts"), delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown") };
+  const pick = (k: string, min = 0.6) => {
+    const a = j[k];
+    const c = typeof a?.choice === "string" ? a.choice : "";
+    if (!c || c === "none" || (typeof a?.confidence === "number" && a.confidence < min)) return null;
+    return c;
+  };
+  const ord = pick("ordinal");
+  const slots: TurnSlots = {
+    species: pick("species"),
+    lifeStage: pick("life_stage"),
+    breedSize: pick("breed_size"),
+    ordinal: ord && /^p\d+$/.test(ord) ? Number(ord.slice(1)) : null,
+    skip: !!pendingQuestion && y("skip"),
+    newRequest: !!pendingQuestion && y("new_request"),
+  };
+  return { guidance: y("guidance"), bundle: y("bundle"), compare: y("compare"), info: y("info"), business: y("business"), counts: y("counts"), delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"), slots };
 }
+
 
 async function judgeExecIntent(message: string, ctx: any, cartCount: number): Promise<ExecIntent | null> {
   if (!message.trim()) return null;

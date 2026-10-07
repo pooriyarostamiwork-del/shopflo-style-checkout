@@ -557,7 +557,8 @@ export async function nextQuestion(
   const remaining = PLANS[flow.goal].filter(([id]) => !flow.asked.includes(id));
   const built = await Promise.all(remaining.map(async ([id, build]) => ({ id, card: await build(deps, flow) })));
   const viable = built.filter((b) => b.card) as Array<{ id: string; card: FlowCard }>;
-  const deadEnds = built.filter((b) => !b.card).map((b) => b.id);
+  // Dead ends are not marked as asked: a later answer (e.g. essentials) can make them viable.
+  const deadEnds: string[] = [];
   if (!viable.length) return { card: null, flow: { ...flow, asked: [...flow.asked, ...deadEnds], done: true, pending: null } };
 
   const first = viable.find((v) => FIRST_IDS.includes(v.id));

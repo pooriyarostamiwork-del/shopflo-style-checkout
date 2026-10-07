@@ -474,11 +474,40 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     },
     ordinal: { type: "choice", instructions: "Does `message` point at one specific product of `shown_products`?", criteria: ordinalCriteria },
   };
+  // Executional cart commands are judged first-class so they never fall into a
+  // questionnaire or a «complete pack» flow (e.g. «همشو اضافه کن بجز ظرف غذا»).
+  questions.cart_op = {
+    type: "choice",
+    instructions: "Does `message` (casual Persian) directly COMMAND a change to the shopping cart — about products in `shown_products` or `cart_items` — rather than ask for advice, a new search, or a starter pack? Commands that pick only some of the shown items (e.g. «همشو اضافه کن بجز X», «اولی و سومی رو بریز تو سبد») are still `add`.",
+    criteria: {
+      none: "Not a cart command: a search, a question, advice, a starter-pack request, an answer to a question, or chit-chat.",
+      add: "Add one, several or all of the shown/named products to the cart (possibly excluding some).",
+      remove: "Remove one or more items that are already in `cart_items`.",
+      update: "Change the quantity of an item already in `cart_items` (more, less, a number).",
+      replace: "Swap an item in `cart_items` for another product (shown or named).",
+      clear: "Empty the whole cart.",
+    },
+  };
+  questions.has_exclusion = q("Does `message` exclude or reject some products or items (e.g. «بجز»، «غیر از»، «X رو نمیخوام»، «اون یکی نه»)?");
+  questions.small_pet = {
+    type: "choice",
+    instructions: "If `message` is about a small pet (not dog, cat, bird or fish), which one exactly? Only what `message` says.",
+    criteria: {
+      none: "No small pet is mentioned.",
+      "خرگوش": "Rabbit (including breeds like لوپ، هلندی، لاین‌هد).",
+      "همستر": "Hamster (سوری، جونگاریان، روبرو…).",
+      "خوکچه هندی": "Guinea pig (خوکچه، کاوی).",
+      "موش و جرذ": "Mouse, rat, gerbil or another small rodent.",
+      "چینچیلا": "Chinchilla.",
+      "لاکپشت و خزنده": "Turtle, tortoise, lizard, iguana, snake or another reptile.",
+      "فرت": "Ferret.",
+    },
+  };
   if (pendingQuestion) {
     questions.skip = q("The shopper was just asked `pending_question`. Does `message` decline to choose or say it does not matter / they do not know / leave it to the assistant?");
-    questions.new_request = q("The shopper was just asked `pending_question`. Is `message` a different new request (another product or topic) instead of an answer to that question?");
+    questions.new_request = q("The shopper was just asked `pending_question`. Is `message` something other than an answer to that question — a cart command, another product, a complaint or another topic? A message that only picks among / describes the answer is NOT a new request.");
   }
-  const j = await askJev({ message, recent_messages: recent, shown_products: shown, pet, pending_question: pendingQuestion }, questions);
+  const j = await askJev({ message, recent_messages: recent, shown_products: shown, cart_items: cart, pet, pending_question: pendingQuestion }, questions);
   if (!j) return NO_TURN;
   const y = (k: string) => jevYes(j[k]) === true;
   const pick = (k: string, min = 0.6) => {
@@ -488,15 +517,25 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     return c;
   };
   const ord = pick("ordinal");
+  const op = pick("cart_op") as CartOp;
+  // A cart command only makes sense when there is something to act on.
+  const cartOp: CartOp = op && ((op === "add" || op === "replace") ? shown.length > 0 || cart.length > 0 : cart.length > 0) ? op : null;
+  const smallPet = pick("small_pet");
   const slots: TurnSlots = {
-    species: pick("species"),
+    species: pick("species") || (smallPet ? "سایر حیوانات خانگی" : null),
+    smallPet,
     lifeStage: pick("life_stage"),
     breedSize: pick("breed_size"),
     ordinal: ord && /^p\d+$/.test(ord) ? Number(ord.slice(1)) : null,
-    skip: !!pendingQuestion && y("skip"),
-    newRequest: !!pendingQuestion && y("new_request"),
+    skip: !!pendingQuestion && !cartOp && y("skip"),
+    newRequest: !!pendingQuestion && (!!cartOp || y("new_request")),
   };
-  return { guidance: y("guidance"), bundle: y("bundle"), compare: y("compare"), info: y("info"), business: y("business"), counts: y("counts"), delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"), slots };
+  return {
+    guidance: !cartOp && y("guidance"), bundle: !cartOp && y("bundle"), compare: !cartOp && y("compare"),
+    info: !cartOp && y("info"), business: !cartOp && y("business"), counts: !cartOp && y("counts"),
+    delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"),
+    cartOp, hasExclusion: y("has_exclusion"), slots,
+  };
 }
 
 

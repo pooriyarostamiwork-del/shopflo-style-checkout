@@ -3149,6 +3149,12 @@ serve(async (req) => {
         const switched = named && flow.species && named !== flow.species;
         if (switched || slots.newRequest) flow = null;
         else flow = recordAnswer(flow, lastUserText, slots.skip);
+        // Typed facts from Jev replace free-text parsing of the answer.
+        if (flow && !slots.skip) {
+          const was = (question_flow as QuestionFlow).pending;
+          const fix: Record<string, string | null> = { species: slots.species, age: slots.lifeStage, size: slots.breedSize };
+          if (was && fix[was]) flow = { ...flow, answers: { ...flow.answers, [was]: fix[was]! } };
+        }
       }
       if (!flow || flow.done) {
         const goal = turnIntent.bundle ? "bundle" : "single";

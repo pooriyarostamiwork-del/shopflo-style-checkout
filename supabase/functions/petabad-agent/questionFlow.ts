@@ -88,7 +88,6 @@ export type FlowCard = {
   options: Array<{ label: string; hint?: string }>;
 };
 
-const SKIP_RE = /(فرقی نمی|مهم نیست|نمی\s*دونم|هر چی|خودت انتخاب)/;
 const MIN_OPTION_ROWS = 3;
 const DOMINANCE = 0.85;
 const MAX_QUESTIONS = 5;
@@ -140,9 +139,9 @@ export function startFlow(
 }
 
 /** Record the shopper's reply to the pending question. Free text counts as an answer too. */
-export function recordAnswer(flow: QuestionFlow, text: string): QuestionFlow {
+export function recordAnswer(flow: QuestionFlow, text: string, skipped = false): QuestionFlow {
   if (!flow.pending) return flow;
-  const answers = { ...flow.answers, [flow.pending]: SKIP_RE.test(text) ? "" : text.trim() };
+  const answers = { ...flow.answers, [flow.pending]: skipped ? "" : text.trim() };
   return { ...flow, answers, pending: null };
 }
 

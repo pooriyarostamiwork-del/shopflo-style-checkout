@@ -431,10 +431,11 @@ type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping
 // One batched Jev call decides how this turn is routed AND which pet facts / product
 // reference the message states. No word lists: when Jev cannot judge, every flag stays
 // false, every slot stays null and the agent answers the turn normally.
-type TurnSlots = { species: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; slots: TurnSlots };
-const NO_SLOTS: TurnSlots = { species: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
-const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, slots: NO_SLOTS };
+type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
+type CartOp = "add" | "remove" | "update" | "replace" | "clear" | null;
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots };
+const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS };
 async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });

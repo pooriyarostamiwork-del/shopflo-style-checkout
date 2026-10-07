@@ -21,7 +21,7 @@ const CopyButton = ({ text }: { text: string }) => {
   };
   return (
     <button type="button" onClick={copy} className={iconBtn} aria-label={copied ? "کپی شد" : "کپی پیام"} title={copied ? "کپی شد" : "کپی"}>
-      {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+      <span className="relative h-3.5 w-3.5"><Copy className={cn("absolute inset-0 h-3.5 w-3.5 transition-all duration-200", copied ? "scale-50 opacity-0" : "scale-100 opacity-100")} /><Check className={cn("absolute inset-0 h-3.5 w-3.5 text-primary transition-all duration-200", copied ? "scale-100 opacity-100" : "scale-50 opacity-0")} /></span>
     </button>
   );
 };

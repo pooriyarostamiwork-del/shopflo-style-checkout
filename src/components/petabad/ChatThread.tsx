@@ -126,7 +126,7 @@ export const ChatThread = ({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, streamingId]);
 
   // Auto-resize textarea
   useEffect(() => {

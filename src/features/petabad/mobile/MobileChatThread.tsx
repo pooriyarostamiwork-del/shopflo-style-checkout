@@ -117,7 +117,7 @@ export const MobileChatThread = ({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, isProcessing]);
+  }, [messages.length, isProcessing, streamingId]);
 
   useEffect(() => {
     if (textareaRef.current) {

@@ -3144,10 +3144,11 @@ serve(async (req) => {
       let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
       if (flow && flow.pending && !flow.done) {
         // A reply that names another animal or is a long new request abandons the flow.
-        const named = lastNamedSpecies(lastUserText);
+        // Jev judges whether the reply abandons the flow (another animal or a new request) or skips the question.
+        const named = slots.species;
         const switched = named && flow.species && named !== flow.species;
-        if (switched || lastUserText.length > 80) flow = null;
-        else flow = recordAnswer(flow, lastUserText);
+        if (switched || slots.newRequest) flow = null;
+        else flow = recordAnswer(flow, lastUserText, slots.skip);
       }
       if (!flow || flow.done) {
         const goal = turnIntent.bundle ? "bundle" : "single";

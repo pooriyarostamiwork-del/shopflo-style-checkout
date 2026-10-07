@@ -364,3 +364,9 @@ All colors MUST be HSL.
 .vd-anim-in { animation: vdFadeUp 220ms ease-out both; }
 
 
+
+/* Agent reply streaming: text first, then cards */
+@keyframes stream-tail-in { from { opacity: 0; } to { opacity: 1; } }
+.stream-tail { animation: stream-tail-in 220ms ease-out both; }
+.stream-pending > :not(.stream-text-row) { display: none !important; }
+.stream-revealed > :not(.stream-text-row) { animation: stream-tail-in 320ms ease-out both; }

@@ -185,7 +185,7 @@ export const MobileChatLanding = ({
     >
       {/* Mobile-scoped overrides: hide ProductImage placeholder label */}
       <style>{`
-        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label [role="img"]:not(.wandering-eyes) > span { display: none !important; }
         .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
         .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
       `}</style>

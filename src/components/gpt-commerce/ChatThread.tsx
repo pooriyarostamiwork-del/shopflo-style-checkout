@@ -1,6 +1,7 @@
 import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
 import { resolveQuickReplies } from "@/lib/quickReplies";
 import { useState, useRef, useEffect } from "react";
+import { StreamText, useStreamingMessage } from "@/components/chat/StreamText";
 import { UserMessageActions, AgentMessageActions } from "@/components/chat/MessageActions";
 import { Square, ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ export const ChatThread = ({
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { streamingId, onDone: onStreamDone } = useStreamingMessage(messages as any);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const barReplies = resolveQuickReplies({ messages: messages as any, cartCount: cartItems.length, checkoutStep: (agenticState as any)?.step, isProcessing });
   const pickQuickReply = (text: string) => {
@@ -121,7 +123,7 @@ export const ChatThread = ({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages.length, streamingId]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -174,10 +176,10 @@ export const ChatThread = ({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="max-w-[820px] mx-auto p-6 space-y-6">
           {messages.map((msg) => (
-            <div key={msg.id} className="space-y-4 animate-fade-in" dir="ltr">
+            <div key={msg.id} className={`space-y-4 animate-fade-in ${msg.id === streamingId ? "stream-pending" : "stream-revealed"}`} dir="ltr">
               {/* Message Bubble — skipped when the turn carries no text */}
               {msg.content?.trim() && (
-              <div dir="ltr" className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div dir="ltr" className={`stream-text-row flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <FlowcartMark size="avatar" />
                 )}
@@ -190,18 +192,17 @@ export const ChatThread = ({
                   }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {msg.content
+                    {<StreamText active={msg.id === streamingId} onDone={onStreamDone} text={msg.content
                       .replace(/\*\*(.*?)\*\*/g, '$1')
                       .replace(/\*(.*?)\*/g, '$1')
                       .replace(/^#{1,6}\s+/gm, '')
-                      .replace(/^[-*]\s+/gm, '• ')
-                    }
+                      .replace(/^[-*]\s+/gm, '• ')} />}
                   </p>
                 </div>
               </div>
               )}
               {msg.content?.trim() && msg.role === 'user' && (
-                <UserMessageActions className="justify-end" text={msg.content} status={msg.deliveryStatus} disabled={isProcessing}
+                <UserMessageActions className="justify-start" text={msg.content} status={msg.deliveryStatus} disabled={isProcessing}
                   onResend={onResend ? () => onResend(msg.id) : undefined} />
               )}
               {msg.content?.trim() && msg.role === 'assistant' && onFeedback && !msg.id.startsWith('welcome') && (

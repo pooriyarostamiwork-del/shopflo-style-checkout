@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { applyActions, describeActions, type CartAction, type Choice } from "../_shared/commerceActions.ts";
+import { transcribeAudio } from "../_shared/transcribe.ts";
 import { PETABAD_GREETING, PETABAD_SHIPPING, resolvePetabadShipping, topicName, transientPair } from "../_shared/petabadExperience.ts";
 
 const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
@@ -855,6 +856,30 @@ async function handleContact(msg: any) {
   }
 }
 
+// Telegram voice notes (OGG/Opus) → text, then the exact same text pipeline.
+async function voiceToText(voice: { file_id: string; file_size?: number; mime_type?: string }): Promise<string> {
+  if (voice.file_size && voice.file_size > 20 * 1024 * 1024) return "";
+  const info = await tg("getFile", { file_id: voice.file_id });
+  const path = info?.result?.file_path;
+  if (!path) return "";
+  const r = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${path}`);
+  if (!r.ok) return "";
+  const blob = new Blob([await r.arrayBuffer()], { type: voice.mime_type || "audio/ogg" });
+  return transcribeAudio(blob, path.split("/").pop() || "voice.ogg");
+}
+
+async function handleVoice(msg: any) {
+  const chatId = msg.chat.id;
+  await tg("sendChatAction", { chat_id: chatId, action: "typing" });
+  let text = "";
+  try { text = await voiceToText(msg.voice || msg.audio); } catch (e) { console.error("voice transcribe failed", e); }
+  if (!text) {
+    await tg("sendMessage", { chat_id: chatId, text: "صدات رو متوجه نشدم 🙏 می‌شه دوباره بفرستی یا بنویسی؟", reply_parameters: { message_id: msg.message_id } });
+    return;
+  }
+  await handleText(chatId, msg.from, text, msg.message_id);
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
   const secret = await deriveSecret();
@@ -868,6 +893,7 @@ Deno.serve(async (req) => {
       else if (update.message?.contact) await handleContact(update.message);
       else if (update.message?.forum_topic_created) await handleTopicCreated(update.message);
       else if (update.message?.forum_topic_edited && update.message.from?.is_bot) await tg("deleteMessage", { chat_id: m.chat.id, message_id: m.message_id });
+      else if (update.message?.voice || update.message?.audio) await handleVoice(update.message);
       else if (update.message?.text) await handleText(update.message.chat.id, update.message.from, update.message.text.trim(), update.message.message_id);
     });
   } catch (e) {

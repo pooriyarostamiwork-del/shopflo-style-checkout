@@ -187,6 +187,10 @@ export const decodeJourneyAnswer = (text: string): JourneyAnswer | null => {
 export interface ChatMessage {
 
   id: string;
+  /** User turn that got no reply (error) or was stopped by the shopper; resend reuses this bubble. */
+  deliveryStatus?: 'failed' | 'stopped';
+  /** Shopper feedback on an assistant reply. */
+  feedback?: 'up' | 'down';
   role: 'user' | 'assistant';
   content: string;
   products?: Product[];

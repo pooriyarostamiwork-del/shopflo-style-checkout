@@ -107,6 +107,8 @@ export interface CartTurnInput {
   focusIds?: string[];
   /** The shopper left the pick to the assistant («هرکدوم بهتره اضافه کن»): never ask which. */
   delegate?: boolean;
+  /** Shown/cart ids the shopper explicitly excluded this turn (typed Jev judgment). */
+  excludedIds?: string[];
   /** Offers that do not fit the known pet (e.g. large-breed food for a Shih Tzu). */
   unfit?: (o: Offer) => boolean;
 }

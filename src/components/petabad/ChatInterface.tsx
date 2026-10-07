@@ -53,9 +53,6 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
       <ChatThread
         messages={[WELCOME_MESSAGE]}
         onSendMessage={props.onSendMessage}
-      onStop={props.onStop}
-      onResend={props.onResend}
-      onFeedback={props.onFeedback}
         onStop={props.onStop}
         onResend={props.onResend}
         onFeedback={props.onFeedback}
@@ -89,9 +86,6 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
     return (
       <ChatLanding
         onSendMessage={props.onSendMessage}
-      onStop={props.onStop}
-      onResend={props.onResend}
-      onFeedback={props.onFeedback}
         onAddToCart={props.onAddToCart}
         onStartChat={props.onStartChat}
         onCheckout={props.onCheckout}

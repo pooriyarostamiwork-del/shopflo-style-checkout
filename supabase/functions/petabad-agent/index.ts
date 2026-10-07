@@ -3173,7 +3173,7 @@ serve(async (req) => {
         else flow = null;
       }
       if (flow && !flow.done) {
-        const { card, flow: nf } = await nextQuestion(flowDeps, flow);
+        const { card, flow: nf } = await nextQuestion(flowDeps, flow, { recent: recentUser, pet: pet_memory && typeof pet_memory === "object" ? pet_memory : null });
         if (card) {
           console.log("Flow question:", JSON.stringify({ goal: nf.goal, id: card.id, options: card.options.length }));
           const cardResponse = clarificationResponse(card, `flow-${card.id}`);

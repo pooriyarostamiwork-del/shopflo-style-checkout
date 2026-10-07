@@ -539,6 +539,19 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
 }
 
 
+// Which of the shown/cart products does the shopper exclude this turn («همشو بجز ظرف غذا»)?
+async function judgeExclusions(message: string, items: Array<{ id: string; name: string }>): Promise<string[]> {
+  if (!message.trim() || !items.length) return [];
+  const list = items.slice(0, 12);
+  const questions: Record<string, unknown> = {};
+  list.forEach((it, i) => {
+    questions[`x${i}`] = { type: "noul", instructions: `The shopper wrote \`message\` about the products in \`items\`. Does the message EXCLUDE, reject or say they do not want «${it.name}» (item #${i + 1}), while wanting the others?` };
+  });
+  const j = await askJev({ message, items: list.map((i) => i.name) }, questions);
+  if (!j) return [];
+  return list.filter((_, i) => jevYes(j[`x${i}`], 0.7) === true).map((it) => it.id);
+}
+
 async function judgeExecIntent(message: string, ctx: any, cartCount: number): Promise<ExecIntent | null> {
   if (!message.trim()) return null;
   const addrs: any[] = Array.isArray(ctx?.addresses) ? ctx.addresses.slice(0, 12) : [];
@@ -3559,6 +3572,12 @@ serve(async (req) => {
             shown: shownPool,
             focusIds: Array.isArray(focus_ids) ? focus_ids.map(String) : [],
             delegate: delegatesPick,
+            excludedIds: turnIntent.hasExclusion
+              ? await judgeExclusions(lastUserText, [
+                  ...(products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || "") })),
+                  ...(cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") })),
+                ].filter((i) => i.name))
+              : [],
             unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));

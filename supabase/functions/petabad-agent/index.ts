@@ -2788,7 +2788,7 @@ serve(async (req) => {
       }
     }
     const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
-    const recentUser = (messages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
+    const recentUser = (userMessages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
     const turnIntent = effectiveMode === "discovery"
       ? { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false }
       : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser);

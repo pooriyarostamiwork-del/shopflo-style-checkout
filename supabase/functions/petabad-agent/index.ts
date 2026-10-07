@@ -2835,9 +2835,17 @@ serve(async (req) => {
     }
     const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
     const recentUser = (userMessages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
-    const turnIntent = effectiveMode === "discovery"
-      ? { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false }
-      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser);
+    const pendingFlow = isFlow(question_flow) && (question_flow as QuestionFlow).pending && !(question_flow as QuestionFlow).done
+      ? String((question_flow as QuestionFlow).pending) : null;
+    const PENDING_TEXT: Record<string, string> = {
+      species: "Which animal is it for?", age: "How old is the pet?", size: "What breed / size is the dog?",
+      type: "Which kind of product?", need: "Any special need?", origin: "Foreign or Iranian brand?",
+      budget: "What budget?", essentials: "Which items are needed?", completeness: "How complete should the pack be?", tier: "Which price tier?",
+    };
+    const turnIntent: TurnIntent = effectiveMode === "discovery"
+      ? NO_TURN
+      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser,
+          pendingFlow ? PENDING_TEXT[pendingFlow] || pendingFlow : null);
     console.log("turn intent", JSON.stringify(turnIntent));
     let wantsGuidance = turnIntent.guidance;
     const wantsCounts = turnIntent.counts;

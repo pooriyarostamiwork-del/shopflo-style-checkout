@@ -865,7 +865,10 @@ async function voiceToText(voice: { file_id: string; file_size?: number; mime_ty
   const r = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${path}`);
   if (!r.ok) return "";
   const blob = new Blob([await r.arrayBuffer()], { type: voice.mime_type || "audio/ogg" });
-  return transcribeAudio(blob, path.split("/").pop() || "voice.ogg");
+  // Telegram serves voice notes as .oga, which the transcription gateway rejects;
+  // the payload is Ogg Opus, so present it with an .ogg name.
+  const name = (path.split("/").pop() || "voice.ogg").replace(/\.oga$/i, ".ogg");
+  return transcribeAudio(blob, name);
 }
 
 async function handleVoice(msg: any) {

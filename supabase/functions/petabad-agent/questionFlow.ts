@@ -583,7 +583,7 @@ export async function nextQuestion(
     if (hit && !(typeof j?.next?.confidence === "number" && j.next.confidence < 0.4)) chosen = hit;
   }
   const card = chosen.card;
-  const left = Math.min(viable.length, MAX_QUESTIONS - askedCount);
+  const left = Math.min(remaining.length, MAX_QUESTIONS - askedCount);
   card.progress = `سؤال ${faNum(askedCount + 1)} از حدود ${faNum(askedCount + left)}`;
   return { card, flow: { ...flow, asked: [...flow.asked, ...deadEnds, chosen.id], pending: chosen.id } };
 }

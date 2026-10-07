@@ -140,6 +140,9 @@ export const GPTCommerceShell = () => {
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleStop,
+    handleResend,
+    handleFeedback,
   } = useAgentMessages({
     updateCurrentBasket,
     setBasketStates,
@@ -611,7 +614,10 @@ export const GPTCommerceShell = () => {
       ) : (
         <ChatInterface
           messages={messages}
-          onSendMessage={handleSendFromUI}
+          onStop={handleStop}
+            onResend={handleResend}
+            onFeedback={handleFeedback}
+            onSendMessage={handleSendFromUI}
           onAddToCart={handleAddToCartCommitted}
           onCompare={handleCompare}
           onSaveProduct={handleSaveProduct}

@@ -143,6 +143,9 @@ export const MobileGPTCommerceShell = () => {
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleStop,
+    handleResend,
+    handleFeedback,
   } = useAgentMessages({
     updateCurrentBasket,
     setBasketStates,
@@ -539,6 +542,9 @@ export const MobileGPTCommerceShell = () => {
         ) : (
           <MobileChatThread
             messages={messages}
+            onStop={handleStop}
+            onResend={handleResend}
+            onFeedback={handleFeedback}
             onSendMessage={handleSendMessageWithPending}
             onAddToCart={handleAddToCartCommitted}
             onCompare={handleCompare}

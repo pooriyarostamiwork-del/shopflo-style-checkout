@@ -1,7 +1,8 @@
 import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
 import { resolveQuickReplies } from "@/lib/quickReplies";
+import { UserMessageActions, AgentMessageActions } from "@/components/chat/MessageActions";
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Paperclip, Mic } from "lucide-react";
+import { Square, ArrowUp, Paperclip, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem, encodeJourneyAnswer } from "@/data/petabadData";
 import { ChatProductCard } from "./ChatProductCard";
@@ -35,6 +36,9 @@ const placeholderTexts = [
 interface ChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  onStop?: () => void;
+  onResend?: (messageId: string) => void;
+  onFeedback?: (messageId: string, value: 'up' | 'down' | null) => void;
   onAddToCart: (product: Product) => void;
   onCompare: (product: Product) => void;
   onSaveProduct?: (product: Product) => void;
@@ -64,6 +68,9 @@ interface ChatThreadProps {
 export const ChatThread = ({
   messages,
   onSendMessage,
+  onStop,
+  onResend,
+  onFeedback,
   onAddToCart,
   onCompare,
   onSaveProduct,
@@ -196,6 +203,22 @@ export const ChatThread = ({
                   </p>
                 </div>
               </div>
+              )}
+              {msg.content?.trim() && msg.role === 'user' && (
+                <UserMessageActions
+                  className="justify-end"
+                  text={msg.content}
+                  status={msg.deliveryStatus}
+                  disabled={isProcessing}
+                  onResend={onResend ? () => onResend(msg.id) : undefined}
+                />
+              )}
+              {msg.content?.trim() && msg.role === 'assistant' && onFeedback && !msg.id.startsWith('welcome') && (
+                <AgentMessageActions
+                  className="pl-11"
+                  feedback={msg.feedback}
+                  onFeedback={(v) => onFeedback(msg.id, v)}
+                />
               )}
 
 
@@ -397,9 +420,15 @@ export const ChatThread = ({
               <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="پیام صوتی" aria-label="پیام صوتی">
                 <Mic className="w-4 h-4 text-muted-foreground" />
               </Button>
+              {isProcessing && onStop ? (
+                <Button type="button" onClick={onStop} aria-label="توقف پاسخ" className="h-10 w-10 rounded-xl shadow-none">
+                  <Square className="w-4 h-4" fill="currentColor" />
+                </Button>
+              ) : (
               <Button type="submit" aria-label="ارسال پیام" disabled={!inputValue.trim() || isProcessing} className="h-10 w-10 rounded-xl shadow-none">
                 <ArrowUp className="w-5 h-5" />
               </Button>
+              )}
             </div>
           </div>
         </form>

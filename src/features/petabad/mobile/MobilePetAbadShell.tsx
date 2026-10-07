@@ -164,6 +164,9 @@ export const MobilePetAbadShell = () => {
     handleSaveProduct,
     handleMoreResults,
     handleChoice,
+    handleStop,
+    handleResend,
+    handleFeedback,
   } = useAgentMessages({
     checkoutBridge: checkoutBridgeRef,
     surface: 'mobile',
@@ -610,6 +613,9 @@ export const MobilePetAbadShell = () => {
           <MobileChatThread
             messages={messages}
             onSendMessage={handleSendMessageWithPending}
+            onStop={handleStop}
+            onResend={handleResend}
+            onFeedback={handleFeedback}
             onAddToCart={handleAddToCartCommitted}
             onCompare={handleCompare}
             onSaveProduct={handleSaveProduct}

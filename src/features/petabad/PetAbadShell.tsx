@@ -158,6 +158,9 @@ export const PetAbadShell = () => {
     handleSaveProduct,
     handleMoreResults,
     handleChoice,
+    handleStop,
+    handleResend,
+    handleFeedback,
   } = useAgentMessages({
     checkoutBridge: checkoutBridgeRef,
     surface: 'web',
@@ -651,6 +654,9 @@ export const PetAbadShell = () => {
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendFromUI}
+            onStop={handleStop}
+            onResend={handleResend}
+            onFeedback={handleFeedback}
           onAddToCart={handleAddToCartCommitted}
           onCompare={handleCompare}
           onSaveProduct={handleSaveProduct}

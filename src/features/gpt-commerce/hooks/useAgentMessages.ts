@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Clarification,
@@ -166,6 +166,8 @@ export const useAgentMessages = ({
   productMemory,
   shoppingContext,
 }: UseAgentMessagesProps) => {
+  // Generation counter: stopping bumps it so any in-flight reply is discarded on arrival.
+  const genRef = useRef(0);
 
   const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
     updateCurrentBasket(s => {
@@ -579,6 +581,7 @@ export const useAgentMessages = ({
     conversationHistory: { role: string; content: string }[],
     isFirstMessage: boolean = false,
   ) => {
+    const gen = genRef.current;
     try {
       const mem = ensureProductMemory(productMemory);
       const body: any = {
@@ -616,6 +619,7 @@ export const useAgentMessages = ({
       if (referenceHint) body.reference_hint = referenceHint;
 
       const { data, error } = await invokeWithTimeout('gpt-commerce-agent', body);
+      if (genRef.current !== gen) return;
       if (error) throw new Error(error.message);
 
       const actions = data?.cart_actions || [];
@@ -727,13 +731,14 @@ export const useAgentMessages = ({
       updateCurrentBasket(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
     } catch (err) {
       console.error('Failed to call agent:', err);
-      const fallbackMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: 'پاسخ‌گویی بیشتر از حد معمول طول کشید. لطفاً دوباره امتحان کن. 🙏',
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
+      if (genRef.current !== gen) return;
+      updateCurrentBasket(s => {
+        const msgs = [...s.messages];
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i].role === 'user') { msgs[i] = { ...msgs[i], deliveryStatus: 'failed' }; break; }
+        }
+        return { ...s, messages: msgs, isProcessing: false };
+      });
     }
   }, [cartItems, lastRecommendedProducts, executeCartActions, updateCurrentBasket, setBaskets, activeBasketId, productMemory, shoppingContext]);
 
@@ -753,12 +758,14 @@ export const useAgentMessages = ({
       timestamp: new Date(),
     };
     updateTarget(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
+    const gen = genRef.current;
 
     try {
       const { data, error } = await invokeWithTimeout('gpt-commerce-agent', {
         messages: [{ role: 'user', content }], mode: 'agentic', is_first_message: true,
       });
 
+      if (genRef.current !== gen) return;
       if (error) throw new Error(error.message);
 
       const clarification = data?.clarification;
@@ -804,15 +811,47 @@ export const useAgentMessages = ({
       updateTarget(s => ({ ...s, messages: [...s.messages, assistantMessage], isProcessing: false }));
     } catch (err) {
       console.error('Failed to call agent:', err);
-      const fallbackMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: 'متأسفانه در حال حاضر سرویس جستجو در دسترس نیست. لطفاً دوباره تلاش کنید. 🙏',
-        timestamp: new Date(),
-      };
-      updateTarget(s => ({ ...s, messages: [...s.messages, fallbackMessage], isProcessing: false }));
+      if (genRef.current !== gen) return;
+      updateTarget(s => ({
+        ...s,
+        messages: s.messages.map(m => m.id === userMessage.id ? { ...m, deliveryStatus: 'failed' as const } : m),
+        isProcessing: false,
+      }));
     }
   }, [setBasketStates]);
+
+  const handleStop = useCallback(() => {
+    genRef.current += 1;
+    updateCurrentBasket(s => {
+      const msgs = [...s.messages];
+      const last = msgs[msgs.length - 1];
+      if (last?.role === 'user') msgs[msgs.length - 1] = { ...last, deliveryStatus: 'stopped' };
+      return { ...s, messages: msgs, isProcessing: false };
+    });
+  }, [updateCurrentBasket]);
+
+  // Resend re-runs the same user bubble in place — never appends a second copy.
+  const handleResend = useCallback(async (messageId: string) => {
+    const idx = messages.findIndex(m => m.id === messageId);
+    const target = messages[idx];
+    if (idx < 0 || target.role !== 'user') return;
+    const history = messages.slice(0, idx);
+    updateCurrentBasket(s => {
+      const at = s.messages.findIndex(m => m.id === messageId);
+      if (at < 0) return s;
+      const kept = s.messages.slice(0, at + 1).map(m => m.id === messageId ? { ...m, deliveryStatus: undefined } : m);
+      return { ...s, messages: kept, isProcessing: true };
+    });
+    const isFirst = history.filter(m => m.role === 'user').length === 0;
+    await callUnifiedAgent(target.content, trimHistoryForAgent(history), isFirst);
+  }, [messages, updateCurrentBasket, callUnifiedAgent]);
+
+  const handleFeedback = useCallback((messageId: string, value: 'up' | 'down' | null) => {
+    updateCurrentBasket(s => ({
+      ...s,
+      messages: s.messages.map(m => m.id === messageId ? { ...m, feedback: value ?? undefined } : m),
+    }));
+  }, [updateCurrentBasket]);
 
   const handleMoreResults = useCallback(() => {
     handleSendMessage('نتایج بیشتر نشون بده');
@@ -828,5 +867,8 @@ export const useAgentMessages = ({
     handleInlineProductDetails,
     handleSaveProduct,
     handleMoreResults,
+    handleStop,
+    handleResend,
+    handleFeedback,
   };
 };

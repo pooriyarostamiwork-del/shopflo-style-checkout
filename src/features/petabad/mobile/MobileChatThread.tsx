@@ -1,7 +1,8 @@
 import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
 import { resolveQuickReplies } from "@/lib/quickReplies";
+import { UserMessageActions, AgentMessageActions } from "@/components/chat/MessageActions";
 import { useState, useRef, useEffect } from "react";
-import { ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
+import { Square, ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { toPersianNumber, encodeJourneyAnswer } from "@/data/petabadData";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,9 @@ import { TypingText } from "@/components/petabad/TypingText";
 interface MobileChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  onStop?: () => void;
+  onResend?: (messageId: string) => void;
+  onFeedback?: (messageId: string, value: 'up' | 'down' | null) => void;
   onAddToCart: (product: Product) => void;
   onCompare: (product: Product) => void;
   onSaveProduct?: (product: Product) => void;
@@ -68,6 +72,9 @@ interface MobileChatThreadProps {
 export const MobileChatThread = ({
   messages,
   onSendMessage,
+  onStop,
+  onResend,
+  onFeedback,
   onAddToCart,
   onCompare,
   onSaveProduct,
@@ -220,6 +227,22 @@ export const MobileChatThread = ({
                   </p>
                 </div>
               </div>
+              )}
+              {msg.content?.trim() && msg.role === 'user' && (
+                <UserMessageActions
+                  className="justify-end"
+                  text={msg.content}
+                  status={msg.deliveryStatus}
+                  disabled={isProcessing}
+                  onResend={onResend ? () => onResend(msg.id) : undefined}
+                />
+              )}
+              {msg.content?.trim() && msg.role === 'assistant' && onFeedback && !msg.id.startsWith('welcome') && (
+                <AgentMessageActions
+                  className="justify-end pl-9"
+                  feedback={msg.feedback}
+                  onFeedback={(v) => onFeedback(msg.id, v)}
+                />
               )}
 
 
@@ -438,6 +461,11 @@ export const MobileChatThread = ({
             >
               <Mic className="w-4 h-4 text-muted-foreground" />
             </button>
+            {isProcessing && onStop ? (
+              <Button type="button" onClick={onStop} aria-label="توقف پاسخ" className="h-9 w-9 rounded-full p-0">
+                <Square className="w-4 h-4" fill="currentColor" />
+              </Button>
+            ) : (
             <Button
               type="submit"
               disabled={!inputValue.trim() || isProcessing}
@@ -445,6 +473,7 @@ export const MobileChatThread = ({
             >
               <ArrowUp className="w-5 h-5" />
             </Button>
+            )}
           </div>
         </form>
 

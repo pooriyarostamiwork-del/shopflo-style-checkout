@@ -80,6 +80,117 @@ export type Database = {
         }
         Relationships: []
       }
+      digital_master: {
+        Row: {
+          brand: string | null
+          catalog_status: Database["public"]["Enums"]["catalog_status"]
+          category: string
+          color_options: string[] | null
+          created_at: string
+          description: string | null
+          embedding: string | null
+          fast_delivery: boolean
+          flowcart_eligible: boolean
+          id: string
+          image_url: string
+          image_urls: string[] | null
+          in_stock: boolean
+          merchant_id: string
+          merged_into_id: string | null
+          name: string
+          origin: Database["public"]["Enums"]["catalog_origin"]
+          original_price: number | null
+          price: number
+          quick_replies: Json
+          rating: number
+          return_guarantee: boolean
+          review_count: number
+          reviews_summary: string | null
+          search_vector: unknown
+          source_url: string | null
+          specs: Json | null
+          subcategory: string | null
+          tags: string[] | null
+        }
+        Insert: {
+          brand?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"]
+          category?: string
+          color_options?: string[] | null
+          created_at?: string
+          description?: string | null
+          embedding?: string | null
+          fast_delivery?: boolean
+          flowcart_eligible?: boolean
+          id?: string
+          image_url?: string
+          image_urls?: string[] | null
+          in_stock?: boolean
+          merchant_id?: string
+          merged_into_id?: string | null
+          name: string
+          origin?: Database["public"]["Enums"]["catalog_origin"]
+          original_price?: number | null
+          price: number
+          quick_replies?: Json
+          rating?: number
+          return_guarantee?: boolean
+          review_count?: number
+          reviews_summary?: string | null
+          search_vector?: unknown
+          source_url?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+        }
+        Update: {
+          brand?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"]
+          category?: string
+          color_options?: string[] | null
+          created_at?: string
+          description?: string | null
+          embedding?: string | null
+          fast_delivery?: boolean
+          flowcart_eligible?: boolean
+          id?: string
+          image_url?: string
+          image_urls?: string[] | null
+          in_stock?: boolean
+          merchant_id?: string
+          merged_into_id?: string | null
+          name?: string
+          origin?: Database["public"]["Enums"]["catalog_origin"]
+          original_price?: number | null
+          price?: number
+          quick_replies?: Json
+          rating?: number
+          return_guarantee?: boolean
+          review_count?: number
+          reviews_summary?: string | null
+          search_vector?: unknown
+          source_url?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digital_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "digital_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digital_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           created_at: string
@@ -206,22 +317,26 @@ export type Database = {
         }
         Relationships: []
       }
-      pet_products: {
+      pet_master: {
         Row: {
           brand: string | null
           breed_size: string | null
+          catalog_status: Database["public"]["Enums"]["catalog_status"]
           category: string
           created_at: string
           description: string | null
           embedding: string | null
           enriched_at: string | null
+          flowcart_eligible: boolean
           health_needs: string[] | null
           id: string
           image_url: string
           image_urls: string[] | null
           in_stock: boolean
           life_stage: string | null
+          merged_into_id: string | null
           name: string
+          origin: Database["public"]["Enums"]["catalog_origin"]
           origin_country: string | null
           original_price: number | null
           price: number
@@ -246,18 +361,22 @@ export type Database = {
         Insert: {
           brand?: string | null
           breed_size?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"]
           category?: string
           created_at?: string
           description?: string | null
           embedding?: string | null
           enriched_at?: string | null
+          flowcart_eligible?: boolean
           health_needs?: string[] | null
           id?: string
           image_url?: string
           image_urls?: string[] | null
           in_stock?: boolean
           life_stage?: string | null
+          merged_into_id?: string | null
           name: string
+          origin?: Database["public"]["Enums"]["catalog_origin"]
           origin_country?: string | null
           original_price?: number | null
           price?: number
@@ -282,18 +401,22 @@ export type Database = {
         Update: {
           brand?: string | null
           breed_size?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"]
           category?: string
           created_at?: string
           description?: string | null
           embedding?: string | null
           enriched_at?: string | null
+          flowcart_eligible?: boolean
           health_needs?: string[] | null
           id?: string
           image_url?: string
           image_urls?: string[] | null
           in_stock?: boolean
           life_stage?: string | null
+          merged_into_id?: string | null
           name?: string
+          origin?: Database["public"]["Enums"]["catalog_origin"]
           origin_country?: string | null
           original_price?: number | null
           price?: number
@@ -315,7 +438,22 @@ export type Database = {
           updated_at?: string
           weight?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pet_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "pet_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "pet_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pet_taxonomy_aliases: {
         Row: {
@@ -413,90 +551,6 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
-      }
-      products: {
-        Row: {
-          brand: string | null
-          category: string
-          color_options: string[] | null
-          created_at: string
-          description: string | null
-          embedding: string | null
-          fast_delivery: boolean
-          id: string
-          image_url: string
-          image_urls: string[] | null
-          in_stock: boolean
-          merchant_id: string
-          name: string
-          original_price: number | null
-          price: number
-          quick_replies: Json
-          rating: number
-          return_guarantee: boolean
-          review_count: number
-          reviews_summary: string | null
-          search_vector: unknown
-          source_url: string | null
-          specs: Json | null
-          subcategory: string | null
-          tags: string[] | null
-        }
-        Insert: {
-          brand?: string | null
-          category?: string
-          color_options?: string[] | null
-          created_at?: string
-          description?: string | null
-          embedding?: string | null
-          fast_delivery?: boolean
-          id?: string
-          image_url?: string
-          image_urls?: string[] | null
-          in_stock?: boolean
-          merchant_id?: string
-          name: string
-          original_price?: number | null
-          price: number
-          quick_replies?: Json
-          rating?: number
-          return_guarantee?: boolean
-          review_count?: number
-          reviews_summary?: string | null
-          search_vector?: unknown
-          source_url?: string | null
-          specs?: Json | null
-          subcategory?: string | null
-          tags?: string[] | null
-        }
-        Update: {
-          brand?: string | null
-          category?: string
-          color_options?: string[] | null
-          created_at?: string
-          description?: string | null
-          embedding?: string | null
-          fast_delivery?: boolean
-          id?: string
-          image_url?: string
-          image_urls?: string[] | null
-          in_stock?: boolean
-          merchant_id?: string
-          name?: string
-          original_price?: number | null
-          price?: number
-          quick_replies?: Json
-          rating?: number
-          return_guarantee?: boolean
-          review_count?: number
-          reviews_summary?: string | null
-          search_vector?: unknown
-          source_url?: string | null
-          specs?: Json | null
-          subcategory?: string | null
-          tags?: string[] | null
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
@@ -1143,7 +1197,255 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pet_products: {
+        Row: {
+          brand: string | null
+          breed_size: string | null
+          catalog_status: Database["public"]["Enums"]["catalog_status"] | null
+          category: string | null
+          created_at: string | null
+          description: string | null
+          embedding: string | null
+          enriched_at: string | null
+          flowcart_eligible: boolean | null
+          health_needs: string[] | null
+          id: string | null
+          image_url: string | null
+          image_urls: string[] | null
+          in_stock: boolean | null
+          life_stage: string | null
+          merged_into_id: string | null
+          name: string | null
+          origin: Database["public"]["Enums"]["catalog_origin"] | null
+          origin_country: string | null
+          original_price: number | null
+          price: number | null
+          product_line: string | null
+          product_type: string | null
+          quick_replies: Json | null
+          rating: number | null
+          review_count: number | null
+          search_vector: unknown
+          short_description: string | null
+          species: string | null
+          specs: Json | null
+          subcategory: string | null
+          tags: string[] | null
+          taxonomy_level1: string | null
+          taxonomy_level2: string | null
+          taxonomy_level3: string | null
+          type_group: string | null
+          updated_at: string | null
+          weight: string | null
+        }
+        Insert: {
+          brand?: string | null
+          breed_size?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"] | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          embedding?: string | null
+          enriched_at?: string | null
+          flowcart_eligible?: boolean | null
+          health_needs?: string[] | null
+          id?: string | null
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean | null
+          life_stage?: string | null
+          merged_into_id?: string | null
+          name?: string | null
+          origin?: Database["public"]["Enums"]["catalog_origin"] | null
+          origin_country?: string | null
+          original_price?: number | null
+          price?: number | null
+          product_line?: string | null
+          product_type?: string | null
+          quick_replies?: Json | null
+          rating?: number | null
+          review_count?: number | null
+          search_vector?: unknown
+          short_description?: string | null
+          species?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+          taxonomy_level1?: string | null
+          taxonomy_level2?: string | null
+          taxonomy_level3?: string | null
+          type_group?: string | null
+          updated_at?: string | null
+          weight?: string | null
+        }
+        Update: {
+          brand?: string | null
+          breed_size?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"] | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          embedding?: string | null
+          enriched_at?: string | null
+          flowcart_eligible?: boolean | null
+          health_needs?: string[] | null
+          id?: string | null
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean | null
+          life_stage?: string | null
+          merged_into_id?: string | null
+          name?: string | null
+          origin?: Database["public"]["Enums"]["catalog_origin"] | null
+          origin_country?: string | null
+          original_price?: number | null
+          price?: number | null
+          product_line?: string | null
+          product_type?: string | null
+          quick_replies?: Json | null
+          rating?: number | null
+          review_count?: number | null
+          search_vector?: unknown
+          short_description?: string | null
+          species?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+          taxonomy_level1?: string | null
+          taxonomy_level2?: string | null
+          taxonomy_level3?: string | null
+          type_group?: string | null
+          updated_at?: string | null
+          weight?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "pet_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "pet_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          brand: string | null
+          catalog_status: Database["public"]["Enums"]["catalog_status"] | null
+          category: string | null
+          color_options: string[] | null
+          created_at: string | null
+          description: string | null
+          embedding: string | null
+          fast_delivery: boolean | null
+          flowcart_eligible: boolean | null
+          id: string | null
+          image_url: string | null
+          image_urls: string[] | null
+          in_stock: boolean | null
+          merchant_id: string | null
+          merged_into_id: string | null
+          name: string | null
+          origin: Database["public"]["Enums"]["catalog_origin"] | null
+          original_price: number | null
+          price: number | null
+          quick_replies: Json | null
+          rating: number | null
+          return_guarantee: boolean | null
+          review_count: number | null
+          reviews_summary: string | null
+          search_vector: unknown
+          source_url: string | null
+          specs: Json | null
+          subcategory: string | null
+          tags: string[] | null
+        }
+        Insert: {
+          brand?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"] | null
+          category?: string | null
+          color_options?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          embedding?: string | null
+          fast_delivery?: boolean | null
+          flowcart_eligible?: boolean | null
+          id?: string | null
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean | null
+          merchant_id?: string | null
+          merged_into_id?: string | null
+          name?: string | null
+          origin?: Database["public"]["Enums"]["catalog_origin"] | null
+          original_price?: number | null
+          price?: number | null
+          quick_replies?: Json | null
+          rating?: number | null
+          return_guarantee?: boolean | null
+          review_count?: number | null
+          reviews_summary?: string | null
+          search_vector?: unknown
+          source_url?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+        }
+        Update: {
+          brand?: string | null
+          catalog_status?: Database["public"]["Enums"]["catalog_status"] | null
+          category?: string | null
+          color_options?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          embedding?: string | null
+          fast_delivery?: boolean | null
+          flowcart_eligible?: boolean | null
+          id?: string | null
+          image_url?: string | null
+          image_urls?: string[] | null
+          in_stock?: boolean | null
+          merchant_id?: string | null
+          merged_into_id?: string | null
+          name?: string | null
+          origin?: Database["public"]["Enums"]["catalog_origin"] | null
+          original_price?: number | null
+          price?: number | null
+          quick_replies?: Json | null
+          rating?: number | null
+          return_guarantee?: boolean | null
+          review_count?: number | null
+          reviews_summary?: string | null
+          search_vector?: unknown
+          source_url?: string | null
+          specs?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digital_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "digital_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digital_master_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       brand_key: { Args: { input: string }; Returns: string }
@@ -1186,6 +1488,10 @@ export type Database = {
           subcategory: string
           tags: string[]
         }[]
+      }
+      merge_master_product: {
+        Args: { p_canonical: string; p_catalog: string; p_duplicate: string }
+        Returns: undefined
       }
       normalize_persian: { Args: { input: string }; Returns: string }
       pet_derive_product_type: {
@@ -1384,7 +1690,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      catalog_origin: "manual" | "merchant"
+      catalog_status: "active" | "draft" | "merged"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1511,6 +1818,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      catalog_origin: ["manual", "merchant"],
+      catalog_status: ["active", "draft", "merged"],
+    },
   },
 } as const

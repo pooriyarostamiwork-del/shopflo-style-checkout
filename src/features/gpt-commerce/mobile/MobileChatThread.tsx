@@ -1,6 +1,7 @@
 import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
 import { resolveQuickReplies } from "@/lib/quickReplies";
 import { useState, useRef, useEffect } from "react";
+import { StreamText, useStreamingMessage } from "@/components/chat/StreamText";
 import { UserMessageActions, AgentMessageActions } from "@/components/chat/MessageActions";
 import { Square, ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { toPersianNumber } from "@/data/gptCommerceData";
@@ -103,6 +104,7 @@ export const MobileChatThread = ({
   const [inputValue, setInputValue] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { streamingId, onDone: onStreamDone } = useStreamingMessage(messages as any);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const barReplies = resolveQuickReplies({ messages: messages as any, cartCount: cartItems.length, checkoutStep: (agenticState as any)?.step, isProcessing });
   const pickQuickReply = (text: string) => {
@@ -115,7 +117,7 @@ export const MobileChatThread = ({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isProcessing]);
+  }, [messages.length, isProcessing]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -194,10 +196,10 @@ export const MobileChatThread = ({
       <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pt-5 pb-56">
         <div className="px-3 space-y-5">
           {messages.map((msg) => (
-            <div key={msg.id} className="space-y-3 animate-fade-in">
+            <div key={msg.id} className={`space-y-3 animate-fade-in ${msg.id === streamingId ? "stream-pending" : "stream-revealed"}`}>
               {msg.content?.trim() && (
               <div
-                className={`flex gap-2 ${
+                className={`stream-text-row flex gap-2 ${
                   msg.role === "user" ? "justify-end flex-row-reverse" : "justify-start flex-row-reverse"
                 }`}
               >
@@ -219,21 +221,21 @@ export const MobileChatThread = ({
                   }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-                    {msg.content
+                    {<StreamText active={msg.id === streamingId} onDone={onStreamDone} text={msg.content
                       .replace(/\*\*(.*?)\*\*/g, "$1")
                       .replace(/\*(.*?)\*/g, "$1")
                       .replace(/^#{1,6}\s+/gm, "")
-                      .replace(/^[-*]\s+/gm, "• ")}
+                      .replace(/^[-*]\s+/gm, "• ")} />}
+                  </p>
+                </div>
+              </div>
+              )}
               {msg.content?.trim() && msg.role === 'user' && (
-                <UserMessageActions className="justify-end" text={msg.content} status={msg.deliveryStatus} disabled={isProcessing}
+                <UserMessageActions className="justify-start" text={msg.content} status={msg.deliveryStatus} disabled={isProcessing}
                   onResend={onResend ? () => onResend(msg.id) : undefined} />
               )}
               {msg.content?.trim() && msg.role === 'assistant' && onFeedback && !msg.id.startsWith('welcome') && (
                 <AgentMessageActions className="justify-end pl-9" feedback={msg.feedback} onFeedback={(v) => onFeedback(msg.id, v)} />
-              )}
-                  </p>
-                </div>
-              </div>
               )}
 
 

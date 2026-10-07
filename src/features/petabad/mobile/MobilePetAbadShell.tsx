@@ -595,9 +595,6 @@ export const MobilePetAbadShell = () => {
         ) : onLanding ? (
           <MobileChatLanding
             onSendMessage={handleSendMessageWithPending}
-            onStop={handleStop}
-            onResend={handleResend}
-            onFeedback={handleFeedback}
             onAddToCart={handleAddToCartCommitted}
             onCompare={handleCompare}
             onSaveProduct={handleSaveProduct}
@@ -616,6 +613,9 @@ export const MobilePetAbadShell = () => {
           <MobileChatThread
             messages={messages}
             onSendMessage={handleSendMessageWithPending}
+            onStop={handleStop}
+            onResend={handleResend}
+            onFeedback={handleFeedback}
             onAddToCart={handleAddToCartCommitted}
             onCompare={handleCompare}
             onSaveProduct={handleSaveProduct}

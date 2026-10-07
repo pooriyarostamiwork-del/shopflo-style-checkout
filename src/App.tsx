@@ -10,8 +10,6 @@ import MobileVendorDashboard from "./pages/MobileVendorDashboard";
 import DocsAIPage from "./pages/docs/ai/DocsAIPage";
 import IndexFarsi from "./pages/IndexFarsi";
 import NotFound from "./pages/NotFound";
-import ShiftDesktop from "./pages/ShiftDesktop";
-import ShiftMobile from "./pages/ShiftMobile";
 import ShiftDashLite from "./pages/ShiftDashLite";
 import ShiftDashPro from "./pages/ShiftDashPro";
 import Playground from "./pages/Playground";
@@ -43,15 +41,10 @@ const App = () => (
             <Route path="/m/gptcommerce" element={<LegacyRedirect to="/gptcommerce" />} />
             <Route path="/m/gptcommerce/dash/*" element={<MobileVendorDashboard />} />
 
-            {/* Product 3: Shift */}
-            <Route path="/shift" element={<ResponsiveRoute desktop={<ShiftDesktop />} mobile={<ShiftMobile />} />} />
-            <Route path="/shift/:slug" element={<ResponsiveRoute desktop={<ShiftDesktop />} mobile={<ShiftMobile />} />} />
-            <Route path="/shift/m" element={<LegacyRedirect to="/shift" />} />
-            <Route path="/shift/m/:slug" element={<LegacyRedirect to="/shift" />} />
-
             {/* Shift merchant dashboard (front-end only) */}
             <Route path="/shift/dash/lite" element={<ShiftDashLite />} />
             <Route path="/shift/dash/pro" element={<ShiftDashPro />} />
+            <Route path="/shift" element={<LegacyRedirect to="/shift/dash/lite" />} />
 
             {/* Product 4: PetAbad */}
             <Route path="/petabad" element={<ResponsiveRoute desktop={<PetAbad />} mobile={<MobilePetAbad />} />} />

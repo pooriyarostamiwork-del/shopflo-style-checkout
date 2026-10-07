@@ -3170,7 +3170,23 @@ serve(async (req) => {
     // only when they split the candidate set, and price comes last.
     let flowSummary: FlowSummary | null = null;
     let bundleNeeds: NeedSpec[] = detectNeeds(lastUserText);
-    if (effectiveMode === "agentic" && !isInfoQuestion && !isBusinessQuestion && !isCompareQuestion) {
+    // ── Cart commands (Jev typed choice) outrank questionnaires and starter packs ──
+    const cartOp = turnIntent.cartOp;
+    if (cartOp) {
+      wantsGuidance = false;
+      bundleNeeds = [];
+      const OP_FA: Record<string, string> = { add: "اضافه کردن به سبد", remove: "حذف از سبد", update: "تغییر تعداد در سبد", replace: "جایگزینی در سبد", clear: "خالی کردن سبد" };
+      systemPrompt += `\n\nCART_COMMAND_TURN: این پیام یک دستور اجرایی سبد خریده (${OP_FA[cartOp]})، نه درخواست مشاوره یا پک کامل.
+- هیچ سؤالی از پرسشنامه نپرس، جستجوی تازه نکن و کارت پرسش نساز.
+- مرجع محصولات: برای اضافه/جایگزینی همون product_memory (آخرین محصولات نشون‌داده‌شده)، برای حذف/تعداد فقط اقلام فعلی سبد.
+- در همین نوبت execute_cart_operations را صدا بزن و همه‌ی عملیات‌ها را یک‌جا بفرست.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
+- فقط وقتی دو محصول واقعاً با توصیف کاربر جور درمیان و قابل تشخیص نیستن، یک سؤال کوتاه بپرس؛ در غیر این صورت حدس منطقی نزن و نپرس، اجرا کن.
+- بعد از اجرا در یک جمله‌ی کوتاه بگو چه چیزی اضافه/حذف/تغییر کرد.`;
+    }
+    if (slots.smallPet) {
+      systemPrompt += `\n\nSMALL_PET: حیوان کاربر «${slots.smallPet}» است. در search_products همین کلمه را در query_text بیاور و فقط محصول مخصوص «${slots.smallPet}» (یا جوندگان عمومی اگر مناسب همین حیوان است) پیشنهاد بده؛ محصول سگ و گربه نیاور.`;
+    }
+    if (effectiveMode === "agentic" && !cartOp && !isInfoQuestion && !isBusinessQuestion && !isCompareQuestion) {
       const flowDeps: FlowDeps = {
         supabase,
         normalize: normalizePersian,

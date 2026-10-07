@@ -2884,17 +2884,27 @@ serve(async (req) => {
     let lockedSpecies: string | null = null;
     let lockedStage: string | null = null;
     let lockedFromTurn = 0;
-    for (let i = userTurns.length - 1; i >= 0; i--) {
-      const found = lastNamedSpecies(userTurns[i]);
-      if (found) {
-        lockedSpecies = found;
-        lockedFromTurn = i;
-        break;
+    // The newest message is read by Jev (typed slots); earlier turns keep the stored lexicon
+    // only as a history fallback, so a new phrasing in THIS turn is never missed.
+    const slots = turnIntent.slots;
+    const lastIdx = userTurns.length - 1;
+    if (slots.species) {
+      lockedSpecies = slots.species;
+      lockedFromTurn = Math.max(0, lastIdx);
+    } else {
+      for (let i = lastIdx; i >= 0; i--) {
+        const found = lastNamedSpecies(userTurns[i]);
+        if (found) {
+          lockedSpecies = found;
+          lockedFromTurn = i;
+          break;
+        }
       }
     }
     // Life stage counts only from the turn that named the current animal onwards,
     // so an earlier kitten mention cannot stick to a dog the shopper switched to.
-    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+    if (slots.lifeStage) lockedStage = slots.lifeStage;
+    else for (let i = lastIdx; i >= lockedFromTurn; i--) {
       const stage = detectLifeStage(userTurns[i]);
       if (stage) {
         lockedStage = stage;
@@ -2905,13 +2915,21 @@ serve(async (req) => {
     // («سگم شیتزوئه» → small breed for every later dog search).
     let lockedBreedSize: string | null = null;
     let lockedBreedName: string | null = null;
-    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+    if (slots.breedSize && lockedSpecies === "سگ") {
+      lockedBreedSize = slots.breedSize;
+      lockedBreedName = inferBreedLine(lastUserText);
+    } else for (let i = lastIdx; i >= lockedFromTurn; i--) {
       const size = inferBreedSize(userTurns[i]);
       if (size) {
         lockedBreedSize = size;
         lockedBreedName = inferBreedLine(userTurns[i]);
         break;
       }
+    }
+    // Reference to one shown product («دومی»، «همین آخری») — resolved by Jev, named for the model.
+    if (slots.ordinal && products_context?.[slots.ordinal - 1]) {
+      const p: any = products_context[slots.ordinal - 1];
+      systemPrompt += `\n\nREFERENCE: کاربر به محصول شماره ${slots.ordinal} از آخرین لیست اشاره کرده؛ منظورش دقیقاً «${p.name_fa || p.name}» (id: ${p.id}) است. دربارهٔ همین محصول جواب بده و لیست جدید نساز.`;
     }
     if (!lockedBreedSize && lockedSpecies === "سگ" && pet_memory && typeof pet_memory === "object") {
       const memSize = (pet_memory as any).breed_size || inferBreedSize(String((pet_memory as any).breed || ""));

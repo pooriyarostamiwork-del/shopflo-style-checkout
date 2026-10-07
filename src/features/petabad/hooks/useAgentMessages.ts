@@ -372,32 +372,6 @@ export const useAgentMessages = ({
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    // ── Fast paths: deterministic Persian phrasings resolved locally (zero network) ──
-    const p2l = (s: string) => s.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-    const norm = p2l(content).trim().toLowerCase();
-
-    // Only explicit positions are resolved locally («دومی»، «شماره ۳»، «آخری»); a bare number is a quantity.
-    const ordinalWords: Array<[string, number]> = [
-      ['اول', 1], ['اولی', 1], ['دوم', 2], ['دومی', 2], ['سوم', 3], ['سومی', 3],
-      ['چهارم', 4], ['چهارمی', 4], ['پنجم', 5], ['پنجمی', 5], ['ششم', 6], ['ششمی', 6],
-    ];
-    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*|گزینه\s*)(\d+)/);
-    let refNum: number | undefined = refMatch ? parseInt(refMatch[1]) : undefined;
-    if (!refNum) {
-      for (const [word, num] of ordinalWords) {
-        if (new RegExp(`(^|\\s)${word}(ی|و|رو|را)?(\\s|$)`).test(norm)) { refNum = num; break; }
-      }
-    }
-    if (!refNum && /(^|\s)(آخری|اخری|آخرین)(و|رو|را)?(\s|$)/.test(norm) && lastRecommendedProducts.length) refNum = lastRecommendedProducts.length;
-    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته|دونه)/);
-    const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-
-    const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
-    const mutateRe = /(حذف|بردار|پاک|کم|زیاد|عوض|جایگزین|جای|بجای)/;
-    // A question is a question: it goes to the assistant, never to a cart shortcut.
-    const isQuestion = /[?؟]\s*$/.test(norm)
-      || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
-
     // ── Open checkout step: a typed reply is judged in context by a decision model (no word lists).
     // Unsure / failure → the normal agent path below; nothing is guessed.
     const bridge = checkoutBridge?.current;

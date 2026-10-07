@@ -147,7 +147,7 @@ export const MobileChatThread = ({
     <div className="relative flex flex-col h-full min-h-0 bg-gradient-to-br from-background via-background to-primary/5 mobile-no-img-label" dir="rtl">
       {/* Mobile-scoped overrides */}
       <style>{`
-        .mobile-no-img-label [role="img"] > span { display: none !important; }
+        .mobile-no-img-label [role="img"]:not(.wandering-eyes) > span { display: none !important; }
         .mobile-no-img-label .scrollbar-none::-webkit-scrollbar { display: none; }
         .mobile-no-img-label .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
         /* Mobile PDP layout */

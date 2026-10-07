@@ -589,7 +589,7 @@ export const MobilePetAbadShell = () => {
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {tgSession.pending ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 animate-fade-in" role="status">
-            <WanderingEyes className="text-primary" />
+            <WanderingEyes className="h-6 w-14 text-primary" />
             <p className="text-sm text-muted-foreground">در حال آماده‌سازی گفتگوی شما…</p>
           </div>
         ) : onLanding ? (

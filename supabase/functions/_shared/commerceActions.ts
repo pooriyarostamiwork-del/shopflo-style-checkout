@@ -481,7 +481,6 @@ export function resolveCheckoutTurn(args: {
   userText: string; ctx: CheckoutContext; surface: Surface; cartCount: number;
 }): CheckoutTurn {
   const { ctx, surface } = args;
-  const t = normFa(args.userText);
   if (args.kind === "guide") return guideTurn((args.target as GuideTarget) || "edit_profile", surface, ctx);
 
   if (args.kind === "select_address") {

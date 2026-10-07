@@ -428,30 +428,76 @@ const DETAILS_TOOL = {
 // ── Executional intent: one typed Jev decision, no word lists. Null = let the agent decide. ──
 type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping" | "select_payment" | "guide"; id?: string; target?: string; fast?: boolean };
 
-// One batched Jev call decides how this turn is routed. No word lists: when Jev
-// cannot judge, every flag stays false and the agent answers the turn normally.
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean };
-async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[]): Promise<TurnIntent> {
-  const none: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false };
-  if (!message.trim()) return none;
+// One batched Jev call decides how this turn is routed AND which pet facts / product
+// reference the message states. No word lists: when Jev cannot judge, every flag stays
+// false, every slot stays null and the agent answers the turn normally.
+type TurnSlots = { species: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; slots: TurnSlots };
+const NO_SLOTS: TurnSlots = { species: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, slots: NO_SLOTS };
+async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null): Promise<TurnIntent> {
+  if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
-  const j = await askJev(
-    { message, recent_messages: recent, shown_products: shown, pet },
-    {
-      guidance: q("Does the shopper in `message` (casual Persian, pet shop) ask for help or advice choosing what to buy, without already specifying exactly which product they want?"),
-      bundle: q("Does `message` ask for a complete set / starter pack / everything a pet needs (e.g. a newly adopted pet), i.e. several different product types at once, rather than one product type?"),
-      compare: q("Does `message` ask to compare products or brands, or ask which of two or more named options is better or how they differ?"),
-      info: q("Is `message` a knowledge question about brands, origins, categories or what the shop carries (answerable in words), rather than a request to be shown products to buy?"),
-      business: q("Is `message` a question about shop policies or services: shipping, delivery time, returns, warranty, authenticity, payment terms, discounts, store hours or contact?"),
-      counts: q("Does `message` explicitly ask about quantities, how many options exist, totals, or the price range / cheapest / most expensive?"),
-      delegate: q("Does the shopper in `message` leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن») instead of naming a specific product?"),
-      about_shown: q("Is `message` a question or request about the products in `shown_products` (which of them suits the pet, picking among them), rather than asking for a different kind of product or a new search? If `shown_products` is empty, answer no."),
+  const ordinalCriteria: Record<string, string> = { none: "The message does not point at one specific product of `shown_products` by position." };
+  shown.slice(0, 12).forEach((name, i) => (ordinalCriteria[`p${i + 1}`] = `Points at product #${i + 1} of \`shown_products\` («${name}»), e.g. by its position (first/second/last), its number or an unambiguous pronoun.`));
+  const questions: Record<string, unknown> = {
+    guidance: q("Does the shopper in `message` (casual Persian, pet shop) ask for help or advice choosing what to buy, without already specifying exactly which product they want?"),
+    bundle: q("Does `message` ask for a complete set / starter pack / everything a pet needs (e.g. a newly adopted pet), i.e. several different product types at once, rather than one product type?"),
+    compare: q("Does `message` ask to compare products or brands, or ask which of two or more named options is better or how they differ?"),
+    info: q("Is `message` a knowledge question about brands, origins, categories or what the shop carries (answerable in words), rather than a request to be shown products to buy?"),
+    business: q("Is `message` a question about shop policies or services: shipping, delivery time, returns, warranty, authenticity, payment terms, discounts, store hours or contact?"),
+    counts: q("Does `message` explicitly ask about quantities, how many options exist, totals, or the price range / cheapest / most expensive?"),
+    delegate: q("Does the shopper in `message` leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن») instead of naming a specific product?"),
+    about_shown: q("Is `message` a question or request about the products in `shown_products` (which of them suits the pet, picking among them), rather than asking for a different kind of product or a new search? If `shown_products` is empty, answer no."),
+    species: {
+      type: "choice",
+      instructions: "Which animal is `message` about? Use only what `message` itself says (pet words, nicknames, breed names such as شیتزو → dog, پرشین → cat). If it names two, pick the one the purchase is for.",
+      criteria: {
+        none: "`message` names or implies no animal.",
+        "سگ": "A dog or puppy, or a dog breed.",
+        "گربه": "A cat or kitten, or a cat breed.",
+        "پرنده": "A bird (parrot, canary, budgie, cockatiel…).",
+        "ماهی و آکواریوم": "Fish or an aquarium.",
+        "سایر حیوانات خانگی": "Another small pet: rabbit, hamster, guinea pig, rodent, turtle, reptile, ferret.",
+      },
     },
-  );
-  if (!j) return none;
+    life_stage: {
+      type: "choice",
+      instructions: "What life stage of the pet does `message` state (explicit age, puppy/kitten talk, old age)? Only what `message` says.",
+      criteria: { none: "No age or life stage stated.", "نابالغ": "Young: puppy, kitten, baby, under one year.", "بالغ": "Adult: roughly 1 to 7 years.", "سنیور": "Senior / old: roughly 7 years or older." },
+    },
+    breed_size: {
+      type: "choice",
+      instructions: "If `message` is about a dog, what body size does it state or imply through the breed (شیتزو/پامرانیان/پودل small, بیگل/کوکر medium, ژرمن/گلدن/هاسکی large)? Only what `message` says.",
+      criteria: { none: "No dog size or breed stated, or not about a dog.", "کوچک": "Small / toy breed.", "متوسط": "Medium breed.", "بزرگ": "Large or giant breed." },
+    },
+    ordinal: { type: "choice", instructions: "Does `message` point at one specific product of `shown_products`?", criteria: ordinalCriteria },
+  };
+  if (pendingQuestion) {
+    questions.skip = q("The shopper was just asked `pending_question`. Does `message` decline to choose or say it does not matter / they do not know / leave it to the assistant?");
+    questions.new_request = q("The shopper was just asked `pending_question`. Is `message` a different new request (another product or topic) instead of an answer to that question?");
+  }
+  const j = await askJev({ message, recent_messages: recent, shown_products: shown, pet, pending_question: pendingQuestion }, questions);
+  if (!j) return NO_TURN;
   const y = (k: string) => jevYes(j[k]) === true;
-  return { guidance: y("guidance"), bundle: y("bundle"), compare: y("compare"), info: y("info"), business: y("business"), counts: y("counts"), delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown") };
+  const pick = (k: string, min = 0.6) => {
+    const a = j[k];
+    const c = typeof a?.choice === "string" ? a.choice : "";
+    if (!c || c === "none" || (typeof a?.confidence === "number" && a.confidence < min)) return null;
+    return c;
+  };
+  const ord = pick("ordinal");
+  const slots: TurnSlots = {
+    species: pick("species"),
+    lifeStage: pick("life_stage"),
+    breedSize: pick("breed_size"),
+    ordinal: ord && /^p\d+$/.test(ord) ? Number(ord.slice(1)) : null,
+    skip: !!pendingQuestion && y("skip"),
+    newRequest: !!pendingQuestion && y("new_request"),
+  };
+  return { guidance: y("guidance"), bundle: y("bundle"), compare: y("compare"), info: y("info"), business: y("business"), counts: y("counts"), delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"), slots };
 }
+
 
 async function judgeExecIntent(message: string, ctx: any, cartCount: number): Promise<ExecIntent | null> {
   if (!message.trim()) return null;
@@ -2789,9 +2835,17 @@ serve(async (req) => {
     }
     const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
     const recentUser = (userMessages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
-    const turnIntent = effectiveMode === "discovery"
-      ? { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false }
-      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser);
+    const pendingFlow = isFlow(question_flow) && (question_flow as QuestionFlow).pending && !(question_flow as QuestionFlow).done
+      ? String((question_flow as QuestionFlow).pending) : null;
+    const PENDING_TEXT: Record<string, string> = {
+      species: "Which animal is it for?", age: "How old is the pet?", size: "What breed / size is the dog?",
+      type: "Which kind of product?", need: "Any special need?", origin: "Foreign or Iranian brand?",
+      budget: "What budget?", essentials: "Which items are needed?", completeness: "How complete should the pack be?", tier: "Which price tier?",
+    };
+    const turnIntent: TurnIntent = effectiveMode === "discovery"
+      ? NO_TURN
+      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser,
+          pendingFlow ? PENDING_TEXT[pendingFlow] || pendingFlow : null);
     console.log("turn intent", JSON.stringify(turnIntent));
     let wantsGuidance = turnIntent.guidance;
     const wantsCounts = turnIntent.counts;
@@ -2838,17 +2892,27 @@ serve(async (req) => {
     let lockedSpecies: string | null = null;
     let lockedStage: string | null = null;
     let lockedFromTurn = 0;
-    for (let i = userTurns.length - 1; i >= 0; i--) {
-      const found = lastNamedSpecies(userTurns[i]);
-      if (found) {
-        lockedSpecies = found;
-        lockedFromTurn = i;
-        break;
+    // The newest message is read by Jev (typed slots); earlier turns keep the stored lexicon
+    // only as a history fallback, so a new phrasing in THIS turn is never missed.
+    const slots = turnIntent.slots;
+    const lastIdx = userTurns.length - 1;
+    if (slots.species) {
+      lockedSpecies = slots.species;
+      lockedFromTurn = Math.max(0, lastIdx);
+    } else {
+      for (let i = lastIdx; i >= 0; i--) {
+        const found = lastNamedSpecies(userTurns[i]);
+        if (found) {
+          lockedSpecies = found;
+          lockedFromTurn = i;
+          break;
+        }
       }
     }
     // Life stage counts only from the turn that named the current animal onwards,
     // so an earlier kitten mention cannot stick to a dog the shopper switched to.
-    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+    if (slots.lifeStage) lockedStage = slots.lifeStage;
+    else for (let i = lastIdx; i >= lockedFromTurn; i--) {
       const stage = detectLifeStage(userTurns[i]);
       if (stage) {
         lockedStage = stage;
@@ -2859,13 +2923,21 @@ serve(async (req) => {
     // («سگم شیتزوئه» → small breed for every later dog search).
     let lockedBreedSize: string | null = null;
     let lockedBreedName: string | null = null;
-    for (let i = userTurns.length - 1; i >= lockedFromTurn; i--) {
+    if (slots.breedSize && lockedSpecies === "سگ") {
+      lockedBreedSize = slots.breedSize;
+      lockedBreedName = inferBreedLine(lastUserText);
+    } else for (let i = lastIdx; i >= lockedFromTurn; i--) {
       const size = inferBreedSize(userTurns[i]);
       if (size) {
         lockedBreedSize = size;
         lockedBreedName = inferBreedLine(userTurns[i]);
         break;
       }
+    }
+    // Reference to one shown product («دومی»، «همین آخری») — resolved by Jev, named for the model.
+    if (slots.ordinal && products_context?.[slots.ordinal - 1]) {
+      const p: any = products_context[slots.ordinal - 1];
+      systemPrompt += `\n\nREFERENCE: کاربر به محصول شماره ${slots.ordinal} از آخرین لیست اشاره کرده؛ منظورش دقیقاً «${p.name_fa || p.name}» (id: ${p.id}) است. دربارهٔ همین محصول جواب بده و لیست جدید نساز.`;
     }
     if (!lockedBreedSize && lockedSpecies === "سگ" && pet_memory && typeof pet_memory === "object") {
       const memSize = (pet_memory as any).breed_size || inferBreedSize(String((pet_memory as any).breed || ""));
@@ -3072,10 +3144,17 @@ serve(async (req) => {
       let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
       if (flow && flow.pending && !flow.done) {
         // A reply that names another animal or is a long new request abandons the flow.
-        const named = lastNamedSpecies(lastUserText);
+        // Jev judges whether the reply abandons the flow (another animal or a new request) or skips the question.
+        const named = slots.species;
         const switched = named && flow.species && named !== flow.species;
-        if (switched || lastUserText.length > 80) flow = null;
-        else flow = recordAnswer(flow, lastUserText);
+        if (switched || slots.newRequest) flow = null;
+        else flow = recordAnswer(flow, lastUserText, slots.skip);
+        // Typed facts from Jev replace free-text parsing of the answer.
+        if (flow && !slots.skip) {
+          const was = (question_flow as QuestionFlow).pending;
+          const fix: Record<string, string | null> = { species: slots.species, age: slots.lifeStage, size: slots.breedSize };
+          if (was && fix[was]) flow = { ...flow, answers: { ...flow.answers, [was]: fix[was]! } };
+        }
       }
       if (!flow || flow.done) {
         const goal = turnIntent.bundle ? "bundle" : "single";
@@ -3094,7 +3173,7 @@ serve(async (req) => {
         else flow = null;
       }
       if (flow && !flow.done) {
-        const { card, flow: nf } = await nextQuestion(flowDeps, flow);
+        const { card, flow: nf } = await nextQuestion(flowDeps, flow, { recent: recentUser, pet: pet_memory && typeof pet_memory === "object" ? pet_memory : null });
         if (card) {
           console.log("Flow question:", JSON.stringify({ goal: nf.goal, id: card.id, options: card.options.length }));
           const cardResponse = clarificationResponse(card, `flow-${card.id}`);

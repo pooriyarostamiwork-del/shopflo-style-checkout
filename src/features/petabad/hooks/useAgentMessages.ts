@@ -168,48 +168,6 @@ function trimHistoryForAgent(messages: ChatMessage[]): { role: string; content: 
     .slice(-12);
 }
 
-// ── Deterministic hints (no model call) ──
-const ENUMERATION_RE = /(چیا داری|چی داری|چه (برند|مدل|مارک)|همه(ی)? ?(محصولات|مدل ?ها|گزینه ?ها)?|لیست|چند تا|چندتا|کدوم برند|برند ?های|موجودی)/;
-const EXISTENCE_RE = /(داری|دارید|موجوده|موجود هست|هست)\s*\??$/;
-const REFERENCE_RE = /(این|اینا|اینها|همون|همین|اون ?ها|اونا|قبلی|همون ?ها|برای این|با این|اولی|اولو|اول|دومی|دوم|سومی|سوم|شماره ?\d)/;
-const ORDINALS: Record<string, number> = {
-  'اولی': 1, 'اولو': 1, 'اول': 1, 'دومی': 2, 'دوم': 2, 'سومی': 3, 'سوم': 3,
-  'چهارمی': 4, 'چهارم': 4, 'پنجمی': 5, 'پنجم': 5, 'ششمی': 6, 'ششم': 6,
-};
-
-function buildScopeHint(message: string): string | undefined {
-  const t = message.replace(/\u200c/g, " ");
-  const hints: string[] = [];
-  if (ENUMERATION_RE.test(t)) hints.push("این پیام درخواست شمارش/فهرست کامل است — حتماً catalog_facets را صدا بزن و اعداد را از آن بگیر.");
-  else if (EXISTENCE_RE.test(t)) hints.push("این پیام سؤال موجود بودن است — حتماً قبل از هر پاسخ search_products یا catalog_facets را صدا بزن؛ از حافظه پاسخ نده.");
-  return hints.length ? hints.join(" ") : undefined;
-}
-
-function buildReferenceHint(message: string, memory: ProductMemory): string | undefined {
-  if (!REFERENCE_RE.test(message)) return undefined;
-  const latest = memory.groups[memory.groups.length - 1]?.productIds ?? [];
-  const focus = memory.focus?.productIds?.length ? memory.focus.productIds : latest;
-  if (!focus.length) return undefined;
-
-  // «محصول اول/دومی/شماره ۲» points at one concrete product — name it for the model.
-  const t = message.replace(/\u200c/g, " ").replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-  let ordinal: number | undefined;
-  const numMatch = t.match(/(?:شماره|محصول)\s*(\d+)/);
-  if (numMatch) ordinal = parseInt(numMatch[1]);
-  if (!ordinal) {
-    for (const [word, n] of Object.entries(ORDINALS)) {
-      if (new RegExp(`(^|\\s)${word}(\\s|$|و|ی|رو|را)`).test(t)) { ordinal = n; break; }
-    }
-  }
-  const namedId = ordinal ? latest[ordinal - 1] : undefined;
-  const namedProduct = namedId ? memory.entries[namedId]?.product : undefined;
-  if (namedProduct) {
-    return `کاربر به «محصول ${ordinal}» از آخرین لیست اشاره کرده؛ منظورش دقیقاً این محصوله: ${namedProduct.name} (id: ${namedProduct.id}). در پاسخ نام همین محصول را بیاور و جواب سؤالش را دربارهٔ همین محصول بده؛ لیست جدید نساز.`;
-  }
-  return `کاربر با ضمیر به محصولات قبلی اشاره کرده. محصولات مرجع: ${focus.slice(0, 6).join(", ")}. اینها موضوع جدید نیستند مگر صریح گفته شود.`;
-}
-
-
 export const useAgentMessages = ({
   updateCurrentBasket,
   setBasketStates,
@@ -414,32 +372,6 @@ export const useAgentMessages = ({
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    // ── Fast paths: deterministic Persian phrasings resolved locally (zero network) ──
-    const p2l = (s: string) => s.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-    const norm = p2l(content).trim().toLowerCase();
-
-    // Only explicit positions are resolved locally («دومی»، «شماره ۳»، «آخری»); a bare number is a quantity.
-    const ordinalWords: Array<[string, number]> = [
-      ['اول', 1], ['اولی', 1], ['دوم', 2], ['دومی', 2], ['سوم', 3], ['سومی', 3],
-      ['چهارم', 4], ['چهارمی', 4], ['پنجم', 5], ['پنجمی', 5], ['ششم', 6], ['ششمی', 6],
-    ];
-    const refMatch = norm.match(/(?:#|شماره\s*|محصول\s*|گزینه\s*)(\d+)/);
-    let refNum: number | undefined = refMatch ? parseInt(refMatch[1]) : undefined;
-    if (!refNum) {
-      for (const [word, num] of ordinalWords) {
-        if (new RegExp(`(^|\\s)${word}(ی|و|رو|را)?(\\s|$)`).test(norm)) { refNum = num; break; }
-      }
-    }
-    if (!refNum && /(^|\s)(آخری|اخری|آخرین)(و|رو|را)?(\s|$)/.test(norm) && lastRecommendedProducts.length) refNum = lastRecommendedProducts.length;
-    const qtyMatch = norm.match(/(\d+)\s*(?:عدد|تا|بسته|دونه)/);
-    const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-
-    const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
-    const mutateRe = /(حذف|بردار|پاک|کم|زیاد|عوض|جایگزین|جای|بجای)/;
-    // A question is a question: it goes to the assistant, never to a cart shortcut.
-    const isQuestion = /[?؟]\s*$/.test(norm)
-      || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
-
     // ── Open checkout step: a typed reply is judged in context by a decision model (no word lists).
     // Unsure / failure → the normal agent path below; nothing is guessed.
     const bridge = checkoutBridge?.current;
@@ -476,11 +408,6 @@ export const useAgentMessages = ({
     // Finalize / orders / checkout picks are judged server-side (typed decision), never by word lists here.
     // Exact positional add («دومی رو ۲ تا بنداز تو سبد») runs locally; everything with a name,
     // a pronoun or a cart mutation goes to the agent, whose output is validated against the cart.
-    if (!isQuestion && addRe.test(norm) && !mutateRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
-      handleTransactionalCartAdd(refNum, qty);
-      return;
-    }
-
     // ── Everything else: one agent call, the model picks the tool ──
     const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;
     await callUnifiedAgent(content, trimHistoryForAgent(messages), isFirstMessage);
@@ -652,10 +579,6 @@ export const useAgentMessages = ({
       body.purchase_context = purchaseContextPayload(nextShopping.petMemory);
       // Adaptive question flow: echo the server's state so the next question adapts to this answer.
       if (nextShopping.questionFlow) body.question_flow = nextShopping.questionFlow;
-      const scopeHint = buildScopeHint(content);
-      if (scopeHint) body.scope_hint = scopeHint;
-      const referenceHint = buildReferenceHint(content, mem);
-      if (referenceHint) body.reference_hint = referenceHint;
 
       const { data, error } = await invokeWithTimeout('petabad-agent', body);
       if (error) throw new Error(error.message);

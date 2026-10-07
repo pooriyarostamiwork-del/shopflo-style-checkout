@@ -1,3 +1,4 @@
+import { askJev } from "../_shared/jev.ts";
 // ── Adaptive, catalog-grounded question flow (PetAbad only) ─────────────
 // One question per turn. Every option is checked against in-stock rows before
 // it is shown, questions are asked only when they materially split the
@@ -88,7 +89,6 @@ export type FlowCard = {
   options: Array<{ label: string; hint?: string }>;
 };
 
-const SKIP_RE = /(فرقی نمی|مهم نیست|نمی\s*دونم|هر چی|خودت انتخاب)/;
 const MIN_OPTION_ROWS = 3;
 const DOMINANCE = 0.85;
 const MAX_QUESTIONS = 5;
@@ -140,9 +140,9 @@ export function startFlow(
 }
 
 /** Record the shopper's reply to the pending question. Free text counts as an answer too. */
-export function recordAnswer(flow: QuestionFlow, text: string): QuestionFlow {
+export function recordAnswer(flow: QuestionFlow, text: string, skipped = false): QuestionFlow {
   if (!flow.pending) return flow;
-  const answers = { ...flow.answers, [flow.pending]: SKIP_RE.test(text) ? "" : text.trim() };
+  const answers = { ...flow.answers, [flow.pending]: skipped ? "" : text.trim() };
   return { ...flow, answers, pending: null };
 }
 
@@ -535,26 +535,57 @@ function applyAnswerEffects(deps: FlowDeps, flow: QuestionFlow): QuestionFlow {
   return next;
 }
 
+const PRICE_IDS = ["budget", "tier"];
+/** Questions other questions depend on: always asked before the rest. */
+const FIRST_IDS = ["species", "essentials"];
+
+/**
+ * Pick the next question. Every remaining question is built against live stock in
+ * parallel (dead ends return null), price stays last, and among the viable
+ * questions Jev chooses the one that matters most for THIS shopper's request and
+ * answers so far. If Jev cannot judge, the plan order is kept.
+ */
 export async function nextQuestion(
   deps: FlowDeps,
   flowIn: QuestionFlow,
+  context?: { recent?: string[]; pet?: unknown },
 ): Promise<{ card: FlowCard | null; flow: QuestionFlow }> {
   const flow = applyAnswerEffects(deps, flowIn);
   const seeded = flow.seeded || [];
   const askedCount = Object.keys(flow.answers).filter((k) => !seeded.includes(k)).length;
   if (askedCount >= MAX_QUESTIONS) return { card: null, flow: { ...flow, done: true, pending: null } };
   const remaining = PLANS[flow.goal].filter(([id]) => !flow.asked.includes(id));
-  const asked = [...flow.asked];
-  for (let i = 0; i < remaining.length; i++) {
-    const [id, build] = remaining[i];
-    const card = await build(deps, { ...flow, asked });
-    asked.push(id);
-    if (!card) continue;
-    const left = Math.min(remaining.length - i, MAX_QUESTIONS - askedCount);
-    card.progress = `سؤال ${faNum(askedCount + 1)} از حدود ${faNum(askedCount + left)}`;
-    return { card, flow: { ...flow, asked, pending: id } };
+  const built = await Promise.all(remaining.map(async ([id, build]) => ({ id, card: await build(deps, flow) })));
+  const viable = built.filter((b) => b.card) as Array<{ id: string; card: FlowCard }>;
+  // Dead ends are not marked as asked: a later answer (e.g. essentials) can make them viable.
+  const deadEnds: string[] = [];
+  if (!viable.length) return { card: null, flow: { ...flow, asked: [...flow.asked, ...deadEnds], done: true, pending: null } };
+
+  const first = viable.find((v) => FIRST_IDS.includes(v.id));
+  const nonPrice = viable.filter((v) => !PRICE_IDS.includes(v.id));
+  let chosen = first || nonPrice[0] || viable[0];
+  if (!first && nonPrice.length > 1) {
+    const criteria: Record<string, string> = {};
+    for (const v of nonPrice) criteria[v.id] = `Ask «${v.card.question}» (options: ${v.card.options.map((o) => o.label).join("، ")}).`;
+    const j = await askJev(
+      { request: flow.seed, goal: flow.goal, species: flow.species || null, answers_so_far: flow.answers, recent_messages: context?.recent || [], pet: context?.pet || null },
+      {
+        next: {
+          type: "choice",
+          instructions:
+            "A pet-shop assistant is narrowing down what to recommend for `request`. Given `answers_so_far` and the conversation, which ONE question should be asked next — the one whose answer most changes which products fit this shopper? Do not pick a question whose answer is already clear from the conversation.",
+          criteria,
+        },
+      },
+    );
+    const c = j?.next?.choice;
+    const hit = typeof c === "string" ? nonPrice.find((v) => v.id === c) : undefined;
+    if (hit && !(typeof j?.next?.confidence === "number" && j.next.confidence < 0.4)) chosen = hit;
   }
-  return { card: null, flow: { ...flow, asked, done: true, pending: null } };
+  const card = chosen.card;
+  const left = Math.min(remaining.length, MAX_QUESTIONS - askedCount);
+  card.progress = `سؤال ${faNum(askedCount + 1)} از حدود ${faNum(askedCount + left)}`;
+  return { card, flow: { ...flow, asked: [...flow.asked, ...deadEnds, chosen.id], pending: chosen.id } };
 }
 
 export function summarize(deps: FlowDeps, flow: QuestionFlow): FlowSummary {

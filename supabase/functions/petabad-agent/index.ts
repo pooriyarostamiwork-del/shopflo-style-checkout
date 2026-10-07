@@ -436,7 +436,7 @@ type CartOp = "add" | "remove" | "update" | "replace" | "clear" | null;
 type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots };
 const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
 const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS };
-async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null): Promise<TurnIntent> {
+async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
   const ordinalCriteria: Record<string, string> = { none: "The message does not point at one specific product of `shown_products` by position." };

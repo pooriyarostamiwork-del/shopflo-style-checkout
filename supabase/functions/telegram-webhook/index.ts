@@ -603,6 +603,13 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
   const { ans, history } = out;
   const content = stripMd(ans.content || "");
 
+  // Finalize intent (typed decision in petabad-agent): open the interactive address step, never text lists.
+  if (ans.response_type === "start_checkout") {
+    await saveChat(chat, { history: [...history, { role: "assistant", content: "آدرس و نحوه ارسال را انتخاب کنید:" }].slice(-14) });
+    if (!(chat.cart || []).length) return tg("sendMessage", { chat_id: chatId, text: "سبدت هنوز خالیه؛ اول یه محصول اضافه کن 🐾", reply_markup: MAIN_KB });
+    if (chat.phone) return sendAddressStep(chat);
+    return tg("sendMessage", { chat_id: chatId, text: "قبل از پرداخت، با یه لمس شماره‌ات رو تأیید کن (بدون پیامک) 👇", reply_markup: PHONE_KB });
+  }
   // Checkout picks and native-UI guidance: validated in petabad-agent, executed here.
   if (ans.response_type === "checkout" || ans.response_type === "guide") {
     await saveChat(chat, { history: [...history, { role: "assistant", content }].slice(-14) });

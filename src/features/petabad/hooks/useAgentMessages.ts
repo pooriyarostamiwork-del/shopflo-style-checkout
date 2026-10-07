@@ -436,10 +436,6 @@ export const useAgentMessages = ({
 
     const addRe = /(اضاف|بذار|بگذار|بریز|بندا[زذ]|به سبد|توی سبد|تو سبد|بخر|بخرم|خرید کن|میخوام بخرم|می‌خوام بخرم)/;
     const mutateRe = /(حذف|بردار|پاک|کم|زیاد|عوض|جایگزین|جای|بجای)/;
-    // «پرداخت» alone finalizes; a named method/address/shipping is a checkout command for the agent.
-    const checkoutRe = /(نهایی|پرداخت|چک اوت|checkout|تسویه|ثبت سفارش|تموم کن|تمام کن)/;
-    const checkoutDetailRe = /(کیف\s*پول|درگاه|قسط|اقساط|برداشت|آدرس|ادرس|اکسپرس|پیک|ارسال|بفرست|کد\s*تخفیف|کوپن)/;
-    const ordersRe = /(سفارش‌?ها|سفارشاتم|پیگیری سفارش|کد رهگیری)/;
     // A question is a question: it goes to the assistant, never to a cart shortcut.
     const isQuestion = /[?؟]\s*$/.test(norm)
       || /(کدوم|کدام|چه\s|چیا|چیه|چی\s|آیا|چطور|چقدر|چند|خارجی|داخلی|معرفی|مقایسه)/.test(norm);
@@ -477,21 +473,7 @@ export const useAgentMessages = ({
       }
     }
 
-    if (checkoutRe.test(norm) && !checkoutDetailRe.test(norm) && cartItems.length > 0 && !isQuestion) {
-      handleTransactionalCheckout();
-      return;
-    }
-
-    if (ordersRe.test(norm)) {
-      const msg: ChatMessage = {
-        id: `order-inquiry-${Date.now()}`, role: 'assistant',
-        content: 'برای مشاهده و پیگیری سفارش‌هایت، به بخش «سفارش‌ها» مراجعه کن.',
-        ctaButton: { label: '📦 مشاهده سفارش‌ها', action: 'view-orders', disabled: false },
-        timestamp: new Date(),
-      };
-      updateCurrentBasket(s => ({ ...s, messages: [...s.messages, msg], isProcessing: false }));
-      return;
-    }
+    // Finalize / orders / checkout picks are judged server-side (typed decision), never by word lists here.
     // Exact positional add («دومی رو ۲ تا بنداز تو سبد») runs locally; everything with a name,
     // a pronoun or a cart mutation goes to the agent, whose output is validated against the cart.
     if (!isQuestion && addRe.test(norm) && !mutateRe.test(norm) && refNum && refNum <= lastRecommendedProducts.length) {
@@ -760,6 +742,11 @@ export const useAgentMessages = ({
       }
 
       // ── Checkout selections & native-UI guidance (validated server-side) ──
+      if (data?.response_type === 'start_checkout') {
+        updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+        if (cartItems.length > 0) handleTransactionalCheckout();
+        return;
+      }
       if (data?.response_type === 'checkout' || data?.response_type === 'guide') {
         const directive = data?.directive;
         if (directive?.kind && directive?.id) checkoutBridge?.current?.apply(directive);

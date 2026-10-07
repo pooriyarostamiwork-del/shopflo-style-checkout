@@ -468,19 +468,6 @@ export const PETABAD_PAYMENTS = [
   { id: "direct-debit", label: "برداشت مستقیم", available: false },
 ] as const;
 
-const PAYMENT_WORDS: Array<[RegExp, string]> = [
-  [/کیف\s*پول|ولت|wallet|اعتبار\s*حساب/, "wallet"],
-  [/درگاه|کارت\s*بانکی|آنلاین|انلاین|شتاب|کارت/, "gateway"],
-  [/قسط|اقساط|بعدا\s*پرداخت|پرداخت\s*اقساطی|bnpl/, "bnpl"],
-  [/برداشت\s*مستقیم|مستقیم/, "direct-debit"],
-];
-const SHIPPING_WORDS: Array<[RegExp, string]> = [
-  [/اکسپرس|express/, "express"],
-  [/پیک|موتوری|امروز/, "courier"],
-  [/عادی|معمولی|پست|ارزون|ارزان/, "standard"],
-];
-const FAST_RE = /(سریع|زود|فوری|عجله|هرچه\s*زودتر|فورا)/;
-
 export interface CheckoutTurn {
   response_type: "checkout" | "guide";
   content: string;
@@ -490,11 +477,10 @@ export interface CheckoutTurn {
 }
 
 export function resolveCheckoutTurn(args: {
-  kind: string; address_id?: string; address_query?: string; shipping_id?: string; payment_id?: string; target?: string;
+  kind: string; address_id?: string; address_query?: string; shipping_id?: string; payment_id?: string; target?: string; fast?: boolean;
   userText: string; ctx: CheckoutContext; surface: Surface; cartCount: number;
 }): CheckoutTurn {
   const { ctx, surface } = args;
-  const t = normFa(args.userText);
   if (args.kind === "guide") return guideTurn((args.target as GuideTarget) || "edit_profile", surface, ctx);
 
   if (args.kind === "select_address") {
@@ -508,6 +494,7 @@ export function resolveCheckoutTurn(args: {
       choices: [],
     });
     const byId = list.find((a) => a.id === args.address_id);
+    if (byId && !args.address_query) return choose(byId);
     const ord = parseOrdinal(args.userText);
     const query = tokens(`${args.address_query || ""} ${args.userText}`);
     const exact = list.filter((a) => {
@@ -540,11 +527,9 @@ export function resolveCheckoutTurn(args: {
   }
 
   if (args.kind === "select_shipping") {
-    let id = PETABAD_SHIPPING.find((m) => m.id === args.shipping_id)?.id as string | undefined;
-    const said = SHIPPING_WORDS.find(([re]) => re.test(t))?.[1];
-    if (said) id = said;
-    const fast = FAST_RE.test(t) && !said;
-    const method = !fast ? PETABAD_SHIPPING.find((m) => m.id === id) : undefined;
+    // Ids come from a typed decision (Jev) or the model's tool call — never from word lists.
+    const fast = !!args.fast;
+    const method = !fast ? PETABAD_SHIPPING.find((m) => m.id === args.shipping_id) : undefined;
     if (!method) {
       const pool = fast ? PETABAD_SHIPPING.filter((m) => m.id !== "standard") : PETABAD_SHIPPING;
       return {
@@ -566,8 +551,7 @@ export function resolveCheckoutTurn(args: {
   }
 
   if (args.kind === "select_payment") {
-    const said = PAYMENT_WORDS.find(([re]) => re.test(t))?.[1];
-    const id = said || args.payment_id;
+    const id = args.payment_id;
     const method = PETABAD_PAYMENTS.find((p) => p.id === id);
     const available = PETABAD_PAYMENTS.filter((p) => p.available);
     if (!method || !method.available) {
@@ -621,30 +605,4 @@ export function guideTurn(target: GuideTarget, surface: Surface, ctx: CheckoutCo
       : "برای استفاده از آدرس‌های ذخیره‌شده اول وارد حسابت شو؛ موقع نهایی کردن خرید ازت شماره می‌پرسم.",
   };
   return { response_type: "guide", content: prefix + copy[target], choices: [], guide: { target, surface } };
-}
-
-/** Deterministic pre-routing for requests that must never go through the model's cart/checkout tools. */
-export function detectGuideIntent(text: string): GuideTarget | null {
-  const t = normFa(text);
-  if (/(شارژ|موجودی|افزایش\s*اعتبار).{0,12}کیف|کیف\s*پول.{0,12}(شارژ|موجودی|چقدر)/.test(t)) return "wallet";
-  if (/(کد\s*تخفیف|کوپن|تخفیف\s*بزن)/.test(t)) return "coupon";
-  // Address/phone questions that are not "how do I…" (e.g. delivery time to a new address) stay with the agent.
-  if (/[?؟]\s*$/.test(t) && !/(چطور|چجوری|کجا|میشه|می شه|چکار|چیکار)/.test(t)) return null;
-  if (/(شماره|موبایل|تلفن).{0,15}(عوض|تغییر|ویرایش|اصلاح)|(عوض|تغییر).{0,10}(شماره|موبایل)/.test(t)) return "change_phone";
-  if (/(آدرس|ادرس).{0,25}(جدید|اضافه|ثبت|بساز|وارد)|(اضافه|ثبت|وارد).{0,10}(آدرس|ادرس)\s*(جدید)?/.test(t) && !/انتخاب/.test(t)) return "add_address";
-  if (/(پلاک|کد\s*پستی|کدپستی|واحد|طبقه|زنگ).{0,25}(عوض|تغییر|اشتباه|اصلاح|بکن|کن)|(ویرایش|اصلاح|ادیت).{0,10}(آدرس|ادرس)/.test(t)) return "edit_address";
-  if (/(حذف|پاک).{0,10}(آدرس|ادرس)|(آدرس|ادرس).{0,15}(حذف|پاک)\s*(کن)?/.test(t)) return "delete_address";
-  if (/(اسمم|اسم\s*من|نامم|نام\s*خانوادگی|ایمیل).{0,15}(عوض|تغییر|ویرایش|اصلاح)/.test(t)) return "edit_profile";
-  return null;
-}
-
-/** Deterministic checkout picks (payment / shipping) — exact words, no model needed. */
-export function detectCheckoutIntent(text: string): { kind: "select_payment" | "select_shipping" } | null {
-  const t = normFa(text);
-  if (/[?؟]\s*$/.test(t) || /(چقدر|چنده|چیه|چطوریه|چند\s*روز|کی\s*می\s*رسه|فرقش)/.test(t)) return null;
-  if (/(شارژ|موجودی)/.test(t)) return null;
-  if (/(کیف\s*پول|درگاه|قسط|اقساط|برداشت\s*مستقیم)/.test(t) && /(پرداخت|بپرداز|حساب|کم\s*کن|بزن|انتخاب|میدم|می\s*دم|میخرم|بخرم)/.test(t)) return { kind: "select_payment" };
-  if (/(اکسپرس|پیک|ارسال\s*عادی|پست\s*عادی)/.test(t) && /(بفرست|ارسال|برسه|بیار|بیاد|باشه|انتخاب|می\s*خوام|میخوام)/.test(t)) return { kind: "select_shipping" };
-  if (/(سریع|زود|فوری|فورا)/.test(t) && /(بفرست|برسه|بیاد|ارسال\s*کن|ارسالش)/.test(t)) return { kind: "select_shipping" };
-  return null;
 }

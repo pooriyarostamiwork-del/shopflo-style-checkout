@@ -2,8 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { askJev, jevYes } from "../_shared/jev.ts";
 import {
-  detectCheckoutIntent,
-  detectGuideIntent,
   guideTurn,
   resolveCartTurn,
   resolveCheckoutTurn,
@@ -428,17 +426,58 @@ const DETAILS_TOOL = {
   },
 };
 
+// ── Executional intent: one typed Jev decision, no word lists. Null = let the agent decide. ──
+type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping" | "select_payment" | "guide"; id?: string; target?: string; fast?: boolean };
+async function judgeExecIntent(message: string, ctx: any, cartCount: number): Promise<ExecIntent | null> {
+  if (!message.trim()) return null;
+  const addrs: any[] = Array.isArray(ctx?.addresses) ? ctx.addresses.slice(0, 12) : [];
+  const criteria: Record<string, unknown> = {
+    other: "Anything else: product search, questions (including questions about prices, delivery time or how methods work), cart edits, chit-chat, or no clear executional request.",
+    start_checkout: "Wants to finalize / proceed to checkout / go to address-shipping-payment, without naming one specific address, shipping or payment option.",
+    "ship:standard": "Chooses standard (normal/regular/cheap post) shipping.",
+    "ship:express": "Chooses express shipping.",
+    "ship:courier": "Chooses courier (motorbike/same-day) delivery.",
+    "ship:fast": "Wants it delivered fast but names no specific shipping method.",
+    "pay:wallet": "Chooses to pay with wallet.",
+    "pay:gateway": "Chooses to pay through the online gateway / bank card.",
+    "pay:bnpl": "Chooses instalment / pay-later.",
+    "guide:add_address": "Wants to add a new address.",
+    "guide:edit_address": "Wants to edit a saved address (plaque, postal code, unit…).",
+    "guide:delete_address": "Wants to delete a saved address.",
+    "guide:edit_profile": "Wants to change name or email.",
+    "guide:change_phone": "Wants to change phone number.",
+    "guide:wallet": "Wants to top up or check the wallet.",
+    "guide:coupon": "Wants to apply a discount code / coupon.",
+    "guide:orders": "Wants to see or track previous orders.",
+  };
+  for (const a of addrs) criteria[`addr:${a.id}`] = `Chooses the saved delivery address «${a.title}${a.summary ? ` — ${a.summary}` : ""}».`;
+  const answers = await askJev(
+    { message, cart_items: cartCount, saved_addresses: addrs.map((a) => a.title) },
+    { exec: { type: "choice", instructions: "A shopper wrote `message` (casual Persian) in a pet-shop chat. Which executional request, if any, does it clearly make? Pick other unless the request is clear.", criteria } },
+  );
+  const a = answers?.exec;
+  const choice = typeof a?.choice === "string" ? a.choice : "";
+  if (!choice || choice === "other" || (typeof a?.confidence === "number" && a.confidence < 0.6)) return null;
+  if (choice === "start_checkout") return cartCount ? { kind: "start_checkout" } : null;
+  const [k, v] = choice.split(":");
+  if (k === "ship") return v === "fast" ? { kind: "select_shipping", fast: true } : { kind: "select_shipping", id: v };
+  if (k === "pay") return { kind: "select_payment", id: v };
+  if (k === "addr") return { kind: "select_address", id: choice.slice(5) };
+  if (k === "guide") return { kind: "guide", target: v };
+  return null;
+}
+
 // ── Checkout selections & native-UI guidance ──
 const CHECKOUT_TOOL = {
   type: "function",
   function: {
     name: "checkout_action",
     description:
-      "Pick an EXISTING saved address, a shipping method or a payment method from the lists in «اطلاعات تسویه»; or (kind=guide) send the user to the native screen for things chat must not do: adding/editing/deleting an address, changing phone/profile, wallet top-up, coupons.",
+      "start_checkout opens the interactive checkout (address/shipping/payment UI) — use it whenever the user wants to finalize or choose without naming a specific option; NEVER list addresses or methods as text. Pick an EXISTING saved address (address_query = the user's words), a shipping method or a payment method; or (kind=guide) send the user to the native screen for things chat must not do: adding/editing/deleting an address, changing phone/profile, wallet top-up, coupons.",
     parameters: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["select_address", "select_shipping", "select_payment", "guide"] },
+        kind: { type: "string", enum: ["start_checkout", "select_address", "select_shipping", "select_payment", "guide"] },
         address_id: { type: "string", description: "id from the saved address list (select_address)" },
         address_query: { type: "string", description: "the words the user used for the address, e.g. «خونه» or «سعادت‌آباد»" },
         shipping_id: { type: "string", description: "standard | express | courier" },
@@ -2682,14 +2721,12 @@ serve(async (req) => {
       } else {
         systemPrompt += `\n\nسبد خرید فعلی: خالی`;
       }
-      {
-        const addrs = Array.isArray(checkoutCtx.addresses) ? checkoutCtx.addresses.slice(0, 12) : [];
-        systemPrompt += `\n\nاطلاعات تسویه (کانال: ${surface === "telegram" ? "بات تلگرام" : "اپ"}):\n` +
-          (checkoutCtx.logged_in
-            ? (addrs.length ? `آدرس‌های ذخیره‌شده:\n${addrs.map((a, i) => `${i + 1}. [${a.id}] ${a.title}${a.summary ? ` — ${a.summary}` : ""}`).join("\n")}` : "آدرس ذخیره‌شده: ندارد")
-            : "کاربر هنوز وارد حساب نشده") +
-          `\nروش‌های ارسال: standard (ارسال عادی)، express (اکسپرس)، courier (پیک، پس‌کرایه)\nروش‌های پرداخت: wallet (کیف پول)، gateway (درگاه)، bnpl (اقساطی)`;
-      }
+      // Selection data (addresses, shipping, payment) is never placed in the prompt as text:
+      // it lives in checkout_action, resolved server-side and rendered as interactive UI.
+      systemPrompt += `\n\nCHECKOUT_UI_RULE (کانال: ${surface === "telegram" ? "بات تلگرام" : "اپ"}، ${checkoutCtx.logged_in ? "کاربر وارد شده" : "کاربر هنوز وارد نشده"}):
+- هرگز آدرس‌ها، روش‌های ارسال یا روش‌های پرداخت را به‌صورت فهرست متنی/شماره‌دار ننویس و نپرس «کدوم رو انتخاب می‌کنی».
+- اگر کاربر می‌خواهد خرید را نهایی کند یا برود سراغ آدرس/ارسال/پرداخت بدون نام بردن گزینه‌ای مشخص → checkout_action با kind=start_checkout.
+- اگر گزینه‌ای مشخص را نام برد → checkout_action با select_address (address_query = همان کلمات کاربر) / select_shipping / select_payment.`;
       if (typeof shopping_context === "string" && shopping_context.trim()) {
         systemPrompt += `\n\nهدف خرید:\n${shopping_context.trim()}`;
       }
@@ -2720,16 +2757,19 @@ serve(async (req) => {
       products: [],
       quickReplies: [],
     });
+    const startCheckoutPayload = { response_type: "start_checkout", content: "", products: [], quickReplies: [], choices: [] };
     if (effectiveMode === "agentic") {
-      const guideTarget = detectGuideIntent(lastUserText);
-      if (guideTarget) {
-        console.log("exec: guide pre-route", guideTarget);
-        return jsonResponse(checkoutPayload(guideTurn(guideTarget, surface, checkoutCtx)));
-      }
-      const pick = detectCheckoutIntent(lastUserText);
-      if (pick) {
-        console.log("exec: checkout pre-route", pick.kind);
-        return jsonResponse(checkoutPayload(resolveCheckoutTurn({ kind: pick.kind, userText: lastUserText, ctx: checkoutCtx, surface, cartCount })));
+      const exec = await judgeExecIntent(lastUserText, checkoutCtx, cartCount);
+      if (exec) {
+        console.log("exec: jev pre-route", exec.kind, exec.target || exec.id || "");
+        if (exec.kind === "start_checkout") return jsonResponse(startCheckoutPayload);
+        if (exec.kind === "guide") return jsonResponse(checkoutPayload(guideTurn(exec.target as any, surface, checkoutCtx)));
+        return jsonResponse(checkoutPayload(resolveCheckoutTurn({
+          kind: exec.kind, address_id: exec.kind === "select_address" ? exec.id : undefined,
+          shipping_id: exec.kind === "select_shipping" ? exec.id : undefined,
+          payment_id: exec.kind === "select_payment" ? exec.id : undefined, fast: exec.fast,
+          userText: lastUserText, ctx: checkoutCtx, surface, cartCount,
+        })));
       }
     }
     let wantsGuidance = GUIDANCE_RE.test(normLastUser);
@@ -3351,6 +3391,7 @@ serve(async (req) => {
         if (checkoutCall) {
           let args: any = {};
           try { args = JSON.parse(checkoutCall.function.arguments); } catch { args = {}; }
+          if (args.kind === "start_checkout") { console.log("exec: checkout tool start_checkout"); return jsonResponse(startCheckoutPayload); }
           const turn = resolveCheckoutTurn({ ...args, kind: String(args.kind || "guide"), userText: lastUserText, ctx: checkoutCtx, surface, cartCount });
           console.log("exec: checkout tool", JSON.stringify(args), "→", turn.response_type, turn.directive?.kind || turn.guide?.target || "choices");
           return jsonResponse(checkoutPayload(turn));

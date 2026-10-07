@@ -11,6 +11,9 @@ const WELCOME_MESSAGE: ChatMessage = {
 };
 
 interface ChatInterfaceProps {
+  onStop?: () => void;
+  onResend?: (messageId: string) => void;
+  onFeedback?: (messageId: string, value: 'up' | 'down' | null) => void;
   isPendingNewChat?: boolean;
   messages: ChatMessage[];
   onSendMessage: (message: string, forceNew?: boolean) => void;
@@ -50,6 +53,12 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
       <ChatThread
         messages={[WELCOME_MESSAGE]}
         onSendMessage={props.onSendMessage}
+      onStop={props.onStop}
+      onResend={props.onResend}
+      onFeedback={props.onFeedback}
+        onStop={props.onStop}
+        onResend={props.onResend}
+        onFeedback={props.onFeedback}
         onAddToCart={props.onAddToCart}
         onCompare={props.onCompare}
         onSaveProduct={props.onSaveProduct}
@@ -80,6 +89,9 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
     return (
       <ChatLanding
         onSendMessage={props.onSendMessage}
+      onStop={props.onStop}
+      onResend={props.onResend}
+      onFeedback={props.onFeedback}
         onAddToCart={props.onAddToCart}
         onStartChat={props.onStartChat}
         onCheckout={props.onCheckout}
@@ -100,6 +112,9 @@ export const ChatInterface = (props: ChatInterfaceProps) => {
     <ChatThread
       messages={props.messages}
       onSendMessage={props.onSendMessage}
+      onStop={props.onStop}
+      onResend={props.onResend}
+      onFeedback={props.onFeedback}
       onAddToCart={props.onAddToCart}
       onCompare={props.onCompare}
       onSaveProduct={props.onSaveProduct}

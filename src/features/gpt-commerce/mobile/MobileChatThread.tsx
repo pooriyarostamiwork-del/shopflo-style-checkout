@@ -1,9 +1,10 @@
 import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
+import { VoiceInput } from "@/components/chat/VoiceInput";
 import { resolveQuickReplies } from "@/lib/quickReplies";
 import { useState, useRef, useEffect } from "react";
 import { StreamText, useStreamingMessage } from "@/components/chat/StreamText";
 import { UserMessageActions, AgentMessageActions } from "@/components/chat/MessageActions";
-import { Square, ArrowUp, Mic, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
+import { Square, ArrowUp, MessagesSquare, ShoppingBag, UserRound } from "lucide-react";
 import { toPersianNumber } from "@/data/gptCommerceData";
 import { Button } from "@/components/ui/button";
 import {
@@ -391,7 +392,7 @@ export const MobileChatThread = ({
         <div className="mb-2"><QuickReplyBar replies={barReplies} onPick={pickQuickReply} /></div>
         <form
           onSubmit={submit}
-          className="flex items-center gap-2 p-2 rounded-2xl"
+          className="relative flex items-center gap-2 p-2 rounded-2xl"
           style={{
             background: "hsl(0 0% 100%)",
             border: "1px solid hsl(0 0% 0% / 0.08)",
@@ -428,17 +429,7 @@ export const MobileChatThread = ({
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95"
-              style={{
-                background: "hsl(0 0% 98%)",
-                border: "1px solid hsl(0 0% 0% / 0.06)",
-              }}
-              aria-label="پیام صوتی"
-            >
-              <Mic className="w-4 h-4 text-muted-foreground" />
-            </button>
+            <VoiceInput variant="mobile" disabled={isProcessing} onTranscript={pickQuickReply} buttonClassName="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-50" buttonStyle={{ background: "hsl(0 0% 98%)", border: "1px solid hsl(0 0% 0% / 0.06)" }} />
             {isProcessing && onStop ? (
               <Button type="button" onClick={onStop} aria-label="توقف پاسخ" className="h-9 w-9 rounded-full p-0">
                 <Square className="w-4 h-4" fill="currentColor" />

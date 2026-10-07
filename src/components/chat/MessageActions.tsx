@@ -6,7 +6,7 @@ export type MessageFeedback = "up" | "down";
 export type DeliveryStatus = "failed" | "stopped";
 
 const iconBtn =
-  "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50";
+  "inline-flex h-7 w-7 items-center justify-center text-muted-foreground/70 transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:text-foreground disabled:opacity-50";
 
 const CopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false);
@@ -69,7 +69,7 @@ export const AgentMessageActions = ({
     <button
       type="button"
       onClick={() => onFeedback(feedback === "up" ? null : "up")}
-      className={cn(iconBtn, feedback === "up" && "text-primary")}
+      className={cn(iconBtn, "hover:text-primary", feedback === "up" && "text-primary")}
       aria-label="پاسخ مفید بود"
       aria-pressed={feedback === "up"}
     >
@@ -78,7 +78,7 @@ export const AgentMessageActions = ({
     <button
       type="button"
       onClick={() => onFeedback(feedback === "down" ? null : "down")}
-      className={cn(iconBtn, feedback === "down" && "text-destructive")}
+      className={cn(iconBtn, "hover:text-destructive", feedback === "down" && "text-destructive")}
       aria-label="پاسخ مفید نبود"
       aria-pressed={feedback === "down"}
     >

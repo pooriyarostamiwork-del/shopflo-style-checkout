@@ -1,9 +1,10 @@
 import { QuickReplyBar } from "@/components/chat/QuickReplyBar";
+import { VoiceInput } from "@/components/chat/VoiceInput";
 import { resolveQuickReplies } from "@/lib/quickReplies";
 import { StreamText, useStreamingMessage } from "@/components/chat/StreamText";
 import { UserMessageActions, AgentMessageActions } from "@/components/chat/MessageActions";
 import { useState, useRef, useEffect } from "react";
-import { Square, ArrowUp, Paperclip, Mic } from "lucide-react";
+import { Square, ArrowUp, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, Product, QuickReply, AgenticState, PaymentMethod, DeliveryAddress, CartItem, encodeJourneyAnswer } from "@/data/petabadData";
 import { ChatProductCard } from "./ChatProductCard";
@@ -380,7 +381,7 @@ export const ChatThread = ({
           <QuickReplyBar replies={barReplies} onPick={pickQuickReply} />
         <form onSubmit={handleSubmit}>
           <div
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"
+            className="relative flex items-center gap-3 rounded-xl border border-border bg-card p-3"
             
           >
             <div className="relative min-w-0 flex-1">
@@ -418,9 +419,7 @@ export const ChatThread = ({
               <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="ارسال فایل" aria-label="ارسال فایل">
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border bg-muted/40" title="پیام صوتی" aria-label="پیام صوتی">
-                <Mic className="w-4 h-4 text-muted-foreground" />
-              </Button>
+              <VoiceInput variant="desktop" disabled={isProcessing} onTranscript={pickQuickReply} buttonClassName="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted/40 transition-colors hover:border-primary/40 disabled:opacity-50" />
               {isProcessing && onStop ? (
                 <Button type="button" onClick={onStop} aria-label="توقف پاسخ" className="h-10 w-10 rounded-xl shadow-none">
                   <Square className="w-4 h-4" fill="currentColor" />

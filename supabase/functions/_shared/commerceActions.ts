@@ -107,6 +107,8 @@ export interface CartTurnInput {
   focusIds?: string[];
   /** The shopper left the pick to the assistant («هرکدوم بهتره اضافه کن»): never ask which. */
   delegate?: boolean;
+  /** Shown/cart ids the shopper explicitly excluded this turn (typed Jev judgment). */
+  excludedIds?: string[];
   /** Offers that do not fit the known pet (e.g. large-breed food for a Shih Tzu). */
   unfit?: (o: Offer) => boolean;
 }
@@ -141,8 +143,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const polarity = splitPolarity(text);
   // Offers are matched only against wanted clauses, so a negated name never wins an add.
   const posTt = polarity.neg.length ? polarity.pos : tt;
-  const isNegated = (p: { name: string; brand?: string | null }) =>
-    polarity.neg.length > 0 && mentioned(p, polarity.neg).length > 0 && mentioned(p, polarity.pos).length === 0;
+  const excluded = new Set(input.excludedIds || []);
+  const isNegated = (p: { id?: string; name: string; brand?: string | null }) =>
+    (!!p.id && excluded.has(p.id)) || polarity.neg.length > 0 && mentioned(p, polarity.neg).length > 0 && mentioned(p, polarity.pos).length === 0;
   const recent = (input.recentUserTexts || []).flatMap(tokens);
   const ordinal = parseOrdinal(text);
   const wantsAll = ALL_RE.test(normFa(text));
@@ -209,7 +212,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   let undo: Choice | undefined;
   const notes: string[] = [];
   const silent = new Set<string>();
-  let raw = Array.isArray(input.modelActions) ? input.modelActions : [];
+  // Models sometimes name the index field after the tool's add_* variants; read both.
+  let raw = (Array.isArray(input.modelActions) ? input.modelActions : []).map((a: any) =>
+    a && a.product_index == null && a.add_product_index != null && a.type === "add" ? { ...a, product_index: a.add_product_index } : a);
   // «هرکدوم بهتره اضافه کن» with no concrete action from the model → one add the resolver picks.
   if (input.delegate && !raw.some((a) => a?.type === "add") && /اضافه|بذار|بزار|بنداز|بخر|بریز/.test(normFa(text)) && offers.length) {
     raw = [...raw, { type: "add" }];
@@ -284,6 +289,8 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
       const { offer, ambiguous } = resolveOffer(a, "product_index", "product_id");
       const qty = Math.max(1, clampQty(a?.quantity, 1));
       if (offer && isNegated(offer)) { trace.push(`negated-add-dropped:${offer.id}`); continue; }
+      // An index past the shown list (model over-counted «همه») is dropped, not asked about.
+      if (!offer && a?.product_index != null && !a?.product_id && resolved.some((r) => r.type === "add")) { trace.push(`bad-index-dropped:${a.product_index}`); continue; }
       if (!offer) {
         const already = new Set(resolved.map((r) => (r.type === "add" ? r.product_id : "")));
         const unfit = input.unfit || (() => false);

@@ -142,7 +142,7 @@ const CarouselSection = ({
       <div className="flex gap-4">
         {/* Promotional Banner */}
         <div 
-          className="hidden lg:flex flex-shrink-0 w-[140px] h-[420px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
+          className="hidden lg:flex flex-shrink-0 w-[140px] h-[350px] rounded-xl overflow-hidden flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-200 hover:border-primary/20 relative"
           style={{
             background: banner.imageUrl 
               ? `url(${banner.imageUrl}) center/cover`
@@ -176,7 +176,7 @@ const CarouselSection = ({
         >
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-[220px] h-[420px] rounded-xl overflow-hidden" style={{ border: '1px solid hsl(0 0% 0% / 0.08)' }}>
+              <div key={i} className="flex-shrink-0 w-[220px] h-[350px] rounded-xl overflow-hidden" style={{ border: '1px solid hsl(0 0% 0% / 0.08)' }}>
                 <Skeleton className="w-full aspect-square" />
                 <div className="p-3 space-y-2">
                   <Skeleton className="h-4 w-full" />
@@ -196,7 +196,7 @@ const CarouselSection = ({
                 return (
                   <div
                     key={product.id}
-                    className="flex-shrink-0 w-[220px] h-[420px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
+                    className="flex-shrink-0 w-[220px] h-[350px] rounded-xl overflow-hidden transition-all duration-200 group cursor-pointer hover:border-primary/20 flex flex-col"
                     style={{
                       background: 'hsl(0 0% 100%)',
                       border: '1px solid hsl(0 0% 0% / 0.08)',

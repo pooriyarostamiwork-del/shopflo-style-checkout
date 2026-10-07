@@ -17,7 +17,7 @@ export async function transcribeAudio(file: Blob, filename: string, signal?: Abo
   form.append("file", file, filename);
   form.append("response_format", "json");
   form.append("stream", "true");
-  form.append("languages", "fa");
+  form.append("language", "fa");
   form.append("prompt", "گفت‌وگوی خرید فارسی در یک فروشگاه آنلاین (غذای حیوانات، لوازم، سبد خرید).");
 
   const res = await fetch(GATEWAY, {

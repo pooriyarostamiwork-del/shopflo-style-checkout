@@ -428,6 +428,32 @@ const DETAILS_TOOL = {
 
 // ── Executional intent: one typed Jev decision, no word lists. Null = let the agent decide. ──
 type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping" | "select_payment" | "guide"; id?: string; target?: string; fast?: boolean };
+
+// One batched Jev call decides how this turn is routed. No word lists: when Jev
+// cannot judge, every flag stays false and the agent answers the turn normally.
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean };
+async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[]): Promise<TurnIntent> {
+  const none: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false };
+  if (!message.trim()) return none;
+  const q = (instructions: string) => ({ type: "noul", instructions });
+  const j = await askJev(
+    { message, recent_messages: recent, shown_products: shown, pet },
+    {
+      guidance: q("Does the shopper in `message` (casual Persian, pet shop) ask for help or advice choosing what to buy, without already specifying exactly which product they want?"),
+      bundle: q("Does `message` ask for a complete set / starter pack / everything a pet needs (e.g. a newly adopted pet), i.e. several different product types at once, rather than one product type?"),
+      compare: q("Does `message` ask to compare products or brands, or ask which of two or more named options is better or how they differ?"),
+      info: q("Is `message` a knowledge question about brands, origins, categories or what the shop carries (answerable in words), rather than a request to be shown products to buy?"),
+      business: q("Is `message` a question about shop policies or services: shipping, delivery time, returns, warranty, authenticity, payment terms, discounts, store hours or contact?"),
+      counts: q("Does `message` explicitly ask about quantities, how many options exist, totals, or the price range / cheapest / most expensive?"),
+      delegate: q("Does the shopper in `message` leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن») instead of naming a specific product?"),
+      about_shown: q("Is `message` a question or request about the products in `shown_products` (which of them suits the pet, picking among them), rather than asking for a different kind of product or a new search? If `shown_products` is empty, answer no."),
+    },
+  );
+  if (!j) return none;
+  const y = (k: string) => jevYes(j[k]) === true;
+  return { guidance: y("guidance"), bundle: y("bundle"), compare: y("compare"), info: y("info"), business: y("business"), counts: y("counts"), delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown") };
+}
+
 async function judgeExecIntent(message: string, ctx: any, cartCount: number): Promise<ExecIntent | null> {
   if (!message.trim()) return null;
   const addrs: any[] = Array.isArray(ctx?.addresses) ? ctx.addresses.slice(0, 12) : [];
@@ -2772,12 +2798,18 @@ serve(async (req) => {
         })));
       }
     }
-    let wantsGuidance = GUIDANCE_RE.test(normLastUser);
-    const wantsCounts = COUNT_QUESTION_RE.test(normLastUser) && !ASKS_FOR_SOME_RE.test(normLastUser);
-    const isBusinessQuestion = BUSINESS_RE.test(normLastUser);
+    const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
+    const recentUser = (messages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
+    const turnIntent = effectiveMode === "discovery"
+      ? { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false }
+      : await judgeTurnIntent(lastUserText, latestShown, { species: lockedSpecies, breed: lockedBreedName, breed_size: lockedBreedSize, life_stage: lockedStage }, recentUser);
+    console.log("turn intent", JSON.stringify(turnIntent));
+    let wantsGuidance = turnIntent.guidance;
+    const wantsCounts = turnIntent.counts;
+    const isBusinessQuestion = turnIntent.business;
     // Assortment/brand knowledge questions are answered in words (facts, brand names),
     // so they must not be turned into a product-recommendation turn.
-    const isInfoQuestion = INFO_QUESTION_RE.test(normLastUser);
+    const isInfoQuestion = turnIntent.info;
     if (isInfoQuestion) {
       systemPrompt += `\n\nINFO_QUESTION_TURN: این سؤال درباره‌ی خودِ برندها یا ترکیب کاتالوگه، نه درخواست محصول.
 - برای فهرست برند/کشور/دسته: در همین نوبت catalog_facets را صدا بزن و فقط «اسم‌ها» را بنویس (بدون تعداد و بدون قیمت مگر کاربر خواسته باشد).
@@ -2785,7 +2817,7 @@ serve(async (req) => {
 - محصول پیشنهاد نده و لیست شماره‌دار محصول نساز؛ جواب متنی و روان باشه. در پایان می‌تونی بپرسی از کدوم برند محصول ببینه.`;
     }
     // Comparison turns are about products already in the conversation, not a new list.
-    const isCompareQuestion = COMPARE_RE.test(normLastUser);
+    const isCompareQuestion = turnIntent.compare;
     if (isCompareQuestion) {
       systemPrompt += `\n\nCOMPARE_TURN: کاربر مقایسه خواسته.
 - اگر محصولات موردنظر در حافظه‌ی گفتگو (product_memory) هستند، همان‌ها را مقایسه کن و محصول جدید معرفی نکن.
@@ -3018,30 +3050,8 @@ serve(async (req) => {
     // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
     // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
     // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
-    const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
-    const DELEGATE_RE = /(هر\s*کدوم|هرکدوم|هر\s*کدام)\s*(که\s*)?(بهتر|مناسب|خوب)|خودت\s*(انتخاب|یکی|بهترین|بگو|بذار|بزار)|به\s*انتخاب\s*خودت|بهترینش(و|رو)?\s*(اضافه|بذار|بزار|بده)|فرقی\s*نمی\s*کنه/;
-    const ABOUT_SHOWN_RE = /کدوم(ش|شون|یکی)?\s*(از\s*(این|اینا|اینها))?.{0,30}(مناسب|بهتر|بهترین|خوبه|مناسبه)|(این|اینا|اینها)\s*.{0,20}(مناسب|خوبه)/;
-    let delegatesPick = DELEGATE_RE.test(normLastUser);
-    let aboutShown = latestShown.length > 0 && ABOUT_SHOWN_RE.test(normLastUser);
-    if (latestShown.length > 0 && lastUserText.trim() && effectiveMode !== "discovery") {
-      const j = await askJev(
-        { message: lastUserText, shown_products: latestShown, pet: { species: lockedSpecies, breed: lockedBreedName, breed_size: lockedBreedSize, life_stage: lockedStage } },
-        {
-          delegate: {
-            type: "noul",
-            instructions: "In `message` (casual Persian), does the shopper leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن»، «بهترینشو بذار»), instead of naming a specific product?",
-          },
-          about_shown: {
-            type: "noul",
-            instructions: "Is `message` a question or request about the products in `shown_products` (which of them suits the pet, comparing them, picking among them), rather than asking for a different kind of product or a new search?",
-          },
-        },
-      );
-      const d = jevYes(j?.delegate);
-      const a = jevYes(j?.about_shown);
-      if (d !== null) delegatesPick = d;
-      if (a !== null) aboutShown = a;
-    }
+    const delegatesPick = turnIntent.delegate;
+    const aboutShown = turnIntent.aboutShown;
     if (aboutShown || delegatesPick) {
       wantsGuidance = false;
       systemPrompt += `\n\nSHOWN_PRODUCTS_TURN: سؤال کاربر درباره‌ی همین محصولاتیه که الان نشونش دادی (product_memory). پرسشنامه یا سؤال عمومی «چه نوع محصولی» نپرس و جستجوی نوع دیگه نکن.
@@ -3079,7 +3089,7 @@ serve(async (req) => {
         else flow = recordAnswer(flow, lastUserText);
       }
       if (!flow || flow.done) {
-        const goal = detectGoal(normLastUser);
+        const goal = turnIntent.bundle ? "bundle" : "single";
         const explicitBundle = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
         // What the conversation already knows about this pet: never ask it again.
         const memPet = pet_memory && typeof pet_memory === "object" ? pet_memory : null;

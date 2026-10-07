@@ -9,7 +9,6 @@ import {
   type Surface,
 } from "../_shared/commerceActions.ts";
 import {
-  detectGoal,
   isFlow,
   nextQuestion,
   recordAnswer,
@@ -679,18 +678,13 @@ const FAQ_CATEGORIES = [
   "support_channels",
 ];
 
-const BUSINESS_RE =
-  /(ارسال|پست|پیک|تیپاکس|کرایه|هزینه\s*ارسال|بسته\s*بند|تحویل|چند\s*روز|زمان\s*رسیدن|مرجوع|بازگشت|عودت|پس\s*دادن|گارانتی|ضمانت|اصل\s*بودن|تقلبی|خراب\s*(بود|باشه|باشد|بیاد|برسه)|معیوب|آسیب\s*دیده|پرداخت|اقساط|اسنپ\s*پی|snapp|کارت\s*به\s*کارت|درگاه|فاکتور|تخفیف|کد\s*تخفیف|کوپن|سفارش(م|ت|ات)?\s*(رو|را)?\s*(لغو|پیگیری|تغییر|ویرایش)|لغو\s*سفارش|پیگیری\s*سفارش|رهگیری|کد\s*رهگیری|شماره\s*تماس|پشتیبان|تلفن|حضوری|فروشگاه\s*فیزیک|آدرس\s*فروشگاه|انقضا|تاریخ\s*مصرف|محدودیت\s*خرید|(چند\s*تا|چندتا|چه\s*تعداد|حداکثر)[^؟?\n]{0,30}(می\s*تونم|میتونم|مجاز|اجازه)[^؟?\n]{0,15}(بخرم|بگیرم|سفارش)|سفارش\s*تلفن)/;
 
 /**
  * Informational questions ABOUT the store's assortment or a brand — these want a written
  * answer (brand names, brand background), never a product carousel.
  */
-const INFO_QUESTION_RE =
-  /((چه|کدوم|کدام)\s*(برند|مارک|کشور|دسته|شرکت)|برند\s*ها|برندها|برندهاتو|برندهات|مارک\s*ها|(لیست|فهرست)\s*(برند|مارک|کشور|دسته)|(برند|مارک)\s*(ها)?\s*(تو|ت|ات|هاتون|هاتو)?\s*(رو|را)?\s*(بگو|لیست|نام\s*ببر|معرفی)|(درباره|در\s*مورد|راجع\s*به)\s*(برند|مارک|شرکت)|برند\s*\S+\s*(چطوره|چجوریه|چیه|خوبه|معتبره|کجاییه|مال\s*کجاست)|(خارجی|ایرانی|داخلی|وارداتی)\s*(ا|ها|هاش|اش)?(شون|ون)?\s*(کدوم|کدام|چیا|رو\s*بگو|را\s*بگو))/;
 
 /** «مقایسه کن», «X و Y رو مقایسه», «تفاوتشون چیه» → compare, don't recommend a new list. */
-const COMPARE_RE = /(مقایسه|مقایسش|تفاوت|فرقش|فرق\s*(بین|این)|کدوم\s*بهتره|بهتره\s*یا)/;
 
 /** Retrieve official PetAbad FAQ answers (hybrid FTS + trigram + embeddings). */
 async function executeFaqLookup(supabase: any, args: any, precomputedEmbedding?: number[] | null): Promise<any> {
@@ -2069,15 +2063,10 @@ async function hydrateProducts(supabase: any, ids: string[]): Promise<any[]> {
 }
 
 // Vague "help me choose" phrasings — these turns must ask through the card.
-const GUIDANCE_RE =
-  /(راهنمایی(م)?\s*کن|راهنماییم|کمکم?\s*کن.*(انتخاب|بخرم|بگیرم)|نمی\s*دونم\s*(چی|کدوم)|چی\s*(پیشنهاد|توصیه)|کدوم\s*(رو|را)?\s*(بخرم|بگیرم|پیشنهاد)|مشاوره|چی\s*بگیرم|چی\s*بخرم)/;
 
 /** Did the user actually ask about quantities / totals / price range? */
-const COUNT_QUESTION_RE =
-  /(چند\s*(تا|مدل|عدد|نوع)|چندتا|تعداد|چقدر|قیمت(ش|شون)?\s*(چند|چقدر)|ارزون\s*ترین|گرون\s*ترین|بازه\s*قیمت|از\s*چند)/;
 
 // "چندتا ... پیشنهاد بده" asks for a few products, not for a count.
-const ASKS_FOR_SOME_RE = /(چند\s*تا|چندتا|چند\s*مدل)[^؟]{0,40}(پیشنهاد|معرفی|بگو|بده|نشون|بیار)/;
 
 /**
  * Turns a reply that asked questions in plain text into a card.
@@ -2802,7 +2791,7 @@ serve(async (req) => {
     const recentUser = (messages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
     const turnIntent = effectiveMode === "discovery"
       ? { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false }
-      : await judgeTurnIntent(lastUserText, latestShown, { species: lockedSpecies, breed: lockedBreedName, breed_size: lockedBreedSize, life_stage: lockedStage }, recentUser);
+      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser);
     console.log("turn intent", JSON.stringify(turnIntent));
     let wantsGuidance = turnIntent.guidance;
     const wantsCounts = turnIntent.counts;

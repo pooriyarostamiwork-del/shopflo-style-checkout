@@ -4,6 +4,16 @@ import { useEffect, useRef, useState } from "react";
  * Tracks which assistant message should stream. Messages present on first
  * render (history) never stream; only a newly arrived assistant reply does.
  */
+// Transactional / templated turns render instantly: they accompany native
+// checkout or cart UI, or are too short for a reveal to read as natural.
+const INSTANT_UI_KEY = /address|payment|summary|cart|checkout|order|coupon|otp|shipping|confirm/i;
+const MIN_STREAM_WORDS = 7;
+export const shouldStream = (m: Record<string, any>) => {
+  const text = String(m.content || "").trim();
+  if (!text || text.split(/\s+/).length < MIN_STREAM_WORDS) return false;
+  return !Object.keys(m).some((k) => INSTANT_UI_KEY.test(k) && m[k] != null && m[k] !== false);
+};
+
 export const useStreamingMessage = (messages: { id: string; role: string; content?: string }[]) => {
   const seen = useRef<Set<string> | null>(null);
   const [streamingId, setStreamingId] = useState<string | null>(null);
@@ -16,7 +26,7 @@ export const useStreamingMessage = (messages: { id: string; role: string; conten
     for (const m of messages) {
       if (!s.has(m.id)) {
         s.add(m.id);
-        if (m.role === "assistant" && m.content?.trim()) fresh = m.id;
+        if (m.role === "assistant" && shouldStream(m)) fresh = m.id;
       }
     }
     if (fresh) setStreamingId(fresh);
@@ -40,12 +50,12 @@ export const StreamText = ({ text, active, onDone }: { text: string; active: boo
     if (!active) { setCount(words.current.length); return; }
     let i = 0;
     const total = words.current.length;
-    const step = Math.max(2, Math.ceil(total / 120));
+    const step = Math.max(2, Math.ceil(total / 150));
     const id = window.setInterval(() => {
       i = Math.min(total, i + step);
       setCount(i);
       if (i >= total) { window.clearInterval(id); doneRef.current?.(); }
-    }, 32);
+    }, 40);
     return () => window.clearInterval(id);
   }, [active, text]);
 

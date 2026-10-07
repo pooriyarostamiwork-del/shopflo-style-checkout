@@ -370,3 +370,11 @@ All colors MUST be HSL.
 .stream-tail { animation: stream-tail-in 220ms ease-out both; }
 .stream-pending > :not(.stream-text-row) { display: none !important; }
 .stream-revealed > :not(.stream-text-row) { animation: stream-tail-in 320ms ease-out both; }
+
+/* Voice orb — flat, stroke + brand tint, no shadows */
+.voice-orb-core { background: radial-gradient(circle at 35% 30%, hsl(var(--primary) / 0.55), hsl(var(--primary)) 70%); }
+@keyframes voice-orb-breathe { 0%,100% { transform: scale(0.92); } 50% { transform: scale(1.06); } }
+@keyframes voice-orb-spin { to { transform: rotate(360deg); } }
+.voice-orb-breathe { animation: voice-orb-breathe 1.8s ease-in-out infinite; }
+.voice-orb-spin { background: conic-gradient(from 0deg, hsl(var(--primary) / 0.15), hsl(var(--primary))); animation: voice-orb-spin 1.1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .voice-orb-breathe, .voice-orb-spin { animation: none; } }

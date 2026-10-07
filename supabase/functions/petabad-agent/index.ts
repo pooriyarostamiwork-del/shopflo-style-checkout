@@ -2885,7 +2885,8 @@ serve(async (req) => {
     const turnIntent: TurnIntent = effectiveMode === "discovery"
       ? NO_TURN
       : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser,
-          pendingFlow ? PENDING_TEXT[pendingFlow] || pendingFlow : null);
+          pendingFlow ? PENDING_TEXT[pendingFlow] || pendingFlow : null,
+          (cart_context?.items || []).map((i: any) => String(i.name || "")).filter(Boolean).slice(0, 12));
     console.log("turn intent", JSON.stringify(turnIntent));
     let wantsGuidance = turnIntent.guidance;
     const wantsCounts = turnIntent.counts;

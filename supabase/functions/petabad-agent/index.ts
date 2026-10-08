@@ -434,9 +434,9 @@ type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping
 // false, every slot stays null and the agent answers the turn normally.
 type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
 type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots };
-const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
-const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS };
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean };
+const NO_SLOTS_PLACEHOLDER = null;
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false };
 async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
@@ -491,6 +491,19 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     },
   };
   questions.has_exclusion = q("Does `message` exclude or reject some products or items (e.g. «بجز»، «غیر از»، «X رو نمیخوام»، «اون یکی نه»)?");
+  questions.cart_query = q("Does `message` ASK what is currently in the cart, how many items it has, or its total (e.g. «تو سبدم چی دارم؟»، «جمع سبدم چقدر شد؟») without commanding any change?");
+  questions.also_search = q("Besides a cart command, does `message` ALSO ask to see / find a different product in the same message (e.g. «اینو اضافه کن، یه شامپو هم نشونم بده»)?");
+  questions.weight_is_size = q("Does `message` mention a package weight or volume (کیلو، گرم، لیتر) that describes WHICH product variant, rather than how many units to buy?");
+  questions.selector = {
+    type: "choice",
+    instructions: "When adding from `shown_products`, does `message` pick by a quality instead of naming a product?",
+    criteria: {
+      none: "Names or points at specific products, or no such pick.",
+      cheapest: "The cheapest / most affordable one (ارزون‌ترین).",
+      priciest: "The most expensive / premium one (گرون‌ترین).",
+      each: "One (or N) of EACH shown product (از هرکدوم یکی).",
+    },
+  };
   questions.small_pet = {
     type: "choice",
     instructions: "If `message` is about a small pet (not dog, cat, bird or fish), which one exactly? Only what `message` says.",
@@ -532,11 +545,16 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     skip: !!pendingQuestion && !cartOp && y("skip"),
     newRequest: !!pendingQuestion && (!!cartOp || y("new_request")),
   };
+  const cartQuery = !cartOp && y("cart_query");
+  const selRaw = pick("selector");
   return {
-    guidance: !cartOp && y("guidance"), bundle: !cartOp && y("bundle"), compare: !cartOp && y("compare"),
-    info: !cartOp && y("info"), business: !cartOp && y("business"), counts: !cartOp && y("counts"),
+    guidance: !cartOp && !cartQuery && y("guidance"), bundle: !cartOp && !cartQuery && y("bundle"), compare: !cartOp && y("compare"),
+    info: !cartOp && !cartQuery && y("info"), business: !cartOp && y("business"), counts: !cartOp && !cartQuery && y("counts"),
     delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"),
     cartOp, hasExclusion: y("has_exclusion"), slots,
+    cartQuery, alsoSearch: !!cartOp && y("also_search"),
+    selector: cartOp && shown.length > 0 && (selRaw === "cheapest" || selRaw === "priciest" || selRaw === "each") ? selRaw : null,
+    weightIsSize: !!cartOp && y("weight_is_size"),
   };
 }
 

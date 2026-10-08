@@ -1,4 +1,5 @@
 import { Check, MapPin, CreditCard, Package, FileText, Pencil, Lock, ChevronLeft, Store } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProductImage } from "./ProductImage";
 import { 

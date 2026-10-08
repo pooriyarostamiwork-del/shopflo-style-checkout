@@ -111,6 +111,30 @@ export interface CartTurnInput {
   excludedIds?: string[];
   /** Offers that do not fit the known pet (e.g. large-breed food for a Shih Tzu). */
   unfit?: (o: Offer) => boolean;
+  /** Jev-judged quantity direction per model action (same order as modelActions). */
+  qtyModes?: Array<QtyMode | null>;
+  /** The surface can render a multi-select picker (app); otherwise a synthetic «همه» choice is added. */
+  multiSelect?: boolean;
+}
+
+export type QtyMode = "increase" | "decrease" | "set" | "remove";
+
+/**
+ * One canonical shape per model action: `qty_mode` + `amount` (or a Jev override) become either a
+ * relative `delta` or an absolute `quantity`, never both — so «یکی اضافه کن» can't land as quantity=1.
+ */
+export function normalizeQty(a: any, judged?: QtyMode | null): any {
+  if (!a || typeof a !== "object") return a;
+  const mode: QtyMode | undefined = judged || (["increase", "decrease", "set", "remove"].includes(a.qty_mode) ? a.qty_mode : undefined);
+  if (!mode) return a;
+  const amt = Math.abs(Math.round(Number(a.amount ?? (a.delta != null ? a.delta : a.quantity)))) || 0;
+  const { amount: _x, qty_mode: _y, ...rest } = a;
+  if (mode === "remove") return { ...rest, type: a.type === "replace" ? "replace" : "remove", quantity: undefined, delta: undefined };
+  if (a.type === "replace") return rest;
+  if (mode === "set") return { ...rest, type: a.type === "add" ? "add" : "update_quantity", quantity: amt || 1, delta: undefined, _set: true };
+  const d = (amt || 1) * (mode === "decrease" ? -1 : 1);
+  if (mode === "increase" && a.type === "add") return { ...rest, quantity: amt || 1, delta: undefined };
+  return { ...rest, type: "update_quantity", delta: d, quantity: undefined };
 }
 
 export interface CartTurnResult {
@@ -121,6 +145,8 @@ export interface CartTurnResult {
   undo?: Choice;
   changed: boolean;
   trace: string[];
+  /** Choices are independent picks the shopper may combine (multi-select picker). */
+  multi?: boolean;
 }
 
 const NEG_CLAUSE_RE = /(نمی\s*خوا[مهی]|نمیخوا[مهی]|نخواستم|لازم\s*نیست|نیاز\s*ندارم|نمی\s*خواد|نمیخواد|(^|\s)نه(\s|$))/;
@@ -139,17 +165,20 @@ export function splitPolarity(text: string): { pos: string[]; neg: string[] } {
 export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const { cart, offers } = input;
   const text = input.userText || "";
-  const tt = tokens(text);
+  const fullTt = tokens(text);
+  let tt = fullTt;
   const polarity = splitPolarity(text);
   // Offers are matched only against wanted clauses, so a negated name never wins an add.
-  const posTt = polarity.neg.length ? polarity.pos : tt;
+  const fullPosTt = polarity.neg.length ? polarity.pos : fullTt;
+  let posTt = fullPosTt;
   const excluded = new Set(input.excludedIds || []);
   const isNegated = (p: { id?: string; name: string; brand?: string | null }) =>
     (!!p.id && excluded.has(p.id)) || polarity.neg.length > 0 && mentioned(p, polarity.neg).length > 0 && mentioned(p, polarity.pos).length === 0;
   const recent = (input.recentUserTexts || []).flatMap(tokens);
-  const ordinal = parseOrdinal(text);
-  const wantsAll = ALL_RE.test(normFa(text));
-  const pronoun = PRONOUN_RE.test(normFa(text));
+  const fullOrdinal = parseOrdinal(text);
+  let ordinal = fullOrdinal;
+  let wantsAll = ALL_RE.test(normFa(text));
+  let pronoun = PRONOUN_RE.test(normFa(text));
   const shown = [...offers, ...(input.shown || []).filter((s) => !offers.some((o) => o.id === s.id))];
   const trace: string[] = [];
   const nameOf = (id: string) =>
@@ -158,8 +187,14 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     const n = Number(i);
     return Number.isInteger(n) && n >= 1 ? offers[n - 1] : undefined;
   };
-  const ordOffer = ordinal === "last" ? offers[offers.length - 1] : ordinal ? offers[ordinal - 1] : undefined;
-  const ordCart = ordinal === "last" ? cart[cart.length - 1] : ordinal ? cart[ordinal - 1] : undefined;
+  let ordOffer: Offer | undefined;
+  let ordCart: CartLine | undefined;
+  const setOrdinal = (o: number | "last" | null) => {
+    ordinal = o;
+    ordOffer = o === "last" ? offers[offers.length - 1] : o ? offers[o - 1] : undefined;
+    ordCart = o === "last" ? cart[cart.length - 1] : o ? cart[o - 1] : undefined;
+  };
+  setOrdinal(fullOrdinal);
 
   const findCart = (ref: unknown): CartLine | undefined => {
     const r = String(ref ?? "").trim();
@@ -208,13 +243,14 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const resolved: CartAction[] = [];
   // Only the first ambiguity is asked; every clear part of the turn still runs now.
   // `base` = how many resolved actions existed when it was asked (choices carry only their own action).
-  let pending: { question: string; choices: Choice[]; base: number } | null = null;
+  let pending: { question: string; choices: Choice[]; base: number; multi: boolean } | null = null;
+  const multiOk = input.multiSelect === true;
   let undo: Choice | undefined;
   const notes: string[] = [];
   const silent = new Set<string>();
   // Models sometimes name the index field after the tool's add_* variants; read both.
-  let raw = (Array.isArray(input.modelActions) ? input.modelActions : []).map((a: any) =>
-    a && a.product_index == null && a.add_product_index != null && a.type === "add" ? { ...a, product_index: a.add_product_index } : a);
+  let raw = (Array.isArray(input.modelActions) ? input.modelActions : []).map((a: any, i: number) =>
+    normalizeQty(a && a.product_index == null && a.add_product_index != null && a.type === "add" ? { ...a, product_index: a.add_product_index } : a, input.qtyModes?.[i]));
   // «هرکدوم بهتره اضافه کن» with no concrete action from the model → one add the resolver picks.
   if (input.delegate && !raw.some((a) => a?.type === "add") && /اضافه|بذار|بزار|بنداز|بخر|بریز/.test(normFa(text)) && offers.length) {
     raw = [...raw, { type: "add" }];
@@ -228,8 +264,8 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
     for (const a of resolved) c = applyActions(c, [a], shown);
     return c;
   };
-  const ask = (question: string, choices: Choice[]) => {
-    if (!pending) pending = { question, choices, base: resolved.length };
+  const ask = (question: string, choices: Choice[], multi = false) => {
+    if (!pending) pending = { question, choices, base: resolved.length, multi: multi && multiOk && choices.length > 1 };
     else trace.push("extra-ambiguity-deferred");
   };
 
@@ -276,6 +312,18 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   };
 
   for (const a of raw) {
+    // Clause scope: each action is matched only against the words that name ITS product, so one
+    // item's name or ordinal never leaks into another action of the same compound message.
+    const scope = typeof a?.mention === "string" && a.mention.trim() ? a.mention : "";
+    if (scope) {
+      tt = tokens(scope); posTt = tt;
+      setOrdinal(parseOrdinal(scope));
+      wantsAll = ALL_RE.test(normFa(scope)); pronoun = PRONOUN_RE.test(normFa(scope));
+    } else {
+      tt = fullTt; posTt = fullPosTt;
+      setOrdinal(raw.length === 1 ? fullOrdinal : null);
+      wantsAll = ALL_RE.test(normFa(text)); pronoun = raw.length === 1 && PRONOUN_RE.test(normFa(text));
+    }
     const type = String(a?.type || "");
     if (type === "clear") {
       if (!cart.length) { notes.push("سبدت از قبل خالیه."); continue; }
@@ -310,14 +358,14 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
           actions: [...resolved, { type: "add", product_id: o.id, quantity: qty }],
           done: `${qty > 1 ? `${faNum(qty)} عدد ` : ""}«${o.name}» به سبدت اضافه شد.`,
         }));
-        if (pool.length > 1 && pool.length <= 4) {
+        if (!multiOk && pool.length > 1 && pool.length <= 4) {
           choices.push({
             label: `همه‌شون (${faNum(pool.length)} مورد)`,
             actions: [...resolved, ...pool.map((o) => ({ type: "add" as const, product_id: o.id, quantity: qty }))],
             done: "همه‌شون به سبدت اضافه شدن.",
           });
         }
-        ask("کدوم رو به سبدت اضافه کنم؟", choices);
+        ask(multiOk ? "کدوم‌ها رو به سبدت اضافه کنم؟ (می‌تونی چندتا انتخاب کنی)" : "کدوم رو به سبدت اضافه کنم؟", choices, true);
         continue;
       }
       if (resolved.some((r) => r.type === "add" && r.product_id === offer.id)) continue;
@@ -329,9 +377,9 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
       if (!line) {
         if (!cart.length) { notes.push("سبدت الان خالیه."); continue; }
         // update on an item that isn't in the cart but was just shown → it's an add.
-        if (type === "update_quantity" && Number(a?.quantity) > 0) {
+        if (type === "update_quantity" && (Number(a?.quantity) > 0 || Number(a?.delta) > 0)) {
           const o = offerAt(a?.product_index) || findShown(a?.product_id) || (raw.length === 1 ? ordOffer : undefined);
-          if (o && !findCart(o.id)) { resolved.push({ type: "add", product_id: o.id, quantity: clampQty(a.quantity) }); continue; }
+          if (o && !findCart(o.id)) { resolved.push({ type: "add", product_id: o.id, quantity: clampQty(a.quantity ?? a.delta, 1) }); continue; }
         }
         const pool = (ambiguous || cart).slice(0, 6);
         const qtyFor = (l: CartLine) => (a?.delta != null ? l.quantity + Number(a.delta) : clampQty(a?.quantity, l.quantity - 1));
@@ -343,14 +391,14 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
             done: nq <= 0 ? `«${l.name}» از سبدت حذف شد.` : `تعداد «${l.name}» شد ${faNum(nq)} عدد.`,
           };
         });
-        if (type === "remove" && pool.length > 1 && pool.length <= 3) {
+        if (!multiOk && type === "remove" && pool.length > 1 && pool.length <= 3) {
           choices.push({
             label: pool.length === 2 ? "هر دو رو حذف کن" : "همه‌شون رو حذف کن",
             actions: [...resolved, ...pool.map((l) => ({ type: "remove" as const, product_id: l.id }))],
             done: "همه‌شون از سبدت حذف شدن.",
           });
         }
-        ask(type === "remove" ? "کدوم از سبدت حذف بشه؟" : "تعداد کدوم قلم تغییر کنه؟", choices);
+        ask(type === "remove" ? (multiOk ? "کدوم‌ها از سبدت حذف بشن؟ (می‌تونی چندتا انتخاب کنی)" : "کدوم از سبدت حذف بشه؟") : "تعداد کدوم قلم تغییر کنه؟", choices, true);
         continue;
       }
       const current = projected().find((c) => c.id === line.id)?.quantity ?? line.quantity;
@@ -419,12 +467,12 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
 
   if (pending) {
     // Clear parts already ran (returned as actions); each choice carries only its own action.
-    const p = pending as { question: string; choices: Choice[]; base: number };
+    const p = pending as { question: string; choices: Choice[]; base: number; multi: boolean };
     const ran = resolved;
     const choices = p.choices.map((c) => (c.actions ? { ...c, actions: c.actions.slice(p.base) } : c));
     const done = [describeActions(ran.filter((a) => !(a.type === "remove" && silent.has(a.product_id))), nameOf, cart), ...new Set(notes)].filter(Boolean).join("\n");
-    const lead = ran.length ? p.question.replace(/^کدوم رو/, "از بقیه، کدوم رو") : p.question;
-    return { actions: ran, content: done ? `${done}\n\n${lead}` : lead, needs_clarification: true, choices, undo, changed: ran.length > 0, trace };
+    const lead = ran.length ? p.question.replace(/^کدوم/, "از بقیه، کدوم") : p.question;
+    return { actions: ran, content: done ? `${done}\n\n${lead}` : lead, needs_clarification: true, choices, undo, changed: ran.length > 0, trace, multi: p.multi };
   }
   // The model asked on its own (no actions) — keep its options as spoken answers.
   if (!resolved.length && input.modelNeedsClarification && (input.modelOptions || []).length) {

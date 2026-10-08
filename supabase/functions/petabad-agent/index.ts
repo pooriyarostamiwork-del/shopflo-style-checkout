@@ -4,6 +4,7 @@ import { askJev, jevYes } from "../_shared/jev.ts";
 import {
   guideTurn,
   resolveCartTurn,
+  type QtyMode,
   resolveCheckoutTurn,
   type CheckoutContext,
   type Surface,
@@ -432,7 +433,7 @@ type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping
 // reference the message states. No word lists: when Jev cannot judge, every flag stays
 // false, every slot stays null and the agent answers the turn normally.
 type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
-type CartOp = "add" | "remove" | "update" | "replace" | "clear" | null;
+type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
 type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots };
 const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
 const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS };
@@ -486,6 +487,7 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
       update: "Change the quantity of an item already in `cart_items` (more, less, a number).",
       replace: "Swap an item in `cart_items` for another product (shown or named).",
       clear: "Empty the whole cart.",
+      mixed: "Several DIFFERENT cart changes in one message (e.g. «X بشه ۳ تا، Y رو حذف کن، یکی از Z کم کن»).",
     },
   };
   questions.has_exclusion = q("Does `message` exclude or reject some products or items (e.g. «بجز»، «غیر از»، «X رو نمیخوام»، «اون یکی نه»)?");
@@ -519,7 +521,7 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
   const ord = pick("ordinal");
   const op = pick("cart_op") as CartOp;
   // A cart command only makes sense when there is something to act on.
-  const cartOp: CartOp = op && ((op === "add" || op === "replace") ? shown.length > 0 || cart.length > 0 : cart.length > 0) ? op : null;
+  const cartOp: CartOp = op && ((op === "add" || op === "replace" || op === "mixed") ? shown.length > 0 || cart.length > 0 : cart.length > 0) ? op : null;
   const smallPet = pick("small_pet");
   const slots: TurnSlots = {
     species: pick("species") || (smallPet ? "سایر حیوانات خانگی" : null),
@@ -540,6 +542,39 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
 
 
 // Which of the shown/cart products does the shopper exclude this turn («همشو بجز ظرف غذا»)?
+/**
+ * Quantity direction per cart action (Jev typed choice): «یکی بهش اضافه کن» is increase, «یکی کم کن»
+ * decrease, «بشه ۳ تا» set. Overrides the model only when Jev is confident; null = keep the model's.
+ */
+async function judgeQtyModes(message: string, actions: any[], nameOf: (a: any) => string): Promise<Array<QtyMode | null>> {
+  const list = (Array.isArray(actions) ? actions : []).slice(0, 8);
+  const idx = list.map((a, i) => (a && ["add", "remove", "update_quantity"].includes(a.type) ? i : -1)).filter((i) => i >= 0);
+  if (!message.trim() || !idx.length) return list.map(() => null);
+  const questions: Record<string, unknown> = {};
+  for (const i of idx) {
+    const a = list[i];
+    const who = String(a.mention || nameOf(a) || "").trim() || `item #${i + 1}`;
+    questions[`m${i}`] = {
+      type: "choice",
+      instructions: `The shopper wrote \`message\` (casual Persian) about their cart. Look ONLY at the part about «${who}». What does that part ask to do with this product's quantity?`,
+      criteria: {
+        increase: "Add it / add more units of it (e.g. «یکی بهش اضافه کن»، «یکی دیگه بذار»، «اضافه کن»).",
+        decrease: "Take some units away but keep it in the cart (e.g. «یکی ازش کم کن»).",
+        set: "Make the quantity an exact number (e.g. «بشه ۳ تا»، «فقط دو تا باشه»).",
+        remove: "Remove it from the cart entirely.",
+      },
+    };
+  }
+  const j = await askJev({ message }, questions);
+  return list.map((_, i) => {
+    const a = j?.[`m${i}`];
+    const c = typeof a?.choice === "string" ? a.choice : "";
+    if (!["increase", "decrease", "set", "remove"].includes(c)) return null;
+    if (typeof a?.confidence === "number" && a.confidence < 0.6) return null;
+    return c as QtyMode;
+  });
+}
+
 async function judgeExclusions(message: string, items: Array<{ id: string; name: string }>): Promise<string[]> {
   if (!message.trim() || !items.length) return [];
   const list = items.slice(0, 12);
@@ -664,6 +699,19 @@ const CART_OPERATIONS_TOOL = {
               quantity: {
                 type: "number",
                 description: "Quantity for add, or the ABSOLUTE new quantity for update_quantity («بکنش ۳ تا» = 3)",
+              },
+              mention: {
+                type: "string",
+                description: "The exact words of the user's message that refer to THIS action's product (e.g. «ایگرگ بشه ۲ تا» → «ایگرگ»). One action per product; never reuse another action's words.",
+              },
+              qty_mode: {
+                type: "string",
+                enum: ["increase", "decrease", "set", "remove"],
+                description: "increase = add N more («یکی بهش اضافه کن»، «یکی دیگه»)، decrease = take N away («یکی کم کن»)، set = make it exactly N («بشه ۳ تا»)، remove = delete it entirely.",
+              },
+              amount: {
+                type: "number",
+                description: "N for qty_mode (how many to add/take away, or the exact target for set). Default 1.",
               },
             },
             required: ["type"],
@@ -3188,11 +3236,12 @@ serve(async (req) => {
     if (cartOp) {
       wantsGuidance = false;
       bundleNeeds = [];
-      const OP_FA: Record<string, string> = { add: "اضافه کردن به سبد", remove: "حذف از سبد", update: "تغییر تعداد در سبد", replace: "جایگزینی در سبد", clear: "خالی کردن سبد" };
+      const OP_FA: Record<string, string> = { mixed: "چند تغییر مختلف در سبد", add: "اضافه کردن به سبد", remove: "حذف از سبد", update: "تغییر تعداد در سبد", replace: "جایگزینی در سبد", clear: "خالی کردن سبد" };
       systemPrompt += `\n\nCART_COMMAND_TURN: این پیام یک دستور اجرایی سبد خریده (${OP_FA[cartOp]})، نه درخواست مشاوره یا پک کامل.
 - هیچ سؤالی از پرسشنامه نپرس، جستجوی تازه نکن و کارت پرسش نساز.
 - مرجع محصولات: برای اضافه/جایگزینی همون product_memory (آخرین محصولات نشون‌داده‌شده)، برای حذف/تعداد فقط اقلام فعلی سبد.
-- در همین نوبت execute_cart_operations را صدا بزن و همه‌ی عملیات‌ها را یک‌جا بفرست.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
+- در همین نوبت execute_cart_operations را صدا بزن و همه‌ی عملیات‌ها را یک‌جا بفرست: برای هر محصول دقیقاً یک action.
+- در هر action فیلد mention را با همان کلماتی از پیام کاربر که به همان محصول اشاره دارد پر کن، و برای تعداد qty_mode + amount بده (increase/decrease/set/remove). «یکی بهش اضافه کن» = increase 1، «یکی کم کن» = decrease 1، «بشه ۳ تا» = set 3.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
 - فقط وقتی دو محصول واقعاً با توصیف کاربر جور درمیان و قابل تشخیص نیستن، یک سؤال کوتاه بپرس؛ در غیر این صورت حدس منطقی نزن و نپرس، اجرا کن.
 - بعد از اجرا در یک جمله‌ی کوتاه بگو چه چیزی اضافه/حذف/تغییر کرد.`;
     }
@@ -3560,7 +3609,13 @@ serve(async (req) => {
           const shownPool = (Array.isArray(memory_index) ? memory_index : []).flatMap((g: any) =>
             (Array.isArray(g?.items) ? g.items : []).map((it: any) => ({ id: String(it.id), name: String(it.name || ""), brand: it.brand ?? null, price: it.price })),
           );
+          const offersCtx = (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || "") }));
+          const cartCtx = (cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") }));
+          const qtyModes = await judgeQtyModes(lastUserText, cartResult.actions || [], (a: any) =>
+            cartCtx.find((c: any) => c.id === String(a?.product_id))?.name || offersCtx[Number(a?.product_index) - 1]?.name || "");
           const turn = resolveCartTurn({
+            qtyModes,
+            multiSelect: surface !== "telegram",
             modelActions: cartResult.actions || [],
             modelMessage: sanitizeVisibleText(cartResult.message || ""),
             modelNeedsClarification: cartResult.needs_clarification === true,
@@ -3588,6 +3643,7 @@ serve(async (req) => {
             needs_clarification: turn.needs_clarification,
             clarification_options: turn.choices.map((c) => c.label),
             choices: turn.choices,
+            multi: turn.multi === true,
             undo: turn.undo || null,
             products: [],
             quickReplies: [],

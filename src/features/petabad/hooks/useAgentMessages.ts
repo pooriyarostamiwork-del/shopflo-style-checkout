@@ -499,8 +499,16 @@ export const useAgentMessages = ({
     setIsCartOpen(true);
   }, [lastRecommendedProducts, updateCurrentBasket, setIsCartOpen]);
 
+  /** A cart edit during an open checkout step: the summary/shipping are recomputed from the new cart. */
+  const checkoutStaleNote = (changed: boolean) => {
+    const step = checkoutBridge?.current?.step;
+    return changed && step && ['cart-confirmation', 'address-confirmation', 'payment-selection'].includes(step)
+      ? '\n\nسبدت تغییر کرد؛ خلاصه سفارش و هزینه ارسال با سبد جدید حساب می‌شن و می‌تونیم از همین مرحله ادامه بدیم.'
+      : '';
+  };
+
   /** Quick replies for server "choices": each one carries what to run when tapped. */
-  const toChoiceReplies = (choices: any[], extra: any[] = []) =>
+  const toChoiceReplies = (choices: any[], extra: any[] = [], multi = false) =>
     [...(Array.isArray(choices) ? choices : []), ...extra]
       .filter(c => c && typeof c.label === 'string' && c.label.trim())
       .slice(0, 8)
@@ -509,6 +517,8 @@ export const useAgentMessages = ({
         label: c.label,
         type: 'custom' as QuickReplyType,
         action: `choice:${JSON.stringify(c)}`,
+        // Only cart picks (they carry actions) are combinable; undo/nav stay single-tap.
+        ...(multi && Array.isArray(c.actions) && c.actions.length ? { multi: true } : {}),
       }));
 
   // ── Single unified agent call: search / details / cart tools, model decides ──
@@ -606,8 +616,10 @@ export const useAgentMessages = ({
       // ── Shopping goal persistence (deterministic + optional GOAL signal) ──
       const goalUpdated = mergeGoalSignal(nextShopping, data?.goal);
       // The flow lives only while the server keeps asking; any other reply ends it.
-      goalUpdated.questionFlow =
-        data?.response_type === 'clarification' && data?.question_flow ? data.question_flow : undefined;
+      // A cart command mid-questionnaire only pauses it: the flow (and its answers) survives the turn.
+      goalUpdated.questionFlow = data?.response_type === 'clarification' && data?.question_flow
+        ? data.question_flow
+        : data?.response_type === 'cart' ? nextShopping.questionFlow : undefined;
 
       // ── Clarification branch: render an interactive card, never a duplicate question ──
       const clarification = data?.clarification;
@@ -708,14 +720,14 @@ export const useAgentMessages = ({
           ? data.choices
           : clarificationOptions.map((opt: string) => ({ label: opt, say: opt }));
         const quickReplies = needsClarification
-          ? toChoiceReplies(choices)
+          ? toChoiceReplies(choices, data?.undo ? [data.undo] : [], data?.multi === true)
           : data?.undo ? toChoiceReplies([data.undo]) : [];
 
         const changed = actions.length > 0;
         const cartMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
-          content: data?.content || 'عملیات انجام شد.',
+          content: (data?.content || 'عملیات انجام شد.') + checkoutStaleNote(changed),
           quickReplies: quickReplies.length ? quickReplies : undefined,
           ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
           timestamp: new Date(),
@@ -916,10 +928,11 @@ export const useAgentMessages = ({
     if (!reply.action?.startsWith('choice:')) return false;
     let choice: any;
     try { choice = JSON.parse(reply.action.slice(7)); } catch { return true; }
+    const from: string[] = Array.isArray(choice.from) ? choice.from : [];
     // Buttons of the answered question disappear (same rule as the Telegram bot).
     updateCurrentBasket(s => ({
       ...s,
-      messages: s.messages.map(m => (m.quickReplies?.some(q => q.action === reply.action) ? { ...m, quickReplies: undefined } : m)),
+      messages: s.messages.map(m => (m.quickReplies?.some(q => q.action === reply.action || from.includes(String(q.action))) ? { ...m, quickReplies: undefined } : m)),
     }));
     if (choice.nav) return { nav: String(choice.nav) };
     if (choice.say) { void handleSendMessage(String(choice.say)); return true; }
@@ -935,7 +948,7 @@ export const useAgentMessages = ({
         {
           id: `assistant-${Date.now() + 1}`,
           role: 'assistant',
-          content: choice.done || 'انجام شد ✅',
+          content: (choice.done || 'انجام شد ✅') + checkoutStaleNote(changed),
           ...(changed ? { ctaButton: { label: 'نهایی کردن خرید', action: 'finalize', disabled: false } } : {}),
           timestamp: new Date(),
         },

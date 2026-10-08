@@ -3677,6 +3677,23 @@ serve(async (req) => {
             unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
+          const nameById = new Map<string, string>([
+            ...(products_context || []).map((p: any) => [String(p.id), String(p.name_fa || p.name || "")] as [string, string]),
+            ...shownPool.map((o: any) => [String(o.id), String(o.name || "")] as [string, string]),
+            ...(cart_context?.items || []).map((i: any) => [String(i.id), String(i.name || "")] as [string, string]),
+          ]);
+          // Drop confirmation lines for actions that will not run, so the reply never claims them.
+          const dropLines = (ids: Set<string>) => {
+            const names = [...ids].map((id) => nameById.get(id)).filter(Boolean) as string[];
+            turn.content = turn.content.split("\n").filter((l) => !names.some((n) => l.includes(`«${n}»`))).join("\n").trim();
+          };
+          // Remove/quantity edits only touch rows really in the cart (never a merely shown product).
+          const cartIds = new Set((cart_context?.items || []).map((i: any) => String(i.id)));
+          const ghost = new Set(turn.actions.filter((a: any) => (a.type === "remove" || a.type === "update_quantity") && !cartIds.has(String(a.product_id))).map((a: any) => String(a.product_id)));
+          if (ghost.size) {
+            turn.actions = turn.actions.filter((a: any) => !((a.type === "remove" || a.type === "update_quantity") && ghost.has(String(a.product_id))));
+            dropLines(ghost);
+          }
           // Live stock gate: never add (or swap in) a product that is out of stock right now.
           const incomingIds = [...new Set(turn.actions.flatMap((a: any) =>
             a.type === "add" ? [String(a.product_id)] : a.type === "replace" ? [String(a.new_product_id)] : []).filter(Boolean))];
@@ -3687,10 +3704,11 @@ serve(async (req) => {
             const seen = new Set((stockRows || []).map((r: any) => String(r.id)));
             incomingIds.forEach((id) => { if (!seen.has(id)) outIds.add(id); });
             if (outIds.size) {
-              const names = (stockRows || []).filter((r: any) => outIds.has(String(r.id))).map((r: any) => String(r.name_fa || "")).filter(Boolean);
+              const names = [...outIds].map((id) => (stockRows || []).find((r: any) => String(r.id) === id)?.name_fa || nameById.get(id) || "").filter(Boolean);
               turn.actions = turn.actions.filter((a: any) => !outIds.has(String(a.type === "replace" ? a.new_product_id : a.product_id)));
+              dropLines(outIds);
               const note = names.length ? `«${names.join("»، «")}» الان موجود نیست، برای همین به سبد اضافه نشد.` : "یکی از محصول‌ها الان موجود نیست و اضافه نشد.";
-              turn.content = turn.actions.length ? `${turn.content}\n${note}` : note;
+              turn.content = turn.actions.length && turn.content ? `${turn.content}\n${note}` : note;
             }
           }
           if (turnIntent.alsoSearch && !turn.needs_clarification) {

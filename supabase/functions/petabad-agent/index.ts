@@ -434,9 +434,9 @@ type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping
 // false, every slot stays null and the agent answers the turn normally.
 type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
 type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots };
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean };
 const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
-const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS };
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false };
 async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
@@ -491,6 +491,19 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     },
   };
   questions.has_exclusion = q("Does `message` exclude or reject some products or items (e.g. «بجز»، «غیر از»، «X رو نمیخوام»، «اون یکی نه»)?");
+  questions.cart_query = q("Does `message` ASK what is currently in the cart, how many items it has, or its total (e.g. «تو سبدم چی دارم؟»، «جمع سبدم چقدر شد؟») without commanding any change?");
+  questions.also_search = q("Besides a cart command, does `message` ALSO ask to see / find a different product in the same message (e.g. «اینو اضافه کن، یه شامپو هم نشونم بده»)?");
+  questions.weight_is_size = q("Does `message` mention a package weight or volume (کیلو، گرم، لیتر) that describes WHICH product variant, rather than how many units to buy?");
+  questions.selector = {
+    type: "choice",
+    instructions: "When adding from `shown_products`, does `message` pick by a quality instead of naming a product?",
+    criteria: {
+      none: "Names or points at specific products, or no such pick.",
+      cheapest: "The cheapest / most affordable one (ارزون‌ترین).",
+      priciest: "The most expensive / premium one (گرون‌ترین).",
+      each: "One (or N) of EACH shown product (از هرکدوم یکی).",
+    },
+  };
   questions.small_pet = {
     type: "choice",
     instructions: "If `message` is about a small pet (not dog, cat, bird or fish), which one exactly? Only what `message` says.",
@@ -532,11 +545,16 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     skip: !!pendingQuestion && !cartOp && y("skip"),
     newRequest: !!pendingQuestion && (!!cartOp || y("new_request")),
   };
+  const cartQuery = !cartOp && y("cart_query");
+  const selRaw = pick("selector");
   return {
-    guidance: !cartOp && y("guidance"), bundle: !cartOp && y("bundle"), compare: !cartOp && y("compare"),
-    info: !cartOp && y("info"), business: !cartOp && y("business"), counts: !cartOp && y("counts"),
+    guidance: !cartOp && !cartQuery && y("guidance"), bundle: !cartOp && !cartQuery && y("bundle"), compare: !cartOp && y("compare"),
+    info: !cartOp && !cartQuery && y("info"), business: !cartOp && y("business"), counts: !cartOp && !cartQuery && y("counts"),
     delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"),
     cartOp, hasExclusion: y("has_exclusion"), slots,
+    cartQuery, alsoSearch: !!cartOp && y("also_search"),
+    selector: cartOp && shown.length > 0 && (selRaw === "cheapest" || selRaw === "priciest" || selRaw === "each") ? selRaw : null,
+    weightIsSize: !!cartOp && y("weight_is_size"),
   };
 }
 
@@ -3244,6 +3262,14 @@ serve(async (req) => {
 - در هر action فیلد mention را با همان کلماتی از پیام کاربر که به همان محصول اشاره دارد پر کن، و برای تعداد qty_mode + amount بده (increase/decrease/set/remove). «یکی بهش اضافه کن» = increase 1، «یکی کم کن» = decrease 1، «بشه ۳ تا» = set 3.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
 - فقط وقتی دو محصول واقعاً با توصیف کاربر جور درمیان و قابل تشخیص نیستن، یک سؤال کوتاه بپرس؛ در غیر این صورت حدس منطقی نزن و نپرس، اجرا کن.
 - بعد از اجرا در یک جمله‌ی کوتاه بگو چه چیزی اضافه/حذف/تغییر کرد.`;
+      if (turnIntent.weightIsSize) {
+        systemPrompt += `\n- عدد وزن/حجم در پیام (مثلاً «۲ کیلویی»، «۴۰۰ گرمی») مشخصهٔ بسته‌بندی محصوله، نه تعداد: محصولی با همون وزن رو انتخاب کن و تعداد را ۱ بگذار مگر کاربر جدا تعداد گفته باشد.`;
+      }
+    } else if (turnIntent.cartQuery) {
+      wantsGuidance = false;
+      bundleNeeds = [];
+      const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${String(Number(i.quantity) || 1).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d])}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
+      systemPrompt += `\n\nCART_VIEW_TURN: کاربر دربارهٔ محتوای سبد فعلیش پرسیده. جستجو نکن، محصول پیشنهاد نده و ابزار صدا نزن. فقط از همین فهرست واقعی جواب بده:\n${items || "(سبد خالی است)"}\nاگر سبد خالی است صادقانه بگو خالیه.`;
     }
     if (slots.smallPet) {
       systemPrompt += `\n\nSMALL_PET: حیوان کاربر «${slots.smallPet}» است. در search_products همین کلمه را در query_text بیاور و فقط محصول مخصوص «${slots.smallPet}» (یا جوندگان عمومی اگر مناسب همین حیوان است) پیشنهاد بده؛ محصول سگ و گربه نیاور.`;
@@ -3611,6 +3637,21 @@ serve(async (req) => {
           );
           const offersCtx = (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || "") }));
           const cartCtx = (cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") }));
+          // Qualitative picks over the shown list («ارزون‌ترینو بذار»، «از هرکدوم یکی») are computed
+          // here from real prices instead of trusting the model's choice.
+          const sel = turnIntent.selector;
+          const priced = (products_context || []).filter((p: any) => Number(p.price) > 0);
+          if (sel && (turnIntent.cartOp === "add" || turnIntent.cartOp === "mixed") && priced.length) {
+            const firstAdd = (cartResult.actions || []).find((a: any) => a?.type === "add");
+            const qty = Math.max(1, Math.min(20, Number(firstAdd?.amount ?? firstAdd?.quantity) || 1));
+            const others = (cartResult.actions || []).filter((a: any) => a?.type !== "add");
+            if (sel === "cheapest" || sel === "priciest") {
+              const pick = [...priced].sort((a: any, b: any) => sel === "cheapest" ? a.price - b.price : b.price - a.price)[0];
+              cartResult.actions = [...others, { type: "add", product_id: String(pick.id), quantity: qty, qty_mode: "set", amount: qty, mention: lastUserText }];
+            } else if (sel === "each") {
+              cartResult.actions = [...others, ...(products_context || []).slice(0, 12).map((p: any) => ({ type: "add", product_id: String(p.id), quantity: qty, qty_mode: "set", amount: qty, mention: String(p.name_fa || p.name || "") }))];
+            }
+          }
           const qtyModes = await judgeQtyModes(lastUserText, cartResult.actions || [], (a: any) =>
             cartCtx.find((c: any) => c.id === String(a?.product_id))?.name || offersCtx[Number(a?.product_index) - 1]?.name || "");
           const turn = resolveCartTurn({
@@ -3636,6 +3677,25 @@ serve(async (req) => {
             unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
+          // Live stock gate: never add (or swap in) a product that is out of stock right now.
+          const incomingIds = [...new Set(turn.actions.flatMap((a: any) =>
+            a.type === "add" ? [String(a.product_id)] : a.type === "replace" ? [String(a.new_product_id)] : []).filter(Boolean))];
+          if (incomingIds.length) {
+            const { data: stockRows } = await supabase.from("pet_products").select("id, name_fa, in_stock").in("id", incomingIds);
+            const outIds = new Set((stockRows || []).filter((r: any) => r.in_stock === false).map((r: any) => String(r.id)));
+            // Ids missing from the active view (drafts/merged) are treated as unavailable too.
+            const seen = new Set((stockRows || []).map((r: any) => String(r.id)));
+            incomingIds.forEach((id) => { if (!seen.has(id)) outIds.add(id); });
+            if (outIds.size) {
+              const names = (stockRows || []).filter((r: any) => outIds.has(String(r.id))).map((r: any) => String(r.name_fa || "")).filter(Boolean);
+              turn.actions = turn.actions.filter((a: any) => !outIds.has(String(a.type === "replace" ? a.new_product_id : a.product_id)));
+              const note = names.length ? `«${names.join("»، «")}» الان موجود نیست، برای همین به سبد اضافه نشد.` : "یکی از محصول‌ها الان موجود نیست و اضافه نشد.";
+              turn.content = turn.actions.length ? `${turn.content}\n${note}` : note;
+            }
+          }
+          if (turnIntent.alsoSearch && !turn.needs_clarification) {
+            turn.content = `${turn.content}\nدرخواست بعدیت رو هم بفرست تا همین الان برات پیدا کنم.`.trim();
+          }
           return jsonResponse({
             response_type: "cart",
             cart_actions: turn.actions,

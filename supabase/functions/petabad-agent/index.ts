@@ -3268,7 +3268,7 @@ serve(async (req) => {
     } else if (turnIntent.cartQuery) {
       wantsGuidance = false;
       bundleNeeds = [];
-      const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${toPersianDigits(String(Number(i.quantity) || 1))}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
+      const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${String(Number(i.quantity) || 1).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d])}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
       systemPrompt += `\n\nCART_VIEW_TURN: کاربر دربارهٔ محتوای سبد فعلیش پرسیده. جستجو نکن، محصول پیشنهاد نده و ابزار صدا نزن. فقط از همین فهرست واقعی جواب بده:\n${items || "(سبد خالی است)"}\nاگر سبد خالی است صادقانه بگو خالیه.`;
     }
     if (slots.smallPet) {

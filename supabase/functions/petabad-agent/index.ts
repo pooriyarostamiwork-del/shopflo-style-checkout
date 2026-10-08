@@ -521,7 +521,7 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
   const ord = pick("ordinal");
   const op = pick("cart_op") as CartOp;
   // A cart command only makes sense when there is something to act on.
-  const cartOp: CartOp = op && ((op === "add" || op === "replace") ? shown.length > 0 || cart.length > 0 : cart.length > 0) ? op : null;
+  const cartOp: CartOp = op && ((op === "add" || op === "replace" || op === "mixed") ? shown.length > 0 || cart.length > 0 : cart.length > 0) ? op : null;
   const smallPet = pick("small_pet");
   const slots: TurnSlots = {
     species: pick("species") || (smallPet ? "سایر حیوانات خانگی" : null),

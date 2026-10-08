@@ -3244,6 +3244,14 @@ serve(async (req) => {
 - در هر action فیلد mention را با همان کلماتی از پیام کاربر که به همان محصول اشاره دارد پر کن، و برای تعداد qty_mode + amount بده (increase/decrease/set/remove). «یکی بهش اضافه کن» = increase 1، «یکی کم کن» = decrease 1، «بشه ۳ تا» = set 3.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
 - فقط وقتی دو محصول واقعاً با توصیف کاربر جور درمیان و قابل تشخیص نیستن، یک سؤال کوتاه بپرس؛ در غیر این صورت حدس منطقی نزن و نپرس، اجرا کن.
 - بعد از اجرا در یک جمله‌ی کوتاه بگو چه چیزی اضافه/حذف/تغییر کرد.`;
+      if (turnIntent.weightIsSize) {
+        systemPrompt += `\n- عدد وزن/حجم در پیام (مثلاً «۲ کیلویی»، «۴۰۰ گرمی») مشخصهٔ بسته‌بندی محصوله، نه تعداد: محصولی با همون وزن رو انتخاب کن و تعداد را ۱ بگذار مگر کاربر جدا تعداد گفته باشد.`;
+      }
+    } else if (turnIntent.cartQuery) {
+      wantsGuidance = false;
+      bundleNeeds = [];
+      const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${toPersianDigits(String(Number(i.quantity) || 1))}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
+      systemPrompt += `\n\nCART_VIEW_TURN: کاربر دربارهٔ محتوای سبد فعلیش پرسیده. جستجو نکن، محصول پیشنهاد نده و ابزار صدا نزن. فقط از همین فهرست واقعی جواب بده:\n${items || "(سبد خالی است)"}\nاگر سبد خالی است صادقانه بگو خالیه.`;
     }
     if (slots.smallPet) {
       systemPrompt += `\n\nSMALL_PET: حیوان کاربر «${slots.smallPet}» است. در search_products همین کلمه را در query_text بیاور و فقط محصول مخصوص «${slots.smallPet}» (یا جوندگان عمومی اگر مناسب همین حیوان است) پیشنهاد بده؛ محصول سگ و گربه نیاور.`;
@@ -3611,6 +3619,21 @@ serve(async (req) => {
           );
           const offersCtx = (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || "") }));
           const cartCtx = (cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") }));
+          // Qualitative picks over the shown list («ارزون‌ترینو بذار»، «از هرکدوم یکی») are computed
+          // here from real prices instead of trusting the model's choice.
+          const sel = turnIntent.selector;
+          const priced = (products_context || []).filter((p: any) => Number(p.price) > 0);
+          if (sel && (turnIntent.cartOp === "add" || turnIntent.cartOp === "mixed") && priced.length) {
+            const firstAdd = (cartResult.actions || []).find((a: any) => a?.type === "add");
+            const qty = Math.max(1, Math.min(20, Number(firstAdd?.amount ?? firstAdd?.quantity) || 1));
+            const others = (cartResult.actions || []).filter((a: any) => a?.type !== "add");
+            if (sel === "cheapest" || sel === "priciest") {
+              const pick = [...priced].sort((a: any, b: any) => sel === "cheapest" ? a.price - b.price : b.price - a.price)[0];
+              cartResult.actions = [...others, { type: "add", product_id: String(pick.id), quantity: qty, qty_mode: "set", amount: qty, mention: lastUserText }];
+            } else if (sel === "each") {
+              cartResult.actions = [...others, ...(products_context || []).slice(0, 12).map((p: any) => ({ type: "add", product_id: String(p.id), quantity: qty, qty_mode: "set", amount: qty, mention: String(p.name_fa || p.name || "") }))];
+            }
+          }
           const qtyModes = await judgeQtyModes(lastUserText, cartResult.actions || [], (a: any) =>
             cartCtx.find((c: any) => c.id === String(a?.product_id))?.name || offersCtx[Number(a?.product_index) - 1]?.name || "");
           const turn = resolveCartTurn({
@@ -3636,6 +3659,25 @@ serve(async (req) => {
             unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
+          // Live stock gate: never add (or swap in) a product that is out of stock right now.
+          const incomingIds = [...new Set(turn.actions.flatMap((a: any) =>
+            a.type === "add" ? [String(a.product_id)] : a.type === "replace" ? [String(a.new_product_id)] : []).filter(Boolean))];
+          if (incomingIds.length) {
+            const { data: stockRows } = await supabase.from("pet_products").select("id, name_fa, in_stock").in("id", incomingIds);
+            const outIds = new Set((stockRows || []).filter((r: any) => r.in_stock === false).map((r: any) => String(r.id)));
+            // Ids missing from the active view (drafts/merged) are treated as unavailable too.
+            const seen = new Set((stockRows || []).map((r: any) => String(r.id)));
+            incomingIds.forEach((id) => { if (!seen.has(id)) outIds.add(id); });
+            if (outIds.size) {
+              const names = (stockRows || []).filter((r: any) => outIds.has(String(r.id))).map((r: any) => String(r.name_fa || "")).filter(Boolean);
+              turn.actions = turn.actions.filter((a: any) => !outIds.has(String(a.type === "replace" ? a.new_product_id : a.product_id)));
+              const note = names.length ? `«${names.join("»، «")}» الان موجود نیست، برای همین به سبد اضافه نشد.` : "یکی از محصول‌ها الان موجود نیست و اضافه نشد.";
+              turn.content = turn.actions.length ? `${turn.content}\n${note}` : note;
+            }
+          }
+          if (turnIntent.alsoSearch && !turn.needs_clarification) {
+            turn.content = `${turn.content}\nدرخواست بعدیت رو هم بفرست تا همین الان برات پیدا کنم.`.trim();
+          }
           return jsonResponse({
             response_type: "cart",
             cart_actions: turn.actions,

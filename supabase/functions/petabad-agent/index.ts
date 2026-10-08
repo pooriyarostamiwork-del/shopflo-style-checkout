@@ -578,17 +578,20 @@ async function judgeQtyModes(message: string, actions: any[], nameOf: (a: any) =
       criteria: {
         increase: "Add it / add more units of it (e.g. «یکی بهش اضافه کن»، «یکی دیگه بذار»، «اضافه کن»).",
         decrease: "Take some units away but keep it in the cart (e.g. «یکی ازش کم کن»).",
-        set: "Make the quantity an exact number (e.g. «بشه ۳ تا»، «فقط دو تا باشه»).",
-        remove: "Remove it from the cart entirely.",
+        set: "Make the quantity an exact number (e.g. «بشه ۳ تا»، «بکنش ۳ تا»، «X رو بکن دو تا»، «فقط دو تا باشه»).",
+        remove: "Remove it from the cart entirely (حذف کن / بردار / نمی‌خوامش). A number next to the product is never a removal.",
       },
     };
   }
   const j = await askJev({ message }, questions);
-  return list.map((_, i) => {
+  return list.map((act, i) => {
     const a = j?.[`m${i}`];
     const c = typeof a?.choice === "string" ? a.choice : "";
     if (!["increase", "decrease", "set", "remove"].includes(c)) return null;
     if (typeof a?.confidence === "number" && a.confidence < 0.6) return null;
+    // A number the model read for this product («ونپی رو بکن ۳ تا») is never turned into a removal.
+    const amt = Number(act?.amount ?? act?.quantity);
+    if (c === "remove" && act?.qty_mode !== "remove" && act?.type !== "remove" && amt > 0) return null;
     return c as QtyMode;
   });
 }

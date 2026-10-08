@@ -44,6 +44,8 @@ export interface QuickReply {
   label: string;
   type: QuickReplyType;
   action?: string;
+  /** Part of a multi-select cart picker: tap toggles, one confirm button applies all picks. */
+  multi?: boolean;
 }
 
 export type PaymentMethod = 'wallet' | 'direct-debit' | 'gateway' | 'bnpl';

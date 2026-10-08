@@ -53,7 +53,72 @@ interface QuickReplyButtonsProps {
   onSelect: (reply: QuickReply) => void;
 }
 
+/** Merge several picked server choices into one choice (actions concatenated, one confirmation). */
+const mergeChoices = (picked: QuickReply[]): QuickReply | null => {
+  const parsed = picked.map(r => { try { return JSON.parse(String(r.action).slice(7)); } catch { return null; } }).filter(Boolean);
+  if (!parsed.length) return null;
+  const merged = {
+    label: picked.map(r => r.label).join(" و "),
+    actions: parsed.flatMap((c: any) => (Array.isArray(c.actions) ? c.actions : [])),
+    done: parsed.map((c: any) => c.done).filter(Boolean).join("\n"),
+    from: picked.map(r => r.action),
+  };
+  return { id: `multi-${Date.now()}`, label: merged.label, type: picked[0].type, action: `choice:${JSON.stringify(merged)}` };
+};
+
+const MultiReplyPicker = ({ replies, onSelect }: QuickReplyButtonsProps) => {
+  const [picked, setPicked] = useState<string[]>([]);
+  const multi = replies.filter(r => r.multi);
+  const rest = replies.filter(r => !r.multi);
+  const toggle = (id: string) => setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
+  const confirm = () => {
+    const merged = mergeChoices(multi.filter(r => picked.includes(r.id)));
+    if (merged) onSelect(merged);
+  };
+  return (
+    <div className="mt-3 space-y-2.5">
+      <div className="flex flex-wrap gap-2">
+        {multi.map(reply => {
+          const on = picked.includes(reply.id);
+          return (
+            <button
+              key={reply.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(reply.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                on ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-foreground"
+              }`}
+            >
+              <span className={`w-4 h-4 rounded-[5px] border flex items-center justify-center shrink-0 ${on ? "bg-primary border-primary" : "border-border"}`}>
+                {on && <Check className="w-3 h-3 text-primary-foreground" />}
+              </span>
+              {reply.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!picked.length}
+          onClick={confirm}
+          className="px-4 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+        >
+          {picked.length ? `تأیید (${picked.length.toLocaleString("fa-IR")} مورد)` : "یک یا چند مورد انتخاب کن"}
+        </button>
+        {rest.map(reply => (
+          <button key={reply.id} type="button" onClick={() => onSelect(reply)} className="px-4 py-2 rounded-xl text-sm font-medium border border-border bg-background text-foreground">
+            {reply.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const QuickReplyButtons = ({ replies, onSelect }: QuickReplyButtonsProps) => {
+  if (replies.some(r => r.multi)) return <MultiReplyPicker replies={replies} onSelect={onSelect} />;
   return (
     <div className="flex flex-wrap gap-2 mt-3">
       {replies.map((reply) => (

@@ -3701,13 +3701,13 @@ serve(async (req) => {
           const incomingIds = [...new Set(turn.actions.flatMap((a: any) =>
             a.type === "add" ? [String(a.product_id)] : a.type === "replace" ? [String(a.new_product_id)] : []).filter(Boolean))];
           if (incomingIds.length) {
-            const { data: stockRows } = await supabase.from("pet_products").select("id, name_fa, in_stock").in("id", incomingIds);
+            const { data: stockRows } = await supabase.from("pet_products").select("id, name, in_stock").in("id", incomingIds);
             const outIds = new Set((stockRows || []).filter((r: any) => r.in_stock === false).map((r: any) => String(r.id)));
             // Ids missing from the active view (drafts/merged) are treated as unavailable too.
             const seen = new Set((stockRows || []).map((r: any) => String(r.id)));
             incomingIds.forEach((id) => { if (!seen.has(id)) outIds.add(id); });
             if (outIds.size) {
-              const names = [...outIds].map((id) => (stockRows || []).find((r: any) => String(r.id) === id)?.name_fa || nameById.get(id) || "").filter(Boolean);
+              const names = [...outIds].map((id) => (stockRows || []).find((r: any) => String(r.id) === id)?.name || nameById.get(id) || "").filter(Boolean);
               turn.actions = turn.actions.filter((a: any) => !outIds.has(String(a.type === "replace" ? a.new_product_id : a.product_id)));
               dropLines(outIds);
               const note = names.length ? `«${names.join("»، «")}» الان موجود نیست، برای همین به سبد اضافه نشد.` : "یکی از محصول‌ها الان موجود نیست و اضافه نشد.";

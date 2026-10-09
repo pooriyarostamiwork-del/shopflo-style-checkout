@@ -18,6 +18,7 @@
 - PetAbad pet facts in the newest message (species, life stage, dog size, shown-product ordinal, skip/new-request during a question) are Jev slots inside `judgeTurnIntent`; the old lexicon only reads earlier turns as fallback, so new phrasings are never missed.
 - PetAbad question order: all remaining questions are built against live stock in parallel, species/essentials first, price last, and Jev picks the most useful of the rest; dead ends are not marked asked so later answers can unlock them.
 - Master catalogs are the base tables `digital_master` and `pet_master` (identity/content, `catalog_status`, `flowcart_eligible`, `origin`, `merged_into_id`); legacy names `products`/`pet_products` are security-invoker views showing only active masters, so drafts/merged duplicates never reach search, agents or storefronts.
-- Chat stop/resend use a per-hook generation counter: stopping discards late replies, and resend re-runs the same user bubble (`deliveryStatus`) instead of appending a copy.
-- The old Shift storefront (`/shift` chat, `shift-agent`) is removed; `/shift` redirects to the dashboard shells. Shift tables are kept until deletion is separately approved.
+- Chat stop/resend use a per-hook generation counter: stopping discards late replies, and resend re-runs the same user bubble (`deliveryStatus`).
+- Old Shift storefront removed; `/shift` redirects to dashboards; Shift tables kept until deletion is approved.
 - PetAbad cart turns also carry Jev slots `cart_query`, `also_search`, `selector` (cheapest/priciest/each) and `weight_is_size`; qualitative picks are computed from real prices and every add/replace is checked against live stock before it runs, so the model never picks by price or adds unavailable items.
+- Vendor layer (`vendors`, `shipping_methods`, `discounts`, `vendor_inventory`) is additive and unread by agents yet, so live PetAbad is unchanged until switch-over.

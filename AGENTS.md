@@ -21,3 +21,4 @@
 - Chat stop/resend use a per-hook generation counter: stopping discards late replies, and resend re-runs the same user bubble (`deliveryStatus`) instead of appending a copy.
 - The old Shift storefront (`/shift` chat, `shift-agent`) is removed; `/shift` redirects to the dashboard shells. Shift tables are kept until deletion is separately approved.
 - PetAbad cart turns also carry Jev slots `cart_query`, `also_search`, `selector` (cheapest/priciest/each) and `weight_is_size`; qualitative picks are computed from real prices and every add/replace is checked against live stock before it runs, so the model never picks by price or adds unavailable items.
+- Vendor layer is `vendors` (identity, channel flags, id arrays + agent-context jsonb), `shipping_methods`, `discounts` (placeholder) and `vendor_inventory` (interim copy of master price/stock); it is additive and not yet read by agents, so live PetAbad behaviour is unchanged until a planned switch-over.

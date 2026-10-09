@@ -191,6 +191,56 @@ export type Database = {
           },
         ]
       }
+      discounts: {
+        Row: {
+          code: string | null
+          created_at: string
+          id: string
+          max_discount_amount: number | null
+          min_order_amount: number | null
+          status: string
+          title: string
+          type: string | null
+          updated_at: string
+          value: number | null
+          vendor_id: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          id: string
+          max_discount_amount?: number | null
+          min_order_amount?: number | null
+          status?: string
+          title: string
+          type?: string | null
+          updated_at?: string
+          value?: number | null
+          vendor_id: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          max_discount_amount?: number | null
+          min_order_amount?: number | null
+          status?: string
+          title?: string
+          type?: string | null
+          updated_at?: string
+          value?: number | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discounts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["vendor_id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           created_at: string
@@ -1105,6 +1155,59 @@ export type Database = {
           },
         ]
       }
+      shipping_methods: {
+        Row: {
+          cost: number
+          created_at: string
+          estimated_days: string | null
+          external_rate_id: string | null
+          id: string
+          is_active: boolean
+          is_cod: boolean
+          is_default: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          estimated_days?: string | null
+          external_rate_id?: string | null
+          id: string
+          is_active?: boolean
+          is_cod?: boolean
+          is_default?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          estimated_days?: string | null
+          external_rate_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_cod?: boolean
+          is_default?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipping_methods_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["vendor_id"]
+          },
+        ]
+      }
       telegram_chats: {
         Row: {
           archived: Json
@@ -1192,6 +1295,119 @@ export type Database = {
           recipient_name?: string
           title?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      vendor_inventory: {
+        Row: {
+          created_at: string
+          external_product_id: string | null
+          id: string
+          in_stock: boolean
+          is_active: boolean
+          master_product_id: string
+          master_table: string
+          original_price: number | null
+          price: number
+          stock_qty: number | null
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_id?: string | null
+          id?: string
+          in_stock?: boolean
+          is_active?: boolean
+          master_product_id: string
+          master_table: string
+          original_price?: number | null
+          price: number
+          stock_qty?: number | null
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          external_product_id?: string | null
+          id?: string
+          in_stock?: boolean
+          is_active?: boolean
+          master_product_id?: string
+          master_table?: string
+          original_price?: number | null
+          price?: number
+          stock_qty?: number | null
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_inventory_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["vendor_id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          api_key: string | null
+          category: string
+          created_at: string
+          discount_agent_context: Json
+          discount_ids: string[]
+          is_flowcart: boolean
+          is_shift: boolean
+          last_synced_at: string | null
+          name: string
+          owner_phone: string | null
+          shipping_agent_context: Json
+          shipping_method_ids: string[]
+          slug: string
+          status: string
+          store_url: string | null
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          api_key?: string | null
+          category: string
+          created_at?: string
+          discount_agent_context?: Json
+          discount_ids?: string[]
+          is_flowcart?: boolean
+          is_shift?: boolean
+          last_synced_at?: string | null
+          name: string
+          owner_phone?: string | null
+          shipping_agent_context?: Json
+          shipping_method_ids?: string[]
+          slug: string
+          status?: string
+          store_url?: string | null
+          updated_at?: string
+          vendor_id?: string
+        }
+        Update: {
+          api_key?: string | null
+          category?: string
+          created_at?: string
+          discount_agent_context?: Json
+          discount_ids?: string[]
+          is_flowcart?: boolean
+          is_shift?: boolean
+          last_synced_at?: string | null
+          name?: string
+          owner_phone?: string | null
+          shipping_agent_context?: Json
+          shipping_method_ids?: string[]
+          slug?: string
+          status?: string
+          store_url?: string | null
+          updated_at?: string
+          vendor_id?: string
         }
         Relationships: []
       }

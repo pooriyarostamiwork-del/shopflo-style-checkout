@@ -2541,69 +2541,6 @@ function needShelfQueries(need: NeedSpec, species: string): string[] {
   return [need.query(species)];
 }
 
-const DEFAULT_GUIDANCE_STEPS = (
-  category: string,
-  knownUsage?: string | null,
-  facets?: QuestionFacets | null,
-  knownSpecies?: string | null,
-) => {
-  const budgetOptions = facets && facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
-  return [
-    // Species is asked only when the user hasn't already named their pet.
-    ...(knownSpecies
-      ? []
-      : [
-          {
-            title: "نوع حیوان",
-            question: "برای چه حیوانی می‌خوای؟",
-            options: [
-              { label: "سگ" },
-              { label: "گربه" },
-              { label: "پرنده" },
-              { label: "ماهی و آکواریوم" },
-              { label: "سایر حیوانات خانگی" },
-            ],
-          },
-        ]),
-    {
-      title: "نیازها",
-      question: knownSpecies
-        ? `برای ${knownSpecies}‌ت دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)`
-        : "دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)",
-      multi: true,
-      options: [
-        { label: "غذا و تشویقی" },
-        { label: "بهداشت و نگهداری" },
-        { label: "اسباب‌بازی و سرگرمی" },
-        { label: "لوازم جانبی و حمل" },
-        { label: "مکمل و سلامت" },
-      ],
-    },
-    ...(budgetOptions
-      ? [
-          {
-            title: "بودجه",
-            question: "بودجه‌ات حدوداً چقدره؟",
-            options: budgetOptions,
-          },
-        ]
-      : []),
-    ...(knownUsage
-      ? []
-      : [
-          {
-            title: "اولویت",
-            question: "چه چیزی برات مهم‌تره؟",
-            options: [
-              { label: "کیفیت و مواد اولیه" },
-              { label: "برند شناخته‌شده" },
-              { label: "بسته‌بندی اقتصادی" },
-              { label: "بهترین قیمت" },
-            ],
-          },
-        ]),
-  ];
-};
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
   const { data, error } = await supabase.from("pet_products").select("*").eq("id", productId).single();

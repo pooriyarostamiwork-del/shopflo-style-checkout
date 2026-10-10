@@ -3564,10 +3564,11 @@ serve(async (req) => {
           const options = normOptions(payload.options);
           if (steps.length > 0 || options.length > 0) {
             const facets = await getFacets();
-            // One question per turn: a multi-step card is reduced to its first step so
-            // the next question can adapt to this answer.
+            // Several questions → one multi-step card; one question → single card.
             const rawCard =
-              steps.length > 0
+              steps.length > 1
+                ? { kind: "steps", helper: payload.helper || "", steps }
+                : steps.length === 1
                 ? {
                     kind: "single",
                     question: steps[0].question,
@@ -3582,35 +3583,21 @@ serve(async (req) => {
                     multi: payload.multi === true,
                     options,
                   };
-            const grounded = groundClarification(rawCard, facets);
-            const fallbackCard = {
-              kind: "steps",
-              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
-            };
-            const cardResponse =
-              clarificationResponse(grounded, "ask-tool-grounded") ||
-              clarificationResponse(fallbackCard, "ask-tool-fallback");
+            const grounded = rawCard.kind === "single" ? groundClarification(rawCard, facets) : rawCard;
+            const cardResponse = clarificationResponse(grounded, "ask-tool");
             if (cardResponse) return cardResponse;
-            return new Response(
-              JSON.stringify({
-                response_type: "message",
-                content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.",
-                products: [],
-                quickReplies: [],
-              }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-            );
+            console.log("Rejected malformed ask_clarification:", JSON.stringify(rawCard).slice(0, 400));
           }
-          if (wantsGuidance) {
-            const fallbackCard = {
-              kind: "steps",
-              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
-            };
-            const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
-            if (fallbackResponse) return fallbackResponse;
-          }
+          return new Response(
+            JSON.stringify({
+              response_type: "message",
+              content: "برای اینکه دقیق راهنماییت کنم، بگو برای چه حیوانی و دنبال چه نوع محصولی هستی.",
+              products: [],
+              quickReplies: [],
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
         }
 
         const checkoutCall = choice.message.tool_calls.find((t: any) => t.function?.name === "checkout_action");
@@ -3977,18 +3964,10 @@ serve(async (req) => {
         }
       }
       if (cards.length === 0) {
+        // Only the model's own question (parsed from its text) becomes a card; no canned questionnaire.
         const parsed = extractQuestionCard(visible);
-        const facets = parsed || wantsGuidance ? await getFacets() : null;
-        const rawCard =
-          parsed ||
-          (wantsGuidance && isQuestionHeavy(visible)
-            ? {
-                kind: "steps",
-                helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
-              }
-            : null);
-        const card = rawCard ? groundClarification(rawCard, facets) : null;
+        const facets = parsed ? await getFacets() : null;
+        const card = parsed ? groundClarification(parsed, facets) : null;
         const cardResponse = clarificationResponse(card, "direct-text");
         if (cardResponse) return cardResponse;
       }

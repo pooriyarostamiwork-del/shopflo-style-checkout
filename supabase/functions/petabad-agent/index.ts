@@ -1921,6 +1921,10 @@ function groundClarification(card: any, facets: QuestionFacets | null): any {
   return { ...card, question: single.question || card.question, options: single.options };
 }
 
+/** An answer option must be an answer, never another question. */
+const isAnswerLabel = (o: any) =>
+  typeof o?.label === "string" && o.label.trim().length > 0 && !/[؟?]\s*$/.test(o.label.trim());
+
 function isValidClarification(card: any): boolean {
   if (!card || (card.kind !== "single" && card.kind !== "steps")) return false;
   if (card.kind === "single") {
@@ -1929,7 +1933,7 @@ function isValidClarification(card: any): boolean {
       card.question.trim().length > 0 &&
       Array.isArray(card.options) &&
       card.options.length >= 2 &&
-      card.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0)
+      card.options.every(isAnswerLabel)
     );
   }
   return (
@@ -3234,8 +3238,11 @@ serve(async (req) => {
     // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
     // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
     // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
-    const delegatesPick = turnIntent.delegate;
-    const aboutShown = turnIntent.aboutShown;
+    // These judgments only mean something when products are actually on screen; on a fresh
+    // request «چی بگیرم» is a guidance request and must reach the question flow.
+    const hasShown = typeof product_memory === "string" && product_memory.trim().length > 0;
+    const delegatesPick = hasShown && turnIntent.delegate;
+    const aboutShown = hasShown && turnIntent.aboutShown;
     if (aboutShown || delegatesPick) {
       wantsGuidance = false;
       systemPrompt += `\n\nSHOWN_PRODUCTS_TURN: سؤال کاربر درباره‌ی همین محصولاتیه که الان نشونش دادی (product_memory). پرسشنامه یا سؤال عمومی «چه نوع محصولی» نپرس و جستجوی نوع دیگه نکن.
@@ -3315,6 +3322,7 @@ serve(async (req) => {
           breedSize: lockedSpecies === "سگ" ? lockedBreedSize : null,
           foreignOnly: stickyForeign,
           healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
+          needLabels: goal === "bundle" && bundleNeeds.length ? bundleNeeds.map((n) => n.label) : null,
         };
         if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies, flowDeps, known);
         else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies, flowDeps, known);
@@ -3597,7 +3605,6 @@ serve(async (req) => {
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
-        }
         }
 
         const checkoutCall = choice.message.tool_calls.find((t: any) => t.function?.name === "checkout_action");

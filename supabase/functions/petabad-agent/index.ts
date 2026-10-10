@@ -1945,7 +1945,7 @@ function isValidClarification(card: any): boolean {
         step.question.trim().length > 0 &&
         Array.isArray(step.options) &&
         step.options.length >= 2 &&
-        step.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0),
+        step.options.every(isAnswerLabel),
     )
   );
 }

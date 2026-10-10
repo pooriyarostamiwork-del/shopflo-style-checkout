@@ -959,7 +959,7 @@ const CLARIFY_TOOL = {
   function: {
     name: "ask_clarification",
     description:
-      "Ask the user ONE or a few short structured questions when two readings of the request lead to materially different products. The question is rendered as an interactive card — do not repeat it in text.",
+      "Ask the user structured questions rendered as an interactive card (never repeat them in text). One question → question + options. Two or more questions → steps (one step per question). options are ONLY the possible ANSWERS the user can tap (e.g. 'بالغ', 'سالمند'); an option must never be a question and never end with ؟. Never ask about something the user already said.",
     parameters: {
       type: "object",
       properties: {
@@ -976,7 +976,7 @@ const CLARIFY_TOOL = {
             },
             required: ["label"],
           },
-          description: "Options for a single question",
+          description: "Possible answers to the single question (short noun phrases, no question marks)",
         },
         steps: {
           type: "array",

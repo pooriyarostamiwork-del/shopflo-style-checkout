@@ -31,6 +31,8 @@ export interface FlowSeed {
   foreignOnly?: boolean | null;
   healthNeeds?: string[] | null;
   productTypes?: string[] | null;
+  /** Need labels (NeedSpec.label) the shopper already named in the request. */
+  needLabels?: string[] | null;
   /** Dog breed size (کوچک / متوسط / بزرگ) already known from the breed the shopper named. */
   breedSize?: string | null;
 }
@@ -125,6 +127,11 @@ export function startFlow(
   if (goal === "single" && known?.healthNeeds?.length) {
     answers["need"] = known.healthNeeds.join(" و ");
     asked.push("need");
+  }
+  // Items the shopper already named («غذای خشک و اسباب‌بازی») are never asked again.
+  if (known?.needLabels?.length) {
+    answers["essentials"] = known.needLabels.join(" و ");
+    asked.push("essentials");
   }
   return {
     goal,

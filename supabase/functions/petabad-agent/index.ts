@@ -959,7 +959,7 @@ const CLARIFY_TOOL = {
   function: {
     name: "ask_clarification",
     description:
-      "Ask the user ONE or a few short structured questions when two readings of the request lead to materially different products. The question is rendered as an interactive card — do not repeat it in text.",
+      "Ask the user structured questions rendered as an interactive card (never repeat them in text). One question → question + options. Two or more questions → steps (one step per question). options are ONLY the possible ANSWERS the user can tap (e.g. 'بالغ', 'سالمند'); an option must never be a question and never end with ؟. Never ask about something the user already said.",
     parameters: {
       type: "object",
       properties: {
@@ -976,7 +976,7 @@ const CLARIFY_TOOL = {
             },
             required: ["label"],
           },
-          description: "Options for a single question",
+          description: "Possible answers to the single question (short noun phrases, no question marks)",
         },
         steps: {
           type: "array",
@@ -1921,6 +1921,10 @@ function groundClarification(card: any, facets: QuestionFacets | null): any {
   return { ...card, question: single.question || card.question, options: single.options };
 }
 
+/** An answer option must be an answer, never another question. */
+const isAnswerLabel = (o: any) =>
+  typeof o?.label === "string" && o.label.trim().length > 0 && !/[؟?]\s*$/.test(o.label.trim());
+
 function isValidClarification(card: any): boolean {
   if (!card || (card.kind !== "single" && card.kind !== "steps")) return false;
   if (card.kind === "single") {
@@ -1929,7 +1933,7 @@ function isValidClarification(card: any): boolean {
       card.question.trim().length > 0 &&
       Array.isArray(card.options) &&
       card.options.length >= 2 &&
-      card.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0)
+      card.options.every(isAnswerLabel)
     );
   }
   return (
@@ -1941,7 +1945,7 @@ function isValidClarification(card: any): boolean {
         step.question.trim().length > 0 &&
         Array.isArray(step.options) &&
         step.options.length >= 2 &&
-        step.options.every((o: any) => typeof o?.label === "string" && o.label.trim().length > 0),
+        step.options.every(isAnswerLabel),
     )
   );
 }
@@ -2537,69 +2541,6 @@ function needShelfQueries(need: NeedSpec, species: string): string[] {
   return [need.query(species)];
 }
 
-const DEFAULT_GUIDANCE_STEPS = (
-  category: string,
-  knownUsage?: string | null,
-  facets?: QuestionFacets | null,
-  knownSpecies?: string | null,
-) => {
-  const budgetOptions = facets && facets.total >= 4 ? buildBudgetOptions(facets.price) : null;
-  return [
-    // Species is asked only when the user hasn't already named their pet.
-    ...(knownSpecies
-      ? []
-      : [
-          {
-            title: "نوع حیوان",
-            question: "برای چه حیوانی می‌خوای؟",
-            options: [
-              { label: "سگ" },
-              { label: "گربه" },
-              { label: "پرنده" },
-              { label: "ماهی و آکواریوم" },
-              { label: "سایر حیوانات خانگی" },
-            ],
-          },
-        ]),
-    {
-      title: "نیازها",
-      question: knownSpecies
-        ? `برای ${knownSpecies}‌ت دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)`
-        : "دنبال چه چیزهایی هستی؟ (می‌تونی چندتا انتخاب کنی)",
-      multi: true,
-      options: [
-        { label: "غذا و تشویقی" },
-        { label: "بهداشت و نگهداری" },
-        { label: "اسباب‌بازی و سرگرمی" },
-        { label: "لوازم جانبی و حمل" },
-        { label: "مکمل و سلامت" },
-      ],
-    },
-    ...(budgetOptions
-      ? [
-          {
-            title: "بودجه",
-            question: "بودجه‌ات حدوداً چقدره؟",
-            options: budgetOptions,
-          },
-        ]
-      : []),
-    ...(knownUsage
-      ? []
-      : [
-          {
-            title: "اولویت",
-            question: "چه چیزی برات مهم‌تره؟",
-            options: [
-              { label: "کیفیت و مواد اولیه" },
-              { label: "برند شناخته‌شده" },
-              { label: "بسته‌بندی اقتصادی" },
-              { label: "بهترین قیمت" },
-            ],
-          },
-        ]),
-  ];
-};
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
   const { data, error } = await supabase.from("pet_products").select("*").eq("id", productId).single();
@@ -3234,8 +3175,11 @@ serve(async (req) => {
     // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
     // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
     // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
-    const delegatesPick = turnIntent.delegate;
-    const aboutShown = turnIntent.aboutShown;
+    // These judgments only mean something when products are actually on screen; on a fresh
+    // request «چی بگیرم» is a guidance request and must reach the question flow.
+    const hasShown = typeof product_memory === "string" && product_memory.trim().length > 0;
+    const delegatesPick = hasShown && turnIntent.delegate;
+    const aboutShown = hasShown && turnIntent.aboutShown;
     if (aboutShown || delegatesPick) {
       wantsGuidance = false;
       systemPrompt += `\n\nSHOWN_PRODUCTS_TURN: سؤال کاربر درباره‌ی همین محصولاتیه که الان نشونش دادی (product_memory). پرسشنامه یا سؤال عمومی «چه نوع محصولی» نپرس و جستجوی نوع دیگه نکن.
@@ -3315,6 +3259,7 @@ serve(async (req) => {
           breedSize: lockedSpecies === "سگ" ? lockedBreedSize : null,
           foreignOnly: stickyForeign,
           healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
+          needLabels: goal === "bundle" && bundleNeeds.length ? bundleNeeds.map((n) => n.label) : null,
         };
         if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies, flowDeps, known);
         else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies, flowDeps, known);
@@ -3564,10 +3509,11 @@ serve(async (req) => {
           const options = normOptions(payload.options);
           if (steps.length > 0 || options.length > 0) {
             const facets = await getFacets();
-            // One question per turn: a multi-step card is reduced to its first step so
-            // the next question can adapt to this answer.
+            // Several questions → one multi-step card; one question → single card.
             const rawCard =
-              steps.length > 0
+              steps.length > 1
+                ? { kind: "steps", helper: payload.helper || "", steps }
+                : steps.length === 1
                 ? {
                     kind: "single",
                     question: steps[0].question,
@@ -3582,35 +3528,20 @@ serve(async (req) => {
                     multi: payload.multi === true,
                     options,
                   };
-            const grounded = groundClarification(rawCard, facets);
-            const fallbackCard = {
-              kind: "steps",
-              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
-            };
-            const cardResponse =
-              clarificationResponse(grounded, "ask-tool-grounded") ||
-              clarificationResponse(fallbackCard, "ask-tool-fallback");
+            const grounded = rawCard.kind === "single" ? groundClarification(rawCard, facets) : rawCard;
+            const cardResponse = clarificationResponse(grounded, "ask-tool");
             if (cardResponse) return cardResponse;
-            return new Response(
-              JSON.stringify({
-                response_type: "message",
-                content: "برای اینکه دقیق راهنماییت کنم، لطفاً نیازت رو کمی بیشتر توضیح بده.",
-                products: [],
-                quickReplies: [],
-              }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-            );
+            console.log("Rejected malformed ask_clarification:", JSON.stringify(rawCard).slice(0, 400));
           }
-          if (wantsGuidance) {
-            const fallbackCard = {
-              kind: "steps",
-              helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-              steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, await getFacets(), knownSpecies),
-            };
-            const fallbackResponse = clarificationResponse(fallbackCard, "invalid-ask-tool-fallback");
-            if (fallbackResponse) return fallbackResponse;
-          }
+          return new Response(
+            JSON.stringify({
+              response_type: "message",
+              content: "برای اینکه دقیق راهنماییت کنم، بگو برای چه حیوانی و دنبال چه نوع محصولی هستی.",
+              products: [],
+              quickReplies: [],
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         }
 
         const checkoutCall = choice.message.tool_calls.find((t: any) => t.function?.name === "checkout_action");
@@ -3977,18 +3908,10 @@ serve(async (req) => {
         }
       }
       if (cards.length === 0) {
+        // Only the model's own question (parsed from its text) becomes a card; no canned questionnaire.
         const parsed = extractQuestionCard(visible);
-        const facets = parsed || wantsGuidance ? await getFacets() : null;
-        const rawCard =
-          parsed ||
-          (wantsGuidance && isQuestionHeavy(visible)
-            ? {
-                kind: "steps",
-                helper: "چند سؤال کوتاه تا دقیق‌ترین پیشنهاد رو برات پیدا کنم",
-                steps: DEFAULT_GUIDANCE_STEPS(guidanceCategory, knownUsage, facets, knownSpecies),
-              }
-            : null);
-        const card = rawCard ? groundClarification(rawCard, facets) : null;
+        const facets = parsed ? await getFacets() : null;
+        const card = parsed ? groundClarification(parsed, facets) : null;
         const cardResponse = clarificationResponse(card, "direct-text");
         if (cardResponse) return cardResponse;
       }

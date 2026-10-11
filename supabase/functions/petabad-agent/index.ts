@@ -3858,6 +3858,47 @@ serve(async (req) => {
           visible = lead;
         }
       }
+      // Model decided to ask but wrote the tool call as text → one forced tool round turns it into a card.
+      if (cards.length === 0 && visible.includes("ask_clarification")) {
+        try {
+          const repair = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-3.1-flash-lite",
+              messages: [
+                ...roundMessages,
+                { role: "assistant", content: visible },
+                { role: "user", content: "[system] سؤالی که بالا نوشتی رو دقیقاً با همون محتوا با ابزار ask_clarification بفرست." },
+              ],
+              tools: tools.filter((t: any) => t?.function?.name === "ask_clarification"),
+              tool_choice: { type: "function", function: { name: "ask_clarification" } },
+            }),
+          });
+          if (repair.ok) {
+            const rj = await repair.json();
+            const call = rj?.choices?.[0]?.message?.tool_calls?.[0];
+            const payload = call ? JSON.parse(call.function.arguments || "{}") : null;
+            if (payload && (Array.isArray(payload.steps) || Array.isArray(payload.options))) {
+              const lead = visible.split("ask_clarification")[0].trim();
+              const norm = (arr: any) => (Array.isArray(arr) ? arr : []).map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint })).filter((o: any) => typeof o.label === "string" && o.label.trim());
+              const steps = (payload.steps || []).map((x: any) => ({ title: x?.title || "", question: x?.question || "", multi: x?.multi === true, options: norm(x?.options) })).filter((x: any) => x.question && x.options.length);
+              const rawCard = steps.length > 1
+                ? { kind: "steps", helper: payload.helper || lead, steps }
+                : steps.length === 1
+                ? { kind: "single", question: steps[0].question, helper: payload.helper || lead, multi: steps[0].multi, options: steps[0].options }
+                : { kind: "single", question: payload.question || "", helper: payload.helper || lead, multi: payload.multi === true, options: norm(payload.options) };
+              const facets = await getFacets();
+              const grounded = rawCard.kind === "single" ? groundClarification(rawCard as any, facets) : rawCard;
+              const cardResponse = clarificationResponse(grounded as any, "ask-repair");
+              if (cardResponse) return cardResponse;
+            }
+          } else console.error("ask repair status", repair.status);
+        } catch (e) {
+          console.error("ask repair failed", e);
+        }
+        visible = visible.split("ask_clarification")[0].trim();
+      }
       // Denial the catalog contradicts: the search returned real matches → compose from them.
       if (
         cards.length === 0 &&

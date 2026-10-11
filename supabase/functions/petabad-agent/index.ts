@@ -208,14 +208,18 @@ SELECTED_IDS:["id1","id2","id3"]
 - انتخاب آدرس/ارسال/پرداخت فقط از فهرست «اطلاعات تسویه»؛ آدرسی که در فهرست نیست را نساز
 - ثبت/ویرایش آدرس، تغییر شماره، شارژ کیف پول و کد تخفیف از گفتگو انجام نمی‌شه → checkout_action با kind=guide
 
-پرسیدن سؤال (قانون قطعی):
-- هیچ‌وقت سؤال‌هات رو به شکل متن یا لیست بولت‌دار در پاسخ ننویس. هر سؤالی که از کاربر داری فقط و فقط با ask_clarification پرسیده میشه (کارت تعاملی)
-- درخواست‌های «راهنماییم کن / کمکم کن انتخاب کنم / نمی‌دونم چی بخرم / چی پیشنهاد می‌دی» یعنی کاربر هنوز نیازش رو نگفته → ask_clarification فقط با یک سؤال (options) در هر نوبت؛ سؤال بعدی بر اساس جواب قبلی پرسیده میشه. ترتیب: اول فهم نیاز (حیوان، سن، نیاز، اقلام)، بعد ترجیح برند، و قیمت همیشه آخر. فقط گزینه‌هایی بده که واقعاً در کاتالوگ موجودن
-- هر چیزی که کاربر خودش گفته (مثل نوع حیوان: گربه/سگ) رو دوباره نپرس؛ اون مرحله رو حذف کن
-- مرحله‌ای که کاربر می‌تونه چند جواب داشته باشه (مثل «چه چیزهایی لازم داری» یا نیازها/دسته‌ها) رو با multi: true بفرست تا کاربر چندتایی انتخاب کنه
-- اگه کاربر چند دسته انتخاب کرد (مثل غذا + بهداشت + اسباب‌بازی) برای هر دسته جداگانه جست‌وجو کن و یک سبد چنددسته‌ای پیشنهاد بده، نه فقط یک دسته
-- اگه دو برداشت مختلف به محصولات کاملاً متفاوتی می‌رسه، ask_clarification (سؤال + گزینه‌ها)
-- اگه فقط یک برداشت منطقیه، سؤال نپرس و جواب بده
+پرسیدن سؤال (اول فکر، بعد سؤال):
+- هیچ سؤال پیش‌فرض یا پرسشنامه‌ی ثابتی وجود نداره. قبل از هر جواب، در ذهنت این سه قدم رو برو:
+  ۱. از کل گفتگو (پیام‌های قبلی، حافظه‌ی حیوان، محصولات نشون‌داده‌شده، سبد) چه چیزهایی رو «می‌دونم»؟
+  ۲. برای دادن یک جواب خوب، دقیقاً چه چیزی رو «نمی‌دونم» که جوابش واقعاً نتیجه رو عوض می‌کنه؟
+  ۳. اگه چنین چیزی هست → ask_clarification با همون سؤال(ها). اگه نیست → مستقیم جواب بده، جستجو کن یا از بین محصولات نشون‌داده‌شده انتخاب کن.
+- سؤالی که جوابش رو از گفتگو می‌دونی یا جوابش تأثیری روی پیشنهاد نداره، هرگز نپرس. «یه ابهام کلی هست» دلیل سؤال نیست؛ فقط وقتی بپرس که یک سؤال مشخص داری.
+- مثال: محصولات روی صفحه‌ان و کاربر میگه «نمی‌دونم کدوم رو بگیرم راهنماییم کن» → معمولاً با چیزهایی که می‌دونی یکی رو انتخاب کن و بگو چرا؛ فقط اگه واقعاً تفاوت محصولات به یک فکت ناشناخته بستگی داره (مثلاً سن یا مشکل گوارشی)، همون یک فکت رو بپرس.
+- هیچ‌وقت سؤال‌هات رو به شکل متن یا لیست بولت‌دار ننویس؛ سؤال فقط با ask_clarification (کارت تعاملی) پرسیده میشه.
+- هر سؤال یک مرحله (step) با prompt سؤالی و options کوتاه که «جواب» هستن، نه سؤال. اگه چند سؤال مستقل لازمه همه رو به‌صورت steps در یک کارت بفرست؛ اگه سؤال بعدی به جواب قبلی بستگی داره فقط اولی رو بپرس.
+- گزینه‌ها فقط از چیزهایی که واقعاً در کاتالوگ هست (CATALOG_SNAPSHOT یا نتایج ابزار). قیمت/بودجه اگه لازم بود همیشه آخر.
+- مرحله‌ای که چند جواب می‌تونه داشته باشه (نیازها/دسته‌ها) → multi: true
+- اگه کاربر چند دسته خواست برای هر دسته جداگانه جست‌وجو کن و یک سبد چنددسته‌ای پیشنهاد بده
 
 نمایش محصول:
 - هرگز شناسه (id/UUID) محصول رو در متن پاسخ ننویس؛ شناسه فقط در ابزارها و سیگنال‌ها استفاده میشه
@@ -3177,13 +3181,14 @@ serve(async (req) => {
     // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
     // These judgments only mean something when products are actually on screen; on a fresh
     // request «چی بگیرم» is a guidance request and must reach the question flow.
-    const hasShown = typeof product_memory === "string" && product_memory.trim().length > 0;
+    const hasShown = (typeof product_memory === "string" && product_memory.trim().length > 0) || latestShown.length > 0;
     const delegatesPick = hasShown && turnIntent.delegate;
     const aboutShown = hasShown && turnIntent.aboutShown;
     if (aboutShown || delegatesPick) {
-      wantsGuidance = false;
-      systemPrompt += `\n\nSHOWN_PRODUCTS_TURN: سؤال کاربر درباره‌ی همین محصولاتیه که الان نشونش دادی (product_memory). پرسشنامه یا سؤال عمومی «چه نوع محصولی» نپرس و جستجوی نوع دیگه نکن.
-- از بین همون‌ها با توجه به حیوان${lockedBreedName ? `، نژاد ${lockedBreedName}` : ""}${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""} «یک» گزینه‌ی مشخص رو انتخاب کن و در یکی دو جمله بگو چرا.
+      const shownList = latestShown.length ? `\nمحصولات روی صفحه: ${latestShown.join(" | ")}` : "";
+      systemPrompt += `\n\nSHOWN_PRODUCTS_CONTEXT: این پیام به‌احتمال زیاد درباره‌ی محصولاتیه که الان روی صفحه‌ان.${shownList}
+- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedName ? `، نژاد ${lockedBreedName}` : ""}${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
+- فقط اگه انتخاب بین این‌ها واقعاً به یک فکت ناشناخته بستگی داره، همون فکت رو با ask_clarification بپرس؛ سؤال عمومی که ربطی به این محصولات نداره نپرس.
 - محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
     }
     if (delegatesPick) {
@@ -3261,9 +3266,11 @@ serve(async (req) => {
           healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
           needLabels: goal === "bundle" && bundleNeeds.length ? bundleNeeds.map((n) => n.label) : null,
         };
-        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies, flowDeps, known);
-        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies, flowDeps, known);
-        else flow = null;
+        // No pre-written questionnaire is ever started: whether to ask, and what, is decided
+        // by the model's reasoning (ask_clarification). Only a flow already open on an older
+        // card is allowed to finish. Kept referenced so the legacy path type-checks.
+        void startFlow; void goal; void explicitBundle; void known;
+        flow = null;
       }
       if (flow && !flow.done) {
         const { card, flow: nf } = await nextQuestion(flowDeps, flow, { recent: recentUser, pet: pet_memory && typeof pet_memory === "object" ? pet_memory : null });
@@ -3375,7 +3382,7 @@ serve(async (req) => {
     if (isBundleTurn) {
       systemPrompt += `\n\nBUNDLE_SEARCH_TURN: کاربر نوع حیوانش («${lockedSpecies}») و نیازهاش رو گفته. در این نوبت هرگز ask_clarification صدا نزن؛ حتماً search_products رو صدا بزن و بعد پاسخ گروه‌بندی‌شده بده.`;
     } else if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده${knownSpecies ? ` نوع حیوانش رو خودش گفته («${knownSpecies}») پس هرگز نپرس برای چه حیوانی؛` : ""} و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` نیاز رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: نوع حیوان → نیازها (multi) → بودجه."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
+      systemPrompt += `\n\nGUIDANCE_CONTEXT: کاربر راهنمایی خواسته.${knownSpecies ? ` حیوانش رو گفته («${knownSpecies}»).` : ""}${knownUsage ? ` نیازش رو گفته («${knownUsage}»).` : ""} طبق «اول فکر، بعد سؤال» تصمیم بگیر: اگه با چیزهایی که می‌دونی میشه پیشنهاد خوب داد، مستقیم جستجو کن و پیشنهاد بده؛ اگه یک یا چند فکت مشخص و تعیین‌کننده نمی‌دونی، فقط همون‌ها رو با ask_clarification بپرس (۲ تا ۵ گزینه کوتاه از CATALOG_SNAPSHOT). هیچ سؤالی که جوابش معلومه نپرس.`;
     }
 
     const aiMessages = [
@@ -3829,21 +3836,68 @@ serve(async (req) => {
 
 
       // Model wrote the ask_clarification payload inline instead of calling the tool → parse it.
-      const inlineAsk = visible.match(/\{\s*"ask_clarification"\s*:\s*(\{[\s\S]*\})\s*\}\s*$/);
-      if (inlineAsk && cards.length === 0) {
-        try {
-          const rawCard = JSON.parse(inlineAsk[1]);
+      // Model wrote the clarification payload inline (with or without the tool wrapper) → parse it.
+      const jsonStart = visible.search(/(^|\n)\s*\{[\s\S]*\}\s*$/);
+      if (jsonStart >= 0 && cards.length === 0) {
+        const lead = visible.slice(0, jsonStart).trim();
+        let rawCard: any = null;
+        try { rawCard = JSON.parse(visible.slice(jsonStart).trim()); } catch { rawCard = null; }
+        if (rawCard && rawCard.ask_clarification) rawCard = rawCard.ask_clarification;
+        const looksLikeCard = rawCard && (Array.isArray(rawCard.steps) || Array.isArray(rawCard.options));
+        if (looksLikeCard) {
+          const prompt = rawCard.prompt || rawCard.question;
           const facets = await getFacets();
           const card = groundClarification(
-            rawCard.steps ? { kind: "steps", helper: rawCard.helper || "", steps: rawCard.steps } : { kind: "single", ...rawCard },
+            rawCard.steps
+              ? { kind: "steps", helper: rawCard.helper || lead, steps: rawCard.steps }
+              : { kind: "single", ...rawCard, prompt, helper: rawCard.helper || lead },
             facets,
           );
           const cardResponse = clarificationResponse(card, "inline-json");
           if (cardResponse) return cardResponse;
-        } catch {
-          /* fall through */
+          visible = lead;
         }
-        visible = visible.replace(/\{\s*"ask_clarification"[\s\S]*$/, "").trim();
+      }
+      // Model decided to ask but wrote the tool call as text → one forced tool round turns it into a card.
+      if (cards.length === 0 && visible.includes("ask_clarification")) {
+        try {
+          const repair = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-3.1-flash-lite",
+              messages: [
+                ...roundMessages,
+                { role: "assistant", content: visible },
+                { role: "user", content: "[system] سؤالی که بالا نوشتی رو دقیقاً با همون محتوا با ابزار ask_clarification بفرست." },
+              ],
+              tools: tools.filter((t: any) => t?.function?.name === "ask_clarification"),
+              tool_choice: { type: "function", function: { name: "ask_clarification" } },
+            }),
+          });
+          if (repair.ok) {
+            const rj = await repair.json();
+            const call = rj?.choices?.[0]?.message?.tool_calls?.[0];
+            const payload = call ? JSON.parse(call.function.arguments || "{}") : null;
+            if (payload && (Array.isArray(payload.steps) || Array.isArray(payload.options))) {
+              const lead = visible.split("ask_clarification")[0].trim();
+              const norm = (arr: any) => (Array.isArray(arr) ? arr : []).map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint })).filter((o: any) => typeof o.label === "string" && o.label.trim());
+              const steps = (payload.steps || []).map((x: any) => ({ title: x?.title || "", question: x?.question || "", multi: x?.multi === true, options: norm(x?.options) })).filter((x: any) => x.question && x.options.length);
+              const rawCard = steps.length > 1
+                ? { kind: "steps", helper: payload.helper || lead, steps }
+                : steps.length === 1
+                ? { kind: "single", question: steps[0].question, helper: payload.helper || lead, multi: steps[0].multi, options: steps[0].options }
+                : { kind: "single", question: payload.question || "", helper: payload.helper || lead, multi: payload.multi === true, options: norm(payload.options) };
+              const facets = await getFacets();
+              const grounded = rawCard.kind === "single" ? groundClarification(rawCard as any, facets) : rawCard;
+              const cardResponse = clarificationResponse(grounded as any, "ask-repair");
+              if (cardResponse) return cardResponse;
+            }
+          } else console.error("ask repair status", repair.status);
+        } catch (e) {
+          console.error("ask repair failed", e);
+        }
+        visible = visible.split("ask_clarification")[0].trim();
       }
       // Denial the catalog contradicts: the search returned real matches → compose from them.
       if (

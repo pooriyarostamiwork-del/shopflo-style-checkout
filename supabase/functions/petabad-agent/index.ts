@@ -3266,8 +3266,11 @@ serve(async (req) => {
           healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
           needLabels: goal === "bundle" && bundleNeeds.length ? bundleNeeds.map((n) => n.label) : null,
         };
-        if (goal === "bundle" && !explicitBundle) flow = startFlow("bundle", lastUserText, lockedSpecies, flowDeps, known);
-        else if (wantsGuidance) flow = startFlow("single", lastUserText, lockedSpecies, flowDeps, known);
+        // No pre-written questionnaire is ever started: whether to ask, and what, is decided
+        // by the model's reasoning (ask_clarification). Only a flow already open on an older
+        // card is allowed to finish. Kept referenced so the legacy path type-checks.
+        void startFlow; void goal; void explicitBundle; void known;
+        flow = null;
         else flow = null;
       }
       if (flow && !flow.done) {
@@ -3380,7 +3383,7 @@ serve(async (req) => {
     if (isBundleTurn) {
       systemPrompt += `\n\nBUNDLE_SEARCH_TURN: کاربر نوع حیوانش («${lockedSpecies}») و نیازهاش رو گفته. در این نوبت هرگز ask_clarification صدا نزن؛ حتماً search_products رو صدا بزن و بعد پاسخ گروه‌بندی‌شده بده.`;
     } else if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_TURN: کاربر درخواست راهنمایی داده${knownSpecies ? ` نوع حیوانش رو خودش گفته («${knownSpecies}») پس هرگز نپرس برای چه حیوانی؛` : ""} و نیازش کامل مشخص نیست. در این نوبت حتماً ask_clarification با steps صدا بزن و هیچ سؤالی رو در متن ننویس.${knownUsage ? ` نیاز رو خودش گفته («${knownUsage}») پس اون سؤال رو نپرس؛ از بودجه و اولویت شروع کن.` : " مراحل: نوع حیوان → نیازها (multi) → بودجه."} هر مرحله ۳ تا ۵ گزینه کوتاه. گزینه‌های بودجه باید از بازه واقعی CATALOG_SNAPSHOT باشن، نه اعداد ساختگی.`;
+      systemPrompt += `\n\nGUIDANCE_CONTEXT: کاربر راهنمایی خواسته.${knownSpecies ? ` حیوانش رو گفته («${knownSpecies}»).` : ""}${knownUsage ? ` نیازش رو گفته («${knownUsage}»).` : ""} طبق «اول فکر، بعد سؤال» تصمیم بگیر: اگه با چیزهایی که می‌دونی میشه پیشنهاد خوب داد، مستقیم جستجو کن و پیشنهاد بده؛ اگه یک یا چند فکت مشخص و تعیین‌کننده نمی‌دونی، فقط همون‌ها رو با ask_clarification بپرس (۲ تا ۵ گزینه کوتاه از CATALOG_SNAPSHOT). هیچ سؤالی که جوابش معلومه نپرس.`;
     }
 
     const aiMessages = [

@@ -3271,7 +3271,6 @@ serve(async (req) => {
         // card is allowed to finish. Kept referenced so the legacy path type-checks.
         void startFlow; void goal; void explicitBundle; void known;
         flow = null;
-        else flow = null;
       }
       if (flow && !flow.done) {
         const { card, flow: nf } = await nextQuestion(flowDeps, flow, { recent: recentUser, pet: pet_memory && typeof pet_memory === "object" ? pet_memory : null });

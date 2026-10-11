@@ -3836,21 +3836,27 @@ serve(async (req) => {
 
 
       // Model wrote the ask_clarification payload inline instead of calling the tool → parse it.
-      const inlineAsk = visible.match(/\{\s*"ask_clarification"\s*:\s*(\{[\s\S]*\})\s*\}\s*$/);
-      if (inlineAsk && cards.length === 0) {
-        try {
-          const rawCard = JSON.parse(inlineAsk[1]);
+      // Model wrote the clarification payload inline (with or without the tool wrapper) → parse it.
+      const jsonStart = visible.search(/(^|\n)\s*\{[\s\S]*\}\s*$/);
+      if (jsonStart >= 0 && cards.length === 0) {
+        const lead = visible.slice(0, jsonStart).trim();
+        let rawCard: any = null;
+        try { rawCard = JSON.parse(visible.slice(jsonStart).trim()); } catch { rawCard = null; }
+        if (rawCard && rawCard.ask_clarification) rawCard = rawCard.ask_clarification;
+        const looksLikeCard = rawCard && (Array.isArray(rawCard.steps) || Array.isArray(rawCard.options));
+        if (looksLikeCard) {
+          const prompt = rawCard.prompt || rawCard.question;
           const facets = await getFacets();
           const card = groundClarification(
-            rawCard.steps ? { kind: "steps", helper: rawCard.helper || "", steps: rawCard.steps } : { kind: "single", ...rawCard },
+            rawCard.steps
+              ? { kind: "steps", helper: rawCard.helper || lead, steps: rawCard.steps }
+              : { kind: "single", ...rawCard, prompt, helper: rawCard.helper || lead },
             facets,
           );
           const cardResponse = clarificationResponse(card, "inline-json");
           if (cardResponse) return cardResponse;
-        } catch {
-          /* fall through */
+          visible = lead;
         }
-        visible = visible.replace(/\{\s*"ask_clarification"[\s\S]*$/, "").trim();
       }
       // Denial the catalog contradicts: the search returned real matches → compose from them.
       if (

@@ -9,17 +9,7 @@ import {
   type CheckoutContext,
   type Surface,
 } from "../_shared/commerceActions.ts";
-import {
-  isFlow,
-  nextQuestion,
-  recordAnswer,
-  startFlow,
-  summarize,
-  type FlowDeps,
-  type FlowSeed,
-  type FlowSummary,
-  type QuestionFlow,
-} from "./questionFlow.ts";
+import { isFlow, type QuestionFlow } from "./questionFlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1049,111 +1039,6 @@ async function generateQueryEmbedding(text: string): Promise<number[] | null> {
 }
 
 // ── Execute tool calls ──
-// Breed → breed size (and default life stage) mapping. Category-agnostic fallback: unknown breeds are ignored.
-const BREED_SIZE: Array<[RegExp, string]> = [
-  [
-    /گلدن|رتریور|لابرادور|ژرمن|شپرد|روتوایلر|هاسکی|سنت\s*برنارد|دوبرمن|قفقازی|آکیتا|بوکسر|دوگ|مالاموت|بلک\s*راشن/,
-    "بزرگ",
-  ],
-  [/بردر\s*کولی|بیگل|کوکر|اسپانیل|پیت\s*بول|بول\s*تریر|سامویید|شارپی|چاو/, "متوسط"],
-  [/پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\s*راسل/, "کوچک"],
-];
-
-// Breed → the wording a breed-specific product actually uses in its title.
-const BREED_LINE: Array<[RegExp, string]> = [
-  [/گلدن|golden/i, "Golden Retriever"],
-  [/لابرادور|labrador/i, "Labrador"],
-  [/ژرمن|شپرد|german\s*shepherd/i, "German Shepherd"],
-  [/پامرانیان|pomeranian/i, "Pomeranian"],
-  [/شیتزو|shih/i, "Shih Tzu"],
-  [/یورک|yorkshire/i, "Yorkshire"],
-  [/چیهواهوا|chihuahua/i, "Chihuahua"],
-  [/پودل|poodle/i, "Poodle"],
-  [/هاسکی|husky/i, "Husky"],
-  [/بولداگ|bulldog/i, "Bulldog"],
-  [/روتوایلر|rottweiler/i, "Rottweiler"],
-  [/پرشین|persian/i, "Persian"],
-  [/مین\s*کون|maine/i, "Maine Coon"],
-  [/بریتیش|british/i, "British"],
-  [/اسکاتیش|scottish/i, "Scottish"],
-  [/سیامی|siamese/i, "Siamese"],
-  [/پاگ|pug/i, "Pug"],
-  [/بیگل|beagle/i, "Beagle"],
-];
-
-function inferBreedLine(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  for (const [re, line] of BREED_LINE) if (re.test(norm)) return line;
-  return null;
-}
-
-const SIZE_WORDS: Record<string, RegExp> = {
-  کوچک: /نژاد\s*(های\s*)?کوچک|سگ\s*کوچک|\bmini\b|\bsmall\b|\btoy\b|\bx-?small\b/i,
-  متوسط: /نژاد\s*(های\s*)?متوسط|\bmedium\b/i,
-  بزرگ: /نژاد\s*(های\s*)?(بزرگ|غول)|سگ\s*(بزرگ|نگهبان|گارد)|نگهبان|گارد|\bmaxi\b|\blarge\b|\bgiant\b|\bguard\b/i,
-};
-/** True when a product title is explicitly made for a different dog size than `size`. */
-function breedSizeMismatch(title: string, size: string): boolean {
-  const t = normalizePersian(title || "");
-  const own = SIZE_WORDS[size];
-  if (own && own.test(t)) return false;
-  const otherLine = BREED_SIZE.some(([re, s]) => s !== size && re.test(t));
-  return otherLine || Object.entries(SIZE_WORDS).some(([s, re]) => s !== size && re.test(t));
-}
-
-function inferBreedSize(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  for (const [re, size] of BREED_SIZE) if (re.test(norm)) return size;
-  return null;
-}
-
-/**
- * Functional product taxonomy: a shopper word ("غذای تر", "کنسرو", "خاک", "شامپو")
- * maps to the catalog's product_type values, so a request never depends on the
- * literal wording appearing inside a product name.
- */
-const TYPE_SYNONYMS: Array<[RegExp, string[]]> = [
-  [/غذای\s*تر|غذای\s*مرطوب|وت\s*فود/, ["کنسرو", "پوچ", "سوپ", "غذای تر"]],
-  [/کنسرو/, ["کنسرو"]],
-  [/پوچ|کاسه\s*ای|موس/, ["پوچ"]],
-  [/سوپ/, ["سوپ"]],
-  [/غذای\s*خشک|دراي|درای|خشک/, ["غذای خشک"]],
-  [/تشویقی|بیسکویت|اسنک|بستنی/, ["تشویقی"]],
-  [/شیر\s*خشک/, ["شیر خشک"]],
-  [/غذای\s*درمانی|رژیم\s*درمانی/, ["غذای درمانی"]],
-  [/خاک|بستر\s*بهداشتی|ظرف\s*بهداشتی|توالت/, ["خاک و ظرف بهداشتی"]],
-  [/شامپو|نرم\s*کننده|صابون/, ["شامپو و نرم‌کننده"]],
-  [/اسپری|فوم|ادکلن|عطر|بو\s*گیر/, ["اسپری و فوم"]],
-  [/مسواک|خمیر\s*دندان|خمیردندان|بهداشت\s*دهان/, ["بهداشت دهان"]],
-  [/برس|پرزگیر|شانه|ناخن\s*گیر|قیچی|ماشین\s*اصلاح/, ["ابزار آرایش و نظافت"]],
-  [/قطره|شربت|قرص|ضد\s*انگل|پماد|دارو|درمان\s*کرم/, ["دارو و درمان"]],
-  [/مکمل|ویتامین|پروبیوتیک|کلسیم|امگا/, ["مکمل و ویتامین"]],
-  [/خمیر\s*مالت|گلوله\s*مویی/, ["خمیر مالت"]],
-  [/اسکرچر|درخت\s*گربه/, ["اسکرچر و درخت"]],
-  [/اسباب\s*بازی|توپ|تونل|عروسک|لیزر/, ["اسباب‌بازی"]],
-  [/ظرف\s*آب|آبخوری|فواره|غذاخوری|ظرف\s*غذا/, ["ظرف آب و غذا"]],
-  [/تخت|تشک|جای\s*خواب|لانه|پتو/, ["جای خواب"]],
-  [/باکس\s*حمل|کریر|حمل\s*و\s*نقل|کوله/, ["حمل و نقل"]],
-  [/قلاده|هارنس|افسار|پلاک/, ["قلاده و هارنس"]],
-  [/لباس|کاپشن|بارانی/, ["لباس"]],
-  [/قفس|آکواریوم|اکواریوم|فیلتر\s*آب/, ["قفس و آکواریوم"]],
-];
-
-/** All product_type values implied by the shopper's wording (longest intent wins first). */
-function detectProductTypes(text: string): string[] {
-  const norm = normalizePersian(text || "");
-  const out: string[] = [];
-  for (const [re, types] of TYPE_SYNONYMS) {
-    if (re.test(norm)) for (const t of types) if (!out.includes(t)) out.push(t);
-    if (out.length >= 4) break;
-  }
-  return out;
-}
-
-/** Words already handled by the taxonomy must not also be used as text evidence. */
-const TAXONOMY_WORDS =
-  /غذای\s*تر|غذای\s*مرطوب|کنسرو|پوچ|سوپ|غذای\s*خشک|تشویقی|خاک|شامپو|اسپری|مسواک|مکمل|ویتامین|اسکرچر|اسباب\s*بازی|قلاده|جای\s*خواب|ظرف/;
-
 // ── Part 5: closed taxonomy vocabulary (database-owned) ──
 type TaxonomyMap = Record<string, Record<string, string>>;
 let TAXONOMY_CACHE: TaxonomyMap | null = null;
@@ -1275,64 +1160,6 @@ function classifyBrand(raw: string, vocab: { keys: Set<string> }): "catalog" | "
   return n.length >= 4 ? "unknown" : "not-a-brand";
 }
 
-/**
- * Catalog-grounded brand list for questions like «چه برندهای خارجی برای پوچ گربه
- * دارین» or the follow-up «خارجیاشون کدومن؟». Returns prose, never product cards.
- */
-async function brandListAnswer(supabase: any, text: string, lockedSpecies?: string | null): Promise<string | null> {
-  const norm = normalizePersian(text || "");
-  const wantsForeign = /(خارجی|وارداتی|اورجینال|import)/.test(norm);
-  const wantsIranian = /(ایرانی|داخلی|تولید ایران)/.test(norm);
-  const species = lockedSpecies || detectSpecies(norm);
-  const types = detectProductTypes(norm);
-
-  let q = supabase
-    .from("pet_products")
-    .select("brand, origin_country, species, product_type")
-    .eq("in_stock", true)
-    .not("brand", "is", null)
-    .limit(3000);
-  if (species && !["سایر حیوانات خانگی", "ماهی و آکواریوم"].includes(species)) q = q.eq("species", species);
-  if (types.length > 0) q = q.in("product_type", types);
-
-  let { data, error } = await q;
-  if ((error || !data || data.length === 0) && types.length > 0) {
-    // Type filter too narrow (e.g. colloquial «چانک/پوچ»): fall back to species-level brands.
-    let q2 = supabase
-      .from("pet_products")
-      .select("brand, origin_country, species, product_type")
-      .eq("in_stock", true)
-      .not("brand", "is", null)
-      .limit(3000);
-    if (species && !["سایر حیوانات خانگی", "ماهی و آکواریوم"].includes(species)) q2 = q2.eq("species", species);
-    if (/(پوچ|کنسرو|تر|چانک|سوپ)/.test(norm)) q2 = q2.ilike("product_type", "%تر%");
-    const r2 = await q2;
-    data = r2.data;
-    error = r2.error;
-  }
-  if (error || !data || data.length === 0) return null;
-
-  const brands: string[] = [];
-  for (const row of data) {
-    const origin = normalizePersian(String(row.origin_country || ""));
-    if (wantsForeign && (!origin || /ایران/.test(origin))) continue;
-    if (wantsIranian && !/ایران/.test(origin)) continue;
-    const b = String(row.brand || "").trim();
-    if (b && !brands.includes(b)) brands.push(b);
-  }
-  if (brands.length === 0) return null;
-
-  const scope = [
-    wantsForeign ? "خارجی" : wantsIranian ? "ایرانی" : "",
-    types.length > 0 ? types[0] : "",
-    species ? species : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const list = brands.slice(0, 25).join("، ");
-  return scope ? `برای ${scope} این برندها رو موجود داریم: ${list}.` : `این برندها رو موجود داریم: ${list}.`;
-}
-
 let shelfCache: { at: number; shelves: string[] } | null = null;
 async function loadShelves(supabase: any): Promise<string[]> {
   if (shelfCache && Date.now() - shelfCache.at < 10 * 60 * 1000) return shelfCache.shelves;
@@ -1427,7 +1254,7 @@ async function executeSearch(
   if (canonStage) rpcParams.p_life_stage = canonStage;
   // The breed named anywhere in the conversation (lock) applies to dog searches the model forgot to tag.
   const lockBreedSize = lock?.breedSize && (!lock?.species || lock.species === "سگ") ? lock.breedSize : null;
-  const rawBreedSize = filters?.breed_size || inferBreedSize(`${breed || ""} ${query_text || ""}`) || lockBreedSize;
+  const rawBreedSize = filters?.breed_size || lockBreedSize;
   const breedSize = canon("breed_size", rawBreedSize);
   if (breedSize) rpcParams.p_breed_size = breedSize;
   if (Array.isArray(filters?.needs) && filters.needs.length > 0) {
@@ -1437,16 +1264,6 @@ async function executeSearch(
   if (degraded.length > 0) console.log("Non-canonical filter values degraded to evidence:", degraded.join(", "));
   if (filters?.price_max) rpcParams.p_max_price = filters.price_max;
   if (filters?.price_min) rpcParams.p_min_price = filters.price_min;
-  // Deterministic taxonomy: the shopper's category word decides the shelf, not the
-  // literal product names. When it resolves, it replaces the model's shelf guess.
-  const requestedTypes = detectProductTypes(
-    `${query_text || ""} ${Array.isArray(evidence_terms) ? evidence_terms.join(" ") : ""}`,
-  );
-  if (requestedTypes.length > 0) {
-    rpcParams.p_product_types = requestedTypes;
-    delete rpcParams.p_subcategory;
-    delete rpcParams.p_subcategory_prefix;
-  }
   // A shelf family the catalog does not have (e.g. «غذای گربه» when the shelves are
   // «غذای خشک گربه» / «کنسرو و پوچ گربه») would silently empty the result — drop it.
   if (rpcParams.p_subcategory_prefix || rpcParams.p_subcategory) {
@@ -1586,32 +1403,11 @@ async function executeSearch(
   // HARD species lock: a row from another animal never reaches the answer model.
   let results = filterBySpecies(data, lockedSpecies);
 
-  // A breed-specific product (e.g. Royal Canin Golden Retriever) must lead the answer.
-  const breedLine = filters?.product_line ? null : inferBreedLine(`${breed || ""} ${query_text || ""}`);
-  if (breedLine) {
-    const exact = await runSearch({
-      p_store_id: PETABAD_STORE_ID,
-      p_query: normalizedQuery,
-      p_in_stock: true,
-      p_product_line: breedLine,
-      ...(rpcParams.p_species ? { p_species: rpcParams.p_species } : {}),
-      p_limit: 6,
-    });
-    const exactSafe = filterBySpecies(exact || [], lockedSpecies);
-    if (exactSafe.length > 0) {
-      const seen = new Set(exactSafe.map((p: any) => p.id));
-      results = [...exactSafe, ...results.filter((p: any) => !seen.has(p.id))];
-    }
-  }
-
   const terms = [
     ...(Array.isArray(evidence_terms) ? evidence_terms : []),
     ...(Array.isArray(filters?.features) ? filters.features : []),
   ]
     .filter((t: any) => typeof t === "string" && t.trim())
-    // A word the taxonomy already enforced must not shrink the shelf again:
-    // catalog names rarely spell out "غذای تر", so text evidence would wrongly empty it.
-    .filter((t: string) => !(requestedTypes.length > 0 && TAXONOMY_WORDS.test(normalizePersian(t))))
     .slice(0, 8);
 
   // Part 2 — three-valued evidence: boost rows that mention the concept,
@@ -1649,13 +1445,6 @@ async function executeSearch(
   // Stated life stage: matching rows lead, contradictory rows are kept but deprioritized
   // because the SQL already applies a three-valued penalty; here we just re-sort for stability.
   results = applyStagePreference(results, stageLock);
-
-  // A product made for another dog size (large-breed / guard-dog food for a Shih Tzu) is never shown.
-  const sizeForFit = rpcParams.p_breed_size || lockBreedSize;
-  if (sizeForFit) {
-    const fitting = results.filter((r: any) => !breedSizeMismatch(`${r.name || ""} ${r.name_fa || ""}`, sizeForFit));
-    if (fitting.length) results = fitting;
-  }
 
   // Honest fallback signal: the shopper named a REAL brand we cannot serve.
   // Colloquial words misread as brands never produce this claim.
@@ -2148,54 +1937,6 @@ const answerTokens = (t: string) =>
     .split(/[\s،,()\-–—:؛]+/)
     .filter((w) => w.length > 1);
 
-/**
- * Last-resort binding of one numbered line to a catalog row: near-exact name overlap
- * only, same species. Loose overlap used to pick the wrong animal's product.
- */
-function strictMatchProduct(line: string, pool: any[], used: Set<string>, locked: string | null): any | null {
-  const lineTok = new Set(answerTokens(line));
-  let best: any = null;
-  let bestScore = 0;
-  for (const p of pool || []) {
-    if (!p || used.has(p.id)) continue;
-    if (locked && !rowMatchesSpecies(p, locked)) continue;
-    const nt = answerTokens(p.name_fa || p.name || "");
-    if (nt.length < 3) continue;
-    const hit = nt.filter((w) => lineTok.has(w)).length / nt.length;
-    if (hit > bestScore) {
-      bestScore = hit;
-      best = p;
-    }
-  }
-  return bestScore >= 0.8 ? best : null;
-}
-
-/**
- * The answer names a product that is not in this turn's results (typically re-introduced
- * from earlier in the conversation): find that exact row in the catalog so it gets a card.
- */
-async function lookupByNameLine(
-  supabase: any,
-  line: string,
-  used: Set<string>,
-  locked: string | null,
-): Promise<any | null> {
-  const cleaned = line
-    .replace(/^\s*[0-9۰-۹]{1,2}[.)\-–]\s*/u, "")
-    .split(/[—–]/)[0]
-    .replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)));
-  const tokens = cleaned
-    .split(/[\s،,()\-:؛/]+/)
-    .map((w) => w.trim())
-    .filter((w) => w.length > 2 && !/^\d+$/.test(w))
-    .slice(0, 5);
-  if (tokens.length < 2) return null;
-  let q = supabase.from("pet_products").select("*").limit(8);
-  for (const t of tokens) q = q.ilike("name", `%${t}%`);
-  const { data } = await q;
-  if (!data?.length) return null;
-  return strictMatchProduct(line, data, used, locked) || (locked && !rowMatchesSpecies(data[0], locked) ? null : data[0]);
-}
 
 
 
@@ -2300,21 +2041,6 @@ function extractQuestionCard(text: string): any | null {
 function isQuestionHeavy(text: string): boolean {
   const marks = (text.match(/[؟?]/g) || []).length;
   return marks >= 2;
-}
-
-/** Usage the user already stated — that guidance step is then skipped. */
-const USAGE_HINTS: Array<[RegExp, string]> = [
-  [/توله|بچه\s*سگ|بچه\s*گربه/, "توله و بچه حیوان"],
-  [/پیر|مسن|سالمند/, "حیوان مسن"],
-  [/حساسیت|معده\s*حساس/, "مشکل گوارشی و حساسیت"],
-  [/نژاد\s*بزرگ|سگ\s*بزرگ/, "نژاد بزرگ"],
-  [/چاق|رژیم|کاهش\s*وزن/, "کنترل وزن"],
-];
-
-function detectUsage(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  for (const [re, label] of USAGE_HINTS) if (re.test(norm)) return label;
-  return null;
 }
 
 // Breed names imply the animal: «شیتزوم» must lock the dog just like «سگم».
@@ -2433,19 +2159,8 @@ function detectLifeStage(text: string): string | null {
 // Tier-1 life-stage protection: when the shopper named a stage, products explicitly
 // labelled (or named) for another stage are dropped; unknown-stage rows stay eligible
 // and exact matches sort first. Never empties the list — falls back to soft ordering.
-const STAGE_NAME_HINTS: Record<string, RegExp> = {
-  "نابالغ": /بچه\s*گربه|بچه\s*سگ|توله|kitten|puppy|junior|جونیور/i,
-  "سنیور": /سنیور|senior|مسن|سالمند/i,
-  "بالغ": /adult|بالغ/i,
-};
 function stageConflicts(r: any, stage: string): boolean {
-  if (r?.life_stage && r.life_stage !== stage) return true;
-  if (!r?.life_stage) {
-    for (const [k, re] of Object.entries(STAGE_NAME_HINTS)) {
-      if (k !== stage && re.test(String(r?.name_fa || r?.name || ""))) return true;
-    }
-  }
-  return false;
+  return Boolean(r?.life_stage && r.life_stage !== stage);
 }
 /** Strict: drops rows for another stage (may return an empty list). */
 function stageStrict(rows: any[], stage: string | null): any[] {
@@ -2454,15 +2169,7 @@ function stageStrict(rows: any[], stage: string | null): any[] {
 }
 function applyStagePreference(rows: any[], stage: string | null): any[] {
   if (!stage) return rows;
-  const conflicts = (r: any) => {
-    if (r?.life_stage && r.life_stage !== stage) return true;
-    if (!r?.life_stage) {
-      for (const [k, re] of Object.entries(STAGE_NAME_HINTS)) {
-        if (k !== stage && re.test(String(r?.name_fa || ""))) return true;
-      }
-    }
-    return false;
-  };
+  const conflicts = (r: any) => stageConflicts(r, stage);
   const exact = (rows || []).filter((r) => r?.life_stage === stage);
   const unknown = (rows || []).filter((r) => r?.life_stage !== stage && !conflicts(r));
   const kept = [...exact, ...unknown];
@@ -2470,81 +2177,9 @@ function applyStagePreference(rows: any[], stage: string | null): any[] {
   return [...exact, ...(rows || []).filter((r) => r?.life_stage !== stage)];
 }
 
-// ── Multi-need bundle shopping ──────────────────────────────────────────
-// A shopper who asks for food + hygiene + toys + supplements gets one grouped
-// answer, each group retrieved separately but always inside the species lock.
-
-type NeedSpec = { key: string; label: string; re: RegExp; query: (sp: string) => string };
-
-const NEED_SPECS: NeedSpec[] = [
-  {
-    key: "food",
-    label: "غذا",
-    re: /غذا|خوراک|تشویقی|کنسرو|پوچ/,
-    query: (sp) => `غذای ${sp}`,
-  },
-  {
-    key: "hygiene",
-    label: "بهداشت و مراقبت",
-    re: /بهداشت|مراقبت|شامپو|حموم|حمام|خاک|شوینده|نظافت|مسواک|ناخن|گوش/,
-    query: (sp) => `شامپو و بهداشت ${sp}`,
-  },
-  {
-    key: "toys",
-    label: "اسباب‌بازی",
-    re: /اسباب\s*بازی|بازی|سرگرمی|تونل|توپ/,
-    query: (sp) => `اسباب بازی ${sp}`,
-  },
-  {
-    key: "gear",
-    label: "لوازم نگهداری",
-    re: /لوازم|نگهداری|حمل|قلاده|ظرف|باکس|لباس|جای\s*خواب|تشک|اسکرچر|درخت/,
-    query: (sp) => `لوازم و ظرف و جای خواب ${sp}`,
-  },
-  {
-    key: "health",
-    label: "مکمل و درمان",
-    re: /مکمل|درمان|دارو|ویتامین|پروبیوتیک|ضد\s*انگل|قرص|شربت/,
-    query: (sp) => `مکمل و ویتامین ${sp}`,
-  },
-];
-
-/**
- * Umbrella buckets ("سایر حیوانات خانگی", "ماهی و آکواریوم") are not shelf words.
- * Use the concrete animal the shopper actually named so shelf queries hit real rows.
- */
-const CONCRETE_PET_WORDS: Array<[string, RegExp]> = [
-  ["خرگوش", /خرگوش/],
-  ["همستر", /همستر/],
-  ["خوکچه هندی", /خوکچه/],
-  ["جوندگان", /جونده|جوندگان|سنجاب/],
-  ["خزندگان", /خزنده|لاک\s*پشت|مارمولک/],
-  ["فرت", /فرت/],
-  ["ماهی", /ماهی|آبزیان|آکواریوم|اکواریوم/],
-];
-
-function concreteSpeciesWord(species: string, userText: string): string {
-  const norm = normalizePersian(userText || "");
-  if (species === "سایر حیوانات خانگی" || species === "ماهی و آکواریوم") {
-    const hit = CONCRETE_PET_WORDS.find(([, re]) => re.test(norm));
-    if (hit) return hit[0];
-  }
-  return species;
-}
-
-function detectNeeds(text: string): NeedSpec[] {
-  const norm = normalizePersian(text || "");
-  return NEED_SPECS.filter((n) => n.re.test(norm));
-}
-
-/** Extra hygiene shelves for cats/dogs so a need word can never drift shelves. */
-function needShelfQueries(need: NeedSpec, species: string): string[] {
-  if (need.key === "hygiene") {
-    return [`شامپو ${species}`, `خاک ${species}`, `مسواک و خمیر دندان ${species}`];
-  }
-  return [need.query(species)];
-}
-
+// ── Multi-need answers ──
+// Each search_products call the model makes is one need group; labels come from the
+// model's own shelf choice, never from a word list.
 
 async function getProductDetails(supabase: any, productId: string): Promise<any> {
   const { data, error } = await supabase.from("pet_products").select("*").eq("id", productId).single();
@@ -2571,8 +2206,6 @@ async function runToolRound(
   speciesLock: { species?: string | null; lifeStage?: string | null },
   lockedSpecies: string | null,
   isBundleTurn: boolean,
-  bundleNeeds: NeedSpec[],
-  lastUserText = "",
 ): Promise<ToolRoundResult> {
   const result: ToolRoundResult = {
     products: [],
@@ -2583,6 +2216,7 @@ async function runToolRound(
     emptyNeedLabels: [],
     unavailableBrand: null,
   };
+  const searchGroups: Array<{ label: string; products: any[] }> = [];
 
   for (const toolCall of choice.message.tool_calls) {
     const funcName = toolCall.function?.name;
@@ -2601,6 +2235,8 @@ async function runToolRound(
       result.extractedIntent = funcArgs;
       const searched = await executeSearch(supabase, funcArgs, precomputedEmbedding, speciesLock);
       if (searched.products) result.products = [...result.products, ...searched.products];
+      const groupLabel = String(funcArgs.subcategory_family || funcArgs.query_text || "").trim();
+      if (groupLabel) searchGroups.push({ label: groupLabel, products: (searched.products || []).slice(0, 3) });
       if (searched.brand_unavailable && searched.requested_brand) result.unavailableBrand = searched.requested_brand;
       if (Array.isArray(searched.relaxed_filters) && searched.relaxed_filters.length > 0) {
         result.relaxed = [...new Set([...(result.relaxed || []), ...searched.relaxed_filters])];
@@ -2654,31 +2290,15 @@ async function runToolRound(
     });
   }
 
-  if (isBundleTurn && result.searchExecuted) {
-    // For umbrella buckets the bucket label is not a shelf word — use the animal the shopper named.
-    const sp = concreteSpeciesWord(lockedSpecies as string, lastUserText);
-    const groups = await Promise.all(
-      bundleNeeds.slice(0, 5).map(async (need) => {
-        const queries = needShelfQueries(need, sp);
-        const found: any[] = [];
-        for (const q of queries) {
-          const r = await executeSearch(supabase, { query_text: q, species: sp, limit: 6 }, null, speciesLock);
-          for (const p of r.products || []) if (!found.some((f) => f.id === p.id)) found.push(p);
-          if (found.length >= 3) break;
-        }
-        return { label: need.label, products: found.slice(0, 2) };
-      }),
-    );
-    result.bundleGroups = groups.filter((g) => g.products.length > 0);
-    result.emptyNeedLabels = groups.filter((g) => g.products.length === 0).map((g) => g.label);
+  const distinctLabels = new Set(searchGroups.map((g) => g.label));
+  if (result.searchExecuted && distinctLabels.size >= (isBundleTurn ? 1 : 2)) {
+    result.bundleGroups = searchGroups.filter((g) => g.products.length > 0);
+    result.emptyNeedLabels = searchGroups.filter((g) => g.products.length === 0).map((g) => g.label);
     const bundleProducts: any[] = [];
     for (const g of result.bundleGroups) {
       for (const p of g.products) if (!bundleProducts.some((x) => x.id === p.id)) bundleProducts.push(p);
     }
-    // Bundle picks come first, but the plain search results stay available so the answer's
-    // numbered list always has a card to bind to.
-    if (bundleProducts.length > 0)
-      result.products = mergeProducts(bundleProducts.slice(0, 9), result.products);
+    if (bundleProducts.length > 0) result.products = mergeProducts(bundleProducts.slice(0, 9), result.products);
   }
 
   return result;
@@ -2700,44 +2320,13 @@ function buildDiscoveryGuardQuery(
   userText: string,
   lockedSpecies: string | null,
   lockedStage: string | null,
-  facetFamily: string | null,
 ): any {
-  const norm = normalizePersian(userText);
-  const detectedTypes = detectProductTypes(userText);
-
-  const family =
-    facetFamily ||
-    (detectedTypes.includes("غذای خشک") && lockedSpecies === "گربه"
-      ? "غذای خشک گربه"
-      : detectedTypes.includes("غذای خشک") && lockedSpecies === "سگ"
-        ? "غذای خشک سگ"
-        : detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "گربه"
-          ? "کنسرو و پوچ و غذای تر گربه"
-          : detectedTypes.some((t) => ["کنسرو", "پوچ", "سوپ", "غذای تر"].includes(t)) && lockedSpecies === "سگ"
-            ? "کنسرو و پوچ و غذای تر سگ"
-            : lockedSpecies === "گربه"
-              ? "غذای خشک گربه"
-              : lockedSpecies === "سگ"
-                ? "غذای خشک سگ"
-                : "");
-
-  const evidenceTerms: string[] = [];
-  if (/پوست و مو|پوست|مو|ریزش مو|hair|skin/i.test(norm)) evidenceTerms.push("پوست و مو", "پوست", "مو");
-  if (/گوارش|حساسیت|معده|digest|sensitive/i.test(norm)) evidenceTerms.push("گوارش", "حساسیت");
-  if (/کلیه|مجاری ادرار|kidney|urinary/i.test(norm)) evidenceTerms.push("کلیه", "مجاری ادرار");
-  if (/عقیم|steril/i.test(norm)) evidenceTerms.push("عقیم شده");
-  if (/وزن|رژیم|چاق|diet|weight/i.test(norm)) evidenceTerms.push("کنترل وزن");
-  if (/گلوله مویی|هربال|hairball/i.test(norm)) evidenceTerms.push("گلوله مویی", "هربال");
-  if (/دندان|مفاصل|ایمنی|سلامت/i.test(norm)) evidenceTerms.push("دندان", "مفاصل", "ایمنی");
-
   return {
     query_text: userText.slice(0, 80),
-    subcategory_family: family || undefined,
     species: lockedSpecies || undefined,
     filters: {
       ...(lockedStage ? { life_stage: lockedStage } : {}),
     },
-    evidence_terms: evidenceTerms.length > 0 ? Array.from(new Set(evidenceTerms)) : undefined,
     limit: 20,
   };
 }
@@ -2940,7 +2529,6 @@ serve(async (req) => {
       systemPrompt += `\n\nPOLICY_ABOUT_A_PRODUCT: اگر کاربر سیاستی را دربارهٔ «محصول اول/دوم/شماره X» یا محصولی که قبلاً نشان دادی پرسیده، اول با نام همان محصول جواب صریح بده (بله/خیر + توضیح کوتاه)، بعد شرط‌ها را بگو. جمله‌ی بی‌فاعل مثل «توجه داشته باشید...» ننویس.`;
     }
 
-    const knownUsage = detectUsage(lastUserText);
     let knownSpecies = detectSpecies(lastUserText);
 
     // Store-policy questions are grounded in the official FAQ knowledge base only.
@@ -2989,26 +2577,14 @@ serve(async (req) => {
     }
     // Breed / size: the newest mention since the current animal was named sticks for the whole chat
     // («سگم شیتزوئه» → small breed for every later dog search).
-    let lockedBreedSize: string | null = null;
-    let lockedBreedName: string | null = null;
-    if (slots.breedSize && lockedSpecies === "سگ") {
-      lockedBreedSize = slots.breedSize;
-      lockedBreedName = inferBreedLine(lastUserText);
-    } else for (let i = lastIdx; i >= lockedFromTurn; i--) {
-      const size = inferBreedSize(userTurns[i]);
-      if (size) {
-        lockedBreedSize = size;
-        lockedBreedName = inferBreedLine(userTurns[i]);
-        break;
-      }
-    }
+    let lockedBreedSize: string | null = slots.breedSize && lockedSpecies === "سگ" ? slots.breedSize : null;
     // Reference to one shown product («دومی»، «همین آخری») — resolved by Jev, named for the model.
     if (slots.ordinal && products_context?.[slots.ordinal - 1]) {
       const p: any = products_context[slots.ordinal - 1];
       systemPrompt += `\n\nREFERENCE: کاربر به محصول شماره ${slots.ordinal} از آخرین لیست اشاره کرده؛ منظورش دقیقاً «${p.name_fa || p.name}» (id: ${p.id}) است. دربارهٔ همین محصول جواب بده و لیست جدید نساز.`;
     }
     if (!lockedBreedSize && lockedSpecies === "سگ" && pet_memory && typeof pet_memory === "object") {
-      const memSize = (pet_memory as any).breed_size || inferBreedSize(String((pet_memory as any).breed || ""));
+      const memSize = (pet_memory as any).breed_size;
       if (memSize) lockedBreedSize = String(memSize);
     }
     // ── "other brands" turn: brands already shown are subtracted from the search ──
@@ -3187,7 +2763,7 @@ serve(async (req) => {
     if (aboutShown || delegatesPick) {
       const shownList = latestShown.length ? `\nمحصولات روی صفحه: ${latestShown.join(" | ")}` : "";
       systemPrompt += `\n\nSHOWN_PRODUCTS_CONTEXT: این پیام به‌احتمال زیاد درباره‌ی محصولاتیه که الان روی صفحه‌ان.${shownList}
-- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedName ? `، نژاد ${lockedBreedName}` : ""}${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
+- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
 - فقط اگه انتخاب بین این‌ها واقعاً به یک فکت ناشناخته بستگی داره، همون فکت رو با ask_clarification بپرس؛ سؤال عمومی که ربطی به این محصولات نداره نپرس.
 - محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
     }
@@ -3195,17 +2771,12 @@ serve(async (req) => {
       systemPrompt += `\n\nDELEGATE_TURN: کاربر انتخاب رو به تو سپرده. ازش نپرس «کدوم رو اضافه کنم»؛ خودت بهترین گزینه‌ی مناسب رو انتخاب کن و اگه خواسته اضافه بشه، همون یکی رو با execute_cart_operations اضافه کن.`;
     }
 
-    // ── Adaptive question flow: one catalog-grounded question per turn ──
-    // Guidance («راهنماییم کن») and bundle («پک کامل») requests are answered by a
-    // deterministic flow: every option is checked against stock, questions are asked
-    // only when they split the candidate set, and price comes last.
-    let flowSummary: FlowSummary | null = null;
-    let bundleNeeds: NeedSpec[] = detectNeeds(lastUserText);
+    let bundleNeedsCleared = false;
     // ── Cart commands (Jev typed choice) outrank questionnaires and starter packs ──
     const cartOp = turnIntent.cartOp;
     if (cartOp) {
       wantsGuidance = false;
-      bundleNeeds = [];
+      bundleNeedsCleared = true;
       const OP_FA: Record<string, string> = { mixed: "چند تغییر مختلف در سبد", add: "اضافه کردن به سبد", remove: "حذف از سبد", update: "تغییر تعداد در سبد", replace: "جایگزینی در سبد", clear: "خالی کردن سبد" };
       systemPrompt += `\n\nCART_COMMAND_TURN: این پیام یک دستور اجرایی سبد خریده (${OP_FA[cartOp]})، نه درخواست مشاوره یا پک کامل.
 - هیچ سؤالی از پرسشنامه نپرس، جستجوی تازه نکن و کارت پرسش نساز.
@@ -3219,89 +2790,13 @@ serve(async (req) => {
       }
     } else if (turnIntent.cartQuery) {
       wantsGuidance = false;
-      bundleNeeds = [];
+      bundleNeedsCleared = true;
       const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${String(Number(i.quantity) || 1).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d])}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
       systemPrompt += `\n\nCART_VIEW_TURN: کاربر دربارهٔ محتوای سبد فعلیش پرسیده. جستجو نکن، محصول پیشنهاد نده و ابزار صدا نزن. فقط از همین فهرست واقعی جواب بده:\n${items || "(سبد خالی است)"}\nاگر سبد خالی است صادقانه بگو خالیه.`;
     }
     if (slots.smallPet) {
       systemPrompt += `\n\nSMALL_PET: حیوان کاربر «${slots.smallPet}» است. در search_products همین کلمه را در query_text بیاور و فقط محصول مخصوص «${slots.smallPet}» (یا جوندگان عمومی اگر مناسب همین حیوان است) پیشنهاد بده؛ محصول سگ و گربه نیاور.`;
     }
-    if (effectiveMode === "agentic" && !cartOp && !isInfoQuestion && !isBusinessQuestion && !isCompareQuestion) {
-      const flowDeps: FlowDeps = {
-        supabase,
-        normalize: normalizePersian,
-        formatToman,
-        detectSpecies,
-        concreteSpecies: concreteSpeciesWord,
-        detectProductTypes,
-        buildBudgetOptions,
-        needSpecs: NEED_SPECS,
-        inferBreedSize,
-      };
-      let flow: QuestionFlow | null = isFlow(question_flow) ? (question_flow as QuestionFlow) : null;
-      if (flow && flow.pending && !flow.done) {
-        // A reply that names another animal or is a long new request abandons the flow.
-        // Jev judges whether the reply abandons the flow (another animal or a new request) or skips the question.
-        const named = slots.species;
-        const switched = named && flow.species && named !== flow.species;
-        if (switched || slots.newRequest) flow = null;
-        else flow = recordAnswer(flow, lastUserText, slots.skip);
-        // Typed facts from Jev replace free-text parsing of the answer.
-        if (flow && !slots.skip) {
-          const was = (question_flow as QuestionFlow).pending;
-          const fix: Record<string, string | null> = { species: slots.species, age: slots.lifeStage, size: slots.breedSize };
-          if (was && fix[was]) flow = { ...flow, answers: { ...flow.answers, [was]: fix[was]! } };
-        }
-      }
-      if (!flow || flow.done) {
-        const goal = turnIntent.bundle ? "bundle" : "single";
-        const explicitBundle = Boolean(lockedSpecies) && bundleNeeds.length >= 2;
-        // What the conversation already knows about this pet: never ask it again.
-        const memPet = pet_memory && typeof pet_memory === "object" ? pet_memory : null;
-        const sameAnimal = memPet?.species && lockedSpecies && detectSpecies(String(memPet.species)) === lockedSpecies;
-        const known: FlowSeed = {
-          lifeStage: lockedStage || (sameAnimal ? memPet?.life_stage || null : null),
-          breedSize: lockedSpecies === "سگ" ? lockedBreedSize : null,
-          foreignOnly: stickyForeign,
-          healthNeeds: sameAnimal && Array.isArray(memPet?.health_needs) ? memPet.health_needs : null,
-          needLabels: goal === "bundle" && bundleNeeds.length ? bundleNeeds.map((n) => n.label) : null,
-        };
-        // No pre-written questionnaire is ever started: whether to ask, and what, is decided
-        // by the model's reasoning (ask_clarification). Only a flow already open on an older
-        // card is allowed to finish. Kept referenced so the legacy path type-checks.
-        void startFlow; void goal; void explicitBundle; void known;
-        flow = null;
-      }
-      if (flow && !flow.done) {
-        const { card, flow: nf } = await nextQuestion(flowDeps, flow, { recent: recentUser, pet: pet_memory && typeof pet_memory === "object" ? pet_memory : null });
-        if (card) {
-          console.log("Flow question:", JSON.stringify({ goal: nf.goal, id: card.id, options: card.options.length }));
-          const cardResponse = clarificationResponse(card, `flow-${card.id}`);
-          if (cardResponse) {
-            const payload = await cardResponse.json();
-            return new Response(JSON.stringify({ ...payload, question_flow: nf }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-        }
-        flow = nf;
-      }
-      if (flow?.done) {
-        flowSummary = summarize(flowDeps, flow);
-        if (!lockedSpecies && flowSummary.species) {
-          lockedSpecies = flowSummary.species;
-          if (!SPECIES_TOKENS.some(([n]) => n === lockedSpecies)) lockedSpecies = detectSpecies(lockedSpecies) || lockedSpecies;
-        }
-        if (flowSummary.lifeStage) lockedStage = flowSummary.lifeStage;
-        if (flowSummary.breedSize) lockedBreedSize = flowSummary.breedSize;
-        if (flowSummary.foreignOnly !== null) stickyForeign = flowSummary.foreignOnly;
-        if (flowSummary.needKeys.length > 0) bundleNeeds = NEED_SPECS.filter((n) => flowSummary!.needKeys.includes(n.key));
-        wantsGuidance = false;
-        systemPrompt += `\n\n${flowSummary.promptBlock}`;
-        console.log("Flow complete:", JSON.stringify({ goal: flow.goal, answers: flow.answers }));
-      }
-    }
-
     const speciesLock = {
       species: lockedSpecies,
       lifeStage: lockedStage,
@@ -3310,7 +2805,7 @@ serve(async (req) => {
       breedSize: lockedBreedSize,
     };
     if (lockedBreedSize && lockedSpecies !== "گربه") {
-      systemPrompt += `\n\nBREED_LOCK: سگ کاربر نژاد «${lockedBreedSize}» است${lockedBreedName ? ` (${lockedBreedName})` : ""}. در search_products مقدار filters.breed_size را «${lockedBreedSize}» بفرست${lockedBreedName ? ` و breed را «${lockedBreedName}»` : ""}. محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده و دوباره نژاد را نپرس.`;
+      systemPrompt += `\n\nBREED_LOCK: سگ کاربر جثه «${lockedBreedSize}» دارد. در search_products مقدار filters.breed_size را «${lockedBreedSize}» بفرست و اگر نژادش را می‌دانی در breed بنویس. محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده و دوباره نژاد را نپرس.`;
     }
     if (shownBrands.length > 0) {
       systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
@@ -3322,34 +2817,9 @@ serve(async (req) => {
     }
     knownSpecies = lockedSpecies || knownSpecies;
 
-    const isBundleTurn = flowSummary
-      ? flowSummary.goal === "bundle" && bundleNeeds.length >= 1 && Boolean(lockedSpecies)
-      : Boolean(lockedSpecies) && bundleNeeds.length >= 2;
-
-    const guidanceCategory = /غذا/.test(normLastUser) ? "غذای حیوان خانگی" : "";
-    // Shelf FAMILY (prefix) — brand-split shelves must stay inside the candidate set.
-    const facetFamily = /خشک/.test(normLastUser)
-      ? /سگ/.test(normLastUser)
-        ? "غذای خشک سگ"
-        : /گربه/.test(normLastUser)
-          ? "غذای خشک گربه"
-          : null
-      : /کنسرو|پوچ|غذای\s*تر/.test(normLastUser)
-        ? /سگ/.test(normLastUser)
-          ? "کنسرو و پوچ و غذای تر سگ"
-          : /گربه/.test(normLastUser)
-            ? "کنسرو و پوچ و غذای تر گربه"
-            : null
-        : null;
-    const facetSubcategory = null;
-    const facetSpecies =
-      lockedSpecies === "سگ" || lockedSpecies === "گربه"
-        ? lockedSpecies
-        : /سگ/.test(normLastUser)
-          ? "سگ"
-          : /گربه/.test(normLastUser)
-            ? "گربه"
-            : null;
+    // Multi-need turn: Jev's typed bundle judgment; the model decides the shelves itself.
+    const isBundleTurn = !bundleNeedsCleared && Boolean(turnIntent.bundle) && Boolean(lockedSpecies);
+    const facetSpecies = lockedSpecies === "سگ" || lockedSpecies === "گربه" ? lockedSpecies : null;
 
     if (lockedSpecies) {
       systemPrompt += `\n\nSPECIES_LOCK: در این نوبت خرید برای «${lockedSpecies}» است.
@@ -3367,11 +2837,11 @@ serve(async (req) => {
     let questionFacets: QuestionFacets | null = null;
     let facetsPromise: Promise<QuestionFacets | null> | null = null;
     if (wantsGuidance) {
-      questionFacets = await fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies, facetFamily);
+      questionFacets = await fetchQuestionFacets(supabase, lastUserText, null, facetSpecies, null);
       const snap = snapshotLine(questionFacets);
       if (snap) systemPrompt += `\n\n${snap}`;
     } else if (effectiveMode === "agentic" || effectiveMode === "discovery") {
-      facetsPromise = fetchQuestionFacets(supabase, lastUserText, facetSubcategory, facetSpecies, facetFamily);
+      facetsPromise = fetchQuestionFacets(supabase, lastUserText, null, facetSpecies, null);
     }
     const getFacets = async (): Promise<QuestionFacets | null> => {
       if (questionFacets) return questionFacets;
@@ -3382,7 +2852,7 @@ serve(async (req) => {
     if (isBundleTurn) {
       systemPrompt += `\n\nBUNDLE_SEARCH_TURN: کاربر نوع حیوانش («${lockedSpecies}») و نیازهاش رو گفته. در این نوبت هرگز ask_clarification صدا نزن؛ حتماً search_products رو صدا بزن و بعد پاسخ گروه‌بندی‌شده بده.`;
     } else if (wantsGuidance) {
-      systemPrompt += `\n\nGUIDANCE_CONTEXT: کاربر راهنمایی خواسته.${knownSpecies ? ` حیوانش رو گفته («${knownSpecies}»).` : ""}${knownUsage ? ` نیازش رو گفته («${knownUsage}»).` : ""} طبق «اول فکر، بعد سؤال» تصمیم بگیر: اگه با چیزهایی که می‌دونی میشه پیشنهاد خوب داد، مستقیم جستجو کن و پیشنهاد بده؛ اگه یک یا چند فکت مشخص و تعیین‌کننده نمی‌دونی، فقط همون‌ها رو با ask_clarification بپرس (۲ تا ۵ گزینه کوتاه از CATALOG_SNAPSHOT). هیچ سؤالی که جوابش معلومه نپرس.`;
+      systemPrompt += `\n\nGUIDANCE_CONTEXT: کاربر راهنمایی خواسته.${knownSpecies ? ` حیوانش رو گفته («${knownSpecies}»).` : ""} طبق «اول فکر، بعد سؤال» تصمیم بگیر: اگه با چیزهایی که می‌دونی میشه پیشنهاد خوب داد، مستقیم جستجو کن و پیشنهاد بده؛ اگه یک یا چند فکت مشخص و تعیین‌کننده نمی‌دونی، فقط همون‌ها رو با ask_clarification بپرس (۲ تا ۵ گزینه کوتاه از CATALOG_SNAPSHOT). هیچ سؤالی که جوابش معلومه نپرس.`;
     }
 
     const aiMessages = [
@@ -3394,9 +2864,7 @@ serve(async (req) => {
 
     // ── Start embedding generation in parallel for discovery mode ──
     // After a question flow, the embedding/intro must follow the original request, not the last option label.
-    const originalQuery = flowSummary
-      ? `${flowSummary.seed} ${flowSummary.species || ""} ${flowSummary.healthNeeds.join(" ")}`.trim()
-      : userMessages[userMessages.length - 1]?.content || "";
+    const originalQuery = lastUserText;
     let embeddingPromise: Promise<number[] | null> | null = null;
     if (effectiveMode === "discovery" || effectiveMode === "agentic") {
       embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));
@@ -3615,7 +3083,6 @@ serve(async (req) => {
                   ...(cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") })),
                 ].filter((i) => i.name))
               : [],
-            unfit: (o) => (lockedBreedSize && lockedSpecies !== "گربه" ? breedSizeMismatch(o.name, lockedBreedSize) : false),
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
           const nameById = new Map<string, string>([
@@ -3678,8 +3145,6 @@ serve(async (req) => {
         speciesLock,
         lockedSpecies,
         isBundleTurn,
-        bundleNeeds,
-        flowSummary ? `${flowSummary.seed} ${lastUserText}` : lastUserText,
       );
       if (roundResult.unavailableBrand) unavailableBrand = roundResult.unavailableBrand;
       if (roundResult.relaxed?.length) relaxedFilters = [...new Set([...relaxedFilters, ...roundResult.relaxed])];
@@ -3713,7 +3178,7 @@ serve(async (req) => {
       !isInfoQuestion
     ) {
       console.log("Discovery guard: turn ended with no text and no tools, running deterministic search...");
-      const guardQuery = buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily);
+      const guardQuery = buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage);
       const guardSearch = await executeSearch(supabase, guardQuery, precomputedEmbedding, speciesLock);
       if (guardSearch.products?.length > 0) {
         allProducts = mergeProducts(allProducts, guardSearch.products);
@@ -3805,23 +3270,6 @@ serve(async (req) => {
       const missingIds = explicitIds.filter((id) => !seen.has(id));
       if (missingIds.length > 0) for (const p of await hydrateProducts(supabase, missingIds)) pushCard(p);
       const numberedLines = visible.split("\n").filter((l) => NUMBERED_HEAD_RE.test(l));
-      // Last resort only: near-exact name match, same species.
-      if (cards.length < numberedLines.length) {
-        for (const line of numberedLines) {
-          if (cards.length >= numberedLines.length) break;
-          const m = strictMatchProduct(line, allProducts, seen, lockedSpecies);
-          if (m) pushCard(m);
-        }
-      }
-      // Products re-introduced from earlier turns are not in this turn's results: fetch them by name.
-      if (cards.length < numberedLines.length) {
-        for (const line of numberedLines) {
-          if (cards.length >= numberedLines.length) break;
-          const m = await lookupByNameLine(supabase, line, seen, lockedSpecies);
-          if (m) pushCard(m);
-        }
-      }
-
       if (lockedSpecies) cards = cards.filter((p: any) => rowMatchesSpecies(p, lockedSpecies));
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);
@@ -3899,68 +3347,6 @@ serve(async (req) => {
         }
         visible = visible.split("ask_clarification")[0].trim();
       }
-      // Denial the catalog contradicts: the search returned real matches → compose from them.
-      if (
-        cards.length === 0 &&
-        numberedCount === 0 &&
-        searchExecuted &&
-        allProducts.length > 0 &&
-        !isInfoQuestion &&
-        !isBusinessQuestion &&
-        /(نداریم|ندارم|موجود نیست|پیدا نکردم|در موجودی نداریم)/.test(visible)
-      ) {
-        const pool = lockedSpecies === "گربه" || lockedSpecies === "سگ" ? filterBySpecies(allProducts, lockedSpecies) : allProducts;
-        if (pool.length > 0) {
-          cards = pool.slice(0, maxShown);
-          // When filters really were relaxed, the model's "we don't have exactly that" is
-          // honest — keep its first short line as the intro instead of discarding it.
-          const honest = relaxedFilters.length > 0
-            ? (visible.split("\n").map((l) => l.trim()).filter(Boolean)[0] || relaxationIntro(relaxedFilters))
-            : "";
-          visible = composeProductAnswer(cards, originalQuery, honest);
-          forced.push("denial_override");
-        }
-      }
-      // "We don't have other brands / nothing for this need" with nothing to show:
-      // verify against the catalog under the SAME conditions before shipping a denial.
-      if (
-        cards.length === 0 &&
-        numberedCount === 0 &&
-        !isBusinessQuestion &&
-        // recall / "tell me more" turns are about products already on the table:
-        // a fresh catalog search there would answer a question nobody asked.
-        !(toolTrace.some((t) => t.startsWith("recall_products")) &&
-          !toolTrace.some((t) => t.startsWith("search_products"))) &&
-        /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|محدود می‌شود|محدود میشه)/.test(visible)
-      ) {
-
-        const verify = await executeSearch(
-          supabase,
-          {
-            query_text: buildDiscoveryGuardQuery(lastUserText, lockedSpecies, lockedStage, facetFamily).query_text,
-            subcategory_family: facetFamily || undefined,
-            species: lockedSpecies || undefined,
-            filters: {
-              ...(lockedStage ? { life_stage: lockedStage } : {}),
-              ...(extractedIntent?.filters?.needs ? { needs: extractedIntent.filters.needs } : {}),
-            },
-            limit: 24,
-          },
-          precomputedEmbedding,
-          speciesLock,
-        );
-        const verified = (verify.products || []).filter(
-          (p: any) => !allProducts.some((a: any) => a.id === p.id),
-        );
-        if (verified.length > 0) {
-          cards = verified.slice(0, maxShown);
-          allProducts = mergeProducts(allProducts, verified);
-          visible = composeProductAnswer(cards, originalQuery);
-          searchExecuted = true;
-          forced.push("availability_verified");
-          console.log(`Availability check contradicted the denial: ${verified.length} products`);
-        }
-      }
       if (cards.length === 0) {
         // Only the model's own question (parsed from its text) becomes a card; no canned questionnaire.
         const parsed = extractQuestionCard(visible);
@@ -3971,17 +3357,6 @@ serve(async (req) => {
       }
 
       let content = visible;
-      // Brand question answered with a denial the catalog contradicts → grounded brand list.
-      if (isInfoQuestion && cards.length === 0) {
-        const denies = /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|در دسترس نیست)/.test(content);
-        if (denies) {
-          const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
-          if (grounded) {
-            content = grounded;
-            forced.push("brand_list_override");
-          }
-        }
-      }
       if (unavailableBrand && !content.includes(unavailableBrand)) {
         content = `برند ${unavailableBrand} رو فعلاً موجود ندارم؛ نزدیک‌ترین گزینه‌های موجود اینا هستن:\n\n${content}`;
       }
@@ -4013,14 +3388,9 @@ serve(async (req) => {
     let answerSource = "reranker_fallback";
     // A turn that only looked up details/FAQ/memory (no catalog search) is an explanation turn,
     // not a recommendation turn → compose prose, never a fresh product list.
-    // "درباره این ... بیشتر توضیح بده" about something already on the table is an explanation turn
-    // even if a search happened to run: the shopper asked about one product, not for a new list.
-    const asksAboutShownItem =
-      /(بیشتر\s*(بهم\s*)?(توضیح|بگو)|توضیح\s*(بیشتر|بده|میدی|می‌دی)|جزئیات|مشخصات|فرق(ش|شون)?|چطوره|خوبه؟?)/.test(lastUserText) &&
-      /(این|همین|همون|اولی|دومی|سومی|محصول\s*(اول|دوم|سوم))/.test(lastUserText);
+    const EXPLAIN_TOOLS = ["get_product_details", "business_faq_lookup", "recall_products", "brand_or_general_lookup"];
     const explanationOnly =
-      asksAboutShownItem ||
-      (!searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => /get_product_details|business_faq_lookup|recall_products|brand_or_general_lookup/.test(t)));
+      !searchExecuted && !isBundleTurn && toolTrace.length > 0 && toolTrace.every((t) => EXPLAIN_TOOLS.some((n) => t.startsWith(n)));
 
     const candidatesForRerank = explanationOnly
       ? []
@@ -4164,14 +3534,6 @@ serve(async (req) => {
     for (const id of sig.selectedIds) pushF(idPool.get(id));
     const missingF = sig.selectedIds.filter((id: string) => !seenF.has(id));
     if (missingF.length > 0) for (const p of await hydrateProducts(supabase, missingF)) pushF(p);
-    if (selectedProducts.length < numberedLinesF.length) {
-      const pool = candidatesForRerank.length > 0 ? candidatesForRerank : allProducts;
-      for (const line of numberedLinesF) {
-        if (selectedProducts.length >= numberedLinesF.length) break;
-        const m = strictMatchProduct(line, pool, seenF, lockedSpecies);
-        if (m) pushF(m);
-      }
-    }
     console.log(`Fallback binding: ${selectedProducts.length} cards for ${numberedCount} numbered items`);
 
     if (selectedProducts.length === 0) {
@@ -4225,31 +3587,10 @@ serve(async (req) => {
       finalContent = alignAnswerText(finalContent, selectedProducts);
 
     } else if (!finalContent) {
-      // A brand/assortment question always has a real answer in the catalog.
-      const grounded = isInfoQuestion ? await brandListAnswer(supabase, originalQuery, lockedSpecies) : null;
       finalContent =
-        grounded ||
         (isInfoQuestion
           ? "برای این سؤال اطلاعات دقیقی پیدا نکردم؛ می‌تونی دوباره با جزئیات بیشتر بپرسی؟"
           : "نتیجه مناسبی پیدا نکردم؛ می‌تونی نیازت رو کمی دقیق‌تر بگی؟");
-      if (grounded) selectedProducts = [];
-    }
-
-    // A brand question is answered with brand names from the catalog — never with
-    // "we don't have that", and never with a denial the catalog contradicts.
-    if (isInfoQuestion) {
-      const brandVocabFinal = await loadBrands(supabase);
-      const namesAnyBrand = brandVocabFinal.canonical.some(
-        (b) => b.length >= 3 && finalContent.toLowerCase().includes(b.toLowerCase()),
-      );
-      const denies = /(نداریم|ندارم|موجود نیست|وجود ندار|پیدا نکردم|در دسترس نیست|نیست)/.test(finalContent);
-      if (!namesAnyBrand || denies) {
-        const grounded = await brandListAnswer(supabase, originalQuery, lockedSpecies);
-        if (grounded) {
-          finalContent = grounded;
-          selectedProducts = [];
-        }
-      }
     }
 
     // Honest fallback: never silently swap a brand the shopper asked for.

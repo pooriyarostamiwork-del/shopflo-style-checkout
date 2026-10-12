@@ -2763,7 +2763,7 @@ serve(async (req) => {
     if (aboutShown || delegatesPick) {
       const shownList = latestShown.length ? `\nمحصولات روی صفحه: ${latestShown.join(" | ")}` : "";
       systemPrompt += `\n\nSHOWN_PRODUCTS_CONTEXT: این پیام به‌احتمال زیاد درباره‌ی محصولاتیه که الان روی صفحه‌ان.${shownList}
-- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedName ? `، نژاد ${lockedBreedName}` : ""}${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
+- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
 - فقط اگه انتخاب بین این‌ها واقعاً به یک فکت ناشناخته بستگی داره، همون فکت رو با ask_clarification بپرس؛ سؤال عمومی که ربطی به این محصولات نداره نپرس.
 - محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
     }
@@ -2864,9 +2864,7 @@ serve(async (req) => {
 
     // ── Start embedding generation in parallel for discovery mode ──
     // After a question flow, the embedding/intro must follow the original request, not the last option label.
-    const originalQuery = flowSummary
-      ? `${flowSummary.seed} ${flowSummary.species || ""} ${flowSummary.healthNeeds.join(" ")}`.trim()
-      : userMessages[userMessages.length - 1]?.content || "";
+    const originalQuery = lastUserText;
     let embeddingPromise: Promise<number[] | null> | null = null;
     if (effectiveMode === "discovery" || effectiveMode === "agentic") {
       embeddingPromise = generateQueryEmbedding(normalizePersian(originalQuery));

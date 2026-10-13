@@ -1972,6 +1972,33 @@ function sanitizeVisibleText(raw: string): string {
 }
 
 /** Fetches full product rows for ids, preserving the given order. */
+async function bindIdsByModel(text: string, pool: any[], apiKey: string | undefined): Promise<string[]> {
+  if (!apiKey || !text.trim() || pool.length === 0) return [];
+  const list = pool.slice(0, 30).map((p: any) => `[${p.id}] ${p.name_fa || p.name}`).join("\n");
+  try {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-lite",
+        messages: [
+          { role: "system", content: "Given an answer text and a candidate product list, return the ids of the products the answer introduces, in the answer's order. Only ids from the list." },
+          { role: "user", content: `ANSWER:\n${text}\n\nCANDIDATES:\n${list}` },
+        ],
+        tools: [{ type: "function", function: { name: "bind", parameters: { type: "object", properties: { ids: { type: "array", items: { type: "string" } } }, required: ["ids"] } } }],
+        tool_choice: { type: "function", function: { name: "bind" } },
+      }),
+    });
+    if (!r.ok) return [];
+    const j = await r.json();
+    const ids = JSON.parse(j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments || "{}").ids;
+    const valid = new Set(pool.map((p: any) => p.id));
+    return Array.isArray(ids) ? ids.filter((id: string) => valid.has(id)) : [];
+  } catch {
+    return [];
+  }
+}
+
 async function hydrateProducts(supabase: any, ids: string[]): Promise<any[]> {
   const unique = Array.from(new Set(ids.filter(Boolean))).slice(0, 12);
   if (unique.length === 0) return [];
@@ -3270,6 +3297,9 @@ serve(async (req) => {
       const missingIds = explicitIds.filter((id) => !seen.has(id));
       if (missingIds.length > 0) for (const p of await hydrateProducts(supabase, missingIds)) pushCard(p);
       const numberedLines = visible.split("\n").filter((l) => NUMBERED_HEAD_RE.test(l));
+      if (cards.length < numberedCount) {
+        for (const id of await bindIdsByModel(visible, allProducts, LOVABLE_API_KEY)) pushCard(idToProduct.get(id));
+      }
       if (lockedSpecies) cards = cards.filter((p: any) => rowMatchesSpecies(p, lockedSpecies));
       const cap = Math.min(Math.max(maxShown, numberedCount), 12);
       if (cards.length > cap) cards = cards.slice(0, cap);
@@ -3534,6 +3564,10 @@ serve(async (req) => {
     for (const id of sig.selectedIds) pushF(idPool.get(id));
     const missingF = sig.selectedIds.filter((id: string) => !seenF.has(id));
     if (missingF.length > 0) for (const p of await hydrateProducts(supabase, missingF)) pushF(p);
+    if (selectedProducts.length < numberedCount) {
+      const pool = candidatesForRerank.length > 0 ? candidatesForRerank : allProducts;
+      for (const id of await bindIdsByModel(finalContent, pool, LOVABLE_API_KEY)) pushF(idPool.get(id));
+    }
     console.log(`Fallback binding: ${selectedProducts.length} cards for ${numberedCount} numbered items`);
 
     if (selectedProducts.length === 0) {

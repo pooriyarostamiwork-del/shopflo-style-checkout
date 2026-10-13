@@ -22,4 +22,3 @@
 - Old Shift storefront removed; `/shift` redirects to dashboards; Shift tables kept until deletion is approved.
 - PetAbad cart turns also carry Jev slots `cart_query`, `also_search`, `selector` (cheapest/priciest/each) and `weight_is_size`; qualitative picks are computed from real prices and every add/replace is checked against live stock before it runs, so the model never picks by price or adds unavailable items.
 - Vendor layer (`vendors`, `shipping_methods`, `discounts`, `vendor_inventory`) is additive and unread by agents yet, so live PetAbad is unchanged until switch-over.
-- PetAbad search facts (breed size, need shelves, product types, life stage) come only from the model's tool parameters, Jev slots or stored pet memory, and product cards bind only by ids (SELECTED_IDS or an LLM id-binding call); no word lists, default shelves or denial rewrites, so the model's reasoning is never overridden by text matching.

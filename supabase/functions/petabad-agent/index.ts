@@ -2556,7 +2556,7 @@ serve(async (req) => {
       systemPrompt += `\n\nPOLICY_ABOUT_A_PRODUCT: اگر کاربر سیاستی را دربارهٔ «محصول اول/دوم/شماره X» یا محصولی که قبلاً نشان دادی پرسیده، اول با نام همان محصول جواب صریح بده (بله/خیر + توضیح کوتاه)، بعد شرط‌ها را بگو. جمله‌ی بی‌فاعل مثل «توجه داشته باشید...» ننویس.`;
     }
 
-    let knownSpecies = detectSpecies(lastUserText);
+    let knownSpecies: string | null = null;
 
     // Store-policy questions are grounded in the official FAQ knowledge base only.
     if ((MODE_TOOLS[effectiveMode] || []).includes(FAQ_TOOL)) {
@@ -2566,64 +2566,33 @@ serve(async (req) => {
       }
     }
 
-    // ── Species lock, re-resolved on every turn ──
-    // The animal named LAST wins: last mention inside the newest message first,
-    // then walking back. Switching animals mid-conversation is normal shopping.
+    // ── Species / stage / size lock ──
+    // Sources: Jev slots for the newest message, then the stored pet memory.
+    // Earlier turns are never re-parsed with word lists.
     const userTurns = (userMessages || [])
       .filter((m: any) => m.role === "user")
       .map((m: any) => String(m.content || ""));
-    let lockedSpecies: string | null = null;
-    let lockedStage: string | null = null;
-    let lockedFromTurn = 0;
-    // The newest message is read by Jev (typed slots); earlier turns keep the stored lexicon
-    // only as a history fallback, so a new phrasing in THIS turn is never missed.
+    const mem: any = pet_memory && typeof pet_memory === "object" ? pet_memory : null;
     const slots = turnIntent.slots;
-    const lastIdx = userTurns.length - 1;
-    if (slots.species) {
-      lockedSpecies = slots.species;
-      lockedFromTurn = Math.max(0, lastIdx);
-    } else {
-      for (let i = lastIdx; i >= 0; i--) {
-        const found = lastNamedSpecies(userTurns[i]);
-        if (found) {
-          lockedSpecies = found;
-          lockedFromTurn = i;
-          break;
-        }
-      }
-    }
-    // Life stage counts only from the turn that named the current animal onwards,
-    // so an earlier kitten mention cannot stick to a dog the shopper switched to.
-    if (slots.lifeStage) lockedStage = slots.lifeStage;
-    else for (let i = lastIdx; i >= lockedFromTurn; i--) {
-      const stage = detectLifeStage(userTurns[i]);
-      if (stage) {
-        lockedStage = stage;
-        break;
-      }
-    }
-    // Breed / size: the newest mention since the current animal was named sticks for the whole chat
-    // («سگم شیتزوئه» → small breed for every later dog search).
+    const lockedSpecies: string | null = slots.species || (mem?.species ? String(mem.species) : null);
+    const speciesChanged = !!slots.species && !!mem?.species && String(mem.species) !== slots.species;
+    const lockedStage: string | null =
+      slots.lifeStage || (!speciesChanged && mem?.life_stage ? String(mem.life_stage) : null);
     let lockedBreedSize: string | null = slots.breedSize && lockedSpecies === "سگ" ? slots.breedSize : null;
     // Reference to one shown product («دومی»، «همین آخری») — resolved by Jev, named for the model.
     if (slots.ordinal && products_context?.[slots.ordinal - 1]) {
       const p: any = products_context[slots.ordinal - 1];
       systemPrompt += `\n\nREFERENCE: کاربر به محصول شماره ${slots.ordinal} از آخرین لیست اشاره کرده؛ منظورش دقیقاً «${p.name_fa || p.name}» (id: ${p.id}) است. دربارهٔ همین محصول جواب بده و لیست جدید نساز.`;
     }
-    if (!lockedBreedSize && lockedSpecies === "سگ" && pet_memory && typeof pet_memory === "object") {
-      const memSize = (pet_memory as any).breed_size;
-      if (memSize) lockedBreedSize = String(memSize);
+    if (!lockedBreedSize && lockedSpecies === "سگ" && !speciesChanged && mem?.breed_size) {
+      lockedBreedSize = String(mem.breed_size);
     }
-    // ── "other brands" turn: brands already shown are subtracted from the search ──
+    // ── "other brands" turn (judged by Jev): brands already shown are subtracted ──
     const assistantTurns = (userMessages || [])
       .filter((m: any) => m.role === "assistant")
       .map((m: any) => String(m.content || ""));
-    const wantsOtherBrands =
-      /(برند(های)? دیگ(ه|ر)|از برند دیگ(ه|ر)|بجز (این|اینا|اینها|همین)|به جز (این|اینا|اینها)|غیر از (این|اینا|اینها)|برند(های)? جدید)/.test(
-        normLastUser,
-      );
     let shownBrands: string[] = [];
-    if (wantsOtherBrands) {
+    if (turnIntent.otherBrands) {
       const vocab = await loadBrands(supabase);
       const haystack = normalizePersian(assistantTurns.join(" \n ")).toLowerCase();
       for (const b of vocab.canonical) {
@@ -2652,27 +2621,13 @@ serve(async (req) => {
     const rememberedPrefs: ScopedPref[] = Array.isArray(pc?.remembered) ? pc!.remembered : [];
     const askedCarryOver: string[] = Array.isArray(pc?.asked_carry_over) ? pc!.asked_carry_over : [];
 
-    // Foreign / Iranian scope: the newest statement inside the CURRENT purchase wins.
-    // Without a purchase context (older clients) the scan stops at a purchase
-    // boundary («حالا یه … هم می‌خوام») so an old scope cannot leak into a new shelf.
+    // Foreign / Iranian scope: Jev's slot for the newest message wins, then the
+    // active preference of the current purchase. No word scan over history.
     let stickyForeign: boolean | null = null;
-    if (pc) {
+    if (slots.originScope) stickyForeign = slots.originScope === "خارجی";
+    else {
       const origin = activePrefs.find((p) => p.dim === "origin");
       if (origin) stickyForeign = origin.value !== "ایرانی";
-    } else {
-      const BOUNDARY_RE = /(حالا|یه\s+\S+\s+هم|هم\s+می\s*خوام|بعدش)/;
-      for (let i = userTurns.length - 1; i >= 0; i--) {
-        const t = normalizePersian(userTurns[i]);
-        if (/(خارجی|وارداتی|غیر ایرانی|اورجینال)/.test(t)) {
-          stickyForeign = true;
-          break;
-        }
-        if (/(ایرانی|داخلی|تولید ایران)/.test(t)) {
-          stickyForeign = false;
-          break;
-        }
-        if (i < userTurns.length - 1 && BOUNDARY_RE.test(t)) break;
-      }
     }
 
     // ── Carry-over decision, checked against real stock ──
@@ -2998,7 +2953,6 @@ serve(async (req) => {
             (Array.isArray(arr) ? arr : [])
               .map((o: any) => (typeof o === "string" ? { label: o } : { label: o?.label, hint: o?.hint }))
               .filter((o: any) => typeof o.label === "string" && o.label.trim());
-          const SPECIES_QUESTION_RE = /(چه|کدوم|نوع)\s*(حیوان|پت)|حیوان\s*خونگی|حیوان\s*خانگی/;
           const steps = (Array.isArray(payload.steps) ? payload.steps : [])
             .map((s: any) => ({
               title: s?.title || "",
@@ -3006,8 +2960,7 @@ serve(async (req) => {
               multi: s?.multi === true,
               options: normOptions(s?.options),
             }))
-            .filter((s: any) => s.question && s.options.length > 0)
-            .filter((s: any) => !(knownSpecies && SPECIES_QUESTION_RE.test(normalizePersian(s.question))));
+            .filter((s: any) => s.question && s.options.length > 0);
           const options = normOptions(payload.options);
           if (steps.length > 0 || options.length > 0) {
             const facets = await getFacets();
@@ -3217,11 +3170,8 @@ serve(async (req) => {
     }
 
     const requestedLimit = Number(extractedIntent?.limit) || 0;
-    // "همه محصولات ... رو بده" is a broad request: it deserves broad coverage.
-    const wantsEverything = /(همه(‌| )?ی? ?محصولات|همه ?ش?و? ?بده|همه ?ی? ?گزینه|کاملشو|لیست کامل|تمام محصولات)/.test(
-      normLastUser,
-    );
-    const comprehensive = requestedLimit >= 12 || wantsEverything;
+    // A broad «show me everything» request (judged by Jev) deserves broad coverage.
+    const comprehensive = requestedLimit >= 12 || turnIntent.wantsAll;
     const maxShown = isBundleTurn || comprehensive ? 12 : 6;
 
     // ── Authoritative path: the model wrote an answer in the tool loop → ship THAT answer ──

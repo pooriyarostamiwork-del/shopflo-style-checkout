@@ -426,10 +426,10 @@ type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping
 // One batched Jev call decides how this turn is routed AND which pet facts / product
 // reference the message states. No word lists: when Jev cannot judge, every flag stays
 // false, every slot stays null and the agent answers the turn normally.
-type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
+type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; originScope: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
 type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean };
-const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean; otherBrands: boolean; wantsAll: boolean };
+const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, originScope: null, ordinal: null, skip: false, newRequest: false };
 const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false };
 async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
@@ -1219,9 +1219,8 @@ async function executeSearch(
   rpcParams.p_brand_cap = 4;
   // A single exact shelf is a hard filter only when the user named a brand shelf;
   // otherwise search the whole shelf family so brand-split shelves stay visible.
-  const family =
-    subcategory_family ||
-    (subcategory && !/(جوسرا|رویال کنین|رفلکس|فیدار|سلبن|نیناپت)/.test(subcategory) ? subcategory : null);
+  // A shelf name is always a prefix: a brand shelf still matches itself exactly.
+  const family = subcategory_family || subcategory || null;
   if (family) rpcParams.p_subcategory_prefix = family;
   else if (subcategory) rpcParams.p_subcategory = subcategory;
   // The species lock always wins over whatever the model asked for.
@@ -1497,11 +1496,8 @@ async function executeFacets(supabase: any, args: any, lockedSpecies?: string | 
     if (!lockedSpecies) return data;
     return { ...data, species: undefined };
   }
-  const own = speciesRe(lockedSpecies || null);
-  const shelfAllowed = (value: string) =>
-    !lockedSpecies ||
-    own!.test(normalizePersian(value)) ||
-    !SPECIES_TOKENS.some(([name, re]) => name !== lockedSpecies && re.test(normalizePersian(value)));
+  // Facets are already species-scoped in SQL; shelf names are not re-parsed here.
+  const shelfAllowed = (_value: string) => true;
   return {
     brands: (data?.brands || []).map((b: any) => b?.brand).filter(Boolean),
     countries: (data?.countries || []).map((c: any) => c?.value).filter(Boolean),

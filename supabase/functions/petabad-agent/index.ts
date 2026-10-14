@@ -2070,117 +2070,39 @@ function isQuestionHeavy(text: string): boolean {
   return marks >= 2;
 }
 
-// Breed names imply the animal: «شیتزوم» must lock the dog just like «سگم».
-const DOG_BREED_SRC =
-  "پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\\s*راسل|هاسکی|ژرمن|شپرد|گلدن|رتریور|لابرادور|روتوایلر|دوبرمن|بولداگ|باکسر|بیگل|کورگی|سامویید|آکیتا|شیبا";
-const CAT_BREED_SRC =
-  "پرشین|پرشیا|اسکاتیش|بنگال|رگدال|رگ\\s*دال|سیامی|هیمالین|شیرازی|آنگورا|مین\\s*کون|اگزوتیک|ابیسینین|برمه";
+// ── Species lock (catalog dictionary only) ──────────────────────────────
+// The locked animal comes from Jev / pet memory. A row is checked ONLY against
+// its structured `species` catalog field, using the catalog's own vocabulary.
+// Product names and the user's text are never pattern-matched.
+const SPECIES_CATALOG_VALUES: Record<string, string[]> = {
+  "سگ": ["سگ"],
+  "گربه": ["گربه"],
+  "پرنده": ["پرنده", "پرندگان", "طوطی", "مرغ مینا", "عروس هلندی", "قناری", "مرغ عشق", "فنچ"],
+  "ماهی و آکواریوم": ["ماهی", "آبزیان", "آکواریوم"],
+  "سایر حیوانات خانگی": ["جوندگان", "خرگوش", "همستر", "خوکچه هندی", "سنجاب", "لاک پشت", "خزندگان", "فرت"],
+};
+const GENERIC_SPECIES_VALUES = new Set(["", "حیوانات", "همه حیوانات"]);
 
-/** Species the user already named — that guidance step is then skipped. */
-const SPECIES_HINTS: Array<[RegExp, string]> = [
-  [new RegExp(`گربه|بچه\\s*گربه|پیشی|cat|${CAT_BREED_SRC}`, "i"), "گربه"],
-  [new RegExp(`سگ|توله\\s*سگ|dog|پاپی|${DOG_BREED_SRC}`, "i"), "سگ"],
-  [/پرنده|مرغ\s*عشق|طوطی|قناری|کاسکو/, "پرنده"],
-  [/ماهی|آکواریوم|اکواریوم/, "ماهی و آکواریوم"],
-  [/خرگوش|همستر|جوندگان|لاک\s*پشت|خوکچه/, "سایر حیوانات خانگی"],
-];
-
-function detectSpecies(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  for (const [re, label] of SPECIES_HINTS) if (re.test(norm)) return label;
-  return null;
-}
-
-// ── Species lock ────────────────────────────────────────────────────────
-// Once the shopper names their animal, NOTHING from another animal may enter
-// the experience: not a card, not a sentence, not an explanation.
-
-const SPECIES_TOKENS: Array<[string, RegExp]> = [
-  ["گربه", new RegExp(`گربه|گربم|گربه\\s*م|پیشی|پیشیم|بچه\\s*گربه|cat|${CAT_BREED_SRC}`, "i")],
-  ["سگ", new RegExp(`سگ|سگم|توله|پاپی|dog|${DOG_BREED_SRC}`, "i")],
-
-
-  ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
-  ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],
-  // NOTE: "موش" is deliberately excluded — «پوست و موش» (its skin and coat) would
-  // otherwise be read as a rodent and hijack the species lock.
-  ["سایر حیوانات خانگی", /جونده|جوندگان|خرگوش|همستر|خوکچه|خزنده|لاک\s*پشت|سنجاب|فرت/],
-];
-
-function speciesRe(label: string | null): RegExp | null {
-  if (!label) return null;
-  for (const [name, re] of SPECIES_TOKENS) if (name === label) return re;
-  return null;
-}
-
-/** The animal named LAST in this text — a message can mention two. */
-function lastNamedSpecies(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  let best: string | null = null;
-  let bestAt = -1;
-  for (const [name, re] of SPECIES_TOKENS) {
-    const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
-    let m: RegExpExecArray | null;
-    while ((m = g.exec(norm)) !== null) {
-      if (m.index >= bestAt) {
-        bestAt = m.index;
-        best = name;
-      }
-      if (m.index === g.lastIndex) g.lastIndex++;
-    }
-  }
-  return best;
+function catalogSpeciesParts(value: unknown): string[] {
+  return normalizePersian(String(value || ""))
+    .split("،").flatMap((s) => s.split(",")).flatMap((s) => s.split(" و "))
+    .map((s) => s.trim()).filter(Boolean);
 }
 
 /** Is this catalog row acceptable for the locked species? */
 function rowMatchesSpecies(row: any, locked: string): boolean {
-  const own = speciesRe(locked);
-  if (!own) return true;
-  const name = normalizePersian(String(row?.name_fa || row?.name || ""));
-  // The product NAME wins over the stored species field: a handful of rows are
-  // mislabelled, and "غذای خشک سگ ..." must never be shown as a cat product.
-  if (locked === "گربه" || locked === "سگ") {
-    const other = locked === "گربه" ? "سگ" : "گربه";
-    const otherRe = speciesRe(other);
-    const nameSaysOwn = own.test(name);
-    const nameSaysOther = !!otherRe && otherRe.test(name);
-    if (nameSaysOther && !nameSaysOwn) return false;
-    if (nameSaysOwn) return true;
-  }
-  const speciesText = normalizePersian(String(row?.species || ""));
-  const shelf = normalizePersian(`${row?.subcategory || ""} ${row?.category || ""}`);
-  const haystack = `${speciesText} ${shelf}`;
-  if (own.test(haystack)) return true;
-  // No species signal at all → allow only when no OTHER animal is named either.
-  const foreign = SPECIES_TOKENS.some(([name2, re]) => name2 !== locked && re.test(haystack));
-  return !foreign;
+  const allowed = (SPECIES_CATALOG_VALUES[locked] || [locked]).map((v) => normalizePersian(v));
+  const raw = normalizePersian(String(row?.species || "")).trim();
+  if (GENERIC_SPECIES_VALUES.has(raw)) return true;
+  const parts = catalogSpeciesParts(raw);
+  return parts.some((p) => allowed.some((a) => p === a || p.endsWith(` ${a}`) || p.startsWith(`${a} `)));
 }
-
 
 function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
   if (!locked) return rows;
   return (rows || []).filter((r) => rowMatchesSpecies(r, locked));
 }
 
-/** Life stage the shopper stated — kitten/puppy talk must never drift to adult copy. */
-const AGE_WORDS: Record<string, number> = {
-  یک: 1, دو: 2, سه: 3, چهار: 4, پنج: 5, شش: 6, هفت: 7, هشت: 8, نه: 9, ده: 10, یازده: 11, دوازده: 12,
-};
-function detectLifeStage(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  if (/بچه\s*گربه|توله|بچه\s*سگ|پاپی|نابالغ|kitten|puppy/i.test(norm)) return "نابالغ";
-  if (/پیر|مسن|سالمند|سنیور|senior/i.test(norm)) return "سنیور";
-  // «۸ سالشه» / «هفت ساله» → an age in years decides the stage.
-  const m = norm
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .match(/(\d{1,2}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده)\s*(?:سال(?:ش|شه|ه|ست|شونه)?|ساله)/);
-  if (m) {
-    const y = /\d/.test(m[1]) ? parseInt(m[1]) : AGE_WORDS[m[1]];
-    if (Number.isFinite(y)) return y < 1 ? "نابالغ" : y >= 7 ? "سنیور" : "بالغ";
-  }
-  if (/چند\s*ماهه|ماهشه/.test(norm)) return "نابالغ";
-  return null;
-}
 
 /** Soft stage ordering: matching stage first, contradictory stage dropped. */
 // Tier-1 life-stage protection: when the shopper named a stage, products explicitly

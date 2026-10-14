@@ -426,11 +426,11 @@ type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping
 // One batched Jev call decides how this turn is routed AND which pet facts / product
 // reference the message states. No word lists: when Jev cannot judge, every flag stays
 // false, every slot stays null and the agent answers the turn normally.
-type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
+type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; originScope: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
 type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean };
-const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, ordinal: null, skip: false, newRequest: false };
-const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false };
+type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean; otherBrands: boolean; wantsAll: boolean };
+const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, originScope: null, ordinal: null, skip: false, newRequest: false };
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false, otherBrands: false, wantsAll: false };
 async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
@@ -488,6 +488,13 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
   questions.cart_query = q("Does `message` ASK what is currently in the cart, how many items it has, or its total (e.g. «تو سبدم چی دارم؟»، «جمع سبدم چقدر شد؟») without commanding any change?");
   questions.also_search = q("Besides a cart command, does `message` ALSO ask to see / find a different product in the same message (e.g. «اینو اضافه کن، یه شامپو هم نشونم بده»)?");
   questions.weight_is_size = q("Does `message` mention a package weight or volume (کیلو، گرم، لیتر) that describes WHICH product variant, rather than how many units to buy?");
+  questions.other_brands = q("Does `message` ask for brands OTHER than the ones already shown or mentioned by the assistant in `recent_messages` / `shown_products`?");
+  questions.wants_all = q("Does `message` ask to see ALL / the full list of matching products rather than a few suggestions?");
+  questions.origin_scope = {
+    type: "choice",
+    instructions: "Does `message` restrict the product origin? Only what `message` says.",
+    criteria: { none: "No origin restriction.", "خارجی": "Only foreign / imported / non-Iranian products.", "ایرانی": "Only Iranian / domestic products." },
+  };
   questions.selector = {
     type: "choice",
     instructions: "When adding from `shown_products`, does `message` pick by a quality instead of naming a product?",
@@ -535,7 +542,8 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     smallPet,
     lifeStage: pick("life_stage"),
     breedSize: pick("breed_size"),
-    ordinal: ord && /^p\d+$/.test(ord) ? Number(ord.slice(1)) : null,
+    originScope: pick("origin_scope"),
+    ordinal: ord && ord.startsWith("p") && Number.isInteger(Number(ord.slice(1))) ? Number(ord.slice(1)) : null,
     skip: !!pendingQuestion && !cartOp && y("skip"),
     newRequest: !!pendingQuestion && (!!cartOp || y("new_request")),
   };
@@ -549,6 +557,8 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     cartQuery, alsoSearch: !!cartOp && y("also_search"),
     selector: cartOp && shown.length > 0 && (selRaw === "cheapest" || selRaw === "priciest" || selRaw === "each") ? selRaw : null,
     weightIsSize: !!cartOp && y("weight_is_size"),
+    otherBrands: !cartOp && y("other_brands"),
+    wantsAll: !cartOp && y("wants_all"),
   };
 }
 
@@ -1219,9 +1229,8 @@ async function executeSearch(
   rpcParams.p_brand_cap = 4;
   // A single exact shelf is a hard filter only when the user named a brand shelf;
   // otherwise search the whole shelf family so brand-split shelves stay visible.
-  const family =
-    subcategory_family ||
-    (subcategory && !/(جوسرا|رویال کنین|رفلکس|فیدار|سلبن|نیناپت)/.test(subcategory) ? subcategory : null);
+  // A shelf name is always a prefix: a brand shelf still matches itself exactly.
+  const family = subcategory_family || subcategory || null;
   if (family) rpcParams.p_subcategory_prefix = family;
   else if (subcategory) rpcParams.p_subcategory = subcategory;
   // The species lock always wins over whatever the model asked for.
@@ -1497,11 +1506,8 @@ async function executeFacets(supabase: any, args: any, lockedSpecies?: string | 
     if (!lockedSpecies) return data;
     return { ...data, species: undefined };
   }
-  const own = speciesRe(lockedSpecies || null);
-  const shelfAllowed = (value: string) =>
-    !lockedSpecies ||
-    own!.test(normalizePersian(value)) ||
-    !SPECIES_TOKENS.some(([name, re]) => name !== lockedSpecies && re.test(normalizePersian(value)));
+  // Facets are already species-scoped in SQL; shelf names are not re-parsed here.
+  const shelfAllowed = (_value: string) => true;
   return {
     brands: (data?.brands || []).map((b: any) => b?.brand).filter(Boolean),
     countries: (data?.countries || []).map((c: any) => c?.value).filter(Boolean),
@@ -2070,117 +2076,39 @@ function isQuestionHeavy(text: string): boolean {
   return marks >= 2;
 }
 
-// Breed names imply the animal: «شیتزوم» must lock the dog just like «سگم».
-const DOG_BREED_SRC =
-  "پامرانیان|شیتزو|پودل|چیهواهوا|مالتیز|یورک|تریر|پاگ|اسپیتز|پکینز|داشهوند|جک\\s*راسل|هاسکی|ژرمن|شپرد|گلدن|رتریور|لابرادور|روتوایلر|دوبرمن|بولداگ|باکسر|بیگل|کورگی|سامویید|آکیتا|شیبا";
-const CAT_BREED_SRC =
-  "پرشین|پرشیا|اسکاتیش|بنگال|رگدال|رگ\\s*دال|سیامی|هیمالین|شیرازی|آنگورا|مین\\s*کون|اگزوتیک|ابیسینین|برمه";
+// ── Species lock (catalog dictionary only) ──────────────────────────────
+// The locked animal comes from Jev / pet memory. A row is checked ONLY against
+// its structured `species` catalog field, using the catalog's own vocabulary.
+// Product names and the user's text are never pattern-matched.
+const SPECIES_CATALOG_VALUES: Record<string, string[]> = {
+  "سگ": ["سگ"],
+  "گربه": ["گربه"],
+  "پرنده": ["پرنده", "پرندگان", "طوطی", "مرغ مینا", "عروس هلندی", "قناری", "مرغ عشق", "فنچ"],
+  "ماهی و آکواریوم": ["ماهی", "آبزیان", "آکواریوم"],
+  "سایر حیوانات خانگی": ["جوندگان", "خرگوش", "همستر", "خوکچه هندی", "سنجاب", "لاک پشت", "خزندگان", "فرت"],
+};
+const GENERIC_SPECIES_VALUES = new Set(["", "حیوانات", "همه حیوانات"]);
 
-/** Species the user already named — that guidance step is then skipped. */
-const SPECIES_HINTS: Array<[RegExp, string]> = [
-  [new RegExp(`گربه|بچه\\s*گربه|پیشی|cat|${CAT_BREED_SRC}`, "i"), "گربه"],
-  [new RegExp(`سگ|توله\\s*سگ|dog|پاپی|${DOG_BREED_SRC}`, "i"), "سگ"],
-  [/پرنده|مرغ\s*عشق|طوطی|قناری|کاسکو/, "پرنده"],
-  [/ماهی|آکواریوم|اکواریوم/, "ماهی و آکواریوم"],
-  [/خرگوش|همستر|جوندگان|لاک\s*پشت|خوکچه/, "سایر حیوانات خانگی"],
-];
-
-function detectSpecies(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  for (const [re, label] of SPECIES_HINTS) if (re.test(norm)) return label;
-  return null;
-}
-
-// ── Species lock ────────────────────────────────────────────────────────
-// Once the shopper names their animal, NOTHING from another animal may enter
-// the experience: not a card, not a sentence, not an explanation.
-
-const SPECIES_TOKENS: Array<[string, RegExp]> = [
-  ["گربه", new RegExp(`گربه|گربم|گربه\\s*م|پیشی|پیشیم|بچه\\s*گربه|cat|${CAT_BREED_SRC}`, "i")],
-  ["سگ", new RegExp(`سگ|سگم|توله|پاپی|dog|${DOG_BREED_SRC}`, "i")],
-
-
-  ["پرنده", /پرنده|پرندگان|طوطی|قناری|مینا|عروس\s*هلندی|کاسکو|فنچ|کبوتر|مرغ\s*عشق/],
-  ["ماهی و آکواریوم", /ماهی|آبزیان|آکواریوم|اکواریوم/],
-  // NOTE: "موش" is deliberately excluded — «پوست و موش» (its skin and coat) would
-  // otherwise be read as a rodent and hijack the species lock.
-  ["سایر حیوانات خانگی", /جونده|جوندگان|خرگوش|همستر|خوکچه|خزنده|لاک\s*پشت|سنجاب|فرت/],
-];
-
-function speciesRe(label: string | null): RegExp | null {
-  if (!label) return null;
-  for (const [name, re] of SPECIES_TOKENS) if (name === label) return re;
-  return null;
-}
-
-/** The animal named LAST in this text — a message can mention two. */
-function lastNamedSpecies(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  let best: string | null = null;
-  let bestAt = -1;
-  for (const [name, re] of SPECIES_TOKENS) {
-    const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
-    let m: RegExpExecArray | null;
-    while ((m = g.exec(norm)) !== null) {
-      if (m.index >= bestAt) {
-        bestAt = m.index;
-        best = name;
-      }
-      if (m.index === g.lastIndex) g.lastIndex++;
-    }
-  }
-  return best;
+function catalogSpeciesParts(value: unknown): string[] {
+  return normalizePersian(String(value || ""))
+    .split("،").flatMap((s) => s.split(",")).flatMap((s) => s.split(" و "))
+    .map((s) => s.trim()).filter(Boolean);
 }
 
 /** Is this catalog row acceptable for the locked species? */
 function rowMatchesSpecies(row: any, locked: string): boolean {
-  const own = speciesRe(locked);
-  if (!own) return true;
-  const name = normalizePersian(String(row?.name_fa || row?.name || ""));
-  // The product NAME wins over the stored species field: a handful of rows are
-  // mislabelled, and "غذای خشک سگ ..." must never be shown as a cat product.
-  if (locked === "گربه" || locked === "سگ") {
-    const other = locked === "گربه" ? "سگ" : "گربه";
-    const otherRe = speciesRe(other);
-    const nameSaysOwn = own.test(name);
-    const nameSaysOther = !!otherRe && otherRe.test(name);
-    if (nameSaysOther && !nameSaysOwn) return false;
-    if (nameSaysOwn) return true;
-  }
-  const speciesText = normalizePersian(String(row?.species || ""));
-  const shelf = normalizePersian(`${row?.subcategory || ""} ${row?.category || ""}`);
-  const haystack = `${speciesText} ${shelf}`;
-  if (own.test(haystack)) return true;
-  // No species signal at all → allow only when no OTHER animal is named either.
-  const foreign = SPECIES_TOKENS.some(([name2, re]) => name2 !== locked && re.test(haystack));
-  return !foreign;
+  const allowed = (SPECIES_CATALOG_VALUES[locked] || [locked]).map((v) => normalizePersian(v));
+  const raw = normalizePersian(String(row?.species || "")).trim();
+  if (GENERIC_SPECIES_VALUES.has(raw)) return true;
+  const parts = catalogSpeciesParts(raw);
+  return parts.some((p) => allowed.some((a) => p === a || p.endsWith(` ${a}`) || p.startsWith(`${a} `)));
 }
-
 
 function filterBySpecies<T extends any>(rows: T[], locked: string | null): T[] {
   if (!locked) return rows;
   return (rows || []).filter((r) => rowMatchesSpecies(r, locked));
 }
 
-/** Life stage the shopper stated — kitten/puppy talk must never drift to adult copy. */
-const AGE_WORDS: Record<string, number> = {
-  یک: 1, دو: 2, سه: 3, چهار: 4, پنج: 5, شش: 6, هفت: 7, هشت: 8, نه: 9, ده: 10, یازده: 11, دوازده: 12,
-};
-function detectLifeStage(text: string): string | null {
-  const norm = normalizePersian(text || "");
-  if (/بچه\s*گربه|توله|بچه\s*سگ|پاپی|نابالغ|kitten|puppy/i.test(norm)) return "نابالغ";
-  if (/پیر|مسن|سالمند|سنیور|senior/i.test(norm)) return "سنیور";
-  // «۸ سالشه» / «هفت ساله» → an age in years decides the stage.
-  const m = norm
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .match(/(\d{1,2}|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده)\s*(?:سال(?:ش|شه|ه|ست|شونه)?|ساله)/);
-  if (m) {
-    const y = /\d/.test(m[1]) ? parseInt(m[1]) : AGE_WORDS[m[1]];
-    if (Number.isFinite(y)) return y < 1 ? "نابالغ" : y >= 7 ? "سنیور" : "بالغ";
-  }
-  if (/چند\s*ماهه|ماهشه/.test(norm)) return "نابالغ";
-  return null;
-}
 
 /** Soft stage ordering: matching stage first, contradictory stage dropped. */
 // Tier-1 life-stage protection: when the shopper named a stage, products explicitly

@@ -430,7 +430,7 @@ type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: s
 type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
 type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean; otherBrands: boolean; wantsAll: boolean };
 const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, originScope: null, ordinal: null, skip: false, newRequest: false };
-const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false };
+const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false, otherBrands: false, wantsAll: false };
 async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
   if (!message.trim()) return NO_TURN;
   const q = (instructions: string) => ({ type: "noul", instructions });
@@ -488,6 +488,13 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
   questions.cart_query = q("Does `message` ASK what is currently in the cart, how many items it has, or its total (e.g. «تو سبدم چی دارم؟»، «جمع سبدم چقدر شد؟») without commanding any change?");
   questions.also_search = q("Besides a cart command, does `message` ALSO ask to see / find a different product in the same message (e.g. «اینو اضافه کن، یه شامپو هم نشونم بده»)?");
   questions.weight_is_size = q("Does `message` mention a package weight or volume (کیلو، گرم، لیتر) that describes WHICH product variant, rather than how many units to buy?");
+  questions.other_brands = q("Does `message` ask for brands OTHER than the ones already shown or mentioned by the assistant in `recent_messages` / `shown_products`?");
+  questions.wants_all = q("Does `message` ask to see ALL / the full list of matching products rather than a few suggestions?");
+  questions.origin_scope = {
+    type: "choice",
+    instructions: "Does `message` restrict the product origin? Only what `message` says.",
+    criteria: { none: "No origin restriction.", "خارجی": "Only foreign / imported / non-Iranian products.", "ایرانی": "Only Iranian / domestic products." },
+  };
   questions.selector = {
     type: "choice",
     instructions: "When adding from `shown_products`, does `message` pick by a quality instead of naming a product?",
@@ -535,7 +542,8 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     smallPet,
     lifeStage: pick("life_stage"),
     breedSize: pick("breed_size"),
-    ordinal: ord && /^p\d+$/.test(ord) ? Number(ord.slice(1)) : null,
+    originScope: pick("origin_scope"),
+    ordinal: ord && ord.startsWith("p") && Number.isInteger(Number(ord.slice(1))) ? Number(ord.slice(1)) : null,
     skip: !!pendingQuestion && !cartOp && y("skip"),
     newRequest: !!pendingQuestion && (!!cartOp || y("new_request")),
   };
@@ -549,6 +557,8 @@ async function judgeTurnIntent(message: string, shown: string[], pet: unknown, r
     cartQuery, alsoSearch: !!cartOp && y("also_search"),
     selector: cartOp && shown.length > 0 && (selRaw === "cheapest" || selRaw === "priciest" || selRaw === "each") ? selRaw : null,
     weightIsSize: !!cartOp && y("weight_is_size"),
+    otherBrands: !cartOp && y("other_brands"),
+    wantsAll: !cartOp && y("wants_all"),
   };
 }
 

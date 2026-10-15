@@ -9,7 +9,6 @@ import {
   type CheckoutContext,
   type Surface,
 } from "../_shared/commerceActions.ts";
-import { isFlow, type QuestionFlow } from "./questionFlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -420,150 +419,8 @@ const DETAILS_TOOL = {
   },
 };
 
-// ── Executional intent: one typed Jev decision, no word lists. Null = let the agent decide. ──
-type ExecIntent = { kind: "start_checkout" | "select_address" | "select_shipping" | "select_payment" | "guide"; id?: string; target?: string; fast?: boolean };
-
-// One batched Jev call decides how this turn is routed AND which pet facts / product
-// reference the message states. No word lists: when Jev cannot judge, every flag stays
-// false, every slot stays null and the agent answers the turn normally.
-type TurnSlots = { species: string | null; smallPet: string | null; lifeStage: string | null; breedSize: string | null; originScope: string | null; ordinal: number | null; skip: boolean; newRequest: boolean };
-type CartOp = "add" | "remove" | "update" | "replace" | "clear" | "mixed" | null;
-type TurnIntent = { guidance: boolean; bundle: boolean; compare: boolean; info: boolean; business: boolean; counts: boolean; delegate: boolean; aboutShown: boolean; cartOp: CartOp; hasExclusion: boolean; slots: TurnSlots; cartQuery: boolean; alsoSearch: boolean; selector: "cheapest" | "priciest" | "each" | null; weightIsSize: boolean; otherBrands: boolean; wantsAll: boolean };
-const NO_SLOTS: TurnSlots = { species: null, smallPet: null, lifeStage: null, breedSize: null, originScope: null, ordinal: null, skip: false, newRequest: false };
-const NO_TURN: TurnIntent = { guidance: false, bundle: false, compare: false, info: false, business: false, counts: false, delegate: false, aboutShown: false, cartOp: null, hasExclusion: false, slots: NO_SLOTS, cartQuery: false, alsoSearch: false, selector: null, weightIsSize: false, otherBrands: false, wantsAll: false };
-async function judgeTurnIntent(message: string, shown: string[], pet: unknown, recent: string[], pendingQuestion: string | null, cart: string[] = []): Promise<TurnIntent> {
-  if (!message.trim()) return NO_TURN;
-  const q = (instructions: string) => ({ type: "noul", instructions });
-  const ordinalCriteria: Record<string, string> = { none: "The message does not point at one specific product of `shown_products` by position." };
-  shown.slice(0, 12).forEach((name, i) => (ordinalCriteria[`p${i + 1}`] = `Points at product #${i + 1} of \`shown_products\` («${name}»), e.g. by its position (first/second/last), its number or an unambiguous pronoun.`));
-  const questions: Record<string, unknown> = {
-    guidance: q("Does the shopper in `message` (casual Persian, pet shop) ask for help or advice choosing what to buy, without already specifying exactly which product they want?"),
-    bundle: q("Does `message` ask for a complete set / starter pack / everything a pet needs (e.g. a newly adopted pet), i.e. several different product types at once, rather than one product type?"),
-    compare: q("Does `message` ask to compare products or brands, or ask which of two or more named options is better or how they differ?"),
-    info: q("Is `message` a knowledge question about brands, origins, categories or what the shop carries (answerable in words), rather than a request to be shown products to buy?"),
-    business: q("Is `message` a question about shop policies or services: shipping, delivery time, returns, warranty, authenticity, payment terms, discounts, store hours or contact?"),
-    counts: q("Does `message` explicitly ask about quantities, how many options exist, totals, or the price range / cheapest / most expensive?"),
-    delegate: q("Does the shopper in `message` leave the choice of WHICH product to the assistant (e.g. «هرکدوم بهتره اضافه کن»، «خودت یکی انتخاب کن») instead of naming a specific product?"),
-    about_shown: q("Is `message` a question or request about the products in `shown_products` (which of them suits the pet, picking among them), rather than asking for a different kind of product or a new search? If `shown_products` is empty, answer no."),
-    species: {
-      type: "choice",
-      instructions: "Which animal is `message` about? Use only what `message` itself says (pet words, nicknames, breed names such as شیتزو → dog, پرشین → cat). If it names two, pick the one the purchase is for.",
-      criteria: {
-        none: "`message` names or implies no animal.",
-        "سگ": "A dog or puppy, or a dog breed.",
-        "گربه": "A cat or kitten, or a cat breed.",
-        "پرنده": "A bird (parrot, canary, budgie, cockatiel…).",
-        "ماهی و آکواریوم": "Fish or an aquarium.",
-        "سایر حیوانات خانگی": "Another small pet: rabbit, hamster, guinea pig, rodent, turtle, reptile, ferret.",
-      },
-    },
-    life_stage: {
-      type: "choice",
-      instructions: "What life stage of the pet does `message` state (explicit age, puppy/kitten talk, old age)? Only what `message` says.",
-      criteria: { none: "No age or life stage stated.", "نابالغ": "Young: puppy, kitten, baby, under one year.", "بالغ": "Adult: roughly 1 to 7 years.", "سنیور": "Senior / old: roughly 7 years or older." },
-    },
-    breed_size: {
-      type: "choice",
-      instructions: "If `message` is about a dog, what body size does it state or imply through the breed (شیتزو/پامرانیان/پودل small, بیگل/کوکر medium, ژرمن/گلدن/هاسکی large)? Only what `message` says.",
-      criteria: { none: "No dog size or breed stated, or not about a dog.", "کوچک": "Small / toy breed.", "متوسط": "Medium breed.", "بزرگ": "Large or giant breed." },
-    },
-    ordinal: { type: "choice", instructions: "Does `message` point at one specific product of `shown_products`?", criteria: ordinalCriteria },
-  };
-  // Executional cart commands are judged first-class so they never fall into a
-  // questionnaire or a «complete pack» flow (e.g. «همشو اضافه کن بجز ظرف غذا»).
-  questions.cart_op = {
-    type: "choice",
-    instructions: "Does `message` (casual Persian) directly COMMAND a change to the shopping cart — about products in `shown_products` or `cart_items` — rather than ask for advice, a new search, or a starter pack? Commands that pick only some of the shown items (e.g. «همشو اضافه کن بجز X», «اولی و سومی رو بریز تو سبد») are still `add`.",
-    criteria: {
-      none: "Not a cart command: a search, a question, advice, a starter-pack request, an answer to a question, or chit-chat.",
-      add: "Add one, several or all of the shown/named products to the cart (possibly excluding some).",
-      remove: "Remove one or more items that are already in `cart_items`.",
-      update: "Change the quantity of an item already in `cart_items` (more, less, a number).",
-      replace: "Swap an item in `cart_items` for another product (shown or named).",
-      clear: "Empty the whole cart.",
-      mixed: "Several DIFFERENT cart changes in one message (e.g. «X بشه ۳ تا، Y رو حذف کن، یکی از Z کم کن»).",
-    },
-  };
-  questions.has_exclusion = q("Does `message` exclude or reject some products or items (e.g. «بجز»، «غیر از»، «X رو نمیخوام»، «اون یکی نه»)?");
-  questions.cart_query = q("Does `message` ASK what is currently in the cart, how many items it has, or its total (e.g. «تو سبدم چی دارم؟»، «جمع سبدم چقدر شد؟») without commanding any change?");
-  questions.also_search = q("Besides a cart command, does `message` ALSO ask to see / find a different product in the same message (e.g. «اینو اضافه کن، یه شامپو هم نشونم بده»)?");
-  questions.weight_is_size = q("Does `message` mention a package weight or volume (کیلو، گرم، لیتر) that describes WHICH product variant, rather than how many units to buy?");
-  questions.other_brands = q("Does `message` ask for brands OTHER than the ones already shown or mentioned by the assistant in `recent_messages` / `shown_products`?");
-  questions.wants_all = q("Does `message` ask to see ALL / the full list of matching products rather than a few suggestions?");
-  questions.origin_scope = {
-    type: "choice",
-    instructions: "Does `message` restrict the product origin? Only what `message` says.",
-    criteria: { none: "No origin restriction.", "خارجی": "Only foreign / imported / non-Iranian products.", "ایرانی": "Only Iranian / domestic products." },
-  };
-  questions.selector = {
-    type: "choice",
-    instructions: "When adding from `shown_products`, does `message` pick by a quality instead of naming a product?",
-    criteria: {
-      none: "Names or points at specific products, or no such pick.",
-      cheapest: "The cheapest / most affordable one (ارزون‌ترین).",
-      priciest: "The most expensive / premium one (گرون‌ترین).",
-      each: "One (or N) of EACH shown product (از هرکدوم یکی).",
-    },
-  };
-  questions.small_pet = {
-    type: "choice",
-    instructions: "If `message` is about a small pet (not dog, cat, bird or fish), which one exactly? Only what `message` says.",
-    criteria: {
-      none: "No small pet is mentioned.",
-      "خرگوش": "Rabbit (including breeds like لوپ، هلندی، لاین‌هد).",
-      "همستر": "Hamster (سوری، جونگاریان، روبرو…).",
-      "خوکچه هندی": "Guinea pig (خوکچه، کاوی).",
-      "موش و جرذ": "Mouse, rat, gerbil or another small rodent.",
-      "چینچیلا": "Chinchilla.",
-      "لاکپشت و خزنده": "Turtle, tortoise, lizard, iguana, snake or another reptile.",
-      "فرت": "Ferret.",
-    },
-  };
-  if (pendingQuestion) {
-    questions.skip = q("The shopper was just asked `pending_question`. Does `message` decline to choose or say it does not matter / they do not know / leave it to the assistant?");
-    questions.new_request = q("The shopper was just asked `pending_question`. Is `message` something other than an answer to that question — a cart command, another product, a complaint or another topic? A message that only picks among / describes the answer is NOT a new request.");
-  }
-  const j = await askJev({ message, recent_messages: recent, shown_products: shown, cart_items: cart, pet, pending_question: pendingQuestion }, questions);
-  if (!j) return NO_TURN;
-  const y = (k: string) => jevYes(j[k]) === true;
-  const pick = (k: string, min = 0.6) => {
-    const a = j[k];
-    const c = typeof a?.choice === "string" ? a.choice : "";
-    if (!c || c === "none" || (typeof a?.confidence === "number" && a.confidence < min)) return null;
-    return c;
-  };
-  const ord = pick("ordinal");
-  const op = pick("cart_op") as CartOp;
-  // A cart command only makes sense when there is something to act on.
-  const cartOp: CartOp = op && ((op === "add" || op === "replace" || op === "mixed") ? shown.length > 0 || cart.length > 0 : cart.length > 0) ? op : null;
-  const smallPet = pick("small_pet");
-  const slots: TurnSlots = {
-    species: pick("species") || (smallPet ? "سایر حیوانات خانگی" : null),
-    smallPet,
-    lifeStage: pick("life_stage"),
-    breedSize: pick("breed_size"),
-    originScope: pick("origin_scope"),
-    ordinal: ord && ord.startsWith("p") && Number.isInteger(Number(ord.slice(1))) ? Number(ord.slice(1)) : null,
-    skip: !!pendingQuestion && !cartOp && y("skip"),
-    newRequest: !!pendingQuestion && (!!cartOp || y("new_request")),
-  };
-  const cartQuery = !cartOp && y("cart_query");
-  const selRaw = pick("selector");
-  return {
-    guidance: !cartOp && !cartQuery && y("guidance"), bundle: !cartOp && !cartQuery && y("bundle"), compare: !cartOp && y("compare"),
-    info: !cartOp && !cartQuery && y("info"), business: !cartOp && y("business"), counts: !cartOp && !cartQuery && y("counts"),
-    delegate: y("delegate"), aboutShown: shown.length > 0 && y("about_shown"),
-    cartOp, hasExclusion: y("has_exclusion"), slots,
-    cartQuery, alsoSearch: !!cartOp && y("also_search"),
-    selector: cartOp && shown.length > 0 && (selRaw === "cheapest" || selRaw === "priciest" || selRaw === "each") ? selRaw : null,
-    weightIsSize: !!cartOp && y("weight_is_size"),
-    otherBrands: !cartOp && y("other_brands"),
-    wantsAll: !cartOp && y("wants_all"),
-  };
-}
 
 
-// Which of the shown/cart products does the shopper exclude this turn («همشو بجز ظرف غذا»)?
 /**
  * Quantity direction per cart action (Jev typed choice): «یکی بهش اضافه کن» is increase, «یکی کم کن»
  * decrease, «بشه ۳ تا» set. Overrides the model only when Jev is confident; null = keep the model's.
@@ -600,56 +457,6 @@ async function judgeQtyModes(message: string, actions: any[], nameOf: (a: any) =
   });
 }
 
-async function judgeExclusions(message: string, items: Array<{ id: string; name: string }>): Promise<string[]> {
-  if (!message.trim() || !items.length) return [];
-  const list = items.slice(0, 12);
-  const questions: Record<string, unknown> = {};
-  list.forEach((it, i) => {
-    questions[`x${i}`] = { type: "noul", instructions: `The shopper wrote \`message\` about the products in \`items\`. Does the message EXCLUDE, reject or say they do not want «${it.name}» (item #${i + 1}), while wanting the others?` };
-  });
-  const j = await askJev({ message, items: list.map((i) => i.name) }, questions);
-  if (!j) return [];
-  return list.filter((_, i) => jevYes(j[`x${i}`], 0.7) === true).map((it) => it.id);
-}
-
-async function judgeExecIntent(message: string, ctx: any, cartCount: number): Promise<ExecIntent | null> {
-  if (!message.trim()) return null;
-  const addrs: any[] = Array.isArray(ctx?.addresses) ? ctx.addresses.slice(0, 12) : [];
-  const criteria: Record<string, unknown> = {
-    other: "Anything else: product search, questions (including questions about prices, delivery time or how methods work), cart edits, chit-chat, or no clear executional request.",
-    start_checkout: "Wants to finalize / proceed to checkout / go to address-shipping-payment, without naming one specific address, shipping or payment option.",
-    "ship:standard": "Chooses standard (normal/regular/cheap post) shipping.",
-    "ship:express": "Chooses express shipping.",
-    "ship:courier": "Chooses courier (motorbike/same-day) delivery.",
-    "ship:fast": "Wants it delivered fast but names no specific shipping method.",
-    "pay:wallet": "Chooses to pay with wallet.",
-    "pay:gateway": "Chooses to pay through the online gateway / bank card.",
-    "pay:bnpl": "Chooses instalment / pay-later.",
-    "guide:add_address": "Wants to add a new address.",
-    "guide:edit_address": "Wants to edit a saved address (plaque, postal code, unit…).",
-    "guide:delete_address": "Wants to delete a saved address.",
-    "guide:edit_profile": "Wants to change name or email.",
-    "guide:change_phone": "Wants to change phone number.",
-    "guide:wallet": "Wants to top up or check the wallet.",
-    "guide:coupon": "Wants to apply a discount code / coupon.",
-    "guide:orders": "Wants to see or track previous orders.",
-  };
-  for (const a of addrs) criteria[`addr:${a.id}`] = `Chooses the saved delivery address «${a.title}${a.summary ? ` — ${a.summary}` : ""}».`;
-  const answers = await askJev(
-    { message, cart_items: cartCount, saved_addresses: addrs.map((a) => a.title) },
-    { exec: { type: "choice", instructions: "A shopper wrote `message` (casual Persian) in a pet-shop chat. Which executional request, if any, does it clearly make? Pick other unless the request is clear.", criteria } },
-  );
-  const a = answers?.exec;
-  const choice = typeof a?.choice === "string" ? a.choice : "";
-  if (!choice || choice === "other" || (typeof a?.confidence === "number" && a.confidence < 0.6)) return null;
-  if (choice === "start_checkout") return cartCount ? { kind: "start_checkout" } : null;
-  const [k, v] = choice.split(":");
-  if (k === "ship") return v === "fast" ? { kind: "select_shipping", fast: true } : { kind: "select_shipping", id: v };
-  if (k === "pay") return { kind: "select_payment", id: v };
-  if (k === "addr") return { kind: "select_address", id: choice.slice(5) };
-  if (k === "guide") return { kind: "guide", target: v };
-  return null;
-}
 
 // ── Checkout selections & native-UI guidance ──
 const CHECKOUT_TOOL = {
@@ -746,6 +553,16 @@ const CART_OPERATIONS_TOOL = {
         message: {
           type: "string",
           description: "Persian confirmation message to show the user",
+        },
+        selector: {
+          type: "string",
+          enum: ["cheapest", "priciest", "each"],
+          description: "Only when the user picks qualitatively from the shown cards («ارزون‌ترینو بذار» = cheapest, «گرون‌ترین» = priciest, «از هرکدوم یکی» = each). The pick is computed from real prices.",
+        },
+        exclude_product_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "ids of shown/cart products the user explicitly excluded («همه بجز X»).",
         },
         needs_clarification: {
           type: "boolean",
@@ -1206,7 +1023,8 @@ async function executeSearch(
     offset,
   } = args;
   const normalizedQuery = normalizePersian(query_text || "");
-  const lockedSpecies = lock?.species || null;
+  // The model's own species parameter wins; remembered pet facts are only a fallback.
+  const lockedSpecies = species || lock?.species || null;
 
   const rpcParams: any = { p_store_id: PETABAD_STORE_ID, p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
@@ -1238,7 +1056,7 @@ async function executeSearch(
   // the catalog stores جوندگان / خرگوش / ... , so a literal filter would return nothing.
   // For those we skip the SQL filter and rely on the post-retrieval species lock.
   const UMBRELLA_SPECIES = ["سایر حیوانات خانگی", "ماهی و آکواریوم"];
-  const rawSpecies = lockedSpecies || species || null;
+  const rawSpecies = lockedSpecies;
   const taxForSpecies = await loadTaxonomy(supabase);
   const rpcSpecies = canonicalTerm(taxForSpecies, "species", rawSpecies) || rawSpecies;
   if (rpcSpecies && !UMBRELLA_SPECIES.includes(rpcSpecies)) rpcParams.p_species = rpcSpecies;
@@ -1262,7 +1080,7 @@ async function executeSearch(
   const canonStage = canon("life_stage", filters?.life_stage);
   if (canonStage) rpcParams.p_life_stage = canonStage;
   // The breed named anywhere in the conversation (lock) applies to dog searches the model forgot to tag.
-  const lockBreedSize = lock?.breedSize && (!lock?.species || lock.species === "سگ") ? lock.breedSize : null;
+  const lockBreedSize = lock?.breedSize && (!lockedSpecies || lockedSpecies === "سگ") ? lock.breedSize : null;
   const rawBreedSize = filters?.breed_size || lockBreedSize;
   const breedSize = canon("breed_size", rawBreedSize);
   if (breedSize) rpcParams.p_breed_size = breedSize;
@@ -1293,7 +1111,7 @@ async function executeSearch(
   // Tier-1 life-stage protection: a stated stage is enforced on every attempt, so a
   // kitten-only result set counts as "nothing found" and relaxation continues
   // (price widens before the stage itself is ever dropped).
-  const stageLock: string | null = lock?.lifeStage || canonStage || null;
+  const stageLock: string | null = canonStage || (species && lock?.species && species !== lock.species ? null : lock?.lifeStage) || null;
   const runSearch = async (params: any) => {
     const { data, error } = await supabase.rpc("pet_hybrid_search", params);
     if (error) {
@@ -1490,7 +1308,7 @@ async function executeFacets(supabase: any, args: any, lockedSpecies?: string | 
     p_query: args?.query_text ? normalizePersian(args.query_text) : null,
     p_subcategory: args?.subcategory || null,
     p_subcategory_prefix: args?.subcategory_family || null,
-    p_species: lockedSpecies || args?.species || null,
+    p_species: args?.species || lockedSpecies || null,
 
     p_brand: args?.brand || null,
     p_origin_country: args?.origin_country || null,
@@ -2430,113 +2248,24 @@ serve(async (req) => {
       quickReplies: [],
     });
     const startCheckoutPayload = { response_type: "start_checkout", content: "", products: [], quickReplies: [], choices: [] };
-    if (effectiveMode === "agentic") {
-      const exec = await judgeExecIntent(lastUserText, checkoutCtx, cartCount);
-      if (exec) {
-        console.log("exec: jev pre-route", exec.kind, exec.target || exec.id || "");
-        if (exec.kind === "start_checkout") return jsonResponse(startCheckoutPayload);
-        if (exec.kind === "guide") return jsonResponse(checkoutPayload(guideTurn(exec.target as any, surface, checkoutCtx)));
-        return jsonResponse(checkoutPayload(resolveCheckoutTurn({
-          kind: exec.kind, address_id: exec.kind === "select_address" ? exec.id : undefined,
-          shipping_id: exec.kind === "select_shipping" ? exec.id : undefined,
-          payment_id: exec.kind === "select_payment" ? exec.id : undefined, fast: exec.fast,
-          userText: lastUserText, ctx: checkoutCtx, surface, cartCount,
-        })));
-      }
-    }
     const latestShown = (products_context || []).map((p: any) => String(p.name_fa || p.name || "")).filter(Boolean).slice(0, 12);
-    const recentUser = (userMessages || []).filter((m: any) => m?.role === "user").slice(-4, -1).map((m: any) => String(m.content || "").slice(0, 200));
-    const pendingFlow = isFlow(question_flow) && (question_flow as QuestionFlow).pending && !(question_flow as QuestionFlow).done
-      ? String((question_flow as QuestionFlow).pending) : null;
-    const PENDING_TEXT: Record<string, string> = {
-      species: "Which animal is it for?", age: "How old is the pet?", size: "What breed / size is the dog?",
-      type: "Which kind of product?", need: "Any special need?", origin: "Foreign or Iranian brand?",
-      budget: "What budget?", essentials: "Which items are needed?", completeness: "How complete should the pack be?", tier: "Which price tier?",
-    };
-    const turnIntent: TurnIntent = effectiveMode === "discovery"
-      ? NO_TURN
-      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser,
-          pendingFlow ? PENDING_TEXT[pendingFlow] || pendingFlow : null,
-          (cart_context?.items || []).map((i: any) => String(i.name || "")).filter(Boolean).slice(0, 12));
-    console.log("turn intent", JSON.stringify(turnIntent));
-    let wantsGuidance = turnIntent.guidance;
-    const wantsCounts = turnIntent.counts;
-    const isBusinessQuestion = turnIntent.business;
-    // Assortment/brand knowledge questions are answered in words (facts, brand names),
-    // so they must not be turned into a product-recommendation turn.
-    const isInfoQuestion = turnIntent.info;
-    if (isInfoQuestion) {
-      systemPrompt += `\n\nINFO_QUESTION_TURN: این سؤال درباره‌ی خودِ برندها یا ترکیب کاتالوگه، نه درخواست محصول.
-- برای فهرست برند/کشور/دسته: در همین نوبت catalog_facets را صدا بزن و فقط «اسم‌ها» را بنویس (بدون تعداد و بدون قیمت مگر کاربر خواسته باشد).
-- برای معرفی یک برند: catalog_facets و در صورت نیاز brand_or_general_lookup را صدا بزن و در چند خط کوتاه معرفی کن (کشور سازنده، جایگاه، چه دسته‌هایی از آن برند در پت‌آباد هست).
-- محصول پیشنهاد نده و لیست شماره‌دار محصول نساز؛ جواب متنی و روان باشه. در پایان می‌تونی بپرسی از کدوم برند محصول ببینه.`;
-    }
-    // Comparison turns are about products already in the conversation, not a new list.
-    const isCompareQuestion = turnIntent.compare;
-    if (isCompareQuestion) {
-      systemPrompt += `\n\nCOMPARE_TURN: کاربر مقایسه خواسته.
-- اگر محصولات موردنظر در حافظه‌ی گفتگو (product_memory) هستند، همان‌ها را مقایسه کن و محصول جدید معرفی نکن.
-- اگر فقط نام برند/مدل را گفته و در حافظه نیست، برای هر طرف مقایسه یک جستجوی جدا با فیلتر همان برند و همان دستهٔ محصول و همان حیوان انجام بده و فقط یک گزینهٔ شاخص از هر برند بیار.
-- خروجی: چند خط مقایسهٔ واقعی (قیمت، کشور سازنده، مناسب چه نیازی، تفاوت اصلی) و در آخر یک جمله توصیه.
-- هرگز محصولی از حیوان یا دستهٔ دیگر (مثلاً غذای سگ در مقایسهٔ گربه) نیاور.`;
-    }
-    if (isBusinessQuestion) {
-      systemPrompt += `\n\nPOLICY_ABOUT_A_PRODUCT: اگر کاربر سیاستی را دربارهٔ «محصول اول/دوم/شماره X» یا محصولی که قبلاً نشان دادی پرسیده، اول با نام همان محصول جواب صریح بده (بله/خیر + توضیح کوتاه)، بعد شرط‌ها را بگو. جمله‌ی بی‌فاعل مثل «توجه داشته باشید...» ننویس.`;
-    }
-
+    // ── LLM-first: no front-door classifier ──
+    // Routing, intent splitting, references to shown cards and pet facts of the newest
+    // message are decided by the model itself from the raw context below; nothing is
+    // pre-judged and no flag gates a tool.
+    let wantsGuidance = false;
+    const wantsCounts = true; // the model decides whether counts belong in the answer
+    let isBusinessQuestion = false;
+    let isInfoQuestion = false;
     let knownSpecies: string | null = null;
+    if ((MODE_TOOLS[effectiveMode] || []).includes(FAQ_TOOL)) systemPrompt += FAQ_GROUNDING_RULES;
 
-    // Store-policy questions are grounded in the official FAQ knowledge base only.
-    if ((MODE_TOOLS[effectiveMode] || []).includes(FAQ_TOOL)) {
-      systemPrompt += FAQ_GROUNDING_RULES;
-      if (isBusinessQuestion) {
-        systemPrompt += `\n\nBUSINESS_QUESTION_TURN: این پیام درباره سیاست‌ها یا خدمات فروشگاهه. در همین نوبت business_faq_lookup را صدا بزن و جواب را فقط از official_answer بنویس.`;
-      }
-    }
-
-    // ── Species / stage / size lock ──
-    // Sources: Jev slots for the newest message, then the stored pet memory.
-    // Earlier turns are never re-parsed with word lists.
-    const userTurns = (userMessages || [])
-      .filter((m: any) => m.role === "user")
-      .map((m: any) => String(m.content || ""));
+    // Remembered pet facts are a fallback only; the model's own search parameters win.
     const mem: any = pet_memory && typeof pet_memory === "object" ? pet_memory : null;
-    const slots = turnIntent.slots;
-    const lockedSpecies: string | null = slots.species || (mem?.species ? String(mem.species) : null);
-    const speciesChanged = !!slots.species && !!mem?.species && String(mem.species) !== slots.species;
-    const lockedStage: string | null =
-      slots.lifeStage || (!speciesChanged && mem?.life_stage ? String(mem.life_stage) : null);
-    let lockedBreedSize: string | null = slots.breedSize && lockedSpecies === "سگ" ? slots.breedSize : null;
-    // Reference to one shown product («دومی»، «همین آخری») — resolved by Jev, named for the model.
-    if (slots.ordinal && products_context?.[slots.ordinal - 1]) {
-      const p: any = products_context[slots.ordinal - 1];
-      systemPrompt += `\n\nREFERENCE: کاربر به محصول شماره ${slots.ordinal} از آخرین لیست اشاره کرده؛ منظورش دقیقاً «${p.name_fa || p.name}» (id: ${p.id}) است. دربارهٔ همین محصول جواب بده و لیست جدید نساز.`;
-    }
-    if (!lockedBreedSize && lockedSpecies === "سگ" && !speciesChanged && mem?.breed_size) {
-      lockedBreedSize = String(mem.breed_size);
-    }
-    // ── "other brands" turn (judged by Jev): brands already shown are subtracted ──
-    const assistantTurns = (userMessages || [])
-      .filter((m: any) => m.role === "assistant")
-      .map((m: any) => String(m.content || ""));
-    let shownBrands: string[] = [];
-    if (turnIntent.otherBrands) {
-      const vocab = await loadBrands(supabase);
-      const haystack = normalizePersian(assistantTurns.join(" \n ")).toLowerCase();
-      for (const b of vocab.canonical) {
-        const key = normalizePersian(b).toLowerCase();
-        if (key.length >= 3 && haystack.includes(key)) shownBrands.push(b);
-      }
-      // Persian spellings of the same brands (Josera / جوسرا) come from the alias table.
-      const { data: aliasRows } = await supabase.from("brand_aliases").select("alias_key, canonical");
-      for (const a of aliasRows || []) {
-        const alias = normalizePersian(String(a.alias_key || "")).toLowerCase();
-        if (alias.length >= 3 && haystack.includes(alias) && a.canonical && !shownBrands.includes(a.canonical))
-          shownBrands.push(String(a.canonical));
-      }
-      shownBrands = shownBrands.slice(0, 30);
-      console.log("Other-brands turn, excluding:", shownBrands.join(", "));
-    }
+    const lockedSpecies: string | null = mem?.species ? String(mem.species) : null;
+    const lockedStage: string | null = mem?.life_stage ? String(mem.life_stage) : null;
+    const lockedBreedSize: string | null = lockedSpecies === "سگ" && mem?.breed_size ? String(mem.breed_size) : null;
+    const shownBrands: string[] = [];
     // ── Preference scope: a preference belongs to the purchase it was stated in ──
     // The client sends the purchase in progress plus two preference sets: «active»
     // (this purchase, or a lifetime preference) and «remembered» (another purchase).
@@ -2549,11 +2278,10 @@ serve(async (req) => {
     const rememberedPrefs: ScopedPref[] = Array.isArray(pc?.remembered) ? pc!.remembered : [];
     const askedCarryOver: string[] = Array.isArray(pc?.asked_carry_over) ? pc!.asked_carry_over : [];
 
-    // Foreign / Iranian scope: Jev's slot for the newest message wins, then the
-    // active preference of the current purchase. No word scan over history.
+    // Foreign / Iranian scope from the current purchase; the model's own
+    // filters.origin_scope overrides it inside search.
     let stickyForeign: boolean | null = null;
-    if (slots.originScope) stickyForeign = slots.originScope === "خارجی";
-    else {
+    {
       const origin = activePrefs.find((p) => p.dim === "origin");
       if (origin) stickyForeign = origin.value !== "ایرانی";
     }
@@ -2662,51 +2390,31 @@ serve(async (req) => {
         });
       }
     }
-    // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
-    // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
-    // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
-    // These judgments only mean something when products are actually on screen; on a fresh
-    // request «چی بگیرم» is a guidance request and must reach the question flow.
     const hasShown = (typeof product_memory === "string" && product_memory.trim().length > 0) || latestShown.length > 0;
-    const delegatesPick = hasShown && turnIntent.delegate;
-    const aboutShown = hasShown && turnIntent.aboutShown;
-    if (aboutShown || delegatesPick) {
-      const shownList = latestShown.length ? `\nمحصولات روی صفحه: ${latestShown.join(" | ")}` : "";
-      systemPrompt += `\n\nSHOWN_PRODUCTS_CONTEXT: این پیام به‌احتمال زیاد درباره‌ی محصولاتیه که الان روی صفحه‌ان.${shownList}
-- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
-- فقط اگه انتخاب بین این‌ها واقعاً به یک فکت ناشناخته بستگی داره، همون فکت رو با ask_clarification بپرس؛ سؤال عمومی که ربطی به این محصولات نداره نپرس.
-- محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
-    }
-    if (delegatesPick) {
-      systemPrompt += `\n\nDELEGATE_TURN: کاربر انتخاب رو به تو سپرده. ازش نپرس «کدوم رو اضافه کنم»؛ خودت بهترین گزینه‌ی مناسب رو انتخاب کن و اگه خواسته اضافه بشه، همون یکی رو با execute_cart_operations اضافه کن.`;
-    }
+    const delegatesPick = false;
+    const fa = (n: number) => String(n).split("").map((x) => "۰۱۲۳۴۵۶۷۸۹"[Number(x)] ?? x).join("");
+    const anchorLines = (products_context || []).slice(0, 12)
+      .map((p: any, i: number) => `#${fa(i + 1)} ${p.name_fa || p.name}${p.brand ? ` — ${p.brand}` : ""}${Number(p.price) ? ` — ${formatToman(Number(p.price))}` : ""} (id: ${p.id})`)
+      .join("\n");
+    const cartLines = (cart_context?.items || [])
+      .map((i: any) => `- ${i.name} × ${fa(Number(i.quantity) || 1)} (id: ${i.id})`)
+      .join("\n");
+    const petLine = mem ? [mem.species, mem.breed, mem.breed_size, mem.life_stage].filter(Boolean).join("، ") : "";
+    systemPrompt += `\n\nLIVE_CONTEXT (واقعیت‌های خام؛ هیچ پیش‌داوری دربارهٔ نیت کاربر نیست):
+کارت‌های روی صفحه:
+${anchorLines || "(هیچ)"}
+سبد فعلی:
+${cartLines || "(خالی)"}
+حیوانِ به‌خاطرسپرده: ${petLine || "(نامشخص)"}
 
-    let bundleNeedsCleared = false;
-    // ── Cart commands (Jev typed choice) outrank questionnaires and starter packs ──
-    const cartOp = turnIntent.cartOp;
-    if (cartOp) {
-      wantsGuidance = false;
-      bundleNeedsCleared = true;
-      const OP_FA: Record<string, string> = { mixed: "چند تغییر مختلف در سبد", add: "اضافه کردن به سبد", remove: "حذف از سبد", update: "تغییر تعداد در سبد", replace: "جایگزینی در سبد", clear: "خالی کردن سبد" };
-      systemPrompt += `\n\nCART_COMMAND_TURN: این پیام یک دستور اجرایی سبد خریده (${OP_FA[cartOp]})، نه درخواست مشاوره یا پک کامل.
-- هیچ سؤالی از پرسشنامه نپرس، جستجوی تازه نکن و کارت پرسش نساز.
-- مرجع محصولات: برای اضافه/جایگزینی همون product_memory (آخرین محصولات نشون‌داده‌شده)، برای حذف/تعداد فقط اقلام فعلی سبد.
-- در همین نوبت execute_cart_operations را صدا بزن و همه‌ی عملیات‌ها را یک‌جا بفرست: برای هر محصول دقیقاً یک action.
-- در هر action فیلد mention را با همان کلماتی از پیام کاربر که به همان محصول اشاره دارد پر کن، و برای تعداد qty_mode + amount بده (increase/decrease/set/remove). «یکی بهش اضافه کن» = increase 1، «یکی کم کن» = decrease 1، «بشه ۳ تا» = set 3.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
-- فقط وقتی دو محصول واقعاً با توصیف کاربر جور درمیان و قابل تشخیص نیستن، یک سؤال کوتاه بپرس؛ در غیر این صورت حدس منطقی نزن و نپرس، اجرا کن.
-- بعد از اجرا در یک جمله‌ی کوتاه بگو چه چیزی اضافه/حذف/تغییر کرد.`;
-      if (turnIntent.weightIsSize) {
-        systemPrompt += `\n- عدد وزن/حجم در پیام (مثلاً «۲ کیلویی»، «۴۰۰ گرمی») مشخصهٔ بسته‌بندی محصوله، نه تعداد: محصولی با همون وزن رو انتخاب کن و تعداد را ۱ بگذار مگر کاربر جدا تعداد گفته باشد.`;
-      }
-    } else if (turnIntent.cartQuery) {
-      wantsGuidance = false;
-      bundleNeedsCleared = true;
-      const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${String(Number(i.quantity) || 1).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d])}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
-      systemPrompt += `\n\nCART_VIEW_TURN: کاربر دربارهٔ محتوای سبد فعلیش پرسیده. جستجو نکن، محصول پیشنهاد نده و ابزار صدا نزن. فقط از همین فهرست واقعی جواب بده:\n${items || "(سبد خالی است)"}\nاگر سبد خالی است صادقانه بگو خالیه.`;
-    }
-    if (slots.smallPet) {
-      systemPrompt += `\n\nSMALL_PET: حیوان کاربر «${slots.smallPet}» است. در search_products همین کلمه را در query_text بیاور و فقط محصول مخصوص «${slots.smallPet}» (یا جوندگان عمومی اگر مناسب همین حیوان است) پیشنهاد بده؛ محصول سگ و گربه نیاور.`;
-    }
+REASONING (قبل از هر ابزار، خودت فکر کن):
+- پیام جدید را در ادامهٔ گفتگو بفهم: یک درخواست است یا چند درخواست هم‌زمان (مثلاً هم تغییر سبد هم جستجو)؟ برای هر درخواست ابزار مناسبش را در همین نوبت صدا بزن؛ چند ابزار موازی مجاز است.
+- ارجاع‌هایی مثل «اولی»، «همین»، «ارزون‌تره» را خودت با کارت‌های روی صفحه یا اقلام سبد تطبیق بده و همان id را بفرست؛ برای «ارزون‌ترین/گرون‌ترین/از هرکدوم» در execute_cart_operations فیلد selector را بده.
+- اگر کاربر حیوان، سن، جثه یا مبدأ تازه‌ای گفت، همان را در پارامترهای search_products بفرست؛ حافظهٔ بالا فقط وقتی معتبر است که کاربر چیز دیگری نگفته باشد.
+- سؤال دربارهٔ سبد را از همین فهرست سبد جواب بده؛ سؤال دربارهٔ کارت‌های روی صفحه را دربارهٔ همان‌ها جواب بده و لیست تازه نساز مگر کاربر چیز جدیدی خواسته باشد.
+- سؤال سیاست/خدمات فروشگاه → business_faq_lookup؛ سؤال دربارهٔ برندها/ترکیب کاتالوگ → catalog_facets؛ مقایسه → مقایسهٔ واقعی محصولات موجود یا جستجوی جدا برای هر طرف.
+- فقط وقتی یک ناشناختهٔ مشخص واقعاً نتیجه را عوض می‌کند ask_clarification بزن.
+- تعداد کل یا آمار را فقط وقتی کاربر پرسیده بنویس.`;
     const speciesLock = {
       species: lockedSpecies,
       lifeStage: lockedStage,
@@ -2714,34 +2422,9 @@ serve(async (req) => {
       foreignOnly: stickyForeign,
       breedSize: lockedBreedSize,
     };
-    if (lockedBreedSize && lockedSpecies !== "گربه") {
-      systemPrompt += `\n\nBREED_LOCK: سگ کاربر جثه «${lockedBreedSize}» دارد. در search_products مقدار filters.breed_size را «${lockedBreedSize}» بفرست و اگر نژادش را می‌دانی در breed بنویس. محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده و دوباره نژاد را نپرس.`;
-    }
-    if (shownBrands.length > 0) {
-      systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
-- در search_products همین‌ها را در exclude_brands بفرست.
-- اگر نتیجه‌ای برگشت، فقط برندهای جدید را معرفی کن و هرگز نگو «برند دیگه‌ای نداریم».`;
-    }
-    if (stickyForeign !== null) {
-      systemPrompt += `\n\nORIGIN_SCOPE: کاربر فقط محصولات ${stickyForeign ? "خارجی (کشور سازنده غیر از ایران)" : "ایرانی"} می‌خواد؛ در search_products مقدار filters.origin_scope را «${stickyForeign ? "خارجی" : "ایرانی"}» بفرست و محصول ${stickyForeign ? "ایرانی" : "خارجی"} پیشنهاد نده.`;
-    }
-    knownSpecies = lockedSpecies || knownSpecies;
-
-    // Multi-need turn: Jev's typed bundle judgment; the model decides the shelves itself.
-    const isBundleTurn = !bundleNeedsCleared && Boolean(turnIntent.bundle) && Boolean(lockedSpecies);
+    knownSpecies = lockedSpecies;
+    const isBundleTurn = false;
     const facetSpecies = lockedSpecies === "سگ" || lockedSpecies === "گربه" ? lockedSpecies : null;
-
-    if (lockedSpecies) {
-      systemPrompt += `\n\nSPECIES_LOCK: در این نوبت خرید برای «${lockedSpecies}» است.
-- هرگز نگو پت‌آباد فقط برای «${lockedSpecies}» محصول داره یا برای حیوان دیگه‌ای خدمات نداره؛ فروشگاه برای همه حیوانات خانگی محصول داره.
-- اگر کاربر در پیام جدیدش حیوان دیگری رو نام برد، بدون مقاومت و بدون توضیح اضافه همون حیوان جدید رو ادامه بده.
-- هیچ محصول، جمله، توضیح یا مقایسه‌ای مربوط به حیوان دیگری (پرنده، سگ، گربه، ماهی، جوندگان یا هر حیوان دیگر جز «${lockedSpecies}») نباید در پاسخت بیاد.
-- هرگز توضیح نده که نتایج پیداشده مربوط به حیوان دیگری بودن؛ درباره فرایند داخلی جستجو حرف نزن.
-- اگر برای یک نیاز محصول مناسب «${lockedSpecies}» پیدا نشد، فقط صادقانه بگو برای همون بخش گزینه مناسبی پیدا نکردی و محصول جایگزین از حیوان دیگه پیشنهاد نده.`;
-    }
-    if (lockedStage) {
-      systemPrompt += `\n\nLIFE_STAGE_LOCK: مرحله سنی مشخص شده «${lockedStage}» است؛ درباره مرحله سنی دیگر (مثلاً بالغ وقتی کاربر گفته بچه‌گربه) حرف نزن و محصول مخصوص مرحله دیگر پیشنهاد نده.`;
-    }
 
     // ── Catalog snapshot: question options must come from real products ──
     let questionFacets: QuestionFacets | null = null;
@@ -2798,6 +2481,12 @@ serve(async (req) => {
     let finalAssistantMessage: any = null;
     let faqToolExecuted = false;
 
+    // Cart edit of a compound turn, merged into whichever answer ends this turn.
+    let pendingCart: { actions: any[]; content: string; undo: any } | null = null;
+    let cartToolResult: any = null;
+    const withCart = (body: any) => pendingCart
+      ? { ...body, cart_actions: pendingCart.actions, undo: pendingCart.undo, content: [pendingCart.content, body.content].filter(Boolean).join("\n\n") }
+      : body;
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       if (Date.now() - startTime > WALL_CLOCK_BUDGET_MS) {
         console.log(`Wall clock budget reached before tool round ${round + 1}`);
@@ -2956,9 +2645,10 @@ serve(async (req) => {
           const cartCtx = (cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") }));
           // Qualitative picks over the shown list («ارزون‌ترینو بذار»، «از هرکدوم یکی») are computed
           // here from real prices instead of trusting the model's choice.
-          const sel = turnIntent.selector;
+          // The model names the qualitative pick; the pick itself is computed from real prices.
+          const sel = ["cheapest", "priciest", "each"].includes(cartResult.selector) ? cartResult.selector : null;
           const priced = (products_context || []).filter((p: any) => Number(p.price) > 0);
-          if (sel && (turnIntent.cartOp === "add" || turnIntent.cartOp === "mixed") && priced.length) {
+          if (sel && priced.length) {
             const firstAdd = (cartResult.actions || []).find((a: any) => a?.type === "add");
             const qty = Math.max(1, Math.min(20, Number(firstAdd?.amount ?? firstAdd?.quantity) || 1));
             const others = (cartResult.actions || []).filter((a: any) => a?.type !== "add");
@@ -2985,12 +2675,7 @@ serve(async (req) => {
             shown: shownPool,
             focusIds: Array.isArray(focus_ids) ? focus_ids.map(String) : [],
             delegate: delegatesPick,
-            excludedIds: turnIntent.hasExclusion
-              ? await judgeExclusions(lastUserText, [
-                  ...(products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || "") })),
-                  ...(cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") })),
-                ].filter((i) => i.name))
-              : [],
+            excludedIds: Array.isArray(cartResult.exclude_product_ids) ? cartResult.exclude_product_ids.map(String) : [],
           });
           console.log("exec: cart", JSON.stringify(cartResult.actions || []), "→", JSON.stringify(turn.actions), turn.needs_clarification ? "ASK" : "DO", turn.trace.join(","));
           const nameById = new Map<string, string>([
@@ -3027,28 +2712,37 @@ serve(async (req) => {
               turn.content = turn.actions.length && turn.content ? `${turn.content}\n${note}` : note;
             }
           }
-          if (turnIntent.alsoSearch && !turn.needs_clarification) {
-            turn.content = `${turn.content}\nدرخواست بعدیت رو هم بفرست تا همین الان برات پیدا کنم.`.trim();
+          // Compound turn: the model also called other tools (e.g. a search) in the same
+          // response. The cart edit is kept and merged into the final answer of this turn.
+          const otherCalls = choice.message.tool_calls.filter((t: any) => t.function?.name !== "execute_cart_operations");
+          if (cartCall && otherCalls.length && !turn.needs_clarification) {
+            pendingCart = { actions: turn.actions, content: turn.content, undo: turn.undo || null };
+            cartToolResult = { role: "tool", tool_call_id: cartCall.id, content: JSON.stringify({ executed: true, summary: turn.content }) };
+            console.log("exec: compound cart +", otherCalls.map((t: any) => t.function?.name).join(","));
+          } else {
+            return jsonResponse({
+              response_type: "cart",
+              cart_actions: turn.actions,
+              content: turn.content,
+              needs_clarification: turn.needs_clarification,
+              clarification_options: turn.choices.map((c) => c.label),
+              choices: turn.choices,
+              multi: turn.multi === true,
+              undo: turn.undo || null,
+              products: [],
+              quickReplies: [],
+            });
           }
-          return jsonResponse({
-            response_type: "cart",
-            cart_actions: turn.actions,
-            content: turn.content,
-            needs_clarification: turn.needs_clarification,
-            clarification_options: turn.choices.map((c) => c.label),
-            choices: turn.choices,
-            multi: turn.multi === true,
-            undo: turn.undo || null,
-            products: [],
-            quickReplies: [],
-          });
         }
       }
 
       // Execute tools
+      const roundChoice = cartToolResult
+        ? { ...choice, message: { ...choice.message, tool_calls: choice.message.tool_calls.filter((t: any) => t.function?.name !== "execute_cart_operations") } }
+        : choice;
       const roundResult = await runToolRound(
         supabase,
-        choice,
+        roundChoice,
         precomputedEmbedding,
         speciesLock,
         lockedSpecies,
@@ -3067,7 +2761,8 @@ serve(async (req) => {
         emptyNeedLabels = roundResult.emptyNeedLabels;
       }
 
-      roundMessages.push(choice.message, ...roundResult.toolResults);
+      roundMessages.push(choice.message, ...(cartToolResult ? [cartToolResult] : []), ...roundResult.toolResults);
+      cartToolResult = null;
     }
 
     const isDiscoveryIntent = effectiveMode === "discovery" || effectiveMode === "agentic";
@@ -3099,7 +2794,7 @@ serve(async (req) => {
 
     const requestedLimit = Number(extractedIntent?.limit) || 0;
     // A broad «show me everything» request (judged by Jev) deserves broad coverage.
-    const comprehensive = requestedLimit >= 12 || turnIntent.wantsAll;
+    const comprehensive = requestedLimit >= 12;
     const maxShown = isBundleTurn || comprehensive ? 12 : 6;
 
     // ── Authoritative path: the model wrote an answer in the tool loop → ship THAT answer ──
@@ -3134,7 +2829,7 @@ serve(async (req) => {
             if (gText) {
               forced.push("faq_regrounding");
               return new Response(
-                JSON.stringify({
+                JSON.stringify(withCart({
                   response_type: "message",
                   content: gText.replace(/\d/g, (d) => FA_DIGITS[Number(d)]),
                   products: [],
@@ -3272,7 +2967,7 @@ serve(async (req) => {
       console.log(`Answer source: model_final, cards=${cards.length}, numbered=${numberedCount}, tools=${toolTrace.join(",")}`);
 
       return new Response(
-        JSON.stringify({
+        JSON.stringify(withCart({
           response_type: cards.length > 0 ? "products" : "message",
           content,
           products: cards,
@@ -3350,7 +3045,7 @@ serve(async (req) => {
       const errText = await followUpResponse.text();
       console.error("Re-ranker error:", followUpResponse.status, errText);
       return new Response(
-        JSON.stringify({
+        JSON.stringify(withCart({
           response_type: allProducts.length > 0 ? "products" : "message",
           content:
             allProducts.length > 0

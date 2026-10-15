@@ -2454,90 +2454,23 @@ serve(async (req) => {
       type: "Which kind of product?", need: "Any special need?", origin: "Foreign or Iranian brand?",
       budget: "What budget?", essentials: "Which items are needed?", completeness: "How complete should the pack be?", tier: "Which price tier?",
     };
-    const turnIntent: TurnIntent = effectiveMode === "discovery"
-      ? NO_TURN
-      : await judgeTurnIntent(lastUserText, latestShown, (pet_memory && typeof pet_memory === "object" ? pet_memory : null), recentUser,
-          pendingFlow ? PENDING_TEXT[pendingFlow] || pendingFlow : null,
-          (cart_context?.items || []).map((i: any) => String(i.name || "")).filter(Boolean).slice(0, 12));
-    console.log("turn intent", JSON.stringify(turnIntent));
-    let wantsGuidance = turnIntent.guidance;
-    const wantsCounts = turnIntent.counts;
-    const isBusinessQuestion = turnIntent.business;
-    // Assortment/brand knowledge questions are answered in words (facts, brand names),
-    // so they must not be turned into a product-recommendation turn.
-    const isInfoQuestion = turnIntent.info;
-    if (isInfoQuestion) {
-      systemPrompt += `\n\nINFO_QUESTION_TURN: این سؤال درباره‌ی خودِ برندها یا ترکیب کاتالوگه، نه درخواست محصول.
-- برای فهرست برند/کشور/دسته: در همین نوبت catalog_facets را صدا بزن و فقط «اسم‌ها» را بنویس (بدون تعداد و بدون قیمت مگر کاربر خواسته باشد).
-- برای معرفی یک برند: catalog_facets و در صورت نیاز brand_or_general_lookup را صدا بزن و در چند خط کوتاه معرفی کن (کشور سازنده، جایگاه، چه دسته‌هایی از آن برند در پت‌آباد هست).
-- محصول پیشنهاد نده و لیست شماره‌دار محصول نساز؛ جواب متنی و روان باشه. در پایان می‌تونی بپرسی از کدوم برند محصول ببینه.`;
-    }
-    // Comparison turns are about products already in the conversation, not a new list.
-    const isCompareQuestion = turnIntent.compare;
-    if (isCompareQuestion) {
-      systemPrompt += `\n\nCOMPARE_TURN: کاربر مقایسه خواسته.
-- اگر محصولات موردنظر در حافظه‌ی گفتگو (product_memory) هستند، همان‌ها را مقایسه کن و محصول جدید معرفی نکن.
-- اگر فقط نام برند/مدل را گفته و در حافظه نیست، برای هر طرف مقایسه یک جستجوی جدا با فیلتر همان برند و همان دستهٔ محصول و همان حیوان انجام بده و فقط یک گزینهٔ شاخص از هر برند بیار.
-- خروجی: چند خط مقایسهٔ واقعی (قیمت، کشور سازنده، مناسب چه نیازی، تفاوت اصلی) و در آخر یک جمله توصیه.
-- هرگز محصولی از حیوان یا دستهٔ دیگر (مثلاً غذای سگ در مقایسهٔ گربه) نیاور.`;
-    }
-    if (isBusinessQuestion) {
-      systemPrompt += `\n\nPOLICY_ABOUT_A_PRODUCT: اگر کاربر سیاستی را دربارهٔ «محصول اول/دوم/شماره X» یا محصولی که قبلاً نشان دادی پرسیده، اول با نام همان محصول جواب صریح بده (بله/خیر + توضیح کوتاه)، بعد شرط‌ها را بگو. جمله‌ی بی‌فاعل مثل «توجه داشته باشید...» ننویس.`;
-    }
-
+    // ── LLM-first: no front-door classifier ──
+    // Routing, intent splitting, references to shown cards and pet facts of the newest
+    // message are decided by the model itself from the raw context below; nothing is
+    // pre-judged and no flag gates a tool.
+    let wantsGuidance = false;
+    const wantsCounts = true; // the model decides whether counts belong in the answer
+    let isBusinessQuestion = false;
+    let isInfoQuestion = false;
     let knownSpecies: string | null = null;
+    if ((MODE_TOOLS[effectiveMode] || []).includes(FAQ_TOOL)) systemPrompt += FAQ_GROUNDING_RULES;
 
-    // Store-policy questions are grounded in the official FAQ knowledge base only.
-    if ((MODE_TOOLS[effectiveMode] || []).includes(FAQ_TOOL)) {
-      systemPrompt += FAQ_GROUNDING_RULES;
-      if (isBusinessQuestion) {
-        systemPrompt += `\n\nBUSINESS_QUESTION_TURN: این پیام درباره سیاست‌ها یا خدمات فروشگاهه. در همین نوبت business_faq_lookup را صدا بزن و جواب را فقط از official_answer بنویس.`;
-      }
-    }
-
-    // ── Species / stage / size lock ──
-    // Sources: Jev slots for the newest message, then the stored pet memory.
-    // Earlier turns are never re-parsed with word lists.
-    const userTurns = (userMessages || [])
-      .filter((m: any) => m.role === "user")
-      .map((m: any) => String(m.content || ""));
+    // Remembered pet facts are a fallback only; the model's own search parameters win.
     const mem: any = pet_memory && typeof pet_memory === "object" ? pet_memory : null;
-    const slots = turnIntent.slots;
-    const lockedSpecies: string | null = slots.species || (mem?.species ? String(mem.species) : null);
-    const speciesChanged = !!slots.species && !!mem?.species && String(mem.species) !== slots.species;
-    const lockedStage: string | null =
-      slots.lifeStage || (!speciesChanged && mem?.life_stage ? String(mem.life_stage) : null);
-    let lockedBreedSize: string | null = slots.breedSize && lockedSpecies === "سگ" ? slots.breedSize : null;
-    // Reference to one shown product («دومی»، «همین آخری») — resolved by Jev, named for the model.
-    if (slots.ordinal && products_context?.[slots.ordinal - 1]) {
-      const p: any = products_context[slots.ordinal - 1];
-      systemPrompt += `\n\nREFERENCE: کاربر به محصول شماره ${slots.ordinal} از آخرین لیست اشاره کرده؛ منظورش دقیقاً «${p.name_fa || p.name}» (id: ${p.id}) است. دربارهٔ همین محصول جواب بده و لیست جدید نساز.`;
-    }
-    if (!lockedBreedSize && lockedSpecies === "سگ" && !speciesChanged && mem?.breed_size) {
-      lockedBreedSize = String(mem.breed_size);
-    }
-    // ── "other brands" turn (judged by Jev): brands already shown are subtracted ──
-    const assistantTurns = (userMessages || [])
-      .filter((m: any) => m.role === "assistant")
-      .map((m: any) => String(m.content || ""));
-    let shownBrands: string[] = [];
-    if (turnIntent.otherBrands) {
-      const vocab = await loadBrands(supabase);
-      const haystack = normalizePersian(assistantTurns.join(" \n ")).toLowerCase();
-      for (const b of vocab.canonical) {
-        const key = normalizePersian(b).toLowerCase();
-        if (key.length >= 3 && haystack.includes(key)) shownBrands.push(b);
-      }
-      // Persian spellings of the same brands (Josera / جوسرا) come from the alias table.
-      const { data: aliasRows } = await supabase.from("brand_aliases").select("alias_key, canonical");
-      for (const a of aliasRows || []) {
-        const alias = normalizePersian(String(a.alias_key || "")).toLowerCase();
-        if (alias.length >= 3 && haystack.includes(alias) && a.canonical && !shownBrands.includes(a.canonical))
-          shownBrands.push(String(a.canonical));
-      }
-      shownBrands = shownBrands.slice(0, 30);
-      console.log("Other-brands turn, excluding:", shownBrands.join(", "));
-    }
+    const lockedSpecies: string | null = mem?.species ? String(mem.species) : null;
+    const lockedStage: string | null = mem?.life_stage ? String(mem.life_stage) : null;
+    const lockedBreedSize: string | null = lockedSpecies === "سگ" && mem?.breed_size ? String(mem.breed_size) : null;
+    const shownBrands: string[] = [];
     // ── Preference scope: a preference belongs to the purchase it was stated in ──
     // The client sends the purchase in progress plus two preference sets: «active»
     // (this purchase, or a lifetime preference) and «remembered» (another purchase).
@@ -2550,11 +2483,10 @@ serve(async (req) => {
     const rememberedPrefs: ScopedPref[] = Array.isArray(pc?.remembered) ? pc!.remembered : [];
     const askedCarryOver: string[] = Array.isArray(pc?.asked_carry_over) ? pc!.asked_carry_over : [];
 
-    // Foreign / Iranian scope: Jev's slot for the newest message wins, then the
-    // active preference of the current purchase. No word scan over history.
+    // Foreign / Iranian scope from the current purchase; the model's own
+    // filters.origin_scope overrides it inside search.
     let stickyForeign: boolean | null = null;
-    if (slots.originScope) stickyForeign = slots.originScope === "خارجی";
-    else {
+    {
       const origin = activePrefs.find((p) => p.dim === "origin");
       if (origin) stickyForeign = origin.value !== "ایرانی";
     }
@@ -2663,51 +2595,31 @@ serve(async (req) => {
         });
       }
     }
-    // ── Turn judgments about products already on screen (Jev, regex only as fallback) ──
-    // «هرکدوم بهتره اضافه کن» delegates the pick; «کدوم برای شیتزو مناسبه» asks about the shown list.
-    // Neither may restart a generic questionnaire or bounce the choice back to the shopper.
-    // These judgments only mean something when products are actually on screen; on a fresh
-    // request «چی بگیرم» is a guidance request and must reach the question flow.
     const hasShown = (typeof product_memory === "string" && product_memory.trim().length > 0) || latestShown.length > 0;
-    const delegatesPick = hasShown && turnIntent.delegate;
-    const aboutShown = hasShown && turnIntent.aboutShown;
-    if (aboutShown || delegatesPick) {
-      const shownList = latestShown.length ? `\nمحصولات روی صفحه: ${latestShown.join(" | ")}` : "";
-      systemPrompt += `\n\nSHOWN_PRODUCTS_CONTEXT: این پیام به‌احتمال زیاد درباره‌ی محصولاتیه که الان روی صفحه‌ان.${shownList}
-- اول با چیزهایی که از گفتگو می‌دونی (حیوان${lockedBreedSize ? `، اندازه ${lockedBreedSize}` : ""}${lockedStage ? `، سن ${lockedStage}` : ""}) فکر کن کدوم مناسب‌تره و در یکی دو جمله بگو چرا.
-- فقط اگه انتخاب بین این‌ها واقعاً به یک فکت ناشناخته بستگی داره، همون فکت رو با ask_clarification بپرس؛ سؤال عمومی که ربطی به این محصولات نداره نپرس.
-- محصولی که برای نژاد/اندازه‌ی دیگه یا سگ نگهبانه رو رد کن و اگه هیچ‌کدوم مناسب نیست صادقانه بگو و یک جستجوی هدفمند با همون نوع محصول انجام بده.`;
-    }
-    if (delegatesPick) {
-      systemPrompt += `\n\nDELEGATE_TURN: کاربر انتخاب رو به تو سپرده. ازش نپرس «کدوم رو اضافه کنم»؛ خودت بهترین گزینه‌ی مناسب رو انتخاب کن و اگه خواسته اضافه بشه، همون یکی رو با execute_cart_operations اضافه کن.`;
-    }
+    const delegatesPick = false;
+    const fa = (n: number) => String(n).replace(/\d/g, (x) => "۰۱۲۳۴۵۶۷۸۹"[+x]);
+    const anchorLines = (products_context || []).slice(0, 12)
+      .map((p: any, i: number) => `#${fa(i + 1)} ${p.name_fa || p.name}${p.brand ? ` — ${p.brand}` : ""}${Number(p.price) ? ` — ${formatToman(Number(p.price))}` : ""} (id: ${p.id})`)
+      .join("\n");
+    const cartLines = (cart_context?.items || [])
+      .map((i: any) => `- ${i.name} × ${fa(Number(i.quantity) || 1)} (id: ${i.id})`)
+      .join("\n");
+    const petLine = mem ? [mem.species, mem.breed, mem.breed_size, mem.life_stage].filter(Boolean).join("، ") : "";
+    systemPrompt += `\n\nLIVE_CONTEXT (واقعیت‌های خام؛ هیچ پیش‌داوری دربارهٔ نیت کاربر نیست):
+کارت‌های روی صفحه:
+${anchorLines || "(هیچ)"}
+سبد فعلی:
+${cartLines || "(خالی)"}
+حیوانِ به‌خاطرسپرده: ${petLine || "(نامشخص)"}
 
-    let bundleNeedsCleared = false;
-    // ── Cart commands (Jev typed choice) outrank questionnaires and starter packs ──
-    const cartOp = turnIntent.cartOp;
-    if (cartOp) {
-      wantsGuidance = false;
-      bundleNeedsCleared = true;
-      const OP_FA: Record<string, string> = { mixed: "چند تغییر مختلف در سبد", add: "اضافه کردن به سبد", remove: "حذف از سبد", update: "تغییر تعداد در سبد", replace: "جایگزینی در سبد", clear: "خالی کردن سبد" };
-      systemPrompt += `\n\nCART_COMMAND_TURN: این پیام یک دستور اجرایی سبد خریده (${OP_FA[cartOp]})، نه درخواست مشاوره یا پک کامل.
-- هیچ سؤالی از پرسشنامه نپرس، جستجوی تازه نکن و کارت پرسش نساز.
-- مرجع محصولات: برای اضافه/جایگزینی همون product_memory (آخرین محصولات نشون‌داده‌شده)، برای حذف/تعداد فقط اقلام فعلی سبد.
-- در همین نوبت execute_cart_operations را صدا بزن و همه‌ی عملیات‌ها را یک‌جا بفرست: برای هر محصول دقیقاً یک action.
-- در هر action فیلد mention را با همان کلماتی از پیام کاربر که به همان محصول اشاره دارد پر کن، و برای تعداد qty_mode + amount بده (increase/decrease/set/remove). «یکی بهش اضافه کن» = increase 1، «یکی کم کن» = decrease 1، «بشه ۳ تا» = set 3.${turnIntent.hasExclusion ? "\n- کاربر بعضی اقلام را استثنا کرده (مثلاً «بجز X»): دقیقاً همان‌ها را کنار بگذار و بقیه را اجرا کن." : ""}
-- فقط وقتی دو محصول واقعاً با توصیف کاربر جور درمیان و قابل تشخیص نیستن، یک سؤال کوتاه بپرس؛ در غیر این صورت حدس منطقی نزن و نپرس، اجرا کن.
-- بعد از اجرا در یک جمله‌ی کوتاه بگو چه چیزی اضافه/حذف/تغییر کرد.`;
-      if (turnIntent.weightIsSize) {
-        systemPrompt += `\n- عدد وزن/حجم در پیام (مثلاً «۲ کیلویی»، «۴۰۰ گرمی») مشخصهٔ بسته‌بندی محصوله، نه تعداد: محصولی با همون وزن رو انتخاب کن و تعداد را ۱ بگذار مگر کاربر جدا تعداد گفته باشد.`;
-      }
-    } else if (turnIntent.cartQuery) {
-      wantsGuidance = false;
-      bundleNeedsCleared = true;
-      const items = (cart_context?.items || []).map((i: any) => `- ${i.name} × ${String(Number(i.quantity) || 1).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d])}${Number(i.price) ? ` (${formatToman(Number(i.price) * (Number(i.quantity) || 1))})` : ""}`).join("\n");
-      systemPrompt += `\n\nCART_VIEW_TURN: کاربر دربارهٔ محتوای سبد فعلیش پرسیده. جستجو نکن، محصول پیشنهاد نده و ابزار صدا نزن. فقط از همین فهرست واقعی جواب بده:\n${items || "(سبد خالی است)"}\nاگر سبد خالی است صادقانه بگو خالیه.`;
-    }
-    if (slots.smallPet) {
-      systemPrompt += `\n\nSMALL_PET: حیوان کاربر «${slots.smallPet}» است. در search_products همین کلمه را در query_text بیاور و فقط محصول مخصوص «${slots.smallPet}» (یا جوندگان عمومی اگر مناسب همین حیوان است) پیشنهاد بده؛ محصول سگ و گربه نیاور.`;
-    }
+REASONING (قبل از هر ابزار، خودت فکر کن):
+- پیام جدید را در ادامهٔ گفتگو بفهم: یک درخواست است یا چند درخواست هم‌زمان (مثلاً هم تغییر سبد هم جستجو)؟ برای هر درخواست ابزار مناسبش را در همین نوبت صدا بزن؛ چند ابزار موازی مجاز است.
+- ارجاع‌هایی مثل «اولی»، «همین»، «ارزون‌تره» را خودت با کارت‌های روی صفحه یا اقلام سبد تطبیق بده و همان id را بفرست؛ برای «ارزون‌ترین/گرون‌ترین/از هرکدوم» در execute_cart_operations فیلد selector را بده.
+- اگر کاربر حیوان، سن، جثه یا مبدأ تازه‌ای گفت، همان را در پارامترهای search_products بفرست؛ حافظهٔ بالا فقط وقتی معتبر است که کاربر چیز دیگری نگفته باشد.
+- سؤال دربارهٔ سبد را از همین فهرست سبد جواب بده؛ سؤال دربارهٔ کارت‌های روی صفحه را دربارهٔ همان‌ها جواب بده و لیست تازه نساز مگر کاربر چیز جدیدی خواسته باشد.
+- سؤال سیاست/خدمات فروشگاه → business_faq_lookup؛ سؤال دربارهٔ برندها/ترکیب کاتالوگ → catalog_facets؛ مقایسه → مقایسهٔ واقعی محصولات موجود یا جستجوی جدا برای هر طرف.
+- فقط وقتی یک ناشناختهٔ مشخص واقعاً نتیجه را عوض می‌کند ask_clarification بزن.
+- تعداد کل یا آمار را فقط وقتی کاربر پرسیده بنویس.`;
     const speciesLock = {
       species: lockedSpecies,
       lifeStage: lockedStage,
@@ -2715,34 +2627,9 @@ serve(async (req) => {
       foreignOnly: stickyForeign,
       breedSize: lockedBreedSize,
     };
-    if (lockedBreedSize && lockedSpecies !== "گربه") {
-      systemPrompt += `\n\nBREED_LOCK: سگ کاربر جثه «${lockedBreedSize}» دارد. در search_products مقدار filters.breed_size را «${lockedBreedSize}» بفرست و اگر نژادش را می‌دانی در breed بنویس. محصول مخصوص نژاد دیگر یا سگ نگهبان پیشنهاد نده و دوباره نژاد را نپرس.`;
-    }
-    if (shownBrands.length > 0) {
-      systemPrompt += `\n\nOTHER_BRANDS_TURN: کاربر برندهای تازه می‌خواد. این برندها قبلاً نشون داده شدن و نباید تکرار بشن: ${shownBrands.join("، ")}.
-- در search_products همین‌ها را در exclude_brands بفرست.
-- اگر نتیجه‌ای برگشت، فقط برندهای جدید را معرفی کن و هرگز نگو «برند دیگه‌ای نداریم».`;
-    }
-    if (stickyForeign !== null) {
-      systemPrompt += `\n\nORIGIN_SCOPE: کاربر فقط محصولات ${stickyForeign ? "خارجی (کشور سازنده غیر از ایران)" : "ایرانی"} می‌خواد؛ در search_products مقدار filters.origin_scope را «${stickyForeign ? "خارجی" : "ایرانی"}» بفرست و محصول ${stickyForeign ? "ایرانی" : "خارجی"} پیشنهاد نده.`;
-    }
-    knownSpecies = lockedSpecies || knownSpecies;
-
-    // Multi-need turn: Jev's typed bundle judgment; the model decides the shelves itself.
-    const isBundleTurn = !bundleNeedsCleared && Boolean(turnIntent.bundle) && Boolean(lockedSpecies);
+    knownSpecies = lockedSpecies;
+    const isBundleTurn = false;
     const facetSpecies = lockedSpecies === "سگ" || lockedSpecies === "گربه" ? lockedSpecies : null;
-
-    if (lockedSpecies) {
-      systemPrompt += `\n\nSPECIES_LOCK: در این نوبت خرید برای «${lockedSpecies}» است.
-- هرگز نگو پت‌آباد فقط برای «${lockedSpecies}» محصول داره یا برای حیوان دیگه‌ای خدمات نداره؛ فروشگاه برای همه حیوانات خانگی محصول داره.
-- اگر کاربر در پیام جدیدش حیوان دیگری رو نام برد، بدون مقاومت و بدون توضیح اضافه همون حیوان جدید رو ادامه بده.
-- هیچ محصول، جمله، توضیح یا مقایسه‌ای مربوط به حیوان دیگری (پرنده، سگ، گربه، ماهی، جوندگان یا هر حیوان دیگر جز «${lockedSpecies}») نباید در پاسخت بیاد.
-- هرگز توضیح نده که نتایج پیداشده مربوط به حیوان دیگری بودن؛ درباره فرایند داخلی جستجو حرف نزن.
-- اگر برای یک نیاز محصول مناسب «${lockedSpecies}» پیدا نشد، فقط صادقانه بگو برای همون بخش گزینه مناسبی پیدا نکردی و محصول جایگزین از حیوان دیگه پیشنهاد نده.`;
-    }
-    if (lockedStage) {
-      systemPrompt += `\n\nLIFE_STAGE_LOCK: مرحله سنی مشخص شده «${lockedStage}» است؛ درباره مرحله سنی دیگر (مثلاً بالغ وقتی کاربر گفته بچه‌گربه) حرف نزن و محصول مخصوص مرحله دیگر پیشنهاد نده.`;
-    }
 
     // ── Catalog snapshot: question options must come from real products ──
     let questionFacets: QuestionFacets | null = null;

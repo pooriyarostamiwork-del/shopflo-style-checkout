@@ -1206,7 +1206,8 @@ async function executeSearch(
     offset,
   } = args;
   const normalizedQuery = normalizePersian(query_text || "");
-  const lockedSpecies = lock?.species || null;
+  // The model's own species parameter wins; remembered pet facts are only a fallback.
+  const lockedSpecies = species || lock?.species || null;
 
   const rpcParams: any = { p_store_id: PETABAD_STORE_ID, p_query: normalizedQuery, p_in_stock: true };
   if (precomputedEmbedding) rpcParams.p_embedding = JSON.stringify(precomputedEmbedding);
@@ -1238,7 +1239,7 @@ async function executeSearch(
   // the catalog stores جوندگان / خرگوش / ... , so a literal filter would return nothing.
   // For those we skip the SQL filter and rely on the post-retrieval species lock.
   const UMBRELLA_SPECIES = ["سایر حیوانات خانگی", "ماهی و آکواریوم"];
-  const rawSpecies = lockedSpecies || species || null;
+  const rawSpecies = lockedSpecies;
   const taxForSpecies = await loadTaxonomy(supabase);
   const rpcSpecies = canonicalTerm(taxForSpecies, "species", rawSpecies) || rawSpecies;
   if (rpcSpecies && !UMBRELLA_SPECIES.includes(rpcSpecies)) rpcParams.p_species = rpcSpecies;
@@ -1262,7 +1263,7 @@ async function executeSearch(
   const canonStage = canon("life_stage", filters?.life_stage);
   if (canonStage) rpcParams.p_life_stage = canonStage;
   // The breed named anywhere in the conversation (lock) applies to dog searches the model forgot to tag.
-  const lockBreedSize = lock?.breedSize && (!lock?.species || lock.species === "سگ") ? lock.breedSize : null;
+  const lockBreedSize = lock?.breedSize && (!lockedSpecies || lockedSpecies === "سگ") ? lock.breedSize : null;
   const rawBreedSize = filters?.breed_size || lockBreedSize;
   const breedSize = canon("breed_size", rawBreedSize);
   if (breedSize) rpcParams.p_breed_size = breedSize;
@@ -1293,7 +1294,7 @@ async function executeSearch(
   // Tier-1 life-stage protection: a stated stage is enforced on every attempt, so a
   // kitten-only result set counts as "nothing found" and relaxation continues
   // (price widens before the stage itself is ever dropped).
-  const stageLock: string | null = lock?.lifeStage || canonStage || null;
+  const stageLock: string | null = canonStage || (species && lock?.species && species !== lock.species ? null : lock?.lifeStage) || null;
   const runSearch = async (params: any) => {
     const { data, error } = await supabase.rpc("pet_hybrid_search", params);
     if (error) {
@@ -1490,7 +1491,7 @@ async function executeFacets(supabase: any, args: any, lockedSpecies?: string | 
     p_query: args?.query_text ? normalizePersian(args.query_text) : null,
     p_subcategory: args?.subcategory || null,
     p_subcategory_prefix: args?.subcategory_family || null,
-    p_species: lockedSpecies || args?.species || null,
+    p_species: args?.species || lockedSpecies || null,
 
     p_brand: args?.brand || null,
     p_origin_country: args?.origin_country || null,

@@ -2829,7 +2829,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
             if (gText) {
               forced.push("faq_regrounding");
               return new Response(
-                JSON.stringify({
+                JSON.stringify(withCart({
                   response_type: "message",
                   content: gText.replace(/\d/g, (d) => FA_DIGITS[Number(d)]),
                   products: [],
@@ -2967,7 +2967,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
       console.log(`Answer source: model_final, cards=${cards.length}, numbered=${numberedCount}, tools=${toolTrace.join(",")}`);
 
       return new Response(
-        JSON.stringify({
+        JSON.stringify(withCart({
           response_type: cards.length > 0 ? "products" : "message",
           content,
           products: cards,
@@ -3045,7 +3045,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
       const errText = await followUpResponse.text();
       console.error("Re-ranker error:", followUpResponse.status, errText);
       return new Response(
-        JSON.stringify({
+        JSON.stringify(withCart({
           response_type: allProducts.length > 0 ? "products" : "message",
           content:
             allProducts.length > 0

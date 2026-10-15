@@ -9,7 +9,6 @@ import {
   type CheckoutContext,
   type Surface,
 } from "../_shared/commerceActions.ts";
-import { isFlow, type QuestionFlow } from "./questionFlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -421,7 +420,6 @@ const DETAILS_TOOL = {
 };
 
 
-type _Removed = { kind: "start_checkout" | "select_address" | "select_shipping" | "select_payment" | "guide"; id?: string; target?: string; fast?: boolean };
 
 /**
  * Quantity direction per cart action (Jev typed choice): «یکی بهش اضافه کن» is increase, «یکی کم کن»
@@ -2483,6 +2481,12 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
     let finalAssistantMessage: any = null;
     let faqToolExecuted = false;
 
+    // Cart edit of a compound turn, merged into whichever answer ends this turn.
+    let pendingCart: { actions: any[]; content: string; undo: any } | null = null;
+    let cartToolResult: any = null;
+    const withCart = (body: any) => pendingCart
+      ? { ...body, cart_actions: pendingCart.actions, undo: pendingCart.undo, content: [pendingCart.content, body.content].filter(Boolean).join("\n\n") }
+      : body;
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       if (Date.now() - startTime > WALL_CLOCK_BUDGET_MS) {
         console.log(`Wall clock budget reached before tool round ${round + 1}`);
@@ -2708,28 +2712,37 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
               turn.content = turn.actions.length && turn.content ? `${turn.content}\n${note}` : note;
             }
           }
-          if (turnIntent.alsoSearch && !turn.needs_clarification) {
-            turn.content = `${turn.content}\nدرخواست بعدیت رو هم بفرست تا همین الان برات پیدا کنم.`.trim();
+          // Compound turn: the model also called other tools (e.g. a search) in the same
+          // response. The cart edit is kept and merged into the final answer of this turn.
+          const otherCalls = choice.message.tool_calls.filter((t: any) => t.function?.name !== "execute_cart_operations");
+          if (cartCall && otherCalls.length && !turn.needs_clarification) {
+            pendingCart = { actions: turn.actions, content: turn.content, undo: turn.undo || null };
+            cartToolResult = { role: "tool", tool_call_id: cartCall.id, content: JSON.stringify({ executed: true, summary: turn.content }) };
+            console.log("exec: compound cart +", otherCalls.map((t: any) => t.function?.name).join(","));
+          } else {
+            return jsonResponse({
+              response_type: "cart",
+              cart_actions: turn.actions,
+              content: turn.content,
+              needs_clarification: turn.needs_clarification,
+              clarification_options: turn.choices.map((c) => c.label),
+              choices: turn.choices,
+              multi: turn.multi === true,
+              undo: turn.undo || null,
+              products: [],
+              quickReplies: [],
+            });
           }
-          return jsonResponse({
-            response_type: "cart",
-            cart_actions: turn.actions,
-            content: turn.content,
-            needs_clarification: turn.needs_clarification,
-            clarification_options: turn.choices.map((c) => c.label),
-            choices: turn.choices,
-            multi: turn.multi === true,
-            undo: turn.undo || null,
-            products: [],
-            quickReplies: [],
-          });
         }
       }
 
       // Execute tools
+      const roundChoice = cartToolResult
+        ? { ...choice, message: { ...choice.message, tool_calls: choice.message.tool_calls.filter((t: any) => t.function?.name !== "execute_cart_operations") } }
+        : choice;
       const roundResult = await runToolRound(
         supabase,
-        choice,
+        roundChoice,
         precomputedEmbedding,
         speciesLock,
         lockedSpecies,
@@ -2748,7 +2761,8 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
         emptyNeedLabels = roundResult.emptyNeedLabels;
       }
 
-      roundMessages.push(choice.message, ...roundResult.toolResults);
+      roundMessages.push(choice.message, ...(cartToolResult ? [cartToolResult] : []), ...roundResult.toolResults);
+      cartToolResult = null;
     }
 
     const isDiscoveryIntent = effectiveMode === "discovery" || effectiveMode === "agentic";

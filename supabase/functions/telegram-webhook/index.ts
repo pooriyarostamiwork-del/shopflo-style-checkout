@@ -642,6 +642,15 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
     return;
   }
 
+  // Compound turn: a cart edit can ride along with a product/message reply.
+  let compoundCart = false;
+  if ((ans.cart_actions || []).length) {
+    const before = JSON.stringify(chat.cart || []);
+    const c = await applyCartActions(chat, ans.cart_actions);
+    chat.cart = c;
+    await saveChat(chat, { cart: c });
+    compoundCart = JSON.stringify(c) !== before;
+  }
   // Clarification cards → reply keyboard options
   const card = ans.clarification || ans.card;
   const cardOpts: string[] = (card?.options || card?.steps?.[0]?.options || []).map((o: any) => (typeof o === "string" ? o : o?.label)).filter(Boolean);
@@ -682,6 +691,7 @@ async function handleText(chatId: number, from: any, text: string, messageId?: n
   const slim = products.map((p) => ({ id: p.id, name_fa: pname(p), price: p.price, original_price: p.original_price ?? null, image_url: p.image_url || p.image || p.image_urls?.[0] || null, image_urls: p.image_urls || null, brand: p.brand ?? null, rating: p.rating ?? null, review_count: p.review_count ?? 0, in_stock: p.in_stock !== false, category: p.category ?? null, subcategory: p.subcategory ?? null, species: p.species ?? null, weight: p.weight ?? null }));
   patch.history = [...history, { role: "assistant", content: summary, ...(slim.length ? { products: slim } : {}) }].slice(-14);
   await saveChat(chat, patch);
+  if (compoundCart) await sendCart(chat);
 }
 
 // Answered questions keep their text plus the user's choice; the buttons disappear for every question type.

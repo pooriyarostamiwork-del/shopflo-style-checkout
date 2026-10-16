@@ -2836,7 +2836,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
                   faq_ids: faq.entries.map((e: any) => e.faq_id),
                   quickReplies: [],
                   trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: "faq_regrounding", forced },
-                }),
+                })),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } },
               );
             }
@@ -2978,7 +2978,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
           quickReplies:
             cards.length > 0 ? [{ id: "more", label: "🔍 نتایج بیشتر", type: "custom", action: "more_results" }] : [],
           trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: "model_final", forced },
-        }),
+        })),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -3054,7 +3054,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
           products: allProducts.slice(0, maxShown),
           quickReplies: [],
           trace: { rounds: toolTrace.length, tools: toolTrace, search_executed: searchExecuted, answer_source: answerSource, forced },
-        }),
+        })),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

@@ -31,6 +31,7 @@ export interface CheckoutContext {
   shipping_id?: string | null;
   payment_id?: string | null;
   step?: string | null;
+  payments?: { id: string; label: string; available: boolean }[];
 }
 
 // ── Persian text helpers ──
@@ -619,8 +620,9 @@ export function resolveCheckoutTurn(args: {
 
   if (args.kind === "select_payment") {
     const id = args.payment_id;
-    const method = PETABAD_PAYMENTS.find((p) => p.id === id);
-    const available = PETABAD_PAYMENTS.filter((p) => p.available);
+    const payments = Array.isArray(ctx.payments) ? ctx.payments : PETABAD_PAYMENTS;
+    const method = payments.find((p) => p.id === id);
+    const available = payments.filter((p) => p.available);
     if (!method || !method.available) {
       return {
         response_type: "checkout",

@@ -374,43 +374,7 @@ export const useAgentMessages = ({
     };
     updateCurrentBasket(s => ({ ...s, messages: [...s.messages, userMessage], isProcessing: true }));
 
-    // ── Open checkout step: a typed reply is judged in context by a decision model (no word lists).
-    // Unsure / failure → the normal agent path below; nothing is guessed.
-    const bridge = checkoutBridge?.current;
-    const step = bridge?.step;
-    if (bridge && cartItems.length > 0 && (step === 'cart-confirmation' || step === 'address-confirmation' || step === 'payment-selection')) {
-      try {
-        const { data: intent } = await invokeWithTimeout('checkout-intent', {
-          step,
-          message: content.slice(0, 500),
-          payments: step === 'payment-selection' ? paymentOptions.filter(p => p.available).map(p => ({ id: p.id, label: p.label })) : undefined,
-          cart: cartItems.slice(0, 30).map(i => i.name),
-        }, 6000);
-        const decision = String(intent?.decision || 'unsure');
-        if (decision === 'confirm' && step === 'cart-confirmation' && bridge.confirmCart) {
-          bridge.confirmCart();
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-          return;
-        }
-        if (decision === 'confirm' && step === 'address-confirmation' && bridge.confirmAddress && bridge.selectedAddressId) {
-          bridge.confirmAddress();
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-          return;
-        }
-        if (decision.startsWith('pay:') && step === 'payment-selection') {
-          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
-          bridge.apply({ kind: 'select_payment', id: decision.slice(4) });
-          return;
-        }
-      } catch (e) {
-        console.warn('checkout-intent unavailable, using agent', e);
-      }
-    }
-
-    // Finalize / orders / checkout picks are judged server-side (typed decision), never by word lists here.
-    // Exact positional add («دومی رو ۲ تا بنداز تو سبد») runs locally; everything with a name,
-    // a pronoun or a cart mutation goes to the agent, whose output is validated against the cart.
-    // ── Everything else: one agent call, the model picks the tool ──
+    // Free text, including checkout approvals, goes directly to the main LLM.
     const isFirstMessage = messages.filter(m => m.role === 'user').length === 0;
     await callUnifiedAgent(content, trimHistoryForAgent(messages), isFirstMessage);
   }, [
@@ -568,6 +532,7 @@ export const useAgentMessages = ({
           shipping_id: bridge.shippingId,
           payment_id: bridge.paymentId,
           step: bridge.step,
+          payments: paymentOptions.filter(p => p.available).map(p => ({ id: p.id, label: p.label, available: true })),
         };
       }
 
@@ -687,6 +652,18 @@ export const useAgentMessages = ({
         return;
       }
       if (data?.response_type === 'checkout' || data?.response_type === 'guide') {
+        const bridge = checkoutBridge?.current;
+        if (data?.advance === 'confirm_cart' && bridge?.step === 'cart-confirmation' && cartItems.length > 0 && bridge.confirmCart) {
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+          bridge.confirmCart();
+          return;
+        }
+        if (data?.advance === 'confirm_address' && bridge?.step === 'address-confirmation' && cartItems.length > 0 &&
+          bridge.loggedIn && bridge.shippingId && bridge.addresses.some(a => a.id === bridge.selectedAddressId) && bridge.confirmAddress) {
+          updateCurrentBasket(s => ({ ...s, isProcessing: false }));
+          bridge.confirmAddress();
+          return;
+        }
         const directive = data?.directive;
         if (directive?.kind && directive?.id) checkoutBridge?.current?.apply(directive);
         const target = data?.guide?.target as string | undefined;

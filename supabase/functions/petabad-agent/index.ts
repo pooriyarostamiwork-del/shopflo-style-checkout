@@ -1,10 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { askJev, jevYes } from "../_shared/jev.ts";
 import {
   guideTurn,
   resolveCartTurn,
-  type QtyMode,
   resolveCheckoutTurn,
   type CheckoutContext,
   type Surface,
@@ -421,54 +419,17 @@ const DETAILS_TOOL = {
 
 
 
-/**
- * Quantity direction per cart action (Jev typed choice): «یکی بهش اضافه کن» is increase, «یکی کم کن»
- * decrease, «بشه ۳ تا» set. Overrides the model only when Jev is confident; null = keep the model's.
- */
-async function judgeQtyModes(message: string, actions: any[], nameOf: (a: any) => string): Promise<Array<QtyMode | null>> {
-  const list = (Array.isArray(actions) ? actions : []).slice(0, 8);
-  const idx = list.map((a, i) => (a && ["add", "remove", "update_quantity"].includes(a.type) ? i : -1)).filter((i) => i >= 0);
-  if (!message.trim() || !idx.length) return list.map(() => null);
-  const questions: Record<string, unknown> = {};
-  for (const i of idx) {
-    const a = list[i];
-    const who = String(a.mention || nameOf(a) || "").trim() || `item #${i + 1}`;
-    questions[`m${i}`] = {
-      type: "choice",
-      instructions: `The shopper wrote \`message\` (casual Persian) about their cart. Look ONLY at the part about «${who}». What does that part ask to do with this product's quantity?`,
-      criteria: {
-        increase: "Add it / add more units of it (e.g. «یکی بهش اضافه کن»، «یکی دیگه بذار»، «اضافه کن»).",
-        decrease: "Take some units away but keep it in the cart (e.g. «یکی ازش کم کن»).",
-        set: "Make the quantity an exact number (e.g. «بشه ۳ تا»، «بکنش ۳ تا»، «X رو بکن دو تا»، «فقط دو تا باشه»).",
-        remove: "Remove it from the cart entirely (حذف کن / بردار / نمی‌خوامش). A number next to the product is never a removal.",
-      },
-    };
-  }
-  const j = await askJev({ message }, questions);
-  return list.map((act, i) => {
-    const a = j?.[`m${i}`];
-    const c = typeof a?.choice === "string" ? a.choice : "";
-    if (!["increase", "decrease", "set", "remove"].includes(c)) return null;
-    if (typeof a?.confidence === "number" && a.confidence < 0.6) return null;
-    // A number the model read for this product («ونپی رو بکن ۳ تا») is never turned into a removal.
-    const amt = Number(act?.amount ?? act?.quantity);
-    if (c === "remove" && act?.qty_mode !== "remove" && act?.type !== "remove" && amt > 0) return null;
-    return c as QtyMode;
-  });
-}
-
-
 // ── Checkout selections & native-UI guidance ──
 const CHECKOUT_TOOL = {
   type: "function",
   function: {
     name: "checkout_action",
     description:
-      "start_checkout opens the interactive checkout (address/shipping/payment UI) — use it whenever the user wants to finalize or choose without naming a specific option; NEVER list addresses or methods as text. Pick an EXISTING saved address (address_query = the user's words), a shipping method or a payment method; or (kind=guide) send the user to the native screen for things chat must not do: adding/editing/deleting an address, changing phone/profile, wallet top-up, coupons.",
+      "confirm_cart approves the existing cart-confirmation step only, confirm_address approves the selected address/shipping at address-confirmation only; never confirm when the user also requests changes or asks a question. start_checkout opens the interactive checkout (address/shipping/payment UI) — use it whenever the user wants to finalize or choose without naming a specific option; NEVER list addresses or methods as text. Pick an EXISTING saved address (address_query = the user's words), a shipping method or a payment method; or (kind=guide) send the user to the native screen for things chat must not do: adding/editing/deleting an address, changing phone/profile, wallet top-up, coupons.",
     parameters: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["start_checkout", "select_address", "select_shipping", "select_payment", "guide"] },
+        kind: { type: "string", enum: ["start_checkout", "confirm_cart", "confirm_address", "select_address", "select_shipping", "select_payment", "guide"] },
         address_id: { type: "string", description: "id from the saved address list (select_address)" },
         address_query: { type: "string", description: "the words the user used for the address, e.g. «خونه» or «سعادت‌آباد»" },
         shipping_id: { type: "string", description: "standard | express | courier" },
@@ -491,7 +452,7 @@ const CART_OPERATIONS_TOOL = {
   function: {
     name: "execute_cart_operations",
     description:
-      "Execute one or more cart operations based on user request. Use product_index (1-based) to reference recommended products, product_id (UUID) to reference cart items.",
+      "Execute one or more cart operations based on user request. You alone determine quantity direction: provide qty_mode and amount for each quantity action; distinguish increasing by N, decreasing by N, and setting exactly N. Keep each product independent in compound requests. Use product_index (1-based) to reference recommended products, product_id (UUID) to reference cart items.",
     parameters: {
       type: "object",
       properties: {
@@ -1895,7 +1856,7 @@ function isQuestionHeavy(text: string): boolean {
 }
 
 // ── Species lock (catalog dictionary only) ──────────────────────────────
-// The locked animal comes from Jev / pet memory. A row is checked ONLY against
+// The locked animal comes from model tool parameters / pet memory. A row is checked ONLY against
 // its structured `species` catalog field, using the catalog's own vocabulary.
 // Product names and the user's text are never pattern-matched.
 const SPECIES_CATALOG_VALUES: Record<string, string[]> = {
@@ -2216,7 +2177,9 @@ serve(async (req) => {
       systemPrompt += `\n\nCHECKOUT_UI_RULE (کانال: ${surface === "telegram" ? "بات تلگرام" : "اپ"}، ${checkoutCtx.logged_in ? "کاربر وارد شده" : "کاربر هنوز وارد نشده"}):
 - هرگز آدرس‌ها، روش‌های ارسال یا روش‌های پرداخت را به‌صورت فهرست متنی/شماره‌دار ننویس و نپرس «کدوم رو انتخاب می‌کنی».
 - اگر کاربر می‌خواهد خرید را نهایی کند یا برود سراغ آدرس/ارسال/پرداخت بدون نام بردن گزینه‌ای مشخص → checkout_action با kind=start_checkout.
+- مرحله فعلی checkout را از CHECKOUT_STATE بخوان. فقط تأیید بدون درخواست تغییر در cart-confirmation → confirm_cart؛ فقط تأیید آدرس/ارسال فعلی در address-confirmation → confirm_address. سؤال یا تغییر سبد را تأیید حساب نکن.
 - اگر گزینه‌ای مشخص را نام برد → checkout_action با select_address (address_query = همان کلمات کاربر) / select_shipping / select_payment.`;
+      systemPrompt += `\n\nCHECKOUT_STATE: ${JSON.stringify({ step: checkoutCtx.step || null, selected_address_id: checkoutCtx.selected_address_id || null, shipping_id: checkoutCtx.shipping_id || null, payment_id: checkoutCtx.payment_id || null, payments: checkoutCtx.payments || [] })}`;
       if (typeof shopping_context === "string" && shopping_context.trim()) {
         systemPrompt += `\n\nهدف خرید:\n${shopping_context.trim()}`;
       }
@@ -2240,6 +2203,7 @@ serve(async (req) => {
     const checkoutPayload = (turn: ReturnType<typeof guideTurn>) => ({
       response_type: turn.response_type,
       content: turn.content,
+      advance: turn.advance || null,
       directive: turn.directive || null,
       guide: turn.guide || null,
       choices: turn.choices,
@@ -2641,8 +2605,6 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
           const shownPool = (Array.isArray(memory_index) ? memory_index : []).flatMap((g: any) =>
             (Array.isArray(g?.items) ? g.items : []).map((it: any) => ({ id: String(it.id), name: String(it.name || ""), brand: it.brand ?? null, price: it.price })),
           );
-          const offersCtx = (products_context || []).map((p: any) => ({ id: String(p.id), name: String(p.name_fa || p.name || "") }));
-          const cartCtx = (cart_context?.items || []).map((i: any) => ({ id: String(i.id), name: String(i.name || "") }));
           // Qualitative picks over the shown list («ارزون‌ترینو بذار»، «از هرکدوم یکی») are computed
           // here from real prices instead of trusting the model's choice.
           // The model names the qualitative pick; the pick itself is computed from real prices.
@@ -2659,10 +2621,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
               cartResult.actions = [...others, ...(products_context || []).slice(0, 12).map((p: any) => ({ type: "add", product_id: String(p.id), quantity: qty, qty_mode: "set", amount: qty, mention: String(p.name_fa || p.name || "") }))];
             }
           }
-          const qtyModes = await judgeQtyModes(lastUserText, cartResult.actions || [], (a: any) =>
-            cartCtx.find((c: any) => c.id === String(a?.product_id))?.name || offersCtx[Number(a?.product_index) - 1]?.name || "");
           const turn = resolveCartTurn({
-            qtyModes,
             multiSelect: surface !== "telegram",
             modelActions: cartResult.actions || [],
             modelMessage: sanitizeVisibleText(cartResult.message || ""),
@@ -2793,7 +2752,7 @@ REASONING (قبل از هر ابزار، خودت فکر کن):
     }
 
     const requestedLimit = Number(extractedIntent?.limit) || 0;
-    // A broad «show me everything» request (judged by Jev) deserves broad coverage.
+    // A broad «show me everything» request (identified by the model) deserves broad coverage.
     const comprehensive = requestedLimit >= 12;
     const maxShown = isBundleTurn || comprehensive ? 12 : 6;
 

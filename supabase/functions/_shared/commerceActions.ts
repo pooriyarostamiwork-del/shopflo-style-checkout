@@ -31,6 +31,7 @@ export interface CheckoutContext {
   shipping_id?: string | null;
   payment_id?: string | null;
   step?: string | null;
+  payments?: { id: string; label: string; available: boolean }[];
 }
 
 // ── Persian text helpers ──
@@ -107,12 +108,10 @@ export interface CartTurnInput {
   focusIds?: string[];
   /** The shopper left the pick to the assistant («هرکدوم بهتره اضافه کن»): never ask which. */
   delegate?: boolean;
-  /** Shown/cart ids the shopper explicitly excluded this turn (typed Jev judgment). */
+  /** Shown/cart ids the model identifies as explicitly excluded this turn. */
   excludedIds?: string[];
   /** Offers that do not fit the known pet (e.g. large-breed food for a Shih Tzu). */
   unfit?: (o: Offer) => boolean;
-  /** Jev-judged quantity direction per model action (same order as modelActions). */
-  qtyModes?: Array<QtyMode | null>;
   /** The surface can render a multi-select picker (app); otherwise a synthetic «همه» choice is added. */
   multiSelect?: boolean;
 }
@@ -120,12 +119,12 @@ export interface CartTurnInput {
 export type QtyMode = "increase" | "decrease" | "set" | "remove";
 
 /**
- * One canonical shape per model action: `qty_mode` + `amount` (or a Jev override) become either a
+ * One canonical shape per model action: model-owned `qty_mode` + `amount` become either a
  * relative `delta` or an absolute `quantity`, never both — so «یکی اضافه کن» can't land as quantity=1.
  */
-export function normalizeQty(a: any, judged?: QtyMode | null): any {
+export function normalizeQty(a: any): any {
   if (!a || typeof a !== "object") return a;
-  const mode: QtyMode | undefined = judged || (["increase", "decrease", "set", "remove"].includes(a.qty_mode) ? a.qty_mode : undefined);
+  const mode: QtyMode | undefined = ["increase", "decrease", "set", "remove"].includes(a.qty_mode) ? a.qty_mode : undefined;
   if (!mode) return a;
   const amt = Math.abs(Math.round(Number(a.amount ?? (a.delta != null ? a.delta : a.quantity)))) || 0;
   const { amount: _x, qty_mode: _y, ...rest } = a;
@@ -249,8 +248,8 @@ export function resolveCartTurn(input: CartTurnInput): CartTurnResult {
   const notes: string[] = [];
   const silent = new Set<string>();
   // Models sometimes name the index field after the tool's add_* variants; read both.
-  let raw = (Array.isArray(input.modelActions) ? input.modelActions : []).map((a: any, i: number) =>
-    normalizeQty(a && a.product_index == null && a.add_product_index != null && a.type === "add" ? { ...a, product_index: a.add_product_index } : a, input.qtyModes?.[i]));
+  let raw = (Array.isArray(input.modelActions) ? input.modelActions : []).map((a: any) =>
+    normalizeQty(a && a.product_index == null && a.add_product_index != null && a.type === "add" ? { ...a, product_index: a.add_product_index } : a));
   // «هرکدوم بهتره اضافه کن» with no concrete action from the model → one add the resolver picks.
   if (input.delegate && !raw.some((a) => a?.type === "add") && /اضافه|بذار|بزار|بنداز|بخر|بریز/.test(normFa(text)) && offers.length) {
     raw = [...raw, { type: "add" }];
@@ -529,6 +528,7 @@ export interface CheckoutTurn {
   directive?: CheckoutDirective;
   choices: Choice[];
   guide?: { target: GuideTarget; surface: Surface };
+  advance?: "confirm_cart" | "confirm_address";
 }
 
 export function resolveCheckoutTurn(args: {
@@ -536,6 +536,19 @@ export function resolveCheckoutTurn(args: {
   userText: string; ctx: CheckoutContext; surface: Surface; cartCount: number;
 }): CheckoutTurn {
   const { ctx, surface } = args;
+  if (args.kind === "confirm_cart" || args.kind === "confirm_address") {
+    const valid = surface !== "telegram" && args.cartCount > 0 &&
+      (args.kind === "confirm_cart"
+        ? ctx.step === "cart-confirmation"
+        : ctx.step === "address-confirmation" && ctx.logged_in === true &&
+          !!ctx.shipping_id && (ctx.addresses || []).some(a => a.id === ctx.selected_address_id));
+    return {
+      response_type: "checkout",
+      content: valid ? "" : "برای ادامه، مرحله فعلی خرید را تکمیل کن.",
+      choices: [],
+      ...(valid ? { advance: args.kind as "confirm_cart" | "confirm_address" } : {}),
+    };
+  }
   if (args.kind === "guide") return guideTurn((args.target as GuideTarget) || "edit_profile", surface, ctx);
 
   if (args.kind === "select_address") {
@@ -582,7 +595,7 @@ export function resolveCheckoutTurn(args: {
   }
 
   if (args.kind === "select_shipping") {
-    // Ids come from a typed decision (Jev) or the model's tool call — never from word lists.
+    // Ids come from the model's tool call.
     const fast = !!args.fast;
     const method = !fast ? PETABAD_SHIPPING.find((m) => m.id === args.shipping_id) : undefined;
     if (!method) {
@@ -607,8 +620,9 @@ export function resolveCheckoutTurn(args: {
 
   if (args.kind === "select_payment") {
     const id = args.payment_id;
-    const method = PETABAD_PAYMENTS.find((p) => p.id === id);
-    const available = PETABAD_PAYMENTS.filter((p) => p.available);
+    const payments = Array.isArray(ctx.payments) ? ctx.payments : PETABAD_PAYMENTS;
+    const method = payments.find((p) => p.id === id);
+    const available = payments.filter((p) => p.available);
     if (!method || !method.available) {
       return {
         response_type: "checkout",

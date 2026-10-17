@@ -1,3 +1,9 @@
+# Remove Jev
+
+- [x] Remove active Jev calls and unused decision functions; retain LLM-owned cart and checkout decisions.
+- [x] Preserve checkout confirmations through the existing LLM tool with validated stage transitions.
+- [x] Eight cart/checkout tests passed; functions deployed; live increase/set, cart/address confirmation and wallet selection verified. Browser add → checkout → typed confirmation opened OTP with only petabad-agent requests and no runtime errors. Signed-in fulfillment and native Telegram interaction were not exercised.
+
 # Telegram topics and checkout
 
 - [x] New-topic navigation, first-message naming, silent rename and paired lazy two-hour cleanup implemented; native Telegram link/event behavior still needs a real-client check.

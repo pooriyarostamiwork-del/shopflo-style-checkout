@@ -1,5 +1,11 @@
 # Telegram topics and checkout
 
+# Remove Jev
+
+- [ ] Remove active Jev calls and unused decision functions; retain LLM-owned cart and checkout decisions.
+- [ ] Preserve checkout confirmations through the existing LLM tool with validated stage transitions.
+- [ ] Run cart/checkout regression tests, deploy changed functions and verify live responses.
+
 - [x] New-topic navigation, first-message naming, silent rename and paired lazy two-hour cleanup implemented; native Telegram link/event behavior still needs a real-client check.
 - [x] Use the app's opening assistant message in the bot from shared copy.
 - [x] Show all saved addresses and add in-bot shipping selection; isolated tests passed with eight addresses and express shipping.

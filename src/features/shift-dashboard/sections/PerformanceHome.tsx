@@ -83,7 +83,16 @@ export const PerformanceHome = () => {
             </div>
           </Card>
 
-          <div className="hb-span-2 lg-span-4" style={{ animation: "hb-rise .5s both", ...delay(4) }}>
+          {/* Assisted revenue */}
+          <Card className="hb-tile flex flex-col justify-between" style={delay(4)}>
+            <span className="hb-label">درآمد دستیار</span>
+            <div>
+              <div className="hb-fig text-[30px]">{faToman(kpis.assistedRevenue.value)}</div>
+              <div className="mt-2"><Delta value={kpis.assistedRevenue.delta} /></div>
+            </div>
+          </Card>
+
+          <div className="hb-span-2 lg-span-4" style={{ animation: "hb-rise .5s both", ...delay(5) }}>
             <TrendChart title="درآمد در برابر مشتریان"
               seriesA={{ key: "assistedRevenue", name: "درآمد" }}
               seriesB={{ key: "customersHelped", name: "مشتریان" }}
@@ -162,7 +171,7 @@ export const PerformanceHome = () => {
           </section>
 
           {/* Intents */}
-          <section className="hb-tile hb-span-2 lg-span-4" style={delay(9)}>
+          <section className="hb-tile hb-span-2 lg-span-2" style={delay(9)}>
             <div className="flex items-center gap-2 mb-3">
               <MessageCircle className="w-4 h-4 text-[hsl(var(--sd-muted))]" />
               <span className="text-[13px] font-semibold">مشتری‌ها بیشتر دنبال چی بودن</span>
